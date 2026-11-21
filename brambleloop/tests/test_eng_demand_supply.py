@@ -523,7 +523,11 @@ def test_the_engine_demand_audit_is_retained_and_the_panel_is_served():
     api = (ROOT / "src/brambleloop/app/command_center/api.py").read_text()
     assert '@router.get("/demand")' in api
     sw = (ROOT / "src/brambleloop/app/command_center/static/sw.js").read_text()
-    assert '"js/views/demand.js"' in sw and 'cc-shell-v44' in sw
+    # Later shell merges bump VERSION past v44 (ENG-CONCEPTS-100: v45); the property is that
+    # the Demand view is in the SHELL and the version moved at least to the bump that added it.
+    import re as _re
+    assert '"js/views/demand.js"' in sw
+    assert int(_re.search(r'const VERSION = "cc-shell-v(\d+)";', sw).group(1)) >= 44
 
 
 if __name__ == "__main__":

@@ -110,6 +110,8 @@ DEFAULT_AGENTS: list[dict] = [
          allowed_job_types=["radar.scan", "radar.score", "radar.competitor_snapshot",
                             # W5-CONCEPT: evidence-backed concept intake.
                             "radar.concept_intake",
+                            # ENG-CONCEPTS-100: the evidence-backed concept pool.
+                            "radar.concept_pool",
                             # W4-INTELREC: the owner's permanent watchlist.
                             "intel.watchlist_scan", "intel.watchlist_compare", "intel.benchmark_shopping",
                             "intel.opportunity_review",

@@ -387,6 +387,16 @@ export const DATA = {
             stages: [{ gap: 1, pod: "kitchen_bath", stage: "gate_refused", held_because: "the pre-engineering gate refused it (['silhouette']); held by #108", corroborated_by: [], concepts: ["coaster-kitchen-bath-gap-1"], engineering: [] }] },
           conclusion: { at: ago(20), outcome: "no_qualifying_opportunity", why: "kitchen_bath: held by #108" },
           limitations: [{ id: "youtube", status: "missing", why: "UNAVAILABLE: no compliant collector exists" }] }),
+        // ENG-CONCEPTS-100: the concept pool (held families named; a shop with no signal listed).
+        concept_pool: run({ state: "OK",
+          counts: { evidence_backed: 115, target: 100, target_met: true, ready: 14, admitted: 5, held: 96, refused_clone_or_copy: 7,
+            stale: 0, intake_approved: 5, engineered: 0, section_33_pool: 34 },
+          by_family: { amigurumi: { held: 19, refused: 3 }, panel_pair: { ready: 3, admitted: 3 } },
+          by_shop: { MadelineMaeCo: { evidence_backed: 105, admissible: 19 } },
+          shops_without_signal: ["ArtLoveDesing"],
+          held_reasons: { "construction_unsupported:amigurumi": 19, "#108 silhouette": 19 },
+          research_requests: [{ pod: "bags", ready_concepts: 7, priority: 6.1, priority_shop: true, needs: "an answered research task" }],
+          engineered: [] }),
       } };
   },
   completion: () => tab("COMPLETION", { board: env("OK", [

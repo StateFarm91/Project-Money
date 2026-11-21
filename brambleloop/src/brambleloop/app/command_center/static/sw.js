@@ -9,7 +9,8 @@
 // Bump VERSION whenever a SHELL file changes or two shells merge; the per-version history is
 // in `git log -p -- sw.js`. ENG-DAILY: Daily view after improve v42, so v43.
 // ENG-DEMAND-SUPPLY: Demand view, so v44.
-const VERSION = "cc-shell-v44";
+// ENG-CONCEPTS-100: concept pool view merged after demand-supply v44, so v45.
+const VERSION = "cc-shell-v45";
 const SHELL = [
   "./",
   "index.html",

@@ -94,7 +94,7 @@ JOB_CLASS: dict[str, ActionClass] = {
     "intel.serp_capture": _R, "intel.children_portfolio": _R, "intel.scan_evidence": _O, "policy.issuer_shadow": _O, "policy.stop_watch": _O, "policy.activation_schedule": _O, "learn.scan": _R, "research.investigate": _R, "research.sweep": _R, "research.flag_architecture": _R, "listing.taxonomy_refresh": _R,
     "mjs.reviews": _R, "mjs.scan": _R, "pricing.position": _R,
     "radar.competitor_snapshot": _R, "radar.scan": _R, "radar.score": _R,
-    "radar.concept_intake": _R,
+    "radar.concept_intake": _R, "radar.concept_pool": _R,
     "intel.watchlist_scan": _R, "intel.watchlist_compare": _R, "intel.opportunity_review": _R,
     "scale.trajectory": _R, "visual.provider_trial": _R,
     "visual.controlled_experiment": _R, "visual.rnd.cycle": _R,

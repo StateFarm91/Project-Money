@@ -50,6 +50,7 @@ WORK_CLASS: dict[str, str] = {
     "research.sweep": IMPROVE,            # the Research Agent's self-trigger (F-401/F-404)
     "intel.opportunity_review": GROW,     # W4-INTELREC: watchlist opportunities -> decisions
     "radar.concept_intake": GROW,         # W5-CONCEPT: evidence-backed opportunities -> concepts
+    "radar.concept_pool": GROW,           # ENG-CONCEPTS-100: evidence -> 100+ original concepts
     "gate.quality": RUN,                  # re-verification of certified releases (quality_ops)
     "storefront.review": GROW,            # storefront content proposals (content.draft); no write
 }

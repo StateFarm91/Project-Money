@@ -512,7 +512,10 @@ def test_a_never_succeeded_or_failing_source_never_reads_ok():
 
     reader.resolve_shop = resolve
     S.scan(db, reader, S.at(0, 6))
-    srcs = {r["id"]: r for r in B.view(db)["sections"]["research_sources"]["sources"]}
+    # Read the board one hour after the scan, not at wall-clock now: late in the UTC day a
+    # 06:00 scan is past its freshness window, so the shop read STALE and this failed by clock.
+    view = B.view(db, now=S.at(0, 7))
+    srcs = {r["id"]: r for r in view["sections"]["research_sources"]["sources"]}
     bad = srcs[benchmark_alias("firefly_crochets")]
     assert bad["last_success"] is None and bad["health"] in ("UNKNOWN", "DEGRADED"), bad
     assert bad["health"] != "OK"

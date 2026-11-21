@@ -1023,6 +1023,10 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # W5-CONCEPT: research-approved opportunities and proven families become radar concepts
     # (database rows, validated, audited) and hand off to radar.score. CA$0, no model call.
     ("concept_intake", "market_radar", "radar.concept_intake", 6 * 60 * 60),
+    # ENG-CONCEPTS-100: the evidence-backed concept pool, replenished from the scans (CA$0,
+    # no model call). Admission into intake is bounded by the monthly ceiling, reservations
+    # and the pool's share (radar.concept_pool.admission_allowance).
+    ("concept_pool", "market_radar", "radar.concept_pool", 6 * 60 * 60),
     # W4-AGENTS product-engine batch: families of the certified catalogue (s33 bundle-ready
     # family, F-359 recolour duplicates, s5 amplification gated on orders). CA$0.
     ("family_engine", "creative_director", "creative.family_engine", 24 * 60 * 60),

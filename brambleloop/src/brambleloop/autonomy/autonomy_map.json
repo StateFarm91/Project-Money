@@ -1,5 +1,6 @@
 {
  "generated_at": "2026-11-20T23:05:51.291526+00:00",
+ "generated_at": "2026-11-20T22:22:17.258738+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -14,6 +15,8 @@
   "handlers": 182,
   "agents": 35,
   "follow_on_edges": 96
+  "agents": 34,
+  "follow_on_edges": 95
  },
  "departments": [
   {
@@ -432,6 +435,12 @@
       "period_seconds": 21600
      },
      {
+      "name": "concept_pool",
+      "agent": "market_radar",
+      "job_type": "radar.concept_pool",
+      "period_seconds": 21600
+     },
+     {
       "name": "children_portfolio",
       "agent": "market_radar",
       "job_type": "intel.children_portfolio",
@@ -517,6 +526,7 @@
      "mjs.seasonal_sentinel",
      "radar.competitor_snapshot",
      "radar.concept_intake",
+     "radar.concept_pool",
      "radar.scan",
      "radar.score",
      "research.flag_architecture",

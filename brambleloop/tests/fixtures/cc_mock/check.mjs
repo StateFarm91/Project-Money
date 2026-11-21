@@ -155,7 +155,12 @@ try {
     sub: (e.querySelector(".card-sub") || {}).textContent || "",
     reached: [...e.querySelectorAll(".ladder-rung.is-reached")].map((r) => r.textContent.split(":")[0]),
     text: e.textContent })));
-  check(board.length === 12, "p0 board: all twelve sections render", JSON.stringify(board.map((b) => b.title)));
+  check(board.length === 13, "p0 board: all thirteen sections render", JSON.stringify(board.map((b) => b.title)));
+  // ENG-CONCEPTS-100: the pool shows its counts, names each held family and the shop with no signal.
+  const pool = board.find((b) => /Concept pool/.test(b.title)) || {};
+  check(/115 \/ 100/.test(pool.text || "") && /construction_unsupported:amigurumi: 19/.test(pool.text || "")
+    && /No validated signal yet: ArtLoveDesing/.test(pool.text || "") && /priority shop/.test(pool.text || ""),
+    "p0 board: the concept pool shows its counts, held families and research requests", (pool.text || "").slice(0, 300));
   // ENG-RESEARCH review M1/LOW: a never-succeeded source never reads OK; unknown downstream is not 0.
   const research = board.find((b) => /Research sources/.test(b.title)) || {};
   const pills = await page.$$eval("#main section.card", (els) => {

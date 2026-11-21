@@ -21,6 +21,7 @@ const TITLES = {
   blockers: "Open blockers and owners",
   agents: "Agents",
   research_sources: "Research sources and the research loop",
+  concept_pool: "Concept pool (evidence-backed original concepts)",
 };
 const txt = (v) => (v === null || v === undefined || v === "" ? UNKNOWN_TEXT : String(v));
 const when = (iso) => (iso ? `${relTime(iso)} (${utcStamp(iso)})` : UNKNOWN_TEXT);
@@ -96,6 +97,19 @@ const DETAIL = {
     rows(s.incidents, (i) => h("li", { class: "row" }, h("p", { class: "row-title" },
       `System: ${i.severity} ${i.family}${i.product ? ` · ${i.product}` : ""}${i.halts_publication ? " · halts publication" : ""}`)), "No incident open.")),
   agents: (s) => h("dl", { class: "facts" }, ...Object.entries(s.counts || {}).map(([k, v]) => fact(k, txt(v)))),
+  // ENG-CONCEPTS-100: pool counts, held reasons by family, per shop and research requests.
+  concept_pool: (s) => !s.counts ? h("p", { class: "callout callout-warn" }, `Unknown: ${txt(s.why)}`) : h("div", null,
+    h("div", { class: "tiles" },
+      statTile("evidence-backed", `${s.counts.evidence_backed} / ${s.counts.target}`, { status: s.counts.target_met ? null : "DEGRADED" }),
+      ...["ready", "admitted", "held", "refused_clone_or_copy", "stale", "intake_approved", "engineered", "section_33_pool"].map((k) => statTile(k, s.counts[k]))),
+    rows(Object.entries(s.held_reasons || {}), ([k, v]) => h("li", { class: "row" }, h("p", { class: "row-title" }, `Held · ${k}: ${v}`)), "Nothing held."),
+    rows(Object.entries(s.by_family || {}), ([k, v]) => h("li", { class: "row" }, h("p", { class: "row-title" },
+      `${k} · ${Object.entries(v).map(([st, n]) => `${st} ${n}`).join(" · ")}`)), "No family yet."),
+    rows(Object.entries(s.by_shop || {}), ([k, v]) => h("li", { class: "row" }, h("p", { class: "row-title" },
+      `${k} · evidence-backed ${txt(v.evidence_backed)} · admissible ${txt(v.admissible || 0)}`)), "No shop evidence yet."),
+    (s.shops_without_signal || []).length ? h("p", { class: "callout" }, `No validated signal yet: ${s.shops_without_signal.join(", ")}`) : null,
+    rows(s.research_requests, (r) => h("li", { class: "row" }, h("p", { class: "row-title" },
+      `Research needed · ${r.pod} · ${r.ready_concepts} ready${r.priority_shop ? " · priority shop" : ""} · ${r.needs}`)), "No research request open.")),
   // ENG-RESEARCH: every registered source (shops by alias), then the loop and its conclusion.
   research_sources: (s) => h("div", null,
     h("div", { class: "tiles" }, ...Object.entries(s.counts || {}).map(([k, v]) =>

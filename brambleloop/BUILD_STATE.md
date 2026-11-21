@@ -16,6 +16,13 @@
 > checkpoint not redriven, probe not re-billed by another job's 429/timeout. New suite 16 OK / 0 FAIL (SQLite + Postgres).
 > The production trigger is inferred from code and error text; production rows were not read. Review request:
 > `research/final_build/w6/review_requests/FIX-CYCLE-PROOF-BILLING.md`.
+> **2026-11-20 — FIX-B19C unit A on `eng/concepts-100` (NOT merged to main, NOT deployed; production unchanged).**
+> Merged `claude/batch19-approve-all` (13585c4f). b19-c A1 fixed: `test_concepts100` now asserts the real held keys
+> (`construction_unsupported:{amigurumi,hat,mosaic,c2c,cable}` each present and held per family; garments held under
+> a non-empty set of `construction_unsupported:garment_*` keys, never the bare `garment`; every held construction key
+> visible in `by_family`). sw.js -> v45 (p0_board.js changed on both sides). `test_research_flow` M1 test pinned to
+> the scan's clock (it failed after ~18:00 UTC by wall-clock staleness). A2/A3 (b17-a C3/C4) remain open.
+> Report: `research/final_build/w6/review_requests/FIX-B19C.md`.
 
 > **2026-11-20 — FIX-DEMAND-STALL on `claude/w6-INTEG8-wip` (Batch 18 integration; NOT deployed; production
 > unchanged).** A promoted concept waiting in the supply queue for an uncertified engine (on the production pool:
@@ -467,6 +474,26 @@
 >     measured.
 >   - The listing-package preparation path that a publication-only policy hold still stops (`_judge_search_hero`'s
 >     listing-set issuance) is slice 2.
+
+> **2026-11-20 — ENG-CONCEPTS-100 fix for review b17-a (C1, C2), merged with claude/w6-INTEG6 dde3ea62; NOT reviewed again, NOT deployed.** C1: removed the duplicate `benchmark_shopping` registration from `intel/research_flow.sources()` (INTEG6 already registers it), so `test_research_flow` passes on the integrated tree. C2: `concept_pool.originality()` now HOLDS a concept whose pod has no benchmark cards (`HELD_NO_CARDS`: originality UNKNOWN is not READY), and three new tests kill the `twin = ""` mutant and the no-cards mutant. A test also pins the core-family demand weighting. sw.js is cc-shell-v44, and the autonomy map was regenerated (149 cadences / 181 handlers). C3 and C4 remain open. Production effect: pods whose observed titles state no feeling now yield HELD concepts, not READY ones.
+>
+> **2026-11-20 — ENG-CONCEPTS-100 slice 1 (`eng/concepts-100`, NOT reviewed, NOT merged, NOT deployed; production unchanged, SHADOW).** The concept pool: 100+ evidence-backed ORIGINAL concepts from the watchlist scans, replenished continuously (P0 item 4).
+> - **Built.** `radar/concept_pool.py` (D-ENG-CONCEPTS-100):
+>   - It generates concepts from 28 lanes (142 motif and use variants). The fixture run covers 15 construction families.
+>   - Each concept carries a premise, a #88 storyboard, #108 qualifiers derived by `qualifiers_for`, an honesty check, its family from `route`, a sourced size range and evidence refs to listing rows.
+>   - It refuses clones (novelty floor) and copies (exact or restated title, POOL title, listing twin).
+>   - Holds are kept with their reasons and never deleted.
+>   - Admission into intake is bounded by spend.
+>   - New cadence `radar.concept_pool` (6-hourly, CA$0, free, upstream inputs: the scans and `research.investigate`). The autonomy map was regenerated: 146 cadences, 178 handlers.
+>   - P0 board section `concept_pool`; SW `cc-shell-v37`.
+> - **Fixture result, NOT production.** On synthetic scans of three shops: 115 evidence-backed concepts. 19 are ready, in four lanes: cushion, storage basket, tapestry basket and wall panel. 96 are held and 7 refused. All 19 READY concepts pass `radar.intake.validate`.
+>   - The holds are honest. #108 holds plain-stripe generic forms (throws, baby blankets, runners, placemats, coasters, dishcloths, scarves, pet mats). The family holds cover amigurumi, garments, hats, mosaic, c2c, granny, cable, tote, triangle, stocking and ornament.
+> - **Not verified / open.**
+>   - The real pool size is UNKNOWN until the cadence runs on production scan data.
+>   - A READY concept is admitted only where an answered research task stands behind a validated watchlist gap in its pod. Elsewhere it waits, and the pod is listed under research requests, MadelineMaeCo-backed first. The pool does not open research tasks itself.
+>   - Pool cushions are physical-gated: certification withholds them for the class-C sample.
+>   - Every admitted concept still WAITS on `image_vision` at the pre-engineering gate, so engineered is 0 until a vision verdict exists.
+> - Tests: `tests/test_concepts100.py`, 14 tests; 14 of 14 mutants killed. Review request: `research/final_build/w6/review_requests/concepts100_slice1.md`.
 
 > **2026-11-20 — ENG-BENCHBUY (`eng/benchbuy`, NOT merged, NOT deployed; production unchanged, SHADOW).** The benchmark shopping list across all nine watchlist shops.
 > - **Built.** `purchase_selection.shopping_list`: pattern digital downloads only, quota 3 per shop (MadelineMaeCo 5), capability-gap facet then owner-demand facet (baby, stuffed animal, pillow), favourites as a tie-break only, no pick without a new facet. Budget in code: `SET_BUDGET_CAD` less recorded BenchmarkProduct spend, every price at x1.158. Owned items (both MJ benchmarks, any BenchmarkProduct) never offered. Empty or never-scanned shops are listed with their reason; no scan data is UNKNOWN.

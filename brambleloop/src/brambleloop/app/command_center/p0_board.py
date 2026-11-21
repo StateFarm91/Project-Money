@@ -497,11 +497,38 @@ def research_sources(db, now):
     return build_section
 
 
+def concept_pool(db, now):
+    """ENG-CONCEPTS-100: the evidence-backed concept pool -- evidence-backed, ready, admitted,
+    held (with reasons), refused clones/copies, engineered; per shop and per family."""
+    from ...radar import concept_pool as pool
+
+    h = pool.health(db, now=now)
+
+    def build_section(deployed):
+        c = h.get("counts")
+        if c is None:
+            return {"state": UNKNOWN, "why": h.get("why"),
+                    **_level(deployed, why={})}
+        return {"state": "OK" if c["target_met"] else "DEGRADED", "counts": c,
+                "by_family": h["by_family"], "by_shop": h["by_shop"],
+                "shops_without_signal": h["shops_without_signal"],
+                "held_reasons": h["held_reasons"],
+                "research_requests": h["research_requests"][:ROW_LIMIT],
+                "engineered": h["engineered"][:ROW_LIMIT],
+                **_level(deployed, running=c["evidence_backed"] > 0,
+                         verified=c["engineered"] > 0,
+                         why={RUNNING: "the pool holds evidence-backed concepts generated "
+                                       "from the watchlist scans",
+                              PROD_VERIFIED: "a pool concept reached engineering (a "
+                                             "cir.draft job exists for it)"})}
+    return build_section
+
+
 SECTIONS = (("running", running), ("motif_recovery", motif_recovery), ("shops", shops), ("opportunities", opportunities),
             ("development", development), ("releases", releases), ("assets", assets),
             ("etsy", etsy), ("sales", sales), ("costs", costs), ("blockers", blockers),
             ("owner_queue", owner_queue), ("agents", agents),
-            ("research_sources", research_sources))
+            ("research_sources", research_sources), ("concept_pool", concept_pool))
 
 
 def view(db, *, now: datetime | None = None) -> dict:

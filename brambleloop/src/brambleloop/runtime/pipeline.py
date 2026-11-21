@@ -3867,6 +3867,7 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "etsy.dashboard_harvest": ("work_done",),
     "radar.competitor_snapshot": ("work_done",),
     "radar.concept_intake": ("work_done",),
+    "radar.concept_pool": ("work_done",),
     "intel.watchlist_scan": ("work_done",),
     "intel.watchlist_compare": ("work_done",),
     "intel.benchmark_shopping": ("work_done",),
