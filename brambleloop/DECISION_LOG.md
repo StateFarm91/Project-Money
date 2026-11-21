@@ -4481,3 +4481,19 @@ Batch 19f is released with one known failure that predates it. In test_halt_380_
 ## D-OWNER-DEPLOY-19f — 2026-11-21T20:58:08Z
 
 Batch 19f (code 1bfd86bf1) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 0aeb81d2cce16c60377e52614e7ffd3c387e4420 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-ENG-19H14-SUITES — 2026-11-21T22:05Z
+
+19h14 (eng/halt-chain plus 19f) was tested on 94dc37cad: 97 passing, with 2 suites failing (test_halt_380_marketing and test_halt_380_verify). Both failed only on the resolution text. The new verify-pass close of set-aside rows read "set aside, not stale: …", while the sweep writes "retired, not stale" or "superseded, not stale". Commit 33466add7 changes that text only; no logic changed. After it, test_halt_380_marketing, test_halt_380_verify and test_halt_chain were re-run and passed (10 passing, 0 failing).
+
+The other suites keep their result from the 94dc37cad run:
+- test_halt_380_live (passing, file unmodified)
+- test_retry_on_deploy
+- test_rebuild_outcomes
+- test_factory_visibility
+- test_w4_readback_evidence
+- test_vacuity
+- test_eng_approvals
+- test_new_product_flow
+- test_compiler
+- test_w4_resume_runner (default TMPDIR, passing)
