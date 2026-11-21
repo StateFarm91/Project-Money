@@ -4156,3 +4156,27 @@ tested), pre-engineering, engine-demand, family diversity, cost ceilings, every 
 ## D-OWNER-DEPLOY-19h8 — 2026-11-21T13:44:35Z
 
 Batch 19h8 (code 54cdae21d) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to a93635cebc8737fdc3cfd3a51cf3a08f98ba7789 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-ENG-AMIGURUMI-JUDGING — 2026-11-21 (builder)
+**Decision.** A stuffed-toy concept that the animal engine drafts gets its radar concept board as
+ONE disclosed FLUX concept render, prompted from the engine's own compiled draft
+(`creative.toy_board`). It is not drawn as a deterministic twin preview.
+**Why.** No honest deterministic toy preview exists. `disclosed_render` draws flat and round
+pieces only, and a flat silhouette of a 3-D stuffed toy would be judged on a picture that does not
+look like the product. A fabric swatch would be worse. The CIR exists first, and the picture is
+prompted from it: animal, pieces and counts, colours, yarn weight and the embroidered face. The
+picture is used only for the taste judgement, never as a listing image and never as a source of
+instructions.
+**Rules.**
+- No render unless the animal engine drafts the concept and the draft compiles, and the
+  child-safety preconditions hold: small parts clear, face embroidered with yarn only, no hard
+  part in the materials, nothing refused in the premise, and the age and features statements
+  present. Certification still withholds every toy for physical evidence.
+- Paid once. A `creative.toy_render` REQUESTED row is written under the budget lock before the
+  provider is asked. A refusal before sending is DECLINED and may be asked again later. Anything
+  that may have been billed (a failure after acceptance, a timeout, a crash) is never bought again
+  by the system.
+- Every gate ceiling applies: the owner activation (D-OWNER-APPROVE-ALL), the daily and monthly
+  CA$ ceilings, the per-gallery limit (`concept-board:<slug>`) and the code's image caps. On top
+  of those, the toy board's own limits: 2 renders per run and 4 per UTC day, so listing galleries
+  keep the day's image budget. Each render is 1k tier, about CA$0.07.
