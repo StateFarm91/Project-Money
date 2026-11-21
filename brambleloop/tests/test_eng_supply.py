@@ -20,6 +20,10 @@ sys.path.insert(0, str(ROOT))
 
 _TMP = tempfile.mkdtemp(prefix="eng_supply_")
 os.environ["BRAMBLELOOP_ARTIFACT_DIR"] = os.path.join(_TMP, "artifacts")
+# ENG-SUPPLY-LANE: this suite pins the historical one-worker admission (WIP 2, one admission
+# per run) through the existing env override and the per-run constant; the capacity-based
+# defaults are proven in tests/test_supply_lane.py.
+os.environ["BRAMBLELOOP_SUPPLY_MAX_WIP"] = "2"
 
 from sqlalchemy import select  # noqa: E402
 
@@ -29,6 +33,7 @@ from brambleloop.core.models import (  # noqa: E402
     AuditLog, CostEntry, Job, JobStatus, OwnerAction, Phase, PhysicalTest,
 )
 from brambleloop.products import supply  # noqa: E402
+supply.MAX_ADMIT_PER_RUN = 1  # ENG-SUPPLY-LANE: the historical trickle, pinned
 from brambleloop.queue.durable import JobQueue  # noqa: E402
 from brambleloop.runtime import pipeline  # noqa: E402,F401 - registers handlers
 from brambleloop.runtime import release  # noqa: E402,F401 - registers handlers
@@ -138,11 +143,14 @@ def test_the_wip_ceiling_follows_the_worker_target_and_stays_bounded():
     db = _db()
     real = capacity.worker_target
     try:
-        for target, env, want in ((1, {}, 2), (2, {}, 4), (3, {}, 4), (40, {}, 4),
+        # ENG-SUPPLY-LANE: capacity-based. Nothing is measured on this db, so each worker
+        # carries the WIP_PER_WORKER floor (4); MAX_WIP 12 binds; the env override still
+        # lowers it or raises it to HARD_MAX_WIP, never past.
+        for target, env, want in ((1, {}, 4), (2, {}, 8), (3, {}, 12), (40, {}, 12),
                                   (40, {"BRAMBLELOOP_SUPPLY_MAX_WIP": "6"}, 6),
                                   (40, {"BRAMBLELOOP_SUPPLY_MAX_WIP": "999"}, supply.HARD_MAX_WIP),
                                   (1, {"BRAMBLELOOP_SUPPLY_MAX_WIP": "1"}, 1),
-                                  (1, {"BRAMBLELOOP_SUPPLY_MAX_WIP": "junk"}, 2)):
+                                  (1, {"BRAMBLELOOP_SUPPLY_MAX_WIP": "junk"}, 4)):
             capacity.worker_target = lambda db, now=None, t=target: {"target": t}
             got = supply.wip_ceiling(db, env=env)["limit"]
             assert got == want, (target, env, got)
@@ -151,7 +159,7 @@ def test_the_wip_ceiling_follows_the_worker_target_and_stays_bounded():
             raise RuntimeError("unreadable")
         capacity.worker_target = boom
         w = supply.wip_ceiling(db, env={})
-        assert w["limit"] == 2 and "unreadable" in w["source"], w
+        assert w["limit"] == supply.WIP_PER_WORKER and "unreadable" in w["source"], w
     finally:
         capacity.worker_target = real
 

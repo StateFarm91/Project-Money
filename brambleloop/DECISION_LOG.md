@@ -4032,3 +4032,34 @@ Consequence:
 ## D-OWNER-DEPLOY-19h4 — 2026-11-21T12:19:31Z
 
 Batch 19h4 (code a607a3832) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to dc10a48d5709d99924723a21e10653a49d35df18 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-ENG-SUPPLY-LANE — 2026-11-21 (builder)
+
+**Decision.** Publication holds stop publication only. Owner P0: "Publication holds MUST NOT
+stop permitted research, QA, PDFs or internal listings."
+
+1. **Certification is QA.** `gate.certify` halts on `IncidentTracker.certification_halts`:
+   - every halting incident that names the product, unchanged;
+   - the company-wide `systemic-halt:publication` row, unless its live evidence is
+     staleness-only (`release_gates._staleness_only`, the rule the rebuild gates already use).
+
+   Integrity evidence, any other widespread family, or unreadable evidence keeps it halting.
+   Every publication gate still reads `publication_halted`, the systemic row included.
+   `retry_halted` uses the same predicate.
+2. **Admission lanes.** A product whose only live chain work is publishing-lane work
+   (listing/assets/images/pricing/SEO/launch) holds no engineering slot when:
+   - a publication hold is holding that work; and
+   - none of it is running.
+
+   Its due publishing jobs are left out of the stage-backlog refusal. Engineering work, running
+   work and un-held publishing work keep their slots as before.
+3. **Capacity-based WIP.** The ceiling is workers x max(4, 3600 s // measured draft + compile +
+   certify seconds), capped by MAX_WIP 12 (env up to 24). Up to 4 admissions per run, bounded by
+   the free slots and by the backlog headroom.
+
+**Why.** Production 17f17c20 had 16 products, 0 certified in 7 days, and halt #380 open. The
+suite reproduced both stalls. The systemic staleness halt refused every new certification. The
+16 held products' listing work filled the WIP of 2 ("capacity: 16 product chain(s) in flight").
+
+**Not changed.** Child safety (a toy under the hold is still withheld for physical evidence,
+tested), pre-engineering, engine-demand, family diversity, cost ceilings, every publication gate.

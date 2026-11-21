@@ -1951,6 +1951,10 @@ def factory_visibility(db, *, now: datetime) -> dict:
     except Exception as exc:  # noqa: BLE001
         out["parked_admission"] = _unreadable(exc)
     try:
+        out["supply"] = supply_visibility(db, now=now)
+    except Exception as exc:  # noqa: BLE001
+        out["supply"] = _unreadable(exc)
+    try:
         from ..gateway import paid_provider_gate as G
 
         G.ensure_tables(db)
@@ -1970,3 +1974,77 @@ def factory_visibility(db, *, now: datetime) -> dict:
     except Exception as exc:  # noqa: BLE001
         out["owner_etsy_exercise"] = _unreadable(exc)
     return out
+
+
+def supply_visibility(db, *, now: datetime) -> dict:
+    """ENG-SUPPLY-LANE: the supply side of the factory, counts and fixed vocabulary only.
+
+    * `pool_by_state`: concept-pool entries by state (`radar.concept_pool.STATES`); a state
+      outside that vocabulary is counted as `unrecognised`, never echoed. UNKNOWN (None, with
+      `pool_generated` False) when no pool row exists -- never 0.
+    * `in_flight_by_stage`: products with live chain work, each counted once at its earliest
+      live stage (`release_recovery.CHAIN_STAGE_JOBS`).
+    * `engineering`: the admission reading -- WIP limit, products holding an engineering
+      slot, products whose publishing-lane work is held by a publication hold, open slots.
+    * `offers_waiting`: supply offers recorded and not yet admitted.
+    * `certified_24h`: releases certified (`gate.certified`) in the last 24 h, and the
+      distinct products they belong to.
+    No slug, title, reason text or job payload is returned."""
+    from collections import Counter
+
+    from sqlalchemy import inspect, select
+
+    from ..core.models import LIVE_JOB_STATUSES, AuditLog, Job
+    from ..products import supply
+    from ..radar import concept_pool as CP
+    from ..runtime.release_recovery import CHAIN_STAGE_JOBS, _job_slug
+
+    out: dict = {}
+    states: Counter = Counter()
+    if inspect(db.engine).has_table(CP.ConceptPoolEntry.__tablename__):
+        with db.session() as s:
+            states = Counter(str(st) for st in s.scalars(select(CP.ConceptPoolEntry.state)))
+    out["pool_generated"] = bool(states)
+    if states:
+        pool = {k: 0 for k in CP.STATES}
+        for st, n in states.items():
+            key = st if st in CP.STATES else "unrecognised"
+            pool[key] = pool.get(key, 0) + n
+        out["pool_by_state"] = pool
+        out["pool_total"] = sum(states.values())
+    else:
+        out["pool_by_state"], out["pool_total"] = None, None
+    order = {jt: i for i, jt in enumerate(CHAIN_STAGE_JOBS)}
+    earliest: dict[str, str] = {}
+    with db.session() as s:
+        for jt, inputs in s.execute(select(Job.job_type, Job.inputs).where(
+                Job.job_type.in_(CHAIN_STAGE_JOBS), Job.status.in_(LIVE_JOB_STATUSES))):
+            slug = _job_slug(inputs) or "(unnamed)"
+            if slug not in earliest or order[jt] < order[earliest[slug]]:
+                earliest[slug] = jt
+    stages = {jt: 0 for jt in CHAIN_STAGE_JOBS}
+    for jt in earliest.values():
+        stages[jt] += 1
+    out["in_flight_by_stage"] = stages
+    out["products_in_flight"] = len(earliest)
+    try:
+        cap = supply.assess(db, now=now)
+        out["engineering"] = {"wip_limit": int(cap["limit"]),
+                              "holding_a_slot": len(cap["in_flight"]),
+                              "held_for_publication": len(cap["held_for_publication"]),
+                              "parked_on_sample_or_owner": len(cap["waiting"]),
+                              "open_slots": int(cap["slots"]),
+                              "admission_refused": bool(cap["refusals"])}
+    except Exception as exc:  # noqa: BLE001
+        out["engineering"] = _unreadable(exc)
+    try:
+        out["offers_waiting"] = len(supply.offers(db))
+    except Exception as exc:  # noqa: BLE001
+        out["offers_waiting"] = _unreadable(exc)
+    with db.session() as s:
+        arts = [a for (a,) in s.execute(select(AuditLog.artifact).where(
+            AuditLog.action == "gate.certified", AuditLog.at >= now - timedelta(hours=24)))]
+    out["certified_24h"] = {"releases": len(set(arts)),
+                            "products": len({str(a or "").split("@", 1)[0] for a in arts})}
+    return out
+

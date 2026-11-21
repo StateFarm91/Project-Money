@@ -1,3 +1,18 @@
+> **2026-11-21 — SUPPLY-LANE on `eng/supply-lane` (from `claude/w6-release-19h4` b42f89d = deployed 17f17c20;
+> NOT merged, NOT deployed; production unchanged, no production row read).** Readback: 16 products, 0 certified in 7
+> d, loop 11/12, halt #380 open. Two defects stopped all new supply while the publication halt was open, both
+> reproduced on the real handlers: (1) `gate.certify` refused every release under the company-wide staleness halt
+> (QA gated on publishing; base: 11 certify runs, 0 certified); (2) held post-certification listing work of 16
+> products filled the engineering WIP of 2 ("capacity: 16 product chain(s) in flight"). Fix: certification halts on
+> the product's own halts and on a systemic row only with integrity or unreadable evidence (`certification_halts`,
+> the `_staleness_only` rule publication gates already use); publishing-lane work held by a publication hold holds no
+> engineering slot; WIP capacity-based (workers x max(4, 3600 s / measured draft+compile+certify s), cap 12), up to 4
+> admissions per run inside backlog headroom; `factory_visibility.supply` counters (pool by state, in flight by stage,
+> certified 24 h; fixed vocabulary). New suite `tests/test_supply_lane.py` 9/9 (8 new products certified with the halt
+> OPEN, >2 in flight at once, nothing published, child safety still withholds a toy; 2 mutation tests). OPEN:
+> amigurumi concepts cannot get a radar board (no toy renderer), so they are never judged; radar judge needs the
+> anthropic-vision activation. UNVERIFIED in production until deployed. Decision D-ENG-SUPPLY-LANE. Report:
+> `w6/review_requests/SUPPLY-LANE.md` (repo root).
 > **2026-11-21 — HALT-380-VERIFY on `eng/halt-380-verify` (from `claude/w6-release-19h1` 90403e5 = deployed 1bb7c4f5;
 > NOT merged, NOT deployed; production unchanged, no production row read).** Readback 08:20Z: done 199, unfinished 0,
 > no artefact completed since 2026-11-20T13:12Z, 14 retry-waiting, 12 rebuild-incomplete. Clean-slate rebuilds verify

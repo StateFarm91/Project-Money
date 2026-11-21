@@ -19,9 +19,12 @@ This module replaces both with one deterministic admission controller:
   holds, and each run records every admission and every refusal with its reason
   (`supply.admission`):
 
-  1. free work-in-progress: product chains in flight are below a ceiling derived from the
-     active worker target (`swarm.capacity.worker_target`), bounded by `MAX_WIP` and safe for
-     one Railway worker (one worker -> the historical two chains);
+  1. free work-in-progress: product chains in flight are below a capacity-based ceiling --
+     the active worker target (`swarm.capacity.worker_target`) times the products whose
+     measured engineering work fits WIP_WORK_HORIZON_S per worker (floor WIP_PER_WORKER),
+     bounded by `MAX_WIP` (ENG-SUPPLY-LANE; was a fixed two per worker). A product whose
+     only live chain work is publishing-lane work held by a publication hold holds no slot
+     (`held_for_publication`): publication holds must not stop new engineering;
   2. stage backlog: the due queue of every chain stage, weighted by that stage's measured mean
      job-seconds (expected work), is below `MAX_BACKLOG_SECONDS` per worker, and no stage's
      oldest due job is older than `MAX_STAGE_AGE`;
@@ -58,14 +61,24 @@ ADMITTED = "supply.admitted"
 ADMISSION = "supply.admission"
 
 # ---- bounded defaults (safe for one Railway worker) --------------------------------------
-# Product chains in flight per active worker. One worker -> 2, the historical WIP_LIMIT.
-WIP_PER_WORKER = 2
-# The ceiling whatever the worker target says; an env override may lower or raise it up to
-# HARD_MAX_WIP, never past it.
-MAX_WIP = 4
-HARD_MAX_WIP = 8
-# New products admitted by one run: a trickle, so a freed slot never becomes a burst.
-MAX_ADMIT_PER_RUN = 1
+# ENG-SUPPLY-LANE: the work-in-progress ceiling is capacity-based. Each active worker carries
+# up to WIP_WORK_HORIZON_S of expected ENGINEERING work (draft + compile + certify, measured
+# mean job-seconds per product), and never fewer than WIP_PER_WORKER products -- the floor
+# used while nothing is measured (labelled ESTIMATED). The historical fixed 2 per worker left
+# one worker idle between short compile/certify jobs while 100+ concepts waited.
+WIP_PER_WORKER = 4
+WIP_WORK_HORIZON_S = 60 * 60
+# The ceiling whatever the worker target or the measurement says; an env override may lower
+# or raise it up to HARD_MAX_WIP, never past it.
+MAX_WIP = 12
+HARD_MAX_WIP = 24
+# New products admitted by one run. Bounded again by the free slots and by the stage-backlog
+# headroom (`admit`), so a freed slot never becomes a burst the worker cannot absorb.
+MAX_ADMIT_PER_RUN = 4
+# The engineering lane: the stages that make and QA a release. Every other chain stage is the
+# publishing lane (listing, assets, images, pricing, SEO, launch).
+ENGINEERING_STAGE_JOBS = ("cir.draft", "cir.compile", "cir.revise", "cir.reengineer",
+                          "gate.certify")
 # Due chain-stage work, in expected job-seconds per active worker, above which nothing new
 # is admitted: the products already admitted are starved for the worker.
 MAX_BACKLOG_SECONDS = 2 * 60 * 60
@@ -92,8 +105,41 @@ def _aware(value):
     return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 
 
+def engineering_seconds_per_product(db, *, now=None) -> dict:
+    """Expected engineering job-seconds of one product: the measured mean DONE duration of
+    each engineering stage a product passes (draft, compile, certify) over STAGE_WINDOW,
+    summed. Any stage unmeasured -> ESTIMATED with DEFAULT_STAGE_SECONDS for it."""
+    from sqlalchemy import select
+
+    from ..core.models import Job, JobStatus
+
+    now = _aware(now) or datetime.now(timezone.utc)
+    total, measured = 0.0, []
+    with db.session() as s:
+        for jt in ("cir.draft", "cir.compile", "gate.certify"):
+            durations = [((_aware(f) - _aware(st)).total_seconds())
+                         for st, f in s.execute(select(Job.started_at, Job.finished_at).where(
+                             Job.job_type == jt, Job.status == JobStatus.DONE,
+                             Job.finished_at >= now - STAGE_WINDOW).order_by(Job.id.desc())
+                             .limit(STAGE_SAMPLE))
+                         if st is not None and f is not None]
+            if durations:
+                total += max(1.0, sum(durations) / len(durations))
+                measured.append(jt)
+            else:
+                total += DEFAULT_STAGE_SECONDS
+    basis = ("MEASURED mean job-seconds of draft, compile and certify"
+             if len(measured) == 3 else
+             f"ESTIMATED ({3 - len(measured)} engineering stage(s) unmeasured in the window)")
+    return {"seconds": round(total, 1), "basis": basis, "measured": len(measured) == 3}
+
+
 def wip_ceiling(db, *, env=None, now=None) -> dict:
-    """The work-in-progress ceiling for product chains, from the active worker target."""
+    """The work-in-progress ceiling for product chains: capacity-based.
+
+    workers x max(WIP_PER_WORKER, WIP_WORK_HORIZON_S // engineering seconds per product),
+    bounded by MAX_WIP (or the env override, at most HARD_MAX_WIP). The per-product seconds
+    count only when every engineering stage is measured; otherwise the floor stands."""
     env = os.environ if env is None else env
     try:
         from ..swarm.capacity import worker_target
@@ -109,8 +155,17 @@ def wip_ceiling(db, *, env=None, now=None) -> dict:
             cap = max(1, min(HARD_MAX_WIP, int(raw)))
         except ValueError:
             pass
-    limit = max(1, min(cap, WIP_PER_WORKER * max(1, target)))
-    return {"limit": limit, "workers": max(1, target), "cap": cap, "source": source}
+    per_worker, per_product = WIP_PER_WORKER, None
+    try:
+        per_product = engineering_seconds_per_product(db, now=now)
+        if per_product["measured"]:
+            per_worker = max(WIP_PER_WORKER,
+                             int(WIP_WORK_HORIZON_S // max(1.0, per_product["seconds"])))
+    except Exception:  # noqa: BLE001 - unmeasurable: the floor
+        per_product = None
+    limit = max(1, min(cap, per_worker * max(1, target)))
+    return {"limit": limit, "workers": max(1, target), "cap": cap, "source": source,
+            "per_worker": per_worker, "per_product": per_product}
 
 
 # ---- what a product is waiting on --------------------------------------------------------
@@ -188,22 +243,61 @@ def _due_now(db, slugs, *, now) -> set[str]:
     return due
 
 
+def held_for_publication(db, jobs: dict[str, list], running: set[str]) -> dict[str, str]:
+    """{slug: why} for each product whose ONLY live chain work is publishing-lane work that a
+    publication hold is holding, none of it running.
+
+    ENG-SUPPLY-LANE (owner P0: publication holds MUST NOT stop permitted research, QA, PDFs
+    or internal listings). A held listing/asset/launch job is waiting on publishing, not
+    using the worker, so it holds no engineering slot: before this, 16 products whose
+    listing work sat retry-waiting behind the company-wide publication halt filled a WIP of
+    2 and no new product could be admitted. The hold itself is unchanged: those jobs still
+    wait on every publication gate. A product with any engineering-lane job live, or any
+    job running, is not listed. Read-only."""
+    from ..gates.incidents import IncidentTracker
+
+    out: dict[str, str] = {}
+    tracker = IncidentTracker(db)
+    for slug, rows in jobs.items():
+        if slug in running or slug.startswith("(unnamed"):
+            continue
+        types = {str(r).split("#", 1)[0] for r in rows}
+        if not types or types & set(ENGINEERING_STAGE_JOBS):
+            continue
+        try:
+            halted = tracker.publication_halted(slug)
+        except Exception:  # noqa: BLE001 - unreadable: it keeps its slot
+            halted = False
+        if halted:
+            out[slug] = ("publishing lane: post-certification work held by a publication hold "
+                         f"({', '.join(sorted(types))})")
+    return out
+
+
 # ---- the measurements admission reads -----------------------------------------------------
 
-def stage_backlog(db, *, now, workers: int) -> dict:
-    """Due chain-stage work per stage: depth, oldest age and expected job-seconds."""
+def stage_backlog(db, *, now, workers: int, held: set[str] | frozenset = frozenset()) -> dict:
+    """Due chain-stage work per stage: depth, oldest age and expected job-seconds.
+
+    ENG-SUPPLY-LANE: publishing-lane jobs of a product in `held` (its post-certification work
+    is held by a publication hold, `held_for_publication`) are not counted: a hold that keeps
+    a job due is not the worker failing to keep up, and it must not stop new engineering."""
     from sqlalchemy import select
 
     from ..core.models import Job, JobStatus
-    from ..runtime.release_recovery import CHAIN_STAGE_JOBS
+    from ..runtime.release_recovery import CHAIN_STAGE_JOBS, _job_slug
 
     stages: dict[str, dict] = {}
+    held_due = 0
     with db.session() as s:
-        for jt, created, run_after in s.execute(
-                select(Job.job_type, Job.created_at, Job.run_after).where(
+        for jt, created, run_after, inputs in s.execute(
+                select(Job.job_type, Job.created_at, Job.run_after, Job.inputs).where(
                     Job.job_type.in_(CHAIN_STAGE_JOBS),
                     Job.status.in_((JobStatus.PENDING, JobStatus.FAILED)),
                     Job.run_after <= now)):
+            if held and jt not in ENGINEERING_STAGE_JOBS and _job_slug(inputs) in held:
+                held_due += 1
+                continue
             row = stages.setdefault(jt, {"depth": 0, "oldest_age_s": 0.0})
             row["depth"] += 1
             since = _aware(run_after) or _aware(created) or now
@@ -235,7 +329,7 @@ def stage_backlog(db, *, now, workers: int) -> dict:
                         f"over {MAX_STAGE_AGE.total_seconds() / 3600:g}h")
     return {"stages": stages, "expected_seconds": round(total, 1),
             "per_worker_seconds": round(per_worker, 1), "oldest_age_s": round(oldest, 1),
-            "refusals": refusals}
+            "held_for_publication_due": held_due, "refusals": refusals}
 
 
 def expected_product_cost(db, *, now) -> dict:
@@ -303,12 +397,16 @@ def assess(db, *, now=None, wip_limit: int | None = None) -> dict:
     base = idle_capacity(db, limit=limit, now=now)
     running = {slug for slug, jobs in base["jobs"].items()
                if any(j.endswith(":running") for j in jobs)}
-    due = _due_now(db, [s for s in base["in_flight"] if s not in running], now=now)
+    # ENG-SUPPLY-LANE: post-certification work held by a publication hold is the publishing
+    # lane waiting on publishing; it holds no engineering slot (`held_for_publication`).
+    held = held_for_publication(db, base["jobs"], running)
+    due = _due_now(db, [s for s in base["in_flight"] if s not in running and s not in held],
+                   now=now)
     parked_on = waiting_on(db, [s for s in base["in_flight"]
-                                if s not in running and s not in due])
-    in_flight = [s for s in base["in_flight"] if s not in parked_on]
+                                if s not in running and s not in due and s not in held])
+    in_flight = [s for s in base["in_flight"] if s not in parked_on and s not in held]
     slots = max(0, limit - len(in_flight))
-    backlog = stage_backlog(db, now=now, workers=ceiling["workers"])
+    backlog = stage_backlog(db, now=now, workers=ceiling["workers"], held=set(held))
     cost = cost_check(db, in_flight=len(in_flight), now=now)
     refusals = list(backlog["refusals"]) + list(cost["refusals"])
     if not slots:
@@ -318,7 +416,8 @@ def assess(db, *, now=None, wip_limit: int | None = None) -> dict:
     return {"limit": limit, "in_flight": in_flight, "jobs": {k: base["jobs"][k]
                                                            for k in in_flight},
             "slots": open_slots, "idle": open_slots > 0, "parked": base["parked"],
-            "waiting": parked_on, "wip": ceiling, "backlog": backlog, "cost": cost,
+            "waiting": parked_on, "held_for_publication": held,
+            "wip": ceiling, "backlog": backlog, "cost": cost,
             "refusals": refusals, "as_of": now.isoformat()}
 
 
@@ -457,10 +556,11 @@ def family_of(db, slug: str) -> str:
     return slug
 
 
-def admit(ctx, *, per_run: int = MAX_ADMIT_PER_RUN, wip_limit: int | None = None,
+def admit(ctx, *, per_run: int | None = None, wip_limit: int | None = None,
           now=None) -> dict:
     """Admit waiting offers into free capacity, in rank order, recording every admission
-    and refusal with its reason."""
+    and refusal with its reason. `per_run` defaults to MAX_ADMIT_PER_RUN, read per call."""
+    per_run = MAX_ADMIT_PER_RUN if per_run is None else per_run
     now = _aware(now) or datetime.now(timezone.utc)
     cap = assess(ctx.db, now=now, wip_limit=wip_limit)
     families: dict[str, int] = {}
@@ -469,7 +569,15 @@ def admit(ctx, *, per_run: int = MAX_ADMIT_PER_RUN, wip_limit: int | None = None
         families[f] = families.get(f, 0) + 1
     slots = cap["slots"]
     admitted, refused, already = [], {}, []
-    budget = min(per_run, slots)
+    # ENG-SUPPLY-LANE: more than one per run, bounded by the free slots and by the backlog
+    # headroom -- the expected engineering work of each admitted product must still fit
+    # under MAX_BACKLOG_SECONDS per worker, so a burst never outruns the worker.
+    per_product = float(((cap["wip"].get("per_product") or {}).get("seconds"))
+                        or DEFAULT_STAGE_SECONDS * 3)
+    room = (MAX_BACKLOG_SECONDS * cap["wip"]["workers"]
+            - float(cap["backlog"].get("expected_seconds") or 0.0))
+    headroom = max(1, int(room // max(1.0, per_product)))
+    budget = min(per_run, slots, headroom)
     pool = offers(ctx.db)
     # Work-conserving family diversity: a candidate whose family already has a product in
     # flight is deferred, and admitted only if no other eligible candidate wants the slot.
@@ -499,10 +607,11 @@ def admit(ctx, *, per_run: int = MAX_ADMIT_PER_RUN, wip_limit: int | None = None
     for o in pool:
         key, slug = o["key"], o["slug"]
         family = str(o.get("family") or family_of(ctx.db, slug))
-        if slug in cap["in_flight"] or slug in cap["waiting"]:
+        if slug in cap["in_flight"] or slug in cap["waiting"] \
+                or slug in cap["held_for_publication"]:
+            why = cap["waiting"].get(slug) or cap["held_for_publication"].get(slug)
             refused[key] = (f"product {slug} already has a chain in flight"
-                            + (f" (waiting: {cap['waiting'][slug]})"
-                               if slug in cap["waiting"] else ""))
+                            + (f" (waiting: {why})" if why else ""))
             continue
         # ENG-DEMAND-SUPPLY: a concept whose construction has no certified engine is not
         # silently held: it is recorded as engine demand (the ranked "build this engine next"
@@ -533,7 +642,9 @@ def admit(ctx, *, per_run: int = MAX_ADMIT_PER_RUN, wip_limit: int | None = None
                              f"family {family!r} already in flight (max {MAX_PER_FAMILY}); "
                              f"another family goes first")
     summary = {k: cap[k] for k in ("limit", "in_flight", "slots", "waiting", "refusals")}
-    summary.update(backlog_per_worker_s=cap["backlog"]["per_worker_seconds"],
+    summary.update(held_for_publication=sorted(cap["held_for_publication"]),
+                   budget=budget,
+                   backlog_per_worker_s=cap["backlog"]["per_worker_seconds"],
                    expected_cost=cap["cost"].get("expected"),
                    wip=cap["wip"])
     if admitted or refused or already:
@@ -614,11 +725,18 @@ def after_chain_job(db, queue, job) -> int | None:
         status = s.scalar(select(Job.status).where(Job.id == job.id))
         if status in LIVE_JOB_STATUSES:
             return None                               # retrying or still running: no end
-        for other in s.scalars(select(Job).where(Job.job_type.in_(CHAIN_STAGE_JOBS),
-                                                 Job.status.in_(LIVE_JOB_STATUSES),
-                                                 Job.id != job.id)):
-            if slug is None or _job_slug(other.inputs) == slug:
-                return None                           # the chain continues
+        rest = [o.job_type for o in s.scalars(select(Job).where(
+            Job.job_type.in_(CHAIN_STAGE_JOBS), Job.status.in_(LIVE_JOB_STATUSES),
+            Job.id != job.id)) if slug is None or _job_slug(o.inputs) == slug]
+    if rest:
+        # ENG-SUPPLY-LANE: an engineering stage that ended with only publishing-lane work
+        # left, which a publication hold is holding, freed its engineering slot.
+        engineering_end = (job.job_type in ENGINEERING_STAGE_JOBS and slug is not None
+                           and not set(rest) & set(ENGINEERING_STAGE_JOBS))
+        if not engineering_end or slug not in held_for_publication(
+                db, {slug: [f"{t}#0" for t in rest]}, set()):
+            return None                               # the chain continues
+    with db.session() as s:
         if s.scalar(select(Job.id).where(Job.job_type == "supply.admit",
                                          Job.status == JobStatus.PENDING,
                                          Job.run_after <= datetime.now(timezone.utc))

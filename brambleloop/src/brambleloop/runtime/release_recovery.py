@@ -16,7 +16,7 @@ Both are answered here, deterministically and idempotently:
 
 * `retry_halted` re-enqueues the halted `gate.certify` with the same CIR, keyed on the halt
   that stopped it (`certify-after-halt:<slug>:<version>:<halt audit id>`). One retry per halt
-  episode; never while the product is still halted (the same `publication_halted` predicate
+  episode; never while the product is still halted (the same `certification_halts` predicate
   `gate.certify` applies); never once a later certify outcome is on record.
 * `seed_launch0` enqueues `cir.draft` for every Launch-0 release whose code version has no
   certified release, keyed on the design's fingerprint and the document version, so it runs
@@ -156,7 +156,10 @@ def retry_halted(ctx) -> dict:
     retried, still_halted, unreadable, already = [], [], [], []
     skipped: dict[str, str] = {}
     for r in halted_releases(ctx.db):
-        if tracker.publication_halted(r["slug"]):
+        # ENG-SUPPLY-LANE: the predicate `gate.certify` itself applies (a publication-only
+        # company-wide hold does not stop QA), so the retry is never refused by a hold the
+        # certification it re-drives would pass.
+        if tracker.certification_halts(r["slug"]):
             still_halted.append(r["artifact"])
             continue
         inputs = None

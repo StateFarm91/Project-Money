@@ -30,6 +30,10 @@ sys.path.insert(0, str(ROOT))
 
 _TMP = tempfile.mkdtemp(prefix="w4_listready_")
 os.environ["BRAMBLELOOP_ARTIFACT_DIR"] = os.path.join(_TMP, "artifacts")
+# ENG-SUPPLY-LANE: this suite pins the historical one-worker admission (WIP 2, one admission
+# per run) through the existing env override and the per-run constant; the capacity-based
+# defaults are proven in tests/test_supply_lane.py.
+os.environ["BRAMBLELOOP_SUPPLY_MAX_WIP"] = "2"
 
 from sqlalchemy import select  # noqa: E402
 
