@@ -348,11 +348,18 @@ def test_5_approval_through_the_route_covers_exactly_the_approved_hashes():
     from brambleloop.visual.image_records import ImageCandidate
 
     with db().session() as s:
-        others = [r for r in s.scalars(select(ImageCandidate).where(
-            ImageCandidate.laura_present.is_(True), ImageCandidate.run_key == g["key"]))
-            if r.sha256 and r.sha256 not in shas]
-        for r in others:
+        laura_rows = list(s.scalars(select(ImageCandidate).where(
+            ImageCandidate.laura_present.is_(True), ImageCandidate.run_key == g["key"])))
+        for r in laura_rows:
             s.expunge(r)
+    others = [r for r in laura_rows if r.sha256 and r.sha256 not in shas]
+    # and always one more: an approved frame's own record carrying bytes nobody approved
+    import copy
+
+    twin = copy.copy(next(r for r in laura_rows if r.sha256 in shas))
+    twin.sha256 = "e" * 64
+    others.append(twin)
+    assert others
     for row in others:                       # an earlier attempt's Laura bytes: not approved
         m = GP.frame_matrix(db(), row, job="LIFESTYLE", laura_expected=True)
         assert m["gates"]["laura_publication"]["status"] == "UNMEASURED", m["gates"]
