@@ -306,7 +306,12 @@ export async function render({ params, rerender }) {
   }
   const [result, bulk] = await Promise.all([api.approvals(), approveAllCard({ rerender })]);
   const data = result.data || {};
-  const cards = Array.isArray(data.cards) ? data.cards : [];
+  const all = Array.isArray(data.cards) ? data.cards : [];
+  // APPROVE-ALL-V2: only OwnerAction rows are owner approvals; gates, grant and review cards
+  // close through their own doors, folded apart and never counted.
+  const own = (c) => String((c && c.card_id) || "").startsWith("owner_action:");
+  const cards = all.filter(own);
+  const doors = all.filter((c) => !own(c));
   const s = sectionsOf(data);
   const ranked = rankDecisions(cards, data.decision_batches);
   const order = new Map(ranked.filter((d) => d.kind === "card").map((d, i) => [d.id, i]));
@@ -327,6 +332,8 @@ export async function render({ params, rerender }) {
       meta: h("p", { class: "card-meta" }, "Inbox read: ", freshness(data.generated_at || null, { stale: result.stale, fetchedAt: result.fetchedAt })) }),
     sorted.length ? sorted.map((c, i) => approvalCard(c, { stale: result.stale, rerender, open: i === 0, readAt: data.generated_at || null }))
       : card({ title: "Nothing needs your decision" }, h("p", { class: "muted" }, "No approval cards are waiting. The company keeps working on everything that is not gated.")),
+    doors.length ? h("details", null, h("summary", null, `Not owner actions: close through their own doors (${doors.length})`),
+      ...doors.map((c) => approvalCard(c, { stale: result.stale, rerender, readAt: data.generated_at || null }))) : null,
     card({ title: "Etsy policy readings" }, h("p", null, h("a", { href: "#/policy" }, "Record your reading of each Etsy policy page"))),
     releaseCard(data.release),
     adoptListingCard(),

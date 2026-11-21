@@ -447,6 +447,16 @@ def grant_stepup(db, public_id: str) -> str:
     return until.isoformat()
 
 
+def consume_stepup(db, public_id: str) -> None:
+    """APPROVE-ALL-V2: a bulk press spends its step-up; the next press needs a fresh one."""
+    if not public_id:
+        return
+    with db.session() as s:
+        row = s.scalar(select(OwnerSession).where(OwnerSession.public_id == public_id))
+        if row is not None:
+            row.stepup_until = _now()
+
+
 def failed_stepup(db, public_id: str) -> bool:
     """Count a failed step-up; returns True when the session was revoked for it."""
     with db.session() as s:

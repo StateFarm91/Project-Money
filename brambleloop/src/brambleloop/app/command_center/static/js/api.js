@@ -59,6 +59,7 @@ export const ENDPOINTS = {
   daily: () => `${API_BASE}/daily`,
   mission: () => `${API_BASE}/mission`,
   approveAll: () => `${API_BASE}/approve-all`,
+  approveEverything: () => `${API_BASE}/approve-everything`,
   demand: () => `${API_BASE}/demand`,
   // ENG-CATALOGUE: the full catalogue (paged, filtered) and the per-department evidence.
   catalogue: (p = {}) => `${API_BASE}/catalogue${q({ q: p.q, stage: p.stage, category: p.category, held: p.held, page: p.page, page_size: p.page_size })}`,
@@ -316,6 +317,8 @@ export const api = {
   mission: () => get(ENDPOINTS.mission()),
   approveAllPreview: () => get(ENDPOINTS.approveAll()),
   approveAll: (digest) => post(ENDPOINTS.approveAll(), { expected_digest: digest }),
+  approveEverythingPreview: () => get(ENDPOINTS.approveEverything()),
+  approveEverything: (digest) => post(ENDPOINTS.approveEverything(), { expected_digest: digest, confirm: true }),
   demand: () => get(ENDPOINTS.demand()),
   catalogue: (p) => get(ENDPOINTS.catalogue(p)),
   operatingEvidence: () => get(ENDPOINTS.operatingEvidence()),

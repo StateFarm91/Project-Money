@@ -70,7 +70,6 @@ button, input, textarea, select { font: inherit; color: inherit; }
   background: var(--accent); color: var(--accent-ink); border: 0; border-radius: var(--radius-sm); }
 .skip:focus { top: 8px; }
 
-/* ---- top bar ---- */
 .topbar {
   position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 8px;
   padding: calc(8px + env(safe-area-inset-top)) var(--gutter) 8px; background: var(--surface);
@@ -86,13 +85,11 @@ button, input, textarea, select { font: inherit; color: inherit; }
   border: 1px solid var(--border); background: var(--surface-2); color: var(--text); cursor: pointer; }
 .net-off { font-size: 12px; font-weight: 700; color: var(--warn); background: var(--warn-bg); padding: 4px 8px; border-radius: 999px; }
 
-/* ---- layout ---- */
 .layout { display: block; }
 .main { padding: var(--gutter); max-width: 1080px; margin: 0 auto; outline: none; display: grid; gap: 14px; }
 .main > * { min-width: 0; }
 .sidenav { display: none; }
 
-/* ---- bottom tab bar ---- */
 .tabbar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
   background: var(--surface); border-top: 1px solid var(--border);
@@ -118,14 +115,8 @@ body.is-signed-out { padding-bottom: 0; }
   .main { padding: 24px; }
 }
 
-/* ---- cards ---- */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); min-width: 0; }
-/* W4-CCGAP: a long unbroken token in card text (a repo path such as
-   research/final_build/w4/tester_kit/OUTREACH.md in an approval proposal) pushed the Approvals
-   page to 413px on a 390px phone. Long tokens wrap inside every card instead. */
 .card { overflow-wrap: break-word; }
-/* A long token in a card title (e.g. `commerce.shop_package.policies()`) sits in the flex
-   card-head beside the status pill; let the title shrink and break so the pill stays on screen. */
 .card-head > :first-child { min-width: 0; }
 .card-title { overflow-wrap: anywhere; }
 .card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
@@ -140,7 +131,6 @@ body.is-signed-out { padding-bottom: 0; }
 .hero .sources summary, .hero .sources-none { color: #E6DCC4; }
 .section-title { font: 700 12px/1.2 var(--font); letter-spacing: .1em; text-transform: uppercase; color: var(--text-2); margin: 10px 2px 0; }
 
-/* ---- tiles ---- */
 .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 @media (min-width: 640px) { .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .tile { position: relative; display: block; padding: 12px; border-radius: var(--radius-sm); background: var(--surface-2); border: 1px solid var(--border); color: var(--text); text-decoration: none; min-height: 88px; min-width: 0; }
@@ -152,7 +142,6 @@ body.is-signed-out { padding-bottom: 0; }
 .tile-reason { color: var(--text-2); font-size: 12px; }
 .tile-chev, .row-chev { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: var(--text-2); }
 
-/* ---- pills / tags ---- */
 .pill { display: inline-flex; align-items: center; min-height: 24px; padding: 2px 10px; border-radius: 999px; font: 700 12px/1.2 var(--font); letter-spacing: .03em; white-space: nowrap; }
 .pill-ok { color: var(--ok); background: var(--ok-bg); }
 .pill-warn { color: var(--warn); background: var(--warn-bg); }
@@ -165,7 +154,6 @@ body.is-signed-out { padding-bottom: 0; }
 .fresh { font-size: 13px; color: var(--text-2); }
 .fresh-stale strong { color: var(--warn); }
 
-/* ---- rows ---- */
 .rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
 .row { border-top: 1px solid var(--border); padding: 12px 0; position: relative; min-width: 0; }
 .row:first-child { border-top: 0; padding-top: 4px; }
@@ -181,7 +169,6 @@ body.is-signed-out { padding-bottom: 0; }
 .fact dt { font-size: 12px; color: var(--text-2); }
 .fact dd { margin: 0; font-size: 14px; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 
-/* ---- sources ---- */
 .sources { margin-top: 10px; font-size: 14px; }
 .sources summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; color: var(--text-2); font-weight: 600; }
 .sources ul { margin: 0; padding-left: 18px; }
@@ -189,7 +176,6 @@ body.is-signed-out { padding-bottom: 0; }
 .sources li a { display: inline-block; min-height: 32px; padding: 4px 0; }
 .sources-none { color: var(--warn); }
 
-/* ---- callouts / banners ---- */
 .callout { padding: 10px 12px; border-radius: var(--radius-sm); font-size: 14px; margin: 8px 0; }
 .callout-warn { background: var(--warn-bg); color: var(--warn); }
 .callout-bad { background: var(--bad-bg); color: var(--bad); }
@@ -197,7 +183,6 @@ body.is-signed-out { padding-bottom: 0; }
 .banner { padding: 10px 12px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; margin: 0; }
 .banner-stale { background: var(--warn-bg); color: var(--warn); border: 1px dashed currentColor; }
 
-/* ---- buttons / forms ---- */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--tap); min-width: var(--tap); padding: 0 16px;
   border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font-weight: 650; cursor: pointer; text-decoration: none; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
@@ -217,11 +202,9 @@ textarea { resize: vertical; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 0; }
 .chip { min-height: var(--tap); padding: 0 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); cursor: pointer; text-align: left; }
 
-/* ---- login ---- */
 .login { max-width: 420px; margin: 8vh auto 0; width: 100%; }
 .login-mark { width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); margin-bottom: 12px; }
 
-/* ---- approvals ---- */
 .approval .proposal { font: 600 17px/1.35 var(--font-display); margin: 4px 0 8px; }
 .kv { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; margin: 10px 0 0; }
 @media (min-width: 560px) { .kv { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -235,39 +218,33 @@ textarea { resize: vertical; }
 .evidence ul { margin: 0; padding-left: 18px; }
 .evidence li { padding: 3px 0; overflow-wrap: anywhere; }
 
-/* ---- emergency ---- */
 .control { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-top: 1px solid var(--border); padding: 12px 0; }
 .control:first-of-type { border-top: 0; }
 .control-text { min-width: 0; }
 .control-text p { margin: 2px 0 0; font-size: 14px; color: var(--text-2); }
 .card-danger { border-color: var(--wine); }
 
-/* ---- timeline ---- */
 .tl { list-style: none; margin: 0; padding: 0 0 0 18px; border-left: 2px solid var(--border); }
 .tl li { position: relative; padding: 0 0 16px 8px; }
 .tl li::before { content: ""; position: absolute; left: -25px; top: 6px; width: 12px; height: 12px; border-radius: 50%; background: var(--surface); border: 2px solid var(--accent); }
 .tl time { font-size: 13px; color: var(--text-2); }
 
-/* ---- ask ---- */
 .answer { white-space: pre-wrap; overflow-wrap: anywhere; }
 .qa { display: grid; gap: 10px; }
 .ask-form { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
 
-/* ---- more menu ---- */
 .menu { list-style: none; margin: 0; padding: 0; }
 .menu a { display: flex; align-items: center; gap: 14px; min-height: 56px; padding: 0 4px; color: var(--text); text-decoration: none; font-weight: 600; border-top: 1px solid var(--border); }
 .menu li:first-child a { border-top: 0; }
 .menu .menu-chev { margin-left: auto; color: var(--text-2); }
 .menu .badge { position: static; }
 
-/* ---- table (drill) ---- */
 .table-wrap { overflow-x: auto; margin: 0 calc(-1 * 16px); padding: 0 16px; }
 table { border-collapse: collapse; width: 100%; font-size: 14px; }
 th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .back { display: inline-flex; align-items: center; gap: 4px; min-height: var(--tap); text-decoration: none; font-weight: 600; }
 
-/* ---- loading / toast / dialog ---- */
 .loading { display: flex; align-items: center; gap: 10px; color: var(--text-2); padding: 24px 4px; }
 .spinner { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border); border-top-color: var(--accent); animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -284,7 +261,6 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 .dlg-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
 .mono { font-family: var(--mono); font-size: 13px; overflow-wrap: anywhere; }
 
-/* ---- view layout helpers ---- */
 .stack { display: grid; gap: 14px; min-width: 0; }
 .stack > * { min-width: 0; }
 .page-meta { margin: 0 2px; }
@@ -324,7 +300,6 @@ details.card[open] > summary { margin-bottom: 8px; }
 .review > summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; flex-wrap: wrap; gap: 4px; font-weight: 650; color: var(--accent); }
 .hero a.tile { color: var(--text); }
 
-/* ---- Talk to Laura (W3 lane F) ---- */
 .laura-id { display: flex; gap: 14px; align-items: flex-start; }
 .laura-id > div { min-width: 0; }
 .laura-portrait { margin: 0; flex: 0 0 96px; display: grid; gap: 4px; }
@@ -346,7 +321,6 @@ details.card[open] > summary { margin-bottom: 8px; }
 .laura-frame img { width: 120px; height: 160px; object-fit: cover; border-radius: 12px; border: 2px dashed var(--warn); background: var(--surface-2); }
 .laura-private .ask-form input { min-width: 0; }
 
-/* ---- W4-CCUX: phone navigation, decide-first, long-page sections ---- */
 .menu-text { display: grid; gap: 2px; min-width: 0; padding: 8px 0; }
 .menu-hint { font-weight: 400; font-size: 13px; color: var(--text-2); overflow-wrap: anywhere; }
 .crumb { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: -4px 0 6px; font-size: 15px; }
@@ -383,7 +357,6 @@ details.card[open] > summary { margin-bottom: 8px; }
 .card-expand .icon { transform: rotate(90deg); }
 .card-title[tabindex="-1"]:focus { outline: none; }
 
-/* ---- W4-STOREFRONT: owner Store area on a phone ---- */
 .store-nav { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
 .store-nav .btn { flex: none; white-space: nowrap; }
 .store-nav .btn[aria-current="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
@@ -402,7 +375,6 @@ details.card[open] > summary { margin-bottom: 8px; }
 .dl-label { font-weight: 650; color: var(--accent); margin: 4px 0 8px; }
 .evidence-group > summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
 .evidence-group[open] > summary { margin-bottom: 10px; }
-/* W4-OWNERHOME: six-block owner overview on Home -- compact, phone first, evidence on demand. */
 .ov-headline { margin: 0 0 8px; font-weight: 650; overflow-wrap: anywhere; }
 .ov-rows { list-style: none; margin: 0 0 8px; padding: 0; }
 .ov-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; padding: 6px 0; border-top: 1px solid var(--border); min-width: 0; }
@@ -421,7 +393,6 @@ details.card[open] > summary { margin-bottom: 8px; }
 .home-more[open] > summary { margin-bottom: 8px; }
 .home-more > .card, .home-more > .quick { margin-bottom: 12px; }
 
-/* ---- W4-CCREL: Laura CEO briefing on a phone ---- */
 .briefing { display: grid; gap: 8px; white-space: normal; }
 .briefing-intro { margin: 0; font-weight: 600; }
 .briefing-sec { border-top: 1px solid var(--border); padding-top: 4px; }
@@ -431,7 +402,6 @@ details.card[open] > summary { margin-bottom: 8px; }
 .briefing-lines { margin: 4px 0 6px; padding-left: 18px; }
 .briefing-lines li { margin: 4px 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 .briefing-cited > summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; color: var(--text-2); font-size: 13px; font-weight: 600; }
-/* ---- W4-CCFM1: bar chart (F-652 / F-670); theme tokens, light and dark ---- */
 .chart-fig { margin: 6px 0 0; }
 .chart { display: block; width: 100%; height: 64px; }
 .chart-bar { fill: var(--accent); }
@@ -440,7 +410,6 @@ details.card[open] > summary { margin-bottom: 8px; }
 .chart-data table { width: 100%; font-size: 13px; border-collapse: collapse; }
 .chart-data td { padding: 2px 4px; border-top: 1px solid var(--border); font-variant-numeric: tabular-nums; }
 
-/* W-VISNEXT gallery approval card: the actual images, one per frame. */
 .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
 .gallery-frame { margin: 0; }
 .gallery-frame img { width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 6px; }

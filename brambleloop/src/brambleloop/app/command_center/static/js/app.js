@@ -108,7 +108,7 @@ export async function refreshChrome() {
   }
   if (ap.status === "fulfilled") {
     const cards = (ap.value.data && ap.value.data.cards) || [];
-    setBadge("approvals", cards.filter((c) => c && c.executable !== false).length);
+    setBadge("approvals", cards.filter((c) => c && c.executable !== false && String(c.card_id || "").startsWith("owner_action:")).length);
   }
   if (no.status === "fulfilled") {
     const list = (no.value.data && no.value.data.notifications) || [];

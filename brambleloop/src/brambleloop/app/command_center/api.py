@@ -353,6 +353,39 @@ def make_router(db) -> APIRouter:
                               session_public_id=auth.current_public_id(request)) from None
         return ok({"ok": True, "action": approve_all.STEP_UP_ACTION, **out})
 
+    # APPROVE-ALL-V2: "Approve everything I can decide". The preview is the exact list. The
+    # press needs the owner session, CSRF + nonce (the gate), a FRESH step-up (passphrase +
+    # TOTP; consumed by the press), the preview's digest and `confirm: true`.
+    @router.get("/approve-everything")
+    def approve_everything_preview(request: Request):
+        from . import approve_everything
+
+        return ok(approve_everything.preview(db))
+
+    @router.post("/approve-everything")
+    async def approve_everything_execute(request: Request):
+        from . import approve_everything as AE
+
+        body = await body_of(request)
+        auth.require_stepup(db, request, AE.STEP_UP_ACTION)
+        sid = auth.current_public_id(request)
+        # WS4-0a: per-release grants are signed only inside the owner-request context, set
+        # here after the session, CSRF/nonce and step-up, exactly as the single-grant route.
+        from ...core import owner_grant_keys as _ogk
+
+        try:
+            with _ogk.owner_request(sid or "owner"):
+                out = await run_in_threadpool(
+                    lambda: AE.execute(db, actor=actor(request),
+                                       expected_digest=str(body.get("expected_digest") or ""),
+                                       confirm=body.get("confirm") is True,
+                                       session_public_id=sid))
+        except AE.Refused as exc:
+            raise auth.refuse(db, request, 409, "REFUSED_BY_AUTHORITY", str(exc),
+                              kind="action", session_public_id=sid) from None
+        auth.consume_stepup(db, sid)
+        return ok({"ok": True, "action": AE.STEP_UP_ACTION, **out})
+
     # ENG-DAILY: the Daily panel -- per-day production counts and today's zero-output
     # diagnoses. Read-only, owner session, the same `/api/cc` default-deny gate.
     @router.get("/daily")

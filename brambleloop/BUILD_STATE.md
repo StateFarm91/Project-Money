@@ -1,3 +1,18 @@
+> **2026-11-21 — APPROVE-ALL-V2 on `eng/approve-all-v2` (from `claude/w6-release-19h3` 2eb0222; NOT merged, NOT
+> deployed; production unchanged, no production row read).** The owner's screenshot showed "Approve all eligible (0)"
+> over 98 open cards. New "Approve everything I can decide (N)" (`GET/POST /api/cc/approve-everything`,
+> D-APPROVE-ALL-V2). It needs the owner session, CSRF/nonce, a FRESH step-up (consumed by the press), the exact-list
+> digest and one confirm, and writes in ONE transaction:
+> - routine rows (v1);
+> - spend rows at their stated amount, inside the CA$100/month hard cap (never raised);
+> - owner decision cards with in-app doors; outside acts are listed with a "Do it at" link;
+> - per-release publication/activation grants, signed through the existing path and bound to the previewed digest;
+> - physical-sample cards closed `owner_directed_without_attestation` (D-OWNER-PUBLISH-WITH-RENDERS; never attested).
+>
+> Child safety and physical attestation are never in any bulk (mutation-tested). Non-OwnerAction cards are removed from
+> the Approvals counts and badge. New suite `test_approve_all_v2` 15/15; targeted run 20261121T111632Z-5788 (24 suites).
+> `test_first_listing_doors` and `test_w4_launchfix` fail identically on base. **UNVERIFIED** on production data;
+> `SAMPLE_PHOTO_REQUIRED` still gates publication. Report: `research/final_build/w6/review_requests/APPROVE-ALL-V2.md`.
 > **2026-11-21 — HALT-380-VERIFY on `eng/halt-380-verify` (from `claude/w6-release-19h1` 90403e5 = deployed 1bb7c4f5;
 > NOT merged, NOT deployed; production unchanged, no production row read).** Readback 08:20Z: done 199, unfinished 0,
 > no artefact completed since 2026-11-20T13:12Z, 14 retry-waiting, 12 rebuild-incomplete. Clean-slate rebuilds verify
