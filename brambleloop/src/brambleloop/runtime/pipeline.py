@@ -4074,6 +4074,7 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "marketing.ads_readiness": ("rechecked", "campaign_activated"),
     "marketing.schedule": ("pieces",),
     "mjs.seasonal_sentinel": ("incidents_opened", "queued", "reallocated"),
+    "creative.regate": ("judged",),
     "model.probe": ("ok",),
     "ops.provider_credentials": ("checked",),
     "ops.capability_probes": ("working",),

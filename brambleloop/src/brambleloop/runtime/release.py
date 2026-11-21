@@ -5201,6 +5201,26 @@ def handle_intel_benchmark_refresh(ctx: JobContext) -> dict:
             "raised": [r["key"] for r in result["raised"]], "held": len(result["held"])}
 
 
+@handlers.register("creative.regate")
+def handle_creative_regate(ctx: JobContext) -> dict:
+    """ENG-ADMIT-TO-BUILD: re-present concepts that waited at the pre-engineering gate on a
+    vision judgement, now that a judge may be usable (`creative.concept_judge.choose`).
+
+    Before this, `regate_held` ran only inside the daily seasonal sentinel and the weekly
+    tournament and expedition, so a concept approved after a deploy waited up to a day for
+    its judgement. Hourly, and once per deploy. A judgement goes through the same budgeted,
+    owner-activated, idempotent path as before. No usable judge means nothing is sent, and
+    the concept keeps waiting.
+    """
+    from ..creative import intake as winner_intake
+
+    regated = winner_intake.regate_held(ctx)
+    ctx.audit("creative.regate", detail={"regated": regated})
+    return {"regated": regated,
+            "judged": len((regated or {}).get("radar_judged") or []),
+            "vision_usable": bool((regated or {}).get("vision_usable"))}
+
+
 @handlers.register("mjs.seasonal_sentinel")
 def handle_mjs_seasonal_sentinel(ctx: JobContext) -> dict:
     """#311: days to preferred and latest launch for every MJs-derived opportunity.

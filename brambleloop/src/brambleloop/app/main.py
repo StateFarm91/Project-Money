@@ -448,7 +448,10 @@ def _startup() -> None:
                                # answers each pod's research, which the pool's admission needs
                                ("watchlist_compare", "market_radar", "intel.watchlist_compare"),
                                ("concept_pool", "market_radar", "radar.concept_pool"),
-                               ("concept_intake", "market_radar", "radar.concept_intake")):
+                               ("concept_intake", "market_radar", "radar.concept_intake"),
+                               # ENG-ADMIT-TO-BUILD: then re-gate concepts waiting on a
+                               # vision judgement, so a judge fix does not wait an hour
+                               ("creative_regate", "market_radar", "creative.regate")):
         try:
             _boot_enqueue(_name, when=True, agent=_agent, job_type=_jt,
                           key=f"boot-{_name}-{build_identity().get('commit', '') or 'dev'}")

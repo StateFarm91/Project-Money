@@ -864,6 +864,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     ("mjs_benchmark_health", "market_radar", "intel.benchmark_health", 24 * 60 * 60),
     ("mjs_pod_learning", "market_radar", "intel.pod_learning", 24 * 60 * 60),
     ("mjs_seasonal_sentinel", "market_radar", "mjs.seasonal_sentinel", 24 * 60 * 60),
+    # ENG-ADMIT-TO-BUILD: concepts waiting at the pre-engineering gate on a vision judgement
+    # are re-presented hourly, not only by the daily sentinel.
+    ("creative_regate", "market_radar", "creative.regate", 60 * 60),
     # C-60 (#219, #268): other category leaders join the elite panel from the API index.
     ("panel_discovery", "market_radar", "intel.panel_discovery", 7 * 24 * 60 * 60),
     # C-60 (#165): benchmark refresh recommendations, weekly and free.

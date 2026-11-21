@@ -202,6 +202,64 @@ def test_a_provider_error_never_passes_and_is_not_repeated():
     assert _pool_drafts(db) == []
 
 
+def _drain_jobs(db, jobs, tag: str, *, cycles: int = 1) -> None:
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime.worker import Worker
+
+    for c in range(cycles):
+        q = JobQueue(db)
+        for agent, job_type in jobs:
+            q.enqueue(agent, job_type, {"cadence": f"{tag}-{c}"},
+                      idempotency_key=f"fixture-cadence:{job_type}:{tag}-{c}", priority=0)
+        w = Worker(db, f"{tag}-{c}")
+        for _ in range(SF.MAX_JOBS_PER_CYCLE):
+            if not w.run_once():
+                break
+
+
+def test_the_hourly_regate_alone_judges_through_openai_vision_and_drafts():
+    """creative.regate (hourly and once per deploy) is enough: without the daily seasonal
+    sentinel, the concepts wait; one creative.regate pass judges them via openai-vision,
+    they pass the gate, are offered and get cir.draft."""
+    import _paid_activation as paid
+
+    from brambleloop.gateway import openai_chat
+    from brambleloop.gateway import paid_provider_gate as G
+    from brambleloop.runtime.worker import CADENCES
+
+    assert any(j == "creative.regate" and every <= 60 * 60 for _n, _a, j, every in CADENCES), \
+        "creative.regate runs at least hourly"
+    no_sentinel = tuple(j for j in SF.CADENCE_JOBS if j[1] != "mjs.seasonal_sentinel")
+    transport = _OpenAITransport()
+    orig_open = NPF._open_vision
+    NPF._open_vision = lambda db: paid.activate(db, G.OPENAI_VISION, G.VISION,
+                                                daily=2.0, monthly=10.0, per_gallery=1.0)
+    saved_post = openai_chat.OpenAIProvider._post
+    saved_key = os.environ.get(openai_chat.KEY_VAR)
+    openai_chat.OpenAIProvider._post = lambda self, body, headers, timeout: transport(
+        self, body, headers, timeout)
+    os.environ[openai_chat.KEY_VAR] = "fixture-key-not-a-secret"
+    try:
+        db = SR._pre_deploy_state()
+        _drain_jobs(db, no_sentinel, "nosentinel", cycles=3)
+        assert transport.calls == 0, "nothing judged without a regate pass"
+        assert _pool_drafts(db) == []
+        assert PE.after_admission(db, now=SF.NOW)["gate_waiting"] > 0
+        _drain_jobs(db, (("market_radar", "creative.regate"),) + no_sentinel, "regate",
+                    cycles=2)
+    finally:
+        NPF._open_vision = orig_open
+        openai_chat.OpenAIProvider._post = saved_post
+        if saved_key is None:
+            os.environ.pop(openai_chat.KEY_VAR, None)
+        else:
+            os.environ[openai_chat.KEY_VAR] = saved_key
+    assert transport.calls > 0, "creative.regate asked the openai-vision judge"
+    vis = PE.after_admission(db, now=SF.NOW)
+    assert vis["gate_passed"] > 0 and vis["offered"] > 0, vis
+    assert _pool_drafts(db), "the re-gated concepts were drafted"
+
+
 def test_privacy_counts_and_gate_keys_only():
     db = _state(vision=False)
     vis = PE.after_admission(db, now=SF.NOW)

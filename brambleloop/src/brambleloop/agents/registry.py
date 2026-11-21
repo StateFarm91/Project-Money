@@ -120,6 +120,8 @@ DEFAULT_AGENTS: list[dict] = [
                             # #206 / #226 / #311: MJs URL health, pod learning, deadlines.
                             "intel.benchmark_health", "intel.pod_learning",
                             "mjs.seasonal_sentinel",
+                            # ENG-ADMIT-TO-BUILD: the hourly pre-engineering re-gate.
+                            "creative.regate",
                             # C-60 (#219 #268): category leaders join the panel from evidence.
                             "intel.panel_discovery", "intel.benchmark_refresh",
                             # A free keyless sanctioned read, and the gallery backlog that

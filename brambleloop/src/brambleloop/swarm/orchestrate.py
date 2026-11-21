@@ -1264,6 +1264,7 @@ JOB_BANDS: dict[str, str] = {
     "ops.daily_ledger": "truth_defect",
     # #311: an MJs-derived opportunity's window closes exactly like a certified product's.
     "mjs.seasonal_sentinel": "seasonal_deadline",
+    "creative.regate": "seasonal_deadline",
     "seasonal.remerchandising": "seasonal_deadline",
     "launch.plan": "seasonal_deadline",
     "launch.readiness": "seasonal_deadline",

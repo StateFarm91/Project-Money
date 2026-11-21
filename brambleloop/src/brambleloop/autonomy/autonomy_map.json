@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-21T22:26:55.874031+00:00",
+ "generated_at": "2026-11-21T23:11:22.861161+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,8 +10,8 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 152,
-  "handlers": 185,
+  "cadences": 153,
+  "handlers": 186,
   "agents": 35,
   "follow_on_edges": 101
  },
@@ -583,6 +583,7 @@
     "creative_director",
     "crochet_engineer",
     "listing",
+    "market_radar",
     "orchestrator"
    ],
    "charter_agents": [
@@ -688,6 +689,12 @@
       "period_seconds": 86400
      },
      {
+      "name": "creative_regate",
+      "agent": "market_radar",
+      "job_type": "creative.regate",
+      "period_seconds": 3600
+     },
+     {
       "name": "benchmark_memory",
       "agent": "creative_director",
       "job_type": "creative.benchmark_memory",
@@ -757,6 +764,7 @@
     ]
    },
    "cadence": [
+    3600,
     86400,
     604800,
     1209600
@@ -810,6 +818,7 @@
      "creative.outcome_learning",
      "creative.photo_principles",
      "creative.reference_reading",
+     "creative.regate",
      "creative.salvage_review",
      "creative.style_learning",
      "creative.tournament",
