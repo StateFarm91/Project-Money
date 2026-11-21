@@ -336,12 +336,12 @@ if __name__ == "__main__":
     for t in TESTS:
         try:
             t()
-            print(f"  ok   {t.__name__}")
+            print(f"OK   {t.__name__}")
         except Exception as exc:  # noqa: BLE001
             import traceback
 
             failed += 1
-            print(f"  FAIL {t.__name__}: {type(exc).__name__}: {str(exc)[:1500]}")
+            print(f"FAIL {t.__name__}: {type(exc).__name__}: {str(exc)[:1500]}")
             traceback.print_exc(limit=4)
     print(f"{len(TESTS) - failed} passed, {failed} failed")
     sys.exit(1 if failed else 0)

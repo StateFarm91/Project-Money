@@ -45,6 +45,17 @@
 > `test_concepts100` (2 tests): failing identically on base `claude/batch19-fixers` (pre-existing; NOT fixed here).
 > `test_eng_demand_supply`: failing on base (cosy-round-bear held by `outline_round`, fixed here), then hit a harness
 > DuplicateJob (`_run` keyed by id(inputs)), fixed in the test; re-run alone: 0 failed. Contracts suites pass.
+> **2026-11-21 — LEARN-PROOF-2 on `eng/learn-proof-2` (from `claude/batch19c-etsy` c5d6df2; NOT merged, NOT deployed;
+> no lesson applied in production).** All 14 benchmark lessons now switch on a deterministic hook (was 6): HC-L1 effective
+> vs strike price (`intel/serp.capture`), HC-L2 cosy-farm concept cluster + MM-L1 chenille trait (radar, cap +0.06), HC-L3
+> no photo-of-the-making claims (SEO, blocking), HC-L4 component-grouped amigurumi instructions (PDF rule), HC-L6 upload
+> refuses a link page / non-PDF / truncated / hash mismatch (`EtsyClient._attach_file`), HC-L7 front-load (soft), MM-L2
+> "Joining as you go" appendix entry + rule, MM-L3 chenille yarn class with shedding/care note, MM-L5 toy scale frame held in
+> a hand (campaign brief), MM-L7 tension guidance rule. Readback: every department wired; applied is UNKNOWN until its hook
+> ran. OPEN: MM-L2 compiler/twin/reverse validation of joined counts; HC-L1 changes nothing when the payload has no sale
+> price. Targeted run 20261121T023222Z-3239 on 55f4e9c (33 suites incl. test_learn_proof, test_vacuity, PDF, SEO, Etsy,
+> SERP, gallery, readback): 601 passing, 0 failing. Full suite not run. Decision D-LEARN-PROOF-2. Report:
+> `research/final_build/w6/review_requests/LEARN-PROOF-2.md`.
 > **2026-11-21 — LEARN-PROOF on `eng/learn-proof` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT deployed;
 > production unchanged).** Both benchmark teardowns' department lessons (HC-L1..7, MM-L1..7) are now 14 structured records
 > (department, lesson class, effect hook) in the learning store (`learning_derived_lessons`, loop `benchmark`), ingested
