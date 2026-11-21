@@ -3729,3 +3729,17 @@ mutants (including `|| true` and `pull_request_target`) are killed.
 - `child_safety` joins `certificate.CANONICAL_STAGES` as a conditional stage, because the chain runs it.
   `commerce.lanes.applicable_gates` owes it when `child_safety.applies`, and an unread profile with a closed form owes it
   (fail closed).
+## D-LEARN-PROOF — benchmark lessons are stored records read by decision hooks (LEARN-PROOF, 2026-11-21)
+- The 14 teardown lessons are code records (`learning.benchmark_lessons.LESSONS`), paraphrased and never competitor
+  wording, ingested into `learning_derived_lessons`. Their evidence is the sha256 of each lessons section, pinned in code
+  because the production image has no `research/`. A checkout whose teardown drifted refuses ingestion.
+- Hooks are bounded and never relax a gate. Ranking: +0.02/trait, cap 0.04, amigurumi only. PDF and SEO: extra
+  requirements. QA: a classification only.
+- Pure hooks (PDF standard, SEO) read a per-process snapshot that the worker refreshes before each job and flushes after.
+  An explicit `lessons=` argument overrides the snapshot.
+- Low-sew is decided from the certified CIR's seams. no-sew means 0 sewn seams (whipstitch/mattress/sew); low-sew means
+  <= 1.
+- Readback shows applied per department only when measured; otherwise UNKNOWN, with the reason.
+- Both PDF layouts now print the eye-options panel (amigurumi) and the chunky/chenille hook range, so the learned
+  standard does not refuse what production builds. The bytes of those documents change from this commit.
+- Reversible by decision.

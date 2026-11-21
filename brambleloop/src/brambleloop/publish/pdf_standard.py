@@ -183,6 +183,9 @@ class Context:
     childrens: bool
     colourwork: bool
     multi_size: bool
+    # LEARN-PROOF: the benchmark-lesson effects switched on for this audit
+    # (`learning.benchmark_lessons`); each adds a rule in LESSON_RULES. Empty = the base standard.
+    lessons: frozenset = frozenset()
 
 
 @dataclass(frozen=True)
@@ -250,6 +253,7 @@ TEMPLATE_EQUIVALENTS: dict[str, tuple[str, ...]] = {
     "BRAMBLELOOP ·": ("BRAMBLELOOP CROCHET PATTERNS",),
     "About Brambleloop Studio": ("A little about Brambleloop",),
     "Safety notes for a children's item": ("SAFETY / AGE / USE NOTES",),
+    "EYE OPTIONS": ("Eye options",),
 }
 
 
@@ -556,19 +560,143 @@ RULES: tuple[Rule, ...] = (
 RULE_IDS: tuple[str, ...] = tuple(r.id for r in RULES) + ("running_header_footer",)
 
 
+# ---- rules a stored benchmark lesson adds (LEARN-PROOF) -------------------------------------
+
+EYE_OPTIONS_HEADING = "EYE OPTIONS"
+CHUNKY_HOOK_STEP_MM = 1.0       # how far below the stated hook a chunky/chenille maker may go
+
+
+def chunky_yarn(cir) -> str | None:
+    """'chenille' when the yarn is chenille, 'chunky' for CYC 5 and heavier, else None."""
+    names = [m.name for m in cir.materials] + [m.yarn_weight or "" for m in cir.materials]
+    if cir.gauge is not None:
+        names.append(cir.gauge.yarn_weight or "")
+    if any("chenille" in (n or "").lower() for n in names):
+        return "chenille"
+    w = cyc_weight(cir)
+    return "chunky" if w is not None and w.number >= 5 else None
+
+
+def chunky_hook_range(mm: float) -> tuple[float, float]:
+    """The stated hook and the standard sizes up to CHUNKY_HOOK_STEP_MM below it. Never above:
+    the gauge is measured at the stated hook, and chunky fabric fails by being too loose."""
+    lower = [h for h in sorted(US_HOOKS) if mm - CHUNKY_HOOK_STEP_MM - 1e-9 <= h < mm]
+    return (min(lower) if lower else float(mm), float(mm))
+
+
+def hook_range_for(cir) -> tuple[float, float]:
+    """A toy keeps the amigurumi range (`pdf_template.hook_range`, 0.5 mm below: stuffed
+    fabric is worked firm); anything else chunky gets `chunky_hook_range`."""
+    if family_of(cir) == AMIGURUMI:
+        from .pdf_template import hook_range as toy_range
+
+        return toy_range(cir.gauge.hook_mm)
+    return chunky_hook_range(cir.gauge.hook_mm)
+
+
+def chunky_hook_range_text(cir) -> str | None:
+    """'<range>. <tension guidance>' for a chunky or chenille CIR with a hook; else None."""
+    kind = chunky_yarn(cir)
+    if kind is None or cir.gauge is None or not cir.gauge.hook_mm:
+        return None
+    lo, hi = hook_range_for(cir)
+    span = (f"{hook_words(hi)} only" if lo == hi else f"{hook_words(lo)} to {hook_words(hi)}")
+    yarn = "Chenille" if kind == "chenille" else "Chunky yarn"
+    return (f"{span}. {yarn} makes a soft, stretchy fabric that is easily worked too loose: "
+            f"work tighter than feels natural, and if your swatch is larger than the gauge, go "
+            f"down within this range and swatch again.")
+
+
+def eye_option_lines(cir) -> list[str] | None:
+    """Embroidered or safety eyes, from the CIR's own materials and the head's rounds; None
+    when the CIR has no head (or single piece) worked in counted rounds to place eyes on.
+
+    Safety eyes are offered only when the certified materials list them; they are a small
+    part, so an embroidered face is the only option for a child under 3. Shared by both
+    layouts (`publish.pdf`, `publish.pdf_template`)."""
+    def rounds(comp):
+        return [r for r in comp.rows if r.declared_count]
+
+    head = next((c for c in cir.components if "head" in c.name.lower()), None)
+    if head is None and len(cir.components) == 1:
+        head = cir.components[0]
+    if head is None or not rounds(head):
+        return None
+    rows = rounds(head)
+    widest = max(r.declared_count for r in rows)
+    at = [r.index for r in rows if r.declared_count == widest]
+    floss = next((m for m in cir.materials if "floss" in m.name.lower()
+                  or "embroider" in m.name.lower()), None)
+    out = [f"Embroidered eyes (as written): with "
+           f"{floss.name if floss else 'embroidery thread'}, work a few straight stitches "
+           f"over one stitch for each eye, between rounds {at[0]} and {at[-1]} of the "
+           f"{head.name.replace('_', ' ')} (its widest rounds), before the piece is "
+           f"closed, and knot the ends inside. Nothing can be pulled off, so this is the "
+           f"option for any child, and the only one for a child under 3."]
+    safety = [m for m in cir.materials if "safety eye" in m.name.lower()]
+    if safety:
+        out.append(f"Safety eyes: {safety[0].name}. Fit the washer before the piece is "
+                   f"closed. Safety eyes are a small part: never use them on a toy for a "
+                   f"child under 3.")
+    else:
+        out.append("Safety eyes are not part of this pattern: they are a small part, and "
+                   "the materials, safety notes and age guidance here are for the "
+                   "embroidered face only.")
+    return out
+
+
+def _eye_options(text, ctx):
+    out = _has(text, EYE_OPTIONS_HEADING, "Embroidered eyes", "Safety eyes")
+    if not re.search(r"under 3\b|under three\b|under 36 months", text):
+        out.append("the eye options give no age guidance (under 3)")
+    return out
+
+
+def _hook_range(text, ctx):
+    out = []
+    if not re.search(r"\bhook range\b", text, re.I):
+        out.append("no hook-size range for chunky or chenille yarn")
+    lo, hi = hook_range_for(ctx.cir)
+    for mm in sorted({lo, hi}):
+        if f"{mm:g} mm" not in text:
+            out.append(f"the hook range does not name {mm:g} mm")
+    return out
+
+
+LESSON_RULES: tuple[Rule, ...] = (
+    Rule("eye_options_age", "Eye options (embroidered and safety) with age guidance "
+         "[benchmark MM-L4, HC-L5]", (AMIGURUMI,), _eye_options,
+         lambda ctx: "pdf_eye_options_age" in ctx.lessons),
+    Rule("hook_range_chunky", "A hook-size range for chunky or chenille yarn "
+         "[benchmark MM-L3]", (), _hook_range,
+         lambda ctx: "pdf_hook_range_chunky" in ctx.lessons and chunky_yarn(ctx.cir) is not None
+         and ctx.cir.gauge is not None and bool(ctx.cir.gauge.hook_mm)),
+)
+LESSON_RULE_EFFECT = {"eye_options_age": "pdf_eye_options_age",
+                      "hook_range_chunky": "pdf_hook_range_chunky"}
+
+
 def colourwork(twin) -> bool:
     """More than one colour in the fabric."""
     return len(getattr(twin, "yarn_metres_by_color", {}) or {}) > 1
 
 
-def context(cir, twin, result, terminology: str, *, childrens: bool | None = None) -> Context:
+def context(cir, twin, result, terminology: str, *, childrens: bool | None = None,
+            lessons=None) -> Context:
+    """`lessons`: the benchmark-lesson effects to apply; None reads the ones this process
+    loaded from the learning store (`learning.benchmark_lessons.active_effects`)."""
     from .pdf import childrens_assignment
 
+    if lessons is None:
+        from ..learning import benchmark_lessons
+
+        lessons = benchmark_lessons.pdf_lessons()
     fam = family_of(cir)
     kids = (childrens_assignment(cir) is not None) if childrens is None else childrens
     return Context(cir=cir, twin=twin, result=result, terminology=terminology.upper(),
                    family=fam, childrens=kids, colourwork=colourwork(twin),
-                   multi_size=cir.grading is not None and len(cir.grading.sizes) > 1)
+                   multi_size=cir.grading is not None and len(cir.grading.sizes) > 1,
+                   lessons=frozenset(lessons))
 
 
 def pages_text(pdf_bytes: bytes) -> list[str]:
@@ -601,6 +729,20 @@ def audit_text(text: str, ctx: Context, pages: list[str] | None = None) -> Audit
         found = rule.check(text, ctx)
         if found:
             a.failures[rule.id] = found
+    if ctx.lessons:
+        added = []
+        for rule in LESSON_RULES:
+            if not rule.required_for(ctx):
+                continue
+            a.required.append(rule.id)
+            added.append(LESSON_RULE_EFFECT[rule.id])
+            found = rule.check(text, ctx)
+            if found:
+                a.failures[rule.id] = found
+        from ..learning import benchmark_lessons
+
+        benchmark_lessons.note_pdf(added, f"pdf:{ctx.cir.slug}@{ctx.cir.version}:"
+                                          f"{ctx.terminology}", ctx.lessons)
     if pages is not None:
         a.required.append("running_header_footer")
         hf = header_footer_failures(pages, ctx.cir)

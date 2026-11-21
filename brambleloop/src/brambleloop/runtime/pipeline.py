@@ -338,6 +338,18 @@ def handle_radar_scan(ctx: JobContext) -> dict:
     from ..improve import consume as _consume
 
     nudges = _consume.rank_adjustments(ctx.db, [x.seed for x in steered])
+    # LEARN-PROOF: benchmark lesson MM-L1 (low-sew, character-named amigurumi rank first),
+    # a bounded +0.02 per trait (cap +0.04), recorded as applied for every concept it moved.
+    # No stored lesson, no nudge.
+    bench_moved: dict[str, float] = {}
+    try:
+        from ..learning import benchmark_lessons as _bench
+
+        bench_moved = _bench.concept_rank_adjustments(ctx.db, [x.seed for x in steered])
+        for _slug, _d in bench_moved.items():
+            nudges[_slug] = round(nudges.get(_slug, 0.0) + _d, 4)
+    except Exception:  # noqa: BLE001 - an unreadable lesson store ranks as before
+        bench_moved = {}
     steered = [_replace(x, score=round(x.score + nudges.get(x.seed.slug, 0.0), 4))
                if nudges.get(x.seed.slug) else x for x in steered]
     # ENG-RECOVERY (prod 2026-11-19: original_product 0/0/0 for 7 days with 18 undrafted
@@ -393,6 +405,7 @@ def handle_radar_scan(ctx: JobContext) -> dict:
         selection_pool = "full_pool"
 
     ctx.audit("radar.scanned", detail={
+        "benchmark_lesson_nudges": dict(sorted(bench_moved.items())),
         # L1: the full section-33 pool, and the sub-pool the selection was made from
         "pool": len(steered),
         "selection_pool": selection_pool,

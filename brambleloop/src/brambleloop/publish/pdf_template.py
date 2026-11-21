@@ -1152,37 +1152,13 @@ class _Facts:
                 f"within this range and check the gauge again.")
 
     def eye_options(self) -> list[str]:
-        """Embroidered or safety eyes, from the CIR's own materials and the head's rounds.
-
-        Safety eyes are offered only when the certified materials list them; they are a
-        small part, so an embroidered face is the only option for a child under 3."""
-        mats = [m.name.lower() for m in self.cir.materials]
-        head = next((c for c in self.cir.components if "head" in c.name.lower()), None)
-        if head is None and len(self.cir.components) == 1:
-            head = self.cir.components[0]
-        if head is None or not _round_rows(head):
+        """Embroidered or safety eyes (`pdf_standard.eye_option_lines`, shared with the engine
+        layout). Safety eyes are offered only when the certified materials list them; they
+        are a small part, so an embroidered face is the only option for a child under 3."""
+        out = P._std.eye_option_lines(self.cir)
+        if out is None:
             self.block("an amigurumi pattern needs a head (or single piece) to place eyes on",
                        "notes")
-        rows = _round_rows(head)
-        widest = max(r.declared_count for r in rows)
-        at = [r.index for r in rows if r.declared_count == widest]
-        floss = next((m for m in self.cir.materials if "floss" in m.name.lower()
-                      or "embroider" in m.name.lower()), None)
-        out = [f"Embroidered eyes (as written): with "
-               f"{floss.name if floss else 'embroidery thread'}, work a few straight stitches "
-               f"over one stitch for each eye, between rounds {at[0]} and {at[-1]} of the "
-               f"{head.name.replace('_', ' ')} (its widest rounds), before the piece is "
-               f"closed, and knot the ends inside. Nothing can be pulled off, so this is the "
-               f"option for any child, and the only one for a child under 3."]
-        safety = [m for m in self.cir.materials if "safety eye" in m.name.lower()]
-        if safety:
-            out.append(f"Safety eyes: {safety[0].name}. Fit the washer before the piece is "
-                       f"closed. Safety eyes are a small part: never use them on a toy for a "
-                       f"child under 3.")
-        else:
-            out.append("Safety eyes are not part of this pattern: they are a small part, and "
-                       "the materials, safety notes and age guidance here are for the "
-                       "embroidered face only.")
         return out
 
     def assembly_lines(self) -> list[str]:
@@ -1437,6 +1413,9 @@ def _tools(t: _T, f: _Facts) -> None:
     hooks = [f"{hook_label(cir.gauge.hook_mm)}, {P._std.HOOK_GAUGE_PHRASE}."]
     if f.family == AMIGURUMI:
         hooks.append(f.hook_range_line())
+    elif P._std.chunky_hook_range_text(cir):
+        # LEARN-PROOF (benchmark MM-L3): chunky and chenille fabric is easily worked too loose.
+        hooks.append("Hook range: " + P._std.chunky_hook_range_text(cir))
     instructed = "\n".join([f.text] + [abbreviations.method(code, f.terminology)
                                        for code in sorted(twin.stitch_types_used)])
     notions = [f"{n.capitalize()}: {w}." for n, w in P._tools_required(cir, instructed)]

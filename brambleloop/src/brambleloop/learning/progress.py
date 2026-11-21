@@ -149,4 +149,19 @@ def readback(db, *, now: datetime | None = None) -> dict:
         "commerce": {"status": s["commerce"]["status"],
                      "real_orders": s["commerce"]["real_orders"],
                      "active_lessons": s["commerce"]["lessons"]["active"]},
+        # LEARN-PROOF: benchmark teardown lessons applied per department; UNKNOWN, never 0,
+        # where it was not measured (`benchmark_lessons.readback`).
+        "benchmark_lessons": _benchmark(db),
     }
+
+
+def _benchmark(db) -> dict:
+    from . import benchmark_lessons
+
+    try:
+        return benchmark_lessons.readback(db)
+    except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN
+        return {"readable": False, "error_class": type(exc).__name__[:80],
+                "ingested": benchmark_lessons.UNKNOWN, "departments": {
+                    d: {"applied": benchmark_lessons.UNKNOWN, "why": "readback failed"}
+                    for d in benchmark_lessons.DEPARTMENTS}}

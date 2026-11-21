@@ -349,6 +349,15 @@ def mine(db, *, now: datetime | None = None, fixture_dir: Path | None = None) ->
 
     fixtures = _capture_regressions(db, read, fixture_dir=fixture_dir)
 
+    # LEARN-PROOF (benchmark lesson MM-L7): QA tags each defect that reads as a tension or
+    # missing-gauge complaint with the lesson class `missing_gauge->tension_complaints`.
+    try:
+        from ..learning import benchmark_lessons
+
+        lesson_classes = benchmark_lessons.qa_classify(db, read)
+    except Exception as exc:  # noqa: BLE001 - classification never stops the mine
+        lesson_classes = {"active": False, "error_class": type(exc).__name__}
+
     # The creative jury is a failure source too: every concept it killed died of something,
     # and the Creativity Director keeps each recorded run's causes as a lesson (#85).
     from ..creative.audit import creativity_director
@@ -377,6 +386,7 @@ def mine(db, *, now: datetime | None = None, fixture_dir: Path | None = None) ->
         "published": published, "reused": reused,
         "superseded": superseded,
         "regression_fixtures": fixtures,
+        "lesson_classes": lesson_classes,
         "note": (f"read {total_read} failure row(s) in {len(groups)} group(s); "
                  f"{len(published)} new lesson(s), {len(reused)} already on the bus"),
     }
