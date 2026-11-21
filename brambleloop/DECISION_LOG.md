@@ -4103,3 +4103,7 @@ Reversible: closed rows can be reopened (lifecycle), and grants are revocable un
 - **Scale anchor added.** `"adult head, chin to crown": 22.0` cm in `visual.scale.ANCHORS`. This is a stated anthropometric assumption, so that a frame of a person holding the product can be measured. The scale prompt now also asks for `setting` (plain or scene).
 - **Records.** Owner candidates use run key `<release run>#owner`, so they never enter a generated run's selection. The CIR anchor is still read from the release's generated-gallery run. Slots come from `shot_plans.FLUX_SLOTS`. A second frame for a slot must be marked `alternate`: it is judged but not placed.
 - **Tests.** `tests/test_owner_gallery.py`. Report: `w6/review_requests/OWNER-GALLERY.md`.
+
+## D-OWNER-DEPLOY-19h5 — 2026-11-21T13:06:32Z
+
+Batch 19h5 (code 29a426996) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 17f17c200593d0f044f257af9dd9bec668d48184 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
