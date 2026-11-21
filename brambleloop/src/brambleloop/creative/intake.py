@@ -1227,11 +1227,13 @@ def judge_radar_waiting(ctx, *, today: date | None = None, provider=None,
     from ..core.models import Job
     from ..gateway import providers as gw
     from ..radar import intake as radar_intake
+    from . import toy_board
 
     today = today or date.today()
     vision_ok = gw.vision_usable(ctx.db) if vision_ok is None else vision_ok
     judged_now, held = [], []
     asked_n = 0
+    renders_n = 0
     for row in radar_intake.approved_rows(ctx.db):
         slug = row.slug
         with ctx.db.session() as s:
@@ -1254,6 +1256,22 @@ def judge_radar_waiting(ctx, *, today: date | None = None, provider=None,
         if not board or not board_digest_for(ctx.db, slug):
             filed = file_radar_board(ctx.db, slug)
             board = filed["board"]
+            if not board and toy_board.toy_concept(ctx.db, slug):
+                # AMIGURUMI-JUDGING: a toy has no prototype geometry, so the twin board above
+                # refuses it. If the animal engine drafts it, it gets one disclosed FLUX
+                # concept render prompted from that draft, paid once (creative.toy_board).
+                if renders_n >= toy_board.MAX_RENDERS_PER_RUN:
+                    held.append({"slug": slug, "waiting_on": [
+                        "board_image (this run's toy concept render cap is spent)"]})
+                    continue
+                toy = toy_board.render_board(ctx.db, slug, job_id=ctx.job.id, today=today)
+                renders_n += 1 if toy.get("asked") else 0
+                board = toy["board"]
+                if not board:
+                    entry = {"slug": slug, "waiting_on": [
+                        f"board_image (toy concept render: {toy['why']})"[:240]]}
+                    held.append(entry)
+                    continue
             if not board:
                 held.append({"slug": slug, "waiting_on": [
                     f"board_image (no board could be drawn: {filed['why']})"[:240]]})
