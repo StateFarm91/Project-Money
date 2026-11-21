@@ -1865,6 +1865,43 @@ def factory_visibility(db, *, now: datetime) -> dict:
         out["image_runs_by_state"] = dict(sorted(states.items()))
     except Exception as exc:  # noqa: BLE001
         out["image_runs_by_state"] = _unreadable(exc)
+    try:  # what the open stale-artefact incidents are: class, release relation, moved upstreams
+        from ..core.models import Incident, PatternVersion, Product
+        from . import artefacts as provenance
+
+        with db.session() as s:
+            sigs = [r for (r,) in s.execute(select(Incident.signature).where(
+                Incident.resolved.is_(False),
+                Incident.signature.like(f"{provenance.SENTINEL_SIGNATURE}:%")))]
+            newest = {}
+            for p in s.scalars(select(Product)):
+                pv = provenance.newest_release(s, p.id)
+                if pv is not None:
+                    newest[p.slug] = pv.version
+            current = provenance.current_from_db(s)
+            verdicts = {f"{v.artefact_class}:{v.artefact_key}": v
+                        for v in provenance.check(s, current=current)}
+        by_class, by_release, by_state, moved = Counter(), Counter(), Counter(), Counter()
+        for sig in sigs:
+            node = sig.split(":", 1)[1] if ":" in sig else sig
+            cls, _, key = node.partition(":")
+            by_class[cls] += 1
+            m = provenance._VERSIONED_KEY.match(key)
+            if m is None:
+                by_release["unversioned"] += 1
+            else:
+                nv = newest.get(m.group("slug"))
+                by_release["no_release" if nv is None else
+                           ("current" if m.group("version") == nv else "old")] += 1
+            v = verdicts.get(node)
+            by_state["no_row" if v is None else str(v.state)] += 1
+            for ref in (v.moved if v is not None else ()):
+                moved[str(ref).split(":", 1)[0][:40]] += 1
+        out["stale_incidents"] = {"open": len(sigs), "by_class": dict(by_class),
+                                  "by_release": dict(by_release), "by_state": dict(by_state),
+                                  "moved_upstreams": dict(moved.most_common(12))}
+    except Exception as exc:  # noqa: BLE001
+        out["stale_incidents"] = _unreadable(exc)
     try:  # why each parked run is not admitted: blocker sources and leading codes only
         import re as _re
 

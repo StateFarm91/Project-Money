@@ -30,6 +30,7 @@ def test_visibility_reports_jobs_activations_and_no_text():
     assert v["image_runs_by_state"] == {}, v   # readable and empty, never an error dict
     assert v["owner_etsy_exercise"] == [], v
     assert v["parked_admission"] == [], v
+    assert v["stale_incidents"]["open"] == 0 and v["stale_incidents"]["by_class"] == {}, v
     text = json.dumps(v)
     assert "inputs" not in text and "last_error" not in text
     ev = pe.evidence(db, now=NOW)
