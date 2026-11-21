@@ -152,5 +152,5 @@ if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:
         t()
-        print("ok", t.__name__)
+        print("OK  ", t.__name__)
     print(f"{len(tests)} passed")
