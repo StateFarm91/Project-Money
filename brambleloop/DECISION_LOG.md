@@ -3752,3 +3752,7 @@ Batch 19b ships with `test_product_run` **incomplete, not passed**: 3 of 36 test
 The cloud full-suite cert (cert-results/d8751850) runs product_run in full. If it fails there, the fix ships next, or production rolls back to 2f7da291.
 ## D-OWNER-DEPLOY-OVERRIDE-4 — 2026-11-20T22:26Z
 Batch 19a (D-OWNER-APPROVE-ALL alone, on top of production 511a8c63) is deployed without a full-suite certification, under the owner's exact-SHA approval. Reason: the owner deadline is end of day 2026-11-20. The changed suites pass (8 suites, 168 tests), and a rollback to a4952711 was rehearsed. The boot guard still requires a full-suite record; this override does not satisfy it.
+
+## D-OWNER-DEPLOY-19b — 2026-11-21T02:04:27Z
+
+Batch 19b (code 46748ff53) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 2f7da291f2d1d3199ccf0b93a96be5b723606aa9 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
