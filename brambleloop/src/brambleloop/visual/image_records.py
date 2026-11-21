@@ -130,7 +130,32 @@ class ImageCandidate(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
-_TABLES = (LauraOutfit.__table__, ImageProductionRun.__table__, ImageCandidate.__table__)
+class LauraGalleryApproval(Base):
+    """IMAGE-BF: the owner's per-gallery, per-frame decision on publishing Laura's frames.
+
+    One row per (gallery card, frame hash). Written only by `visual.laura_approval.decide`
+    after the owner's step-up; never inferred, never written by a sweep. `laura_publication`
+    reads PASS only for a frame hash with an `approved` row for that very gallery run."""
+
+    __tablename__ = "laura_gallery_approvals"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_key: Mapped[str] = mapped_column(String(200), index=True)
+    requirement_key: Mapped[str] = mapped_column(String(200), index=True)
+    gallery_digest: Mapped[str] = mapped_column(String(64))
+    frame_sha256: Mapped[str] = mapped_column(String(64), index=True)
+    candidate_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    role: Mapped[str] = mapped_column(String(40), default="")
+    decision: Mapped[str] = mapped_column(String(16))          # approved | rejected
+    decided_by: Mapped[str] = mapped_column(String(120))
+    step_up: Mapped[bool] = mapped_column(Boolean, default=False)
+    via: Mapped[str] = mapped_column(String(40), default="")
+    session_public_id: Mapped[str] = mapped_column(String(64), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+_TABLES = (LauraOutfit.__table__, ImageProductionRun.__table__, ImageCandidate.__table__,
+           LauraGalleryApproval.__table__)
 _ensured: set[int] = set()
 _lock = threading.Lock()
 

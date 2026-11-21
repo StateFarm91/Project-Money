@@ -322,9 +322,9 @@ def test_2_the_listing_package_is_refreshed_and_names_only_publish_time_blockers
     assert not any(b.get("source") == "certified_frames" for b in pkg["blockers"]), whys
     # the publish-time gates still block publishing (D-MAIN-IMAGE-ADMISSION)
     assert {b.get("publish_time") for b in pkg["blockers"]} & set(PUBLISH_TIME_AREAS), whys
-    # OPEN (review request finding F, not fixed here): the first-customer `imagery` area still
-    # judges the listing as the 3-frame disclosed set and FAILs on the generated certificate,
-    # so the refreshed package carries that publish blocker too. Not asserted either way.
+    # IMAGE-BF (finding F, fixed): the first-customer `imagery` area judges the certified
+    # 7-frame generated gallery as that gallery, so it no longer FAILs the refreshed package.
+    assert not any("imagery: FAIL" in w for w in whys), whys
 
 
 def test_3_the_per_gallery_and_daily_ceilings_hold():

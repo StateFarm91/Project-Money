@@ -288,7 +288,8 @@ def _row_of(db, candidate_id):
 
 
 def frame_matrix(db, row, *, job: str, laura_expected: bool,
-                 cir_references: list[str] | None = None) -> dict:
+                 cir_references: list[str] | None = None,
+                 review_only_assume_laura_approved: bool = False) -> dict:
     """Every gate for one generated frame, from its own stored record.
 
     `cir_references`: the ordered sha256 of the deterministic CIR reference renders the run
@@ -323,12 +324,22 @@ def frame_matrix(db, row, *, job: str, laura_expected: bool,
     if laura:
         from . import canonical
 
-        status = canonical.asset_status(row.sha256 or "")
+        from . import laura_approval as LA
+
+        # IMAGE-BF (finding B): the canonical registry, or the owner's step-up approval of
+        # these exact bytes for this exact gallery run. Nothing else reads as approved.
+        status = LA.publication_status(db, row.sha256 or "", row.run_key)
         ok = status == canonical.PUBLICATION_APPROVED_STATUS
+        if review_only_assume_laura_approved and not ok:
+            # Only `laura_approval.raise_card` asks this: "would the gallery be verified if
+            # the owner approved Laura?" Its result is never certified or written.
+            ok, status = True, "hypothetical: asked only to decide whether to raise the card"
         gates["laura_publication"] = {
             "status": PASS if ok else UNMEASURED, "owner": ID_AGENT,
-            "why": ("these bytes are publication_approved in the canonical registry" if ok
-                    else f"Laura's publication gate reads '{status}' for these bytes")}
+            "why": ("these bytes are publication_approved (canonical registry, or the owner's "
+                    "step-up approval for this gallery)" if ok
+                    else f"Laura's publication gate reads '{status}' for these bytes; the "
+                         f"owner approves it on this gallery's card")}
     # The route's exception, recomputed from the record (H2): honesty label, every
     # EXCEPTION_PROVENANCE field and structural truth on these exact bytes.
     cand = {"sha256": row.sha256, "role": row.role, "model": row.model,
@@ -395,7 +406,7 @@ def _next_action(db, run_key: str, frame: dict, gate: str, g: dict) -> dict:
                    f"{g['owner']}"}
 
 
-def gallery_status(db, key: str) -> dict:
+def gallery_status(db, key: str, *, review_only_assume_laura_approved: bool = False) -> dict:
     """The full gate matrix for a generated-gallery run, the set checks and every blocker
     with its reason, owning agent and next action. Read-only."""
     from . import image_production as IP
@@ -447,7 +458,8 @@ def gallery_status(db, key: str) -> dict:
                                                                     "owner": FLUX_AGENT})})
             continue
         m = frame_matrix(db, _row_of(db, best["candidate_id"]), job=slot["job"],
-                         laura_expected=slot["laura"], cir_references=cir_refs)
+                         laura_expected=slot["laura"], cir_references=cir_refs,
+                         review_only_assume_laura_approved=review_only_assume_laura_approved)
         m["position"] = slot["position"]
         frames.append(m)
         for gate, g in m["gates"].items():
@@ -485,6 +497,7 @@ def gallery_status(db, key: str) -> dict:
             "family": plan["family"], "frames": frames, "set": set_checks,
             "blockers": blockers,
             "unmeasured_is_never_pass": True,
+            "hypothetical": bool(review_only_assume_laura_approved),
             "owner_visual_approval_is_not_an_input": True}
 
 

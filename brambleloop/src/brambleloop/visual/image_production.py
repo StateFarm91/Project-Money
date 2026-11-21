@@ -1672,8 +1672,17 @@ def _certify_route(db, key: str, route: str, out: dict) -> dict:
         from . import gallery_persist
 
         got = gallery_persist.certify_gallery(db, key)
-        return {**out, "gallery_certified": bool(got.get("certified")),
-                "gallery_blockers": len(got.get("blockers") or [])}
+        res = {**out, "gallery_certified": bool(got.get("certified")),
+               "gallery_blockers": len(got.get("blockers") or [])}
+        if not got.get("certified") and got.get("status"):
+            # IMAGE-BF (finding B): a gallery verified in every respect but Laura's
+            # publication raises ONE owner card (passphrase + TOTP decision); never inferred.
+            from . import laura_approval
+
+            card = laura_approval.raise_card(db, key, st=got["status"])
+            res["laura_card"] = {k: card.get(k) for k in ("raised", "requirement_key",
+                                                           "card_id", "why")}
+        return res
     except Exception as exc:  # noqa: BLE001 - a certification error is recorded, never a pass
         return {**out, "gallery_certified": False,
                 "gallery_error": f"{type(exc).__name__}: {str(exc)[:200]}"}

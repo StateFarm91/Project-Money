@@ -125,6 +125,7 @@ def generated_frame_verdict(db, slug: str, version: str, f) -> dict:
                 "gates": {}}
     checks: dict = {}
     cand: dict = {}
+    cand_run_key = ""
     cid = (f.claims or {}).get("candidate_id")
     if cid:
         from ..visual.image_records import ImageCandidate, ensure_tables
@@ -142,6 +143,7 @@ def generated_frame_verdict(db, slug: str, version: str, f) -> dict:
                         "laura_present": bool(row.laura_present),
                         "identity_evidence": checks.get("_identity_evidence") or {},
                         "route": (checks.get("_route") or {}).get("route") or ""}
+                cand_run_key = row.run_key or ""
                 if is_gallery_route_frame(f) and cand["route"] != el.GALLERY_ROUTE:
                     # written as a gallery frame but not generated and judged under the route
                     cand["route"] = "mismatch"
@@ -178,8 +180,11 @@ def generated_frame_verdict(db, slug: str, version: str, f) -> dict:
         other = []
         if cand["laura_present"]:
             from ..visual import canonical
+            from ..visual import laura_approval
 
-            status = canonical.asset_status(f.sha256 or "")
+            # IMAGE-BF: the registry, or the owner's step-up approval of these bytes for the
+            # gallery run that made them (`visual.laura_approval`); nothing else.
+            status = laura_approval.publication_status(db, f.sha256 or "", cand_run_key)
             if status != canonical.PUBLICATION_APPROVED_STATUS:
                 other.append(f"Laura publication gate: '{status}'")
         evidence = CG.exception_evidence(cand, {k: v for k, v in checks.items()
