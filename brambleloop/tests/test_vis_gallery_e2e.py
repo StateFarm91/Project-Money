@@ -899,13 +899,13 @@ def _publication_refused_without_the_sample_photo(S) -> dict:
             assert changed == [], changed
     # READY for the private draft, never publishable while the photo is missing. Storing the
     # draft changed the Listing row, so `listing_package_fence` withdrew the reviewed package;
-    # the package is reassembled (as the hourly `listing.package` sweep does) before reading.
+    # it is reassembled with the sale pipeline's own call, under the same held gates as
+    # test_3's sale chain (`_owner_and_fake`).
     from brambleloop.publish import listing_package as LP
 
-    with laura_publication_double(db):
-        job = SH._run(db, "listing", "listing.package", {"slug": slug, "version": version})
-        assert job.status is JobStatus.DONE, job.last_error
-    sale = SPL.ready_for_sale(db, slug, version, rh)
+    with laura_publication_double(db), FakeEtsy() as fake2, SH._owner_and_fake(fake2):
+        LP.for_release(db, slug, version, expected_release=rh)
+        sale = SPL.ready_for_sale(db, slug, version, rh)
     assert sale["ready"] is True, (sale, (LP.latest(db, slug, version) or {}).get("blockers"))
     assert sale["publishable"] is False and \
         sale["publication_blockers"] == ["SAMPLE_PHOTO_REQUIRED"], sale
