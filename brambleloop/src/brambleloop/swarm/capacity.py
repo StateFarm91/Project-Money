@@ -256,6 +256,18 @@ def share_decision(db, job, *, now: datetime | None = None, exempt=("swarm.",)) 
     now = now or datetime.now(timezone.utc)
     if job.job_type.startswith(tuple(exempt)):
         return {"hold": False, "why": "the allocator's own work is never held"}
+    # HALT-380 H4: protected work (customer_incident, truth_defect -- `chain.rebuild`, the
+    # sentinel's rebuilds) is claimed before ordinary work by the claim tier (CB2-G02). The
+    # share used to count *any* waiting work as starving, so a claimed protected job was
+    # handed back every LANE_HOLD_SECONDS for ordinary work of another function -- the
+    # inversion the tier forbids. Measured: two workers, one other job running, one ordinary
+    # job waiting, and no stale product's chain.rebuild ever reached its verify pass. Now a
+    # job yields only to waiting work of its own or a higher (lower-numbered) tier: the mix
+    # still binds among ordinary work and among protected work of one tier, unchanged. The
+    # agent-lane concurrency limit (`claim_decision`) is a hard limit and is not touched.
+    from .orchestrate import claim_tier
+
+    tier = claim_tier(job.job_type)
     with db.session() as s:
         running = _live_running(list(s.scalars(select(Job).where(
             Job.status == JobStatus.RUNNING, Job.id != job.id))), now)
@@ -266,6 +278,8 @@ def share_decision(db, job, *, now: datetime | None = None, exempt=("swarm.",)) 
             s.expunge(j)
     running = [j for j in running if not j.job_type.startswith(tuple(exempt))]
     waiting = [j for j in waiting if not j.job_type.startswith(tuple(exempt))]
+    # HALT-380 H4: only work at this job's tier or above can make it yield (see above).
+    waiting = [j for j in waiting if claim_tier(j.job_type) <= tier]
     # W4-AUTONOMY: work-conserving means "something starved *can run*". A model job while the
     # model provider is measurably down is claimed only to be parked again (F-098), so it is
     # not starved work: holding a runnable job of another function for it idles a worker
