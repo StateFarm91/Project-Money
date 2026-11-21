@@ -4501,3 +4501,7 @@ The other suites keep their result from the 94dc37cad run:
 ## D-OWNER-DEPLOY-19h14 — 2026-11-21T22:21:55Z
 
 Batch 19h14 (code ab4165cf7) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 1945d90068fe7e86c8cf676ddeba6599975b8062 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-DEPLOY-19h15 — 2026-11-21T22:34:50Z
+
+Batch 19h15 (code b4847b193) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to c6a806c4984f7dd77c73f7051c445b6fd2b82610 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
