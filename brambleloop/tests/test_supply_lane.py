@@ -385,7 +385,9 @@ def test_factory_visibility_supply_counts_use_fixed_vocabulary_only():
     db, _ev = _production_state()
     v = pe.factory_visibility(db, now=datetime.now(timezone.utc))["supply"]
     assert set(v) == {"pool_generated", "pool_by_state", "pool_total", "in_flight_by_stage", "products_in_flight",
-                      "engineering", "offers_waiting", "certified_24h"}, sorted(v)
+                      "engineering", "offers_waiting", "certified_24h",
+                      # ENG-SUPPLY-FEED (tests/test_supply_feed.py pins their vocabulary)
+                      "allowance", "ready_by_pod", "ready_by_research", "last_admit"}, sorted(v)
     assert set(v["pool_by_state"]) <= set(P.STATES) | {"unrecognised"}, v["pool_by_state"]
     from brambleloop.runtime.release_recovery import CHAIN_STAGE_JOBS
 

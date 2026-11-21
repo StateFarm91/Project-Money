@@ -2110,5 +2110,67 @@ def supply_visibility(db, *, now: datetime) -> dict:
             AuditLog.action == "gate.certified", AuditLog.at >= now - timedelta(hours=24)))]
     out["certified_24h"] = {"releases": len(set(arts)),
                             "products": len({str(a or "").split("@", 1)[0] for a in arts})}
+    try:
+        out.update(_pool_admission(db, CP))
+    except Exception as exc:  # noqa: BLE001
+        out["admission"] = _unreadable(exc)
     return out
+
+
+def _pool_admission(db, CP) -> dict:
+    """ENG-SUPPLY-FEED: why READY concepts are or are not admitted, fixed vocabulary only.
+
+    * `allowance`: units, unit_cad and why (the binding bound, `per_run`, `monthly_ceiling`,
+      `pool_share`, `unit_cost_unknown` or `ledger_unreadable`) of the last admit_ready pass;
+    * `ready_by_pod`: READY concepts per pod (`intel.pods.POD_KEYS`, else `unrecognised`),
+      each with the research status of that pass (`concept_pool.RESEARCH_STATUSES`) and its
+      reason (`concept_pool.RESEARCH_WHY`); a pod READY now that the pass did not see is
+      `unknown`;
+    * `last_admit`: the last pass's counts (ready, admitted, waiting_on_research,
+      capped_by_allowance) and when it ran.
+    UNKNOWN (None) when no admit_ready pass has been recorded -- never 0."""
+    from collections import Counter
+
+    from sqlalchemy import inspect, select
+
+    from ..intel.pods import POD_KEYS
+
+    def pod_key(p):
+        return p if p in POD_KEYS else "unrecognised"
+
+    def word(v, vocab):
+        return v if v in vocab else "unrecognised"
+
+    last = CP.last_admit_result(db)
+    ready: Counter = Counter()
+    if inspect(db.engine).has_table(CP.ConceptPoolEntry.__tablename__):
+        with db.session() as s:
+            ready = Counter(pod_key(str(p)) for p in s.scalars(
+                select(CP.ConceptPoolEntry.pod).where(CP.ConceptPoolEntry.state == CP.READY)))
+    seen = {pod_key(str(k)): v for k, v in ((last or {}).get("ready_by_pod") or {}).items()}
+    by_pod = {}
+    for pod in sorted(ready):
+        e = seen.get(pod) or {}
+        by_pod[pod] = {"ready": int(ready[pod]),
+                       "research": (word(e.get("research"), CP.RESEARCH_STATUSES)
+                                    if e else "unknown"),
+                       "why": word(e.get("why"), CP.RESEARCH_WHY) if e else "unknown"}
+    research_counts = {k: sum(v["ready"] for v in by_pod.values() if v["research"] == k)
+                       for k in CP.RESEARCH_STATUSES + ("unknown",)}
+    if last is None:
+        return {"allowance": None, "ready_by_pod": by_pod,
+                "ready_by_research": research_counts, "last_admit": None}
+    al = last.get("allowance") or {}
+    binding = al.get("why")
+    return {
+        "allowance": {"units": int(al.get("units") or 0),
+                      "unit_cad": (float(al["unit_cad"]) if isinstance(
+                          al.get("unit_cad"), (int, float)) else None),
+                      "why": word(binding, CP.ALLOWANCE_BINDINGS)},
+        "ready_by_pod": by_pod,
+        "ready_by_research": research_counts,
+        "last_admit": {k: int(last.get(k) or 0) for k in (
+            "ready", "admitted", "waiting_on_research", "capped_by_allowance")}
+        | {"at": last.get("at")},
+    }
 

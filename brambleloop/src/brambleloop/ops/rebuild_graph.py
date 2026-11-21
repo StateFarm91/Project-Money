@@ -861,6 +861,11 @@ def publication_gate(db, *, slug: str, current: dict[str, str] | None = None) ->
         # eng/stale-rebuild-loop: every artefact of this product that reads FRESH now, so a
         # gate can tell a sentinel row awaiting its next sweep from a live staleness.
         "fresh": fresh,
+        # eng/halt-380-marketing: every artefact of this product the check reads RETIRED now
+        # (a superseded draft, a dropped frame). Its sentinel row, if one is open, awaits the
+        # next sweep's "retired, not stale" close exactly as a FRESH one awaits "rebuilt".
+        "retired": sorted(_node_key(v.artefact_class, v.artefact_key) for v in verdicts
+                          if v.product_slug == slug and _retired(v)),
         "changed": {ref: {"old": previous.get(ref), "new": fp}
                     for ref, fp in sorted(changed.items())},
         "rebuilt_evidence": evidence[:40],

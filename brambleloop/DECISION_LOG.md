@@ -4380,3 +4380,61 @@ tested), pre-engineering, engine-demand, family diversity, cost ceilings, every 
 ## D-OWNER-DEPLOY-19h8 — 2026-11-21T13:44:35Z
 
 Batch 19h8 (code 54cdae21d) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to a93635cebc8737fdc3cfd3a51cf3a08f98ba7789 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+## D-HALT-380-MARKETING — 2026-11-21
+Production dc10a48d readback 10:35Z: 102 of the 111 halting stale rows are `marketing_asset`, and
+94 of those were written from an older release; the other 9 are 2 products' current-release core
+rows. The readback was taken 14 minutes after HALT-380-VERIFY went live (10:21Z). The chain moved
+8 -> 9 at 19b (02:06Z), and RETRY_AFTER is 12 h, so no attempt can yet have run on that code.
+"Changed nothing" is not evidence about it. Reproduced on the real chain in production's shape (12
+products, about 9 marketing rows each, under the old chain, cir and release):
+(a) the rebuild order is already core first: one stage (`pricing.position`) writes every core row
+before `launch.plan` enqueues `marketing.schedule`. Asserted from the rows' job ids. Not changed.
+(b) an earlier plan's piece in any unpublished state other than `drafted` was never superseded, so it
+read STALE for good. Fixed: every out-of-plan piece that was never published is superseded, with
+its prior state and reason. Published content is never superseded or retired: it is listed, stays
+STALE and keeps the product halted.
+(c) a just-retired piece's open sentinel row refused the product's next marketing rebuild "halted
+(#173)" until the hourly sweep. Fixed for the marketing-rebuild flag only: a RETIRED row is waived as
+FRESH was, and with nothing outstanding the rebuild may proceed when every halting row is
+sweep-pending. Publication still reads every row.
+(d) a superseded piece back in the plan is restored to `drafted`, so later staleness is never read as
+retired.
+Rejected:
+- retiring a marketing row that no piece carries (absence proves nothing; unchanged);
+- reordering the rebuild into two phases (the real chain already orders it);
+- any change to binding, RETRY_AFTER, attempts, systemic thresholds or parking.
+Report: `w6/review_requests/HALT-380-MARKETING.md`.
+
+## D-OWNER-DEPLOY-19h9 — 2026-11-21T14:32:10Z
+
+Batch 19h9 (code d136042a9) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 94daf054e693dd8fc7b402eba7332cb286a35f81 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+## D-ENG-SUPPLY-FEED — 2026-11-21 (builder)
+**Decision.** A corroborated watchlist arena that we already sell in is demand evidence for new
+original concepts, and is linked to the same gap -> research -> answer path as an uncovered arena.
+1. `watchlist.compare` keeps `validated_arenas` / `unknown_arenas` exactly as before (uncovered
+   pods only) and adds `demand_arenas` / `demand_unknown_arenas`: the pods in `_our_pods`, judged
+   by the same `_judge_arenas` rules (fresh reads, >= 3 live listings, >= 2 shops, stale/withdrawn
+   majority = UNKNOWN), each marked `covered`.
+2. `record_comparison` gives each demand arena a `watchlist` coverage gap (`covered_by_us`), moved
+   `uncovered -> concepting` so Laura's summary, `review` and the proposal writer (all
+   `uncovered`-only) never read it as an open opportunity. Its research question is opened and
+   answered by the unchanged `watchlist_research.answer` (durability, freshness, medium
+   confidence). Findings say "an arena we already sell in"; never "uncovered".
+3. `concept_pool.research_for_pod` accepts a gap in any state but `not_pursuing` (one promoted
+   concept no longer closes the arena to the pool's other concepts), and refuses an answer that
+   expires within `FRESH_MARGIN` (2 h): intake would refuse it as expired.
+4. `radar.concept_pool` enqueues `radar.concept_intake` when it admits, so intake judges while the
+   one-day `market_radar` answer is fresh.
+5. factory_visibility.supply adds `allowance`, `ready_by_pod` (research present / absent /
+   unanswered + a fixed reason), `ready_by_research` and `last_admit`, from a
+   `concept_pool.admit_result` audit row written by every admit pass.
+**Why.** Every research task the earlier suites used was built by hand
+(`test_concepts100._answered_task`). With the real scans, `compare` dropped every pod we sell in,
+so the READY concepts the pool ranks first (cushions, wall panels, baskets, totes) had no gap and
+no question and waited forever. Not changed: the CA$100 cap, the allowance bounds, every intake,
+originality, #108, child-safety and publication gate. No research is fabricated: no
+corroboration, no answer, nothing admitted (tested).
+
+## D-OWNER-DEPLOY-19h10 — 2026-11-21T14:47:49Z
+
+Batch 19h10 (code 65b63d3cb) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to ad57efc3c91b6cb8b902b65372330fe02529f416 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.

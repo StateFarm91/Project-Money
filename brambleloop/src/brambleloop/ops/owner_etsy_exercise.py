@@ -117,12 +117,24 @@ def visibility(db) -> dict:
         return {"failed_steps": [w for w in (X._word(x) for x in c.get("failed_steps") or [])
                                  if w][:12],
                 "cleanup_outcomes": _ints(c.get("cleanup_outcomes")),
+                # ETSY-EXERCISE-FIX: every step's taxonomy outcome, failed steps' HTTP status
+                # class, and the image's shape (format word and integers only).
+                "step_outcomes": _ints(c.get("step_outcomes")),
+                "failed_status_classes": {
+                    k: v for k, v in (c.get("failed_status_classes") or {}).items()
+                    if X._word(k) and X._word(v)},
+                "image_sent": ({"format": X._word((c.get("image_sent") or {}).get("format")),
+                                **{k: int((c.get("image_sent") or {}).get(k) or 0)
+                                   for k in ("width", "height", "bytes")}}
+                               if isinstance(c.get("image_sent"), dict)
+                               and c.get("image_sent") else {}),
                 "exercise_skipped": c.get("exercise_skipped") is True,
                 "read_back_ok": c.get("read_back_ok") is True,
                 "recovery_counts": _ints(c.get("recovery_counts")),
                 "recovery_cleaned": int(c.get("recovery_cleaned") or 0),
                 **{k: int(c.get(k) or 0) for k in (
-                    "marked_drafts_in_shop", "ledger_confirmed_gone", "ledger_still_on_etsy",
+                    "marked_drafts_in_shop", "index_lag_verified_gone", "read_back_attempts",
+                    "ledger_confirmed_gone", "ledger_still_on_etsy",
                     "ledger_could_not_ask", "owner_actions")}}
 
     return {

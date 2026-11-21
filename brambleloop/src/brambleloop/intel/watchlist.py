@@ -570,8 +570,16 @@ def compare(db, *, now: datetime | None = None) -> dict:
         })
     ours = _our_pods(db)
     validated, unknown = _judge_arenas(arenas, ours)
+    # ENG-SUPPLY-FEED: an arena we already sell in is not a coverage gap, but the same fresh,
+    # corroborated observations are still demand evidence for NEW concepts there. Judged by
+    # the identical rules, kept apart from `validated_arenas` (which stays "uncovered" only).
+    demand, demand_unknown = _judge_arenas({p: e for p, e in arenas.items() if p in ours},
+                                           set())
+    for a in demand + demand_unknown:
+        a["covered"] = True
     return {"at": now.isoformat(), "shops": shops, "scope": {k: v[0] for k, v in SCOPE.items()},
             "validated_arenas": validated, "unknown_arenas": unknown,
+            "demand_arenas": demand, "demand_unknown_arenas": demand_unknown,
             "copies_competitor_content": False,
             "uncertainty": ("figures are what the official API exposed at as_of; a shop whose "
                             "observation is not ok has UNKNOWN figures, never zeros")}
@@ -702,12 +710,15 @@ def record_comparison(db, *, now: datetime | None = None) -> dict:
     _assert_no_content(rep)
     store_reading(db, COMPARE_READING, rep, now=now)
     opened, answered = [], []
-    for a in rep["validated_arenas"]:
+    for a in rep["validated_arenas"] + link_demand(rep):
         gid = coverage.upsert(db, benchmark_key=WATCHLIST_KEY, arena=f"watchlist:{a['pod']}",
                               pod=a["pod"], evidence=None)
         _merge_gap_evidence(db, gid, {"corroborated_by": a["corroborated_by"],
                                       "validated_at": now.isoformat(),
-                                      "source": COMPARE_READING})
+                                      "source": COMPARE_READING,
+                                      "covered_by_us": bool(a.get("covered"))})
+        if a.get("covered"):
+            _mark_concepting(db, gid, a["pod"])
         decided, approved_tasks = _decided_by_proposal(db, gid)
         if approved_tasks:
             # Review H3 (eng/r5-research-3): an approved concept stands only while its
@@ -729,6 +740,33 @@ def record_comparison(db, *, now: datetime | None = None) -> dict:
             answered.append(_answer_research(db, gid, task, a["pod"], now=now))
         opened.append(gid)
     return {"report": rep, "gaps": opened, "research": answered}
+
+
+def link_demand(rep: dict) -> list[dict]:
+    """ENG-SUPPLY-FEED: the corroborated arenas we already sell in, linked to the same gap ->
+    research -> answer path as an uncovered arena, so the concept pool's READY concepts in
+    those pods have answered research behind them (`concept_pool.research_for_pod`).
+
+    Before this, `compare` dropped every pod we sell in (`_our_pods`), so no gap and no
+    research question existed there, and READY pool concepts in home decor (cushions, wall
+    panels), blankets or bags waited on research forever. Only arenas the comparison
+    corroborated by its own rules are returned; nothing is inferred."""
+    return list(rep.get("demand_arenas") or [])
+
+
+def _mark_concepting(db, gap_id: int, pod: str) -> None:
+    """A covered arena's gap is never left `uncovered`: we already sell there, so it must not
+    read as an open opportunity (Laura's summary, `review`, the proposal writer all act on
+    `uncovered` gaps only). New pool concepts for it are concepting work."""
+    from ..core.models import CoverageGap
+    from . import coverage
+
+    with db.session() as s:
+        state = s.get(CoverageGap, gap_id).state
+    if state == coverage.UNCOVERED:          # a gap already past uncovered keeps its state
+        coverage.advance(db, gap_id, coverage.CONCEPTING,
+                         reason=(f"demand in the {pod} arena is corroborated by watchlist shops "
+                                 f"and we already sell in it: new original concepts only"))
 
 
 def renew_approved_support(db, *, now: datetime | None = None, gaps=None,

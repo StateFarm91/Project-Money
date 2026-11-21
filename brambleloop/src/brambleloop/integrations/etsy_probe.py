@@ -451,12 +451,24 @@ TAXONOMY: tuple[Signature, ...] = (
         match=lambda ctx: _status(ctx) == 201 or bool(ctx.get("ok"))),
 
     # -- step 3: upload the image ------------------------------------------
+    # First: a local refusal sends nothing, so status 0 is not the network.
+    Signature(
+        claim="image_minimum_acceptable", step="upload_image", outcome="image_fixture_refused",
+        settles=False,
+        we_send="nothing: the exercise image failed exercise_image_refusals before the upload",
+        signal="a local refusal naming the format, dimensions, mode or byte size",
+        means=("this system stopped an image it expected Etsy to refuse. Etsy said nothing, "
+               "so neither image claim moves"),
+        cause=OUR_BUG,
+        change=("send `exercise_image()` (a 2000x2000 RGB JPEG), or fix the image the caller "
+                "passed so it meets the rules exercise_image_refusals names"),
+        match=lambda ctx: bool(ctx.get("fixture_refused"))),
     _network_sig("multipart_image_upload", "upload_image"),
     _scope_sig("multipart_image_upload", "upload_image"),
     _auth_sig("multipart_image_upload", "upload_image"),
     Signature(
         claim="image_minimum_acceptable", step="upload_image", outcome="image_too_small",
-        we_send="a generated 1x1 PNG in a multipart part named `image`",
+        we_send="the generated exercise image in a multipart part named `image`",
         signal=("HTTP 400 or 413 naming a dimension, a pixel count, a minimum size or an "
                 "aspect ratio"),
         means=("the multipart transport worked -- Etsy read the part, found an image and "
@@ -464,13 +476,28 @@ TAXONOMY: tuple[Signature, ...] = (
                "help.etsy.com, which refuses automated readers, so this was never a reading "
                "either: it is the one thing in the run we expected to learn by being told"),
         cause=OUR_BUG,
-        change=("call `png(width, height)` with the size Etsy's message names -- the "
-                "generator already takes dimensions -- and re-run. multipart_image_upload "
+        change=("call `exercise_image(size)` (or `png(width, height)`) with the size Etsy's "
+                "message names -- both generators take dimensions -- and re-run. multipart_image_upload "
                 "stays LOCALLY_TESTED until an image is actually accepted"),
         match=lambda ctx: (_status(ctx) in (400, 413)
                            and any(w in _text(ctx) for w in
                                    ("small", "dimension", "pixel", "size", "width",
                                     "height", "ratio", "large")))),
+    Signature(
+        # Etsy's own wording (github.com/etsy/open-api/discussions/976): it gives this message
+        # both when no `image` part arrived and when the bytes in it could not be decoded, so
+        # it settles neither the part name nor the fixture.
+        claim="multipart_image_upload", step="upload_image",
+        outcome="image_not_valid_or_missing", settles=False,
+        we_send="multipart/form-data with the exercise image in a part named `image`",
+        signal="HTTP 400 'Either a valid image file or a listing_image_id must be provided.'",
+        means=("Etsy found no usable image. Either the part did not parse, or the bytes did "
+               "not decode as an image"),
+        cause=OUR_BUG,
+        change=("check this step's `image` facts (format, width, height, bytes) and the wire "
+                "test tests/test_etsy_exercise.py::test_the_upload_wire_format_is_exactly_etsys; "
+                "whichever disagrees is the fix"),
+        match=lambda ctx: _status(ctx) == 400 and "valid image" in _text(ctx)),
     Signature(
         claim="multipart_image_upload", step="upload_image", outcome="image_part_not_found",
         we_send="multipart/form-data with the binary in a part named `image`",
@@ -495,13 +522,16 @@ TAXONOMY: tuple[Signature, ...] = (
         match=lambda ctx: _status(ctx) == 415),
     Signature(
         claim="multipart_image_upload", step="upload_image", outcome="image_format_refused",
-        we_send="a PNG, declared as image/png in the part's own Content-Type",
-        signal="HTTP 400 naming the format, e.g. 'Unsupported image format'",
-        means=("Etsy reached the bytes and would not take a PNG. The transport worked and "
-               "`IMAGE_CONTENT_TYPES` offers a format Etsy does not accept for listings"),
+        we_send=("the exercise image, declared in the part's own Content-Type from its "
+                 "file extension (image/jpeg for the default fixture)"),
+        signal=("HTTP 400 naming the format, e.g. 'Unsupported image format' or "
+                "'Unrecognized file format'"),
+        means=("Etsy reached the bytes and would not decode them as the format declared. "
+               "The step's `image` facts say what Pillow read from the same bytes"),
         cause=ETSY_CONTRACT_DRIFT,
-        change=("send a JPEG instead -- `IMAGE_CONTENT_TYPES` already carries it -- and "
-                "remove PNG from that mapping so no product ever tries it"),
+        change=("if the facts show a valid image, try the other format "
+                "(`IMAGE_CONTENT_TYPES` carries both JPEG and PNG) and drop the refused one "
+                "from that mapping so no product ever tries it"),
         match=lambda ctx: _status(ctx) == 400 and "format" in _text(ctx)),
     Signature(
         claim="multipart_image_upload", step="upload_image", outcome="image_accepted",
@@ -654,6 +684,20 @@ TAXONOMY: tuple[Signature, ...] = (
                 "write is safe until Etsy's actual default state is established"),
         match=lambda ctx: bool(ctx.get("not_draft"))),
     Signature(
+        # ETSY-EXERCISE-FIX: production attempt 1 failed verify_contract with no finding that
+        # named why. `verified` requires an image, so a failed upload made this step fail
+        # silently. The dependency is now its own outcome. It does not settle: the cause is
+        # whatever upload_image's own finding says.
+        claim="multipart_image_upload", step="verify_contract",
+        outcome="blocked_by_image_upload", settles=False,
+        we_send="nothing new: step 3 produced no listing_image_id",
+        signal="upload_image failed, so the listing cannot hold the image this step requires",
+        means=("the whole-listing verdict cannot be reached. Every other flag in this step "
+               "is still reported on its own"),
+        cause=OUR_BUG,
+        change="fix the outcome upload_image reported; this step follows from it",
+        match=lambda ctx: bool(ctx.get("image_not_uploaded"))),
+    Signature(
         claim="multipart_image_upload", step="verify_contract", outcome="image_not_attached",
         we_send="the image upload, then GET /listings/{id}?includes=Images",
         signal="the upload returned 201 and Etsy reports zero images on the listing",
@@ -800,7 +844,8 @@ def classify(step: str, context: dict[str, Any]) -> dict[str, Any]:
 # The things step 6 can find wrong, in the order they are reported. Each is classified on its
 # own, because they are independent and a run that hits three of them owes three changes.
 _CONTRACT_FLAGS = ("taxonomy_unreadable", "taxonomy_wrong", "taxonomy_remapped",
-                   "required_properties", "tags_collapsed", "not_draft", "image_missing",
+                   "required_properties", "tags_collapsed", "not_draft",
+                   "image_not_uploaded", "image_missing",
                    "mismatched", "not_returned")
 
 # The confirming outcomes of the same step. Reported alongside the problems, because a run
@@ -852,6 +897,87 @@ def one_pixel_png() -> bytes:
     """The smallest thing that is unarguably an image. Kept as its own name because the
     taxonomy's `image_too_small` entry is about this specific choice."""
     return png(1, 1)
+
+
+#: ETSY-EXERCISE-FIX: the exercise's listing image. Production attempt 1 of
+#: D-OWNER-ETSY-EXERCISE-2 failed at `upload_image` while sending the 1x1 PNG above. The wire
+#: format matches Etsy's published uploadListingImage contract (multipart part `image`, `rank`
+#: as a text part, the boundary set by the transport). Etsy publishes no hard minimum for
+#: listing photos. Its image article (help.etsy.com 115015663347, read 2026-11-21) recommends
+#: "a width and height of at least 2000 pixels", says the first photo "should have a width and
+#: height of at least 635 pixels", and warns that "Images larger than 1MB ... may not finish
+#: uploading". A degenerate 1x1 image is the one input that falls outside every published
+#: guideline. Every example in Etsy's own listings tutorial uploads a JPEG. So the exercise
+#: now sends a square 2000x2000 baseline RGB JPEG (no alpha, no animation, well under 1 MB).
+#: These checks are in `exercise_image_refusals`, which the run asserts before it sends a byte.
+EXERCISE_IMAGE_PX = 2000
+EXERCISE_IMAGE_FILENAME = "brambleloop-transport-test.jpg"
+EXERCISE_IMAGE_MAX_BYTES = 1_000_000
+FIRST_IMAGE_MIN_PX = 635
+
+
+def exercise_image(size: int = EXERCISE_IMAGE_PX) -> bytes:
+    """A square, opaque, baseline RGB JPEG that meets every published Etsy listing-photo rule.
+
+    Built by Pillow (a declared runtime dependency) rather than stored, so no binary enters
+    the repository. It is a flat neutral field with a darker border, which is plainly a test
+    card rather than a product photograph.
+    """
+    import io
+
+    from PIL import Image, ImageDraw
+
+    img = Image.new("RGB", (size, size), (0xE8, 0xE4, 0xDC))
+    draw = ImageDraw.Draw(img)
+    edge = max(4, size // 40)
+    draw.rectangle([0, 0, size - 1, size - 1], outline=(0x7F, 0x5A, 0x3C), width=edge)
+    out = io.BytesIO()
+    img.save(out, format="JPEG", quality=85, progressive=False, optimize=True)
+    return out.getvalue()
+
+
+def image_facts(data: bytes) -> dict[str, Any]:
+    """Format, dimensions, mode and size of image bytes, read by Pillow, never by the name."""
+    import io
+
+    facts: dict[str, Any] = {"bytes": len(data or b""), "format": None, "width": None,
+                             "height": None, "mode": None}
+    try:
+        from PIL import Image
+
+        with Image.open(io.BytesIO(data)) as img:
+            facts.update({"format": img.format, "width": img.width, "height": img.height,
+                          "mode": img.mode,
+                          "animated": bool(getattr(img, "is_animated", False))})
+    except Exception as e:   # noqa: BLE001 - unreadable bytes are a refusal, below
+        facts["unreadable"] = type(e).__name__
+    return facts
+
+
+def exercise_image_refusals(data: bytes, filename: str) -> list[str]:
+    """Every reason Etsy's published rules give to expect this image to be refused or demoted.
+
+    Empty means it is sendable. A non-empty list stops the upload before Etsy sees it.
+    """
+    f = image_facts(data)
+    out: list[str] = []
+    want = {".jpg": "JPEG", ".jpeg": "JPEG", ".png": "PNG", ".gif": "GIF"}.get(
+        filename[filename.rfind("."):].lower() if "." in filename else "")
+    if f.get("format") is None:
+        out.append(f"the bytes are not an image Pillow can read ({f.get('unreadable')})")
+        return out
+    if want != f["format"]:
+        out.append(f"{filename!r} declares {want} but the bytes are {f['format']}")
+    if min(f["width"], f["height"]) < FIRST_IMAGE_MIN_PX:
+        out.append(f"{f['width']}x{f['height']} is below Etsy's {FIRST_IMAGE_MIN_PX}px "
+                   f"first-photo minimum")
+    if f["bytes"] > EXERCISE_IMAGE_MAX_BYTES:
+        out.append(f"{f['bytes']} bytes is over the 1 MB Etsy warns may not finish uploading")
+    if f.get("mode") not in ("RGB", "L"):
+        out.append(f"mode {f.get('mode')} (Etsy renders transparency as black)")
+    if f.get("animated"):
+        out.append("animated images are not supported for listings")
+    return out
 
 
 def transport_test_pdf(marker: str = "") -> bytes:
@@ -1013,8 +1139,12 @@ def sweep(client: EtsyClient, run: _Run, *, prefix: str = TEST_TITLE_PREFIX) -> 
     return entry
 
 
+class _FixtureRefused(Exception):
+    """The exercise image failed `exercise_image_refusals`; the upload was not sent."""
+
+
 def run_exercise(client: EtsyClient, *, image: bytes | None = None,
-                 image_filename: str = "brambleloop-transport-test.png",
+                 image_filename: str = EXERCISE_IMAGE_FILENAME,
                  pattern: bytes | None = None,
                  cleanup: bool = True,
                  ping_reachable: bool = True,
@@ -1054,7 +1184,7 @@ def run_exercise(client: EtsyClient, *, image: bytes | None = None,
         "activation_attempted": False,   # stays false. See the module docstring.
     }
     redactor = _redactor_for(client)
-    image = image if image is not None else one_pixel_png()
+    image = image if image is not None else exercise_image()
     marker = uuid.uuid4().hex[:10]
     title = f"{TEST_TITLE_PREFIX} {marker}"
 
@@ -1150,7 +1280,17 @@ def run_exercise(client: EtsyClient, *, image: bytes | None = None,
                          "that a multipart part named `image` reaches Etsy and becomes a listing "
                          "image -- what a draft needs before it could ever be activated")
         image_id = None
+        entry["image"] = {k: v for k, v in image_facts(image).items() if k != "unreadable"}
+        refusals = exercise_image_refusals(image, image_filename)
         try:
+            if refusals:
+                # Nothing is sent. An image outside Etsy's published rules would fail at Etsy
+                # and leave the cause unrecorded, which is what happened to attempt 1.
+                entry["ok"] = False
+                entry["error"] = "; ".join(refusals)
+                run.classify(entry, "upload_image", {"fixture_refused": True, "status": 0,
+                                                     "error": entry["error"]})
+                raise _FixtureRefused()
             uploaded = client.upload_image(
                 listing_id, filename=image_filename, data=image, rank=1,
                 alt_text="Automated transport test image. Not a product photograph.")
@@ -1160,11 +1300,14 @@ def run_exercise(client: EtsyClient, *, image: bytes | None = None,
                                  "encoding_sent": client.calls[-1]["encoding"],
                                  "image_bytes": len(image)}
             run.classify(entry, "upload_image", {"ok": True, "status": 201})
+        except _FixtureRefused:
+            pass
         except (PermanentError, TransientError) as e:
             entry["ok"] = False
             entry["error"] = str(e)
-            run.classify(entry, "upload_image",
-                         _failure_context(client, e, ping_reachable=ping_reachable))
+            context = _failure_context(client, e, ping_reachable=ping_reachable)
+            entry["http_status"] = context.get("status", 0)
+            run.classify(entry, "upload_image", context)
 
         # 3b. The digital file, only if the caller supplied bytes. Optional because the pattern
         # PDF is a release artefact and this run must not need one to happen.
@@ -1312,6 +1455,7 @@ def run_exercise(client: EtsyClient, *, image: bytes | None = None,
                 "tags_match": (bool(sent_tags)
                                and [str(t).strip() for t in remote_tags] ==
                                [str(t).strip() for t in sent_tags]),
+                "image_not_uploaded": not image_id,
                 "image_missing": bool(image_id) and not (remote.get("images") or []),
                 "not_draft": str(remote.get("state") or "").lower() not in ("", "draft"),
                 "mismatched": bool(result.mismatches) if result is not None else False,

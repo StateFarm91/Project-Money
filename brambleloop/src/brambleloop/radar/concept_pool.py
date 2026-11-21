@@ -902,32 +902,82 @@ def classify(cand: dict, orig_reasons: list[str],
 # ---- research behind an arena --------------------------------------------------------------
 
 
-def research_for_pod(db, pod: str, *, today: date) -> dict | None:
-    """The answered research task behind a validated watchlist gap in this pod, with its
-    fact-grade refs, or None. Intake's own evidence floor decides whether it is usable."""
+# ENG-SUPPLY-FEED: the research status of a pod, in a fixed vocabulary, for admission and
+# for factory_visibility.supply. PRESENT: a usable answer; UNANSWERED: a research task exists
+# but has no usable answer now; ABSENT: no research question exists for the pod.
+RESEARCH_PRESENT, RESEARCH_ABSENT, RESEARCH_UNANSWERED = "present", "absent", "unanswered"
+RESEARCH_STATUSES = (RESEARCH_PRESENT, RESEARCH_ABSENT, RESEARCH_UNANSWERED)
+RESEARCH_WHY = (
+    "usable",                  # present
+    "no_watchlist_gap",        # absent: the comparison never corroborated this pod's arena
+    "gap_not_pursuing",        # absent: the only gap was stopped (a recorded decision)
+    "no_research_task",        # absent: a gap exists but no question was opened for it
+    "task_not_answered",       # unanswered: the question is open (e.g. not yet durable)
+    "evidence_expiring",       # unanswered: the answer expires before intake could judge it
+    "evidence_refused",        # unanswered: intake's own evidence floor refuses the answer
+)
+# An answer that expires within this window is not handed to intake: intake would refuse
+# it as expired. The next daily comparison re-answers the question from fresh observations.
+FRESH_MARGIN = timedelta(hours=2)
+
+
+def research_status(db, pod: str, *, today: date, now: datetime | None = None) -> dict:
+    """{"status", "why", and when present "research"} for this pod. The research is the
+    answered task behind a validated watchlist gap in the pod (an uncovered arena, or since
+    ENG-SUPPLY-FEED a corroborated arena we already sell in), judged by intake's own evidence
+    floor (`intake.research_evidence`). Never fabricated: no gap, no research."""
     from ..core.models import CoverageGap
     from ..intel import coverage as C
+    from ..intel import research as R
     from . import intake
     from .proposal_writer import WATCHLIST_KEY
 
+    now = _now(now)
     with db.session() as s:
         gaps = [(g.id, g.state, dict(g.evidence or {})) for g in s.scalars(
             select(CoverageGap).where(CoverageGap.benchmark_key == WATCHLIST_KEY,
                                       CoverageGap.pod == pod).order_by(CoverageGap.id))]
-    for gid, state, ev in gaps:
-        if state not in (C.UNCOVERED, C.CONCEPTING):
-            continue
+    if not gaps:
+        return {"status": RESEARCH_ABSENT, "why": "no_watchlist_gap"}
+    live = [g for g in gaps if g[1] != C.NOT_PURSUING]
+    if not live:
+        return {"status": RESEARCH_ABSENT, "why": "gap_not_pursuing"}
+    why = None
+    for gid, _state, ev in live:
+        # A gap that moved on (concepting, engineering, certified, launched) still carries
+        # the pod's demand question: one promoted concept does not close the arena to the
+        # pool's other original concepts. Only `not_pursuing`, a decision, does.
         tid = ev.get("research_task_id")
         if not tid:
+            why = why or "no_research_task"
             continue
         refs = _task_refs(db, int(tid))
         if not refs:
+            why = "task_not_answered" if why in (None, "no_research_task") else why
+            continue
+        with db.session() as s:
+            t = s.get(R.ResearchTask, int(tid))
+            expires = _aware(t.expires_on) if t is not None else None
+        if expires is not None and expires - now < FRESH_MARGIN:
+            why = "evidence_expiring"
             continue
         got = intake.research_evidence(db, int(tid), refs, today=today)
-        if got.get("ok"):
-            return {"task": int(tid), "gap": gid, "refs": refs,
-                    "quality": got.get("quality"), "confidence": got.get("confidence")}
-    return None
+        if not got.get("ok"):
+            why = "evidence_refused"
+            continue
+        return {"status": RESEARCH_PRESENT, "why": "usable",
+                "research": {"task": int(tid), "gap": gid, "refs": refs,
+                             "quality": got.get("quality"),
+                             "confidence": got.get("confidence")}}
+    if why == "no_research_task":
+        return {"status": RESEARCH_ABSENT, "why": why}
+    return {"status": RESEARCH_UNANSWERED, "why": why or "task_not_answered"}
+
+
+def research_for_pod(db, pod: str, *, today: date, now: datetime | None = None) -> dict | None:
+    """The answered research task behind a validated watchlist gap in this pod, with its
+    fact-grade refs, or None. Intake's own evidence floor decides whether it is usable."""
+    return research_status(db, pod, today=today, now=now).get("research")
 
 
 def _task_refs(db, task_id: int) -> list[str]:
@@ -958,6 +1008,11 @@ def unit_cost_cad() -> float | None:
         return round(vision.per_image_estimate_cad() * DOWNSTREAM_CALLS_PER_CONCEPT, 6)
     except Exception:  # noqa: BLE001 - an unknown cost admits nothing
         return None
+
+
+# The bound that binds an admission pass (fixed vocabulary, for the readback).
+ALLOWANCE_BINDINGS = ("per_run", "monthly_ceiling", "pool_share", "unit_cost_unknown",
+                      "ledger_unreadable")
 
 
 def admission_allowance(db, *, now: datetime, unit_cad: float | None = None) -> dict:
@@ -1035,7 +1090,7 @@ def generate(db, *, now: datetime | None = None) -> list[dict]:
     prior = _prior_contexts(db)
     for prio, lane, sig in plans:
         if lane.pod not in research_cache:
-            research_cache[lane.pod] = research_for_pod(db, lane.pod, today=today)
+            research_cache[lane.pod] = research_for_pod(db, lane.pod, today=today, now=now)
         research = research_cache[lane.pod]
         for motif, use, options in variant_options(lane):
             # Stability: the context this motif already holds in the pool is tried first, so
@@ -1176,14 +1231,16 @@ def admit_ready(db, *, now: datetime, audit=None, unit_cad: float | None = None)
             select(ConceptPoolEntry).where(ConceptPoolEntry.state == READY)
             .order_by(ConceptPoolEntry.priority.desc(), ConceptPoolEntry.slug))]
     cache: dict = {}
+    capped = 0
     for rid, pod in ready:
         if pod not in cache:
-            cache[pod] = research_for_pod(db, pod, today=today)
-        research = cache[pod]
+            cache[pod] = research_status(db, pod, today=today, now=now)
+        research = cache[pod].get("research")
         if research is None:
             waiting.append(rid)
             continue
         if len(admitted) >= allowance["units"]:
+            capped += 1
             continue
         with db.session() as s:
             row = s.get(ConceptPoolEntry, rid)
@@ -1195,14 +1252,49 @@ def admit_ready(db, *, now: datetime, audit=None, unit_cad: float | None = None)
             row.state, row.admitted_at, row.research_task_id = ADMITTED, now, research["task"]
             row.updated_at = now
         admitted.append(slug)
+    by_pod: dict[str, dict] = {}
+    for _rid, pod in ready:
+        e = by_pod.setdefault(pod, {"ready": 0, "research": cache[pod]["status"],
+                                    "why": cache[pod]["why"]})
+        e["ready"] += 1
+    result = {"ready": len(ready), "admitted": len(admitted),
+              "waiting_on_research": len(waiting), "capped_by_allowance": capped,
+              "allowance": {"units": int(allowance.get("units") or 0),
+                            "unit_cad": allowance.get("unit_cost_cad"),
+                            "why": allowance.get("binding")},
+              "ready_by_pod": by_pod, "at": now.isoformat()}
     if audit is not None:
         if admitted:
             audit(ADMITTED_ACTION, detail={"admitted": admitted, "allowance": allowance})
         ready_left = len(ready) - len(admitted) - len(waiting)
         if ready_left > 0:
             audit(CAPPED_ACTION, detail={"left_ready": ready_left, "allowance": allowance})
+    # ENG-SUPPLY-FEED: every pass leaves its counts (fixed vocabulary, no slug) for the
+    # readback, whether or not anything was admitted.
+    _record_admit_result(db, result)
     return {"admitted": admitted, "allowance": allowance,
-            "waiting_on_research": len(waiting)}
+            "waiting_on_research": len(waiting), "result": result}
+
+
+ADMIT_RESULT_ACTION = "concept_pool.admit_result"
+
+
+def _record_admit_result(db, result: dict) -> None:
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        s.add(AuditLog(actor="market_radar", action=ADMIT_RESULT_ACTION,
+                       artifact="concept_pool", detail=result))
+
+
+def last_admit_result(db) -> dict | None:
+    """The newest recorded admit_ready result, or None when no pass has run."""
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(AuditLog.action == ADMIT_RESULT_ACTION)
+                       .order_by(AuditLog.id.desc()).limit(1))
+        return dict(row.detail or {}) if row is not None else None
 
 
 # ---- readback ----------------------------------------------------------------------------
