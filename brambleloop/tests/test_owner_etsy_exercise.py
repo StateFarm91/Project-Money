@@ -79,6 +79,15 @@ def test_boot_starts_it_only_when_due():
     assert "RAILWAY_DEPLOYMENT_ID" in text  # never from a test run or a laptop
 
 
+def test_boot_asks_for_one_listing_package_sweep_per_commit():
+    src = (Path(__file__).resolve().parents[1] / "src/brambleloop/app/main.py").read_text()
+    start = next(n for n in ast.walk(ast.parse(src))
+                 if isinstance(n, ast.FunctionDef) and n.name == "_startup")
+    text = ast.get_source_segment(src, start)
+    assert 'job_type="listing.package"' in text and "boot-listing-package-" in text
+    assert '"retry_for_commit": _commit' in text
+
+
 if __name__ == "__main__":
     import traceback
     fails = 0
