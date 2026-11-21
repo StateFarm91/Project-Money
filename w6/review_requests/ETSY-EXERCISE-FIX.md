@@ -143,8 +143,17 @@ New, in `tests/test_etsy_exercise.py`:
 
 Run (each suite's own `__main__`): test_etsy_exercise 62/62, test_etsy_transport (probe) 44/44,
 test_etsy (client) 17/17, test_owner_etsy_exercise 8/8, test_factory_visibility 2/2,
-test_vacuity 8/8, test_w3_etsy_upload_readback 9/9, test_etsy_publish 19/19, plus the further
-etsy suites listed in the commit.
+test_vacuity 8/8, test_w3_etsy_upload_readback 9/9, test_etsy_publish 19/19,
+test_etsy_readback_observe 38/38, test_w3_etsy_constraints 17/17, test_etsy_capability 9/9,
+test_etsy_property_contract 4/4, test_w4_etsy403 4/4, test_ws5_e7_small_etsy_fixes 4/4,
+test_w4_fmclose_etsy 20/20, test_etsy_surfaces 53/53, test_cc_etsy_connect_scopes 3/3.
+
+**Pre-existing failures, identical on the base branch `claude/w6-release-19h7`, not touched
+here:**
+- `test_etsy_publish_e2e::test_package_to_draft_rollback_adoption_and_refusals`:
+  `KeyError('etsy_listing_id')`.
+- `test_etsy_oauth_callback`, two retention tests: `runtime/release.py::_attempt_gate_refusal`
+  reads an audit action by name with no `KNOWN_READ_ACTIONS` decision.
 
 ## 7. Not known, stated plainly
 
