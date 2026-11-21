@@ -197,6 +197,7 @@ def test_h2_rebuild_reproduces_the_fingerprint_the_sentinel_expects():
         with db.session() as s:
             current_b = A.current_from_db(s)
     moved = [k for k in rows_a if k in rows_b and rows_a[k] != rows_b[k]]
+    assert moved, "the second chain move rebuilt nothing, so determinism was not exercised"
     for k in moved:
         diff = {ref for ref in set(rows_a[k]) | set(rows_b[k])
                 if rows_a[k].get(ref) != rows_b[k].get(ref)}

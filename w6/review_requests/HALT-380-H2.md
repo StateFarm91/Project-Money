@@ -89,6 +89,11 @@ The next step is to compare the production audit trail for one of the 12 product
 `chain.rebuild_unbound` detail) against this run.
 
 ## Suites run on this branch
-See the commit message for the pass/fail lines of `test_halt_380_h2`,
-`test_eng_stale_rebuild_loop`, `test_cert_rebuild_chain`, `test_publish_unhalt` and
-`test_vacuity`.
+All five suites ran on SQLite in this container, 2026-11-21 ~04:00-04:13Z. All passed:
+- `test_halt_380_h2`: 2 OK, 0 failures.
+- `test_eng_stale_rebuild_loop`: 20 OK, 0 failures. No local PostgreSQL, so its PG pass was
+  skipped.
+- `test_cert_rebuild_chain`: 10 OK, 0 failing.
+- `test_publish_unhalt`: 10 OK, 0 failures.
+- `test_vacuity`: 8 OK. Its first run flagged the determinism loop in the new test. I fixed
+  that by adding a non-emptiness assertion, and the rerun was green.
