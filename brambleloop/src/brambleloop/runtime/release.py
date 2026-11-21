@@ -8116,6 +8116,8 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
             policy_unreviewed, policy_not_current, policy_readable = set(), set(), False
         retired_slugs = provenance._retired_slugs()
         retired_close: list[str] = []
+        obsolete_close: list[str] = []
+        latest_ = getattr(current, "latest_version", None) or {}
         holds_released: list[str] = []
         released_restart: list[tuple[str, int, list[str], str]] = []
         for r in list(session.scalars(_select(_Incident).where(
@@ -8141,6 +8143,16 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
                         released_restart.append((slug_, r.id, keys_,
                                                  cleared["held_digest"]))
             named = [str(k) for k in ((r.detail or {}).get("stale") or [])]
+            # eng/halt-380-h3: the row is per product, the artefacts it names are per
+            # release. Names of a release the product has moved past (superseded, retired or
+            # gone) are not an outstanding rebuild -- nothing rebuilds them -- so they are
+            # set aside and the row is judged on its CURRENT release: what it still names
+            # there, or, when it named only obsolete releases, every non-retired artefact
+            # of the product (the same positive-evidence rule as a row naming none). A
+            # genuinely stale current release still reads STALE and keeps the row open.
+            obsolete = {k: why for k in named
+                        if (why := provenance.obsolete_release_key(k, slug_, latest_))}
+            named = [k for k in named if k not in obsolete]
             own = [v for v in by_slug.get(slug_, []) if not v.get("retired")]
             keys = named or [f"{v['artefact_class']}:{v['artefact_key']}" for v in own]
             read = {k: (by_key[k]["state"] + (" (retired)" if by_key[k].get("retired") else "")
@@ -8149,7 +8161,11 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
                   and all(k in by_key and by_key[k]["state"] in settled for k in keys)
                   and not any(v["state"] == provenance.STALE
                               for v in by_slug.get(slug_, [])))
-            if ok:
+            if ok and obsolete:
+                obsolete_close.append(r.signature)
+                r.detail = dict(r.detail or {}, obsolete_release_names=dict(
+                    list(obsolete.items())[:50]))
+            elif ok:
                 incomplete_close.append(r.signature)
             else:
                 # ENG-RECOVERY slice 2: a pre-branch row whose product reads nothing STALE
@@ -8164,6 +8180,9 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
                                     for v in by_slug.get(slug_, []))):
                     legacy_restart.append((slug_, r.id, keys[:50]))
                 incomplete_open[r.signature] = read or {"(none)": "no artefact on file"}
+                if obsolete:
+                    r.detail = dict(r.detail or {}, obsolete_release_names=dict(
+                        list(obsolete.items())[:50]))
                 r.detail = dict(r.detail or {}, sentinel_read={
                     "at": _utcnow().isoformat(), "verdicts": dict(list(read.items())[:50])
                     or {"(none)": "no artefact of this product is on file"}})
@@ -8172,6 +8191,13 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
             resolution=("every artefact this row named reads fresh (or superseded) in the "
                         "provenance check and none of the product's reads stale: the "
                         "outstanding rebuild has been delivered"))
+        incomplete_cleared += _life.resolve_signatures(
+            session, obsolete_close,
+            resolution=("the artefacts this row named belong to a release the product has "
+                        "moved past (eng/halt-380-h3: nothing rebuilds a superseded release), "
+                        "and every non-obsolete artefact it is judged on reads fresh (or "
+                        "superseded) with none of the product's reads stale: no rebuild of "
+                        "the current release is outstanding"))
         incomplete_cleared += _life.resolve_signatures(
             session, retired_close,
             resolution=("the product is a retired legacy-duplicate concept slug "
@@ -8232,6 +8258,8 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         "rebuild_incomplete_legacy_restarted": legacy_restarted[:50],
         "rebuild_incomplete_holds_released": holds_released[:50],
         "rebuild_incomplete_retired_closed": [s_.split(":", 1)[1] for s_ in retired_close][:50],
+        "rebuild_incomplete_obsolete_release_closed": [s_.split(":", 1)[1]
+                                                       for s_ in obsolete_close][:50],
     }
     ctx.audit("ops.sentinel", detail=detail)
 
