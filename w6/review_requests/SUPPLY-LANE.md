@@ -162,3 +162,22 @@ Targeted run: see "Suite run" below.
   per run, so research supply is bounded at about 20 judged concepts per day.
 
 ## Suite run
+Targeted run `20261121T130542Z-7393`, 1014 s, 36 suites:
+- The tree was the content of 578dce8, uncommitted on top of b42f89d at the time.
+- **546 passing, 3 suites failing.** All three fail identically on the base b42f89d (run in a
+  clean worktree):
+  - `test_eng_daily::test_the_job_is_wired_free_and_records_the_ledger` (AssertionError);
+  - `test_persistence::test_pipeline_resumes_across_a_worker_restart_mid_flight`
+    (`heirloom-cable-blanket`);
+  - `test_physfix::test_the_failed_release_never_publishes_again_after_an_owner_lift`
+    (RetentionRefused for `unresolved:runtime/release.py::_attempt_gate_refusal`).
+- None of them is fixed here.
+
+Every required suite passes: `test_supply_lane`, `test_new_product_flow`, `test_concepts100`,
+`test_eng_supply`, `test_w5_a7_supply_stall`, `test_factory_visibility`, `test_vacuity`,
+`test_compiler`, `test_reverse` and `test_twin`. The touched halt, certify and listing suites
+also pass: `test_eng_halt_380`, `test_halt_380_verify`, `test_halt_380_h3`,
+`test_publish_unhalt`, `test_cert_rebuild_chain`, `test_eng_stale_rebuild_loop`,
+`test_w4_listready`, `test_eng_demand_supply`, `test_eng_families`, `test_eng_animals`,
+`test_w6_listing_chain_e2e`, `test_clothing_e2e`, `test_gates` and `test_acceptance_gates`.
+The full suite was not run.
