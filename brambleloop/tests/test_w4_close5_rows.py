@@ -194,6 +194,10 @@ SCRATCH = {
     # provider call; its reading is returned to the gates that record it.
     "visual/fidelity.py::read": ("caller", "visual/fidelity.py::craft_texture",
                                  ("judge.read(",)),
+    # ENG-AUTOCODER: the scratch is a throwaway checkout the model edits; every outcome (status,
+    # branch, sha, spend) goes run -> _park/_refuse/_finish -> `_audit`, which writes the audit
+    # row, and the change itself is the pushed `auto/ecr-*` branch (CI certifies it there).
+    "improve/autocoder.py::run": ("durable", "improve/autocoder.py::_audit", ("AuditLog(",)),
     "visual/milestone_d.py::assess": ("reading", "visual/milestones.py::assess", ()),
     "visual/pbr_scene.py::render": ("reading", "visual/pbr_scene.py::render", ()),
 }

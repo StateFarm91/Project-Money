@@ -223,14 +223,18 @@ def history_append(sha: str, evidence: str, *, path: Path = HISTORY, observed: s
         return {"ok": False, "why": f"need a full 40-hex sha, got {sha!r}"}
     if len((evidence or "").strip()) < 10:
         return {"ok": False, "why": "evidence is required"}
-    doc = json.loads(path.read_text())
+    raw = path.read_text()
+    doc = json.loads(raw)
+    # Keep the tracked file's own indentation so an append is a pure append, not a reformat.
+    m = re.search(r"\n( +)\S", raw)
+    indent = len(m.group(1)) if m else 2
     if any(e.get("sha") == sha for e in doc.get("deployed", [])):
         return {"ok": True, "changed": False, "sha": sha}
     doc.setdefault("deployed", []).append({
         "sha": sha,
         "observed": observed or dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%MZ"),
         "evidence": evidence.strip()})
-    path.write_text(json.dumps(doc, indent=2) + "\n")
+    path.write_text(json.dumps(doc, indent=indent) + "\n")
     return {"ok": True, "changed": True, "sha": sha}
 
 
