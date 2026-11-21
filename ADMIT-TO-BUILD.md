@@ -66,3 +66,21 @@ The new suite `tests/test_admit_to_build.py` passes 3 of 3:
 - it checks privacy.
 
 These suites were run with a private TMPDIR and JOBS=2: test_admit_to_build, test_supply_research, test_supply_feed, test_supply_lane, test_new_product_flow, test_factory_visibility, test_w4_readback_evidence and test_vacuity. All pass after two fixes. test_supply_lane's pinned `supply` key set now includes `after_admission_24h`, and that field's vocabulary is pinned by test_admit_to_build. The new suite's pass lines were changed to the runner's format.
+
+## Fix (b9d53b03e): the judge uses the owner-activated vision provider
+
+`creative/concept_judge.py` chooses the concept-board judge:
+1. Anthropic vision, when `vision_usable` holds. This is unchanged.
+2. Otherwise `openai-vision:vision`, when it is active (D-OWNER-APPROVE-ALL) and its latest settled call was BILLED, or it has never been called (the first judgement probes it).
+3. Otherwise none. The concept keeps waiting.
+
+`owner_directives.ACTIVATIONS` is not widened.
+
+`intake.judge_held`, `regate_held` and `judge_radar_waiting` use that choice. Answers are parsed by the same `parse_judgement`, and the gate reads the same fields with the same thresholds. UNKNOWN is never PASS. A provider error records no judgement, so the concept stays WAITING. A failed call closes the route for 24 h.
+
+**Spend:** each call goes through `OpenAIProvider.see`, which applies the activation's daily, monthly and attempt ceilings, the company reservation and the paid-call fingerprint, plus the CA$ budget reservation in `judge_held`. A `concept.judge_attempt` row is written BEFORE each call, so there is one paid attempt per (board sha256, provider) per 24 h, and a redrive never repeats it.
+
+**Tests (`test_admit_to_build`):**
+- With openai-vision only, concepts are judged, pass the gate, are offered and drafted.
+- Spend stays within the activation ceiling, and a redrive makes no new call.
+- A provider error (HTTP 500) drafts nothing, leaves the concepts waiting, closes the route, and is not retried on a redrive.
