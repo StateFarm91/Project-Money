@@ -3729,3 +3729,15 @@ mutants (including `|| true` and `pull_request_target`) are killed.
 - `child_safety` joins `certificate.CANONICAL_STAGES` as a conditional stage, because the chain runs it.
   `commerce.lanes.applicable_gates` owes it when `child_safety.applies`, and an unread profile with a closed form owes it
   (fail closed).
+
+## D-OWNER-AUTODEPLOY-TONIGHT — 2026-11-21T00:25Z (owner, via AskUserQuestion)
+
+**Owner:** "Full autonomous". They answered "Yes, auto-deploy until deadline" to a standing authorization for production pushes until 2026-11-21T05:00Z (midnight Ontario).
+
+**Scope.** Main may push Batch 19b and later releases to claude/repository-setup-nc9x6o without a per-SHA question, until 05:00Z, provided every release:
+- passes its changed and overlap suites;
+- passes a rehearsed rollback (`deploy_guard rehearse-rollback` ALLOW);
+- fast-forwards from production;
+- is verified with `verify_deploy` and a read-back after the push.
+
+A failed verify or read-back rolls back to the previous production SHA. After 05:00Z, the per-SHA owner question returns.
