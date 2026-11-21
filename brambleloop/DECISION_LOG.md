@@ -4024,3 +4024,5 @@ Batch 19c (code 957c8f945) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the own
   gate D-OWNER-SALE-PIPELINE requires to PASS. `test_w6_listing_chain_e2e` documents that it cannot
   be reached in a test without forging, so the two tests stay red until a real sample photo
   exists. No gate was relaxed and nothing was forged.
+## D-OWNER-DEPLOY-19c1 — 2026-11-21T02:36:01Z
+Batch 19c1 (code 996525ed2) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 4f1c32f0d9487c9f0b40c864f12b1d559a7282a1 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
