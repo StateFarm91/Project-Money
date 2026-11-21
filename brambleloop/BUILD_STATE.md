@@ -96,6 +96,22 @@
 > **Amigurumi (no toy board) and baby (no READY concept: #108 / raglan engine) did NOT reach cir.draft.** CA$100 cap
 > unchanged. New `test_supply_feed` 7/7; touched suites green; `test_w4_fmbatch1_retention_guard` fails identically on
 > base. **UNVERIFIED** on production. Report: `w6/review_requests/SUPPLY-FEED.md`.
+> **2026-11-21 — AMIGURUMI-JUDGING on `eng/amigurumi-judging` (from `claude/w6-release-19h8` a117ed2; NOT merged,
+> NOT deployed; production unchanged, no production row read).** SUPPLY-LANE row 4 fixed in the fixture: amigurumi
+> concepts waited on `board_image` forever because a toy has no prototype geometry. New `creative.toy_board`
+> (D-ENG-AMIGURUMI-JUDGING), called from `creative.intake.judge_radar_waiting`:
+> - drafts the concept exactly as `cir.draft` will, on the animal engine;
+> - checks the child-safety preconditions before any spend;
+> - pays for ONE disclosed FLUX concept render prompted from the CIR, through the full paid-provider gate, with its
+>   own lower caps (2 per run, 4 per day);
+> - records the request durably, so a redrive never pays again.
+> New suite `tests/test_amigurumi_judging.py`: the scan-derived frog reaches `cir.draft` on `amigurumi_animal`
+> unaided, with one billed render; certification still withholds it for physical evidence only. **UNVERIFIED in
+> production**:
+> - needs anthropic-vision activated and probed (as NEW-PRODUCT-FLOW);
+> - needs a BFL key in the environment;
+> - no real FLUX render of a toy has been seen.
+> Report: `w6/review_requests/AMIGURUMI-JUDGING.md`.
 > **2026-11-21 — APPROVE-ALL-V2 on `eng/approve-all-v2` (from `claude/w6-release-19h3` 2eb0222; NOT merged, NOT
 > deployed; production unchanged, no production row read).** The owner's screenshot showed "Approve all eligible (0)"
 > over 98 open cards. New "Approve everything I can decide (N)" (`GET/POST /api/cc/approve-everything`,

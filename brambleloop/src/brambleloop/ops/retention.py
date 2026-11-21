@@ -752,6 +752,10 @@ _RESOLVED_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "creative.concept_board": ("lifetime_total",
         "products.moment_candidates.board_record: the newest row per artifact, which "
         "the global keep-per-action does not protect"),
+    "creative.toy_render": ("lifetime_total",
+        "creative.toy_board.state, creative.toy_board._claim: the newest row per artifact "
+        "says a paid toy concept render was requested, so it is never bought again; the "
+        "global keep-per-action does not protect it"),
     "creative.construction_reading_refused": ("lifetime_total",
         "creative.reference.reading_refused: the newest row per artifact, which the "
         "global keep-per-action does not protect"),

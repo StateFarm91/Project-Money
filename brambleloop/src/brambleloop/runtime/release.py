@@ -8755,6 +8755,8 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         # eng/stale-rebuild-loop: products whose last attempt ended and that are waiting out
         # RETRY_AFTER (or whose retry for today has run) -- not queued, not held.
         detail["rebuild_retry_waiting"] = list(queued.get("retry_waiting") or [])[:50]
+        # eng/halt-380-live: of those, the ones whose retry key for this stamp was already used
+        detail["rebuild_retry_spent"] = list(queued.get("retry_spent") or [])[:50]
         detail["rebuild_order"] = [r["key"] for r in queued["plan"]["rebuild"]][:50]
         detail["fingerprints"] = {ref: {"old": previous.get(ref), "new": fp}
                                   for ref, fp in sorted(changed.items())}
@@ -8762,7 +8764,8 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
             k: detail[k] for k in ("rebuild_enqueued", "rebuild_already_queued",
                                    "rebuild_retried", "rebuild_retry_held",
                                    "rebuild_policy_publication_only",
-                                   "rebuild_retry_waiting", "rebuild_order",
+                                   "rebuild_retry_waiting", "rebuild_retry_spent",
+                                   "rebuild_order",
                                    "fingerprints")})
     return detail
 
