@@ -741,6 +741,36 @@ def _begin_generation(db, key, *, stage, paid, next_cost):
     return token
 
 
+def _refused_before_send(exc: BaseException):
+    """The `PaidCallRefused` in `exc`'s chain, if any: the gateway's enforcement point refuses
+    before any network I/O, so a call refused there was never billed."""
+    from ..gateway.paid_provider_gate import PaidCallRefused
+
+    seen = set()
+    while exc is not None and id(exc) not in seen:
+        seen.add(id(exc))
+        if isinstance(exc, PaidCallRefused):
+            return exc
+        exc = exc.__cause__ or exc.__context__
+    return None
+
+
+def _release_refused_generation(db, key, token):
+    """Clear this call's pending-paid hold (it was refused before sending; nothing billed)."""
+    from sqlalchemy import select
+    from .image_records import ImageProductionRun
+
+    with db.session() as session:
+        row = session.scalar(select(ImageProductionRun).where(
+            ImageProductionRun.run_key == key).with_for_update())
+        stages = dict(row.stages or {})
+        pending = stages.get("_pending_paid_call")
+        if isinstance(pending, dict) and pending.get("token") == token \
+                and pending.get("state") is None:
+            del stages["_pending_paid_call"]
+            row.stages, row.updated_at = stages, _now()
+
+
 def _settle_paid_generation(db, key, token, cost):
     """Record the actual charge while retaining the marker until candidate persistence."""
     from sqlalchemy import select
@@ -936,6 +966,16 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
     except Exception as exc:  # noqa: BLE001 - a provider error is a recorded outcome
         from .image_records import ImageCandidate
 
+        refused = _refused_before_send(exc)
+        if paid and refused is not None:
+            # IMAGE-E2E: the paid-provider gate refused this render before any network I/O
+            # (a per-gallery, daily or monthly ceiling, or no activation), so nothing was
+            # billed. Release this call's hold and stop the run naming the ceiling. Before
+            # this the hold stayed and the run blocked as "prior paid image call has an
+            # unresolved cost; review required" -- a cap reported as a billing mystery.
+            _release_refused_generation(db, key, call_token)
+            raise BudgetStop(f"paid provider gate refused before sending "
+                             f"({refused.code}): {str(refused)[:300]}") from None
         with db.session() as s:
             s.add(ImageCandidate(sha256="", run_key=key, method="autonomous",
                                  provenance_kind="ai_generated_autonomous", slug=slug,
@@ -1632,8 +1672,17 @@ def _certify_route(db, key: str, route: str, out: dict) -> dict:
         from . import gallery_persist
 
         got = gallery_persist.certify_gallery(db, key)
-        return {**out, "gallery_certified": bool(got.get("certified")),
-                "gallery_blockers": len(got.get("blockers") or [])}
+        res = {**out, "gallery_certified": bool(got.get("certified")),
+               "gallery_blockers": len(got.get("blockers") or [])}
+        if not got.get("certified") and got.get("status"):
+            # IMAGE-BF (finding B): a gallery verified in every respect but Laura's
+            # publication raises ONE owner card (passphrase + TOTP decision); never inferred.
+            from . import laura_approval
+
+            card = laura_approval.raise_card(db, key, st=got["status"])
+            res["laura_card"] = {k: card.get(k) for k in ("raised", "requirement_key",
+                                                           "card_id", "why")}
+        return res
     except Exception as exc:  # noqa: BLE001 - a certification error is recorded, never a pass
         return {**out, "gallery_certified": False,
                 "gallery_error": f"{type(exc).__name__}: {str(exc)[:200]}"}

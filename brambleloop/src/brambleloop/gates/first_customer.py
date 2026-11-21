@@ -579,6 +579,12 @@ def disclosed_imagery(db, slug: str, version: str) -> dict | None:
     from ..core.models import ListingSetCertificateRecord
     from ..publish import disclosed_listing
 
+    # IMAGE-BF (finding F): a release whose listing set is the certified generated gallery
+    # (D-OWNER-FLUX-GALLERY, D-OWNER-GALLERY-COMPLETE) is judged as that gallery, not as the
+    # three-frame disclosed set it replaced. Every truth and disclosure check still runs.
+    generated = generated_gallery_imagery(db, slug, version)
+    if generated is not None:
+        return generated
     rec = disclosed_listing.last_asset(db, slug=slug)
     if rec is None or rec.get("version") != version:
         return None
@@ -643,6 +649,105 @@ def disclosed_imagery(db, slug: str, version: str) -> dict | None:
         + f", covered by valid listing-set certificate {cert_id} for release "
           f"{cert_release[:12]}"),
         "certificate": cert_id}
+
+
+def generated_gallery_imagery(db, slug: str, version: str) -> dict | None:
+    """The certified generated gallery for this release, judged as what a buyer scrolls.
+
+    None when the release's current valid listing-set certificate is not a generated-gallery
+    certificate (the disclosed-set path then judges it, unchanged). Otherwise PASS only when:
+    * the certificate is bound to this release's certified hash;
+    * it names the complete campaign gallery (`shot_plans.CAMPAIGN_MIN_FRAMES`);
+    * every generated frame is the frame `gallery_persist` selected at that position, is on
+      file as a generated-gallery frame, and re-judges now through
+      `release_gates.generated_frame_verdict` (truth, identity, Laura publication approval,
+      provenance and the route's exception) as exportable;
+    * every generated frame carries the disclosure it is certified with (the AI-concept
+      honesty label and alt text), and
+    * the one other frame is the CONTENTS preview, re-verified on its bytes now.
+    Anything unreadable, missing or unmeasured is a FAIL (unchecked is never clean)."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import ListingSetCertificateRecord, PatternVersion, Product
+    from ..gates.asset_truth import AssetClass
+    from ..publish import eligibility as el
+    from ..publish import listing_set as ls
+    from ..publish import release_gates as RG
+    from ..visual.shot_plans import CAMPAIGN_MIN_FRAMES
+
+    with db.session() as s:
+        cert = s.scalar(select(ListingSetCertificateRecord).where(
+            ListingSetCertificateRecord.product_slug == slug,
+            ListingSetCertificateRecord.version == version,
+            ListingSetCertificateRecord.state == "valid")
+            .order_by(desc(ListingSetCertificateRecord.id)).limit(1))
+        if cert is None:
+            return None
+        cert_frames = sorted((cert.certificate or {}).get("frames") or [],
+                             key=lambda f: int(f.get("position") or 0))
+        if not any(f.get("kind") == RG.GENERATED_RENDER_KIND for f in cert_frames):
+            return None
+        cert_id, cert_release = cert.id, cert.release_hash or ""
+        product = s.scalar(select(Product).where(Product.slug == slug))
+        pv = None if product is None else s.scalar(select(PatternVersion).where(
+            PatternVersion.product_id == product.id, PatternVersion.version == version))
+        release = (pv.release_hash or "") if pv is not None and pv.certified else ""
+    problems: list[str] = []
+    if not cert_release:
+        problems.append(f"certificate {cert_id} is bound to no release hash")
+    elif not release:
+        problems.append(f"no certified release is on file for {slug}@{version} to bind "
+                        f"certificate {cert_id} to")
+    elif cert_release != release:
+        problems.append(f"certificate {cert_id} was issued for release {cert_release[:12]}, "
+                        f"not {release[:12]}")
+    if len(cert_frames) < CAMPAIGN_MIN_FRAMES:
+        problems.append(f"gallery incomplete: certificate {cert_id} names {len(cert_frames)} "
+                        f"of the {CAMPAIGN_MIN_FRAMES} required listing photos "
+                        f"(D-OWNER-GALLERY-COMPLETE)")
+    generated = [f for f in cert_frames if f.get("kind") == RG.GENERATED_RENDER_KIND]
+    others = [f for f in cert_frames if f.get("kind") != RG.GENERATED_RENDER_KIND]
+    if len(others) != 1 or others[0].get("job") != el.CONTENTS or \
+            others[0].get("kind") != ls.DISCLOSED_SUPPLEMENT:
+        problems.append(f"certificate {cert_id} does not certify exactly one CONTENTS preview "
+                        f"beside its generated frames")
+    selection = RG.generated_selection(db, slug, version) or {}
+    selected = {int(x["position"]): x for x in selection.get("frames") or []}
+    stored = {f.position: f for f in RG._frames(db, slug, version)}
+    for f in generated:
+        pos = int(f.get("position") or 0)
+        sel = selected.get(pos)
+        if sel is None or sel.get("sha256") != f.get("sha256"):
+            problems.append(f"frame {pos}: not the generated frame selected for this release")
+            continue
+        row = stored.get(int(sel.get("stored_position") or pos))
+        if row is None or row.sha256 != f.get("sha256") or not RG.is_gallery_route_frame(row):
+            problems.append(f"frame {pos}: its certified bytes are not on file as a "
+                            f"generated-gallery frame")
+            continue
+        job = str(f.get("job") or "")
+        want_label = el.honesty_label(AssetClass.AI_LIFESTYLE_CONCEPT, job)["label"]
+        if f.get("honesty_label") != want_label or \
+                f.get("alt_text") != RG._gallery_alt_text(job):
+            problems.append(f"frame {pos} ({job}): the certified disclosure is not the "
+                            f"AI-concept label and alt text it must carry")
+        v = RG.generated_frame_verdict(db, slug, version, row)
+        if not v.get("may_export"):
+            problems.append(f"frame {pos} ({job}) does not re-judge as exportable now: "
+                            f"{str(v.get('why'))[:160]}")
+    if others:
+        cf = RG.certified_contents_frame(db, slug, version)
+        if cf["status"] != "PASS":
+            problems.append(f"CONTENTS preview: {cf['status']}: {cf['why']}"[:240])
+        elif cf["frame"].get("sha256") != others[0].get("sha256"):
+            problems.append("CONTENTS preview: the certified bytes are not the preview on file")
+    if problems:
+        return {"state": FAIL, "detail": "; ".join(problems)[:1500], "certificate": cert_id}
+    return {"state": PASS, "detail": (
+        f"certified generated gallery: {len(cert_frames)} frames ({len(generated)} generated, "
+        f"each re-judged exportable on its stored record with its AI-concept disclosure, and "
+        f"the CONTENTS preview re-verified), covered by valid listing-set certificate "
+        f"{cert_id} for release {cert_release[:12]}"), "certificate": cert_id}
 
 
 def check_imagery(cir, twin, frames, disclosed: dict | None = None) -> Check:

@@ -4085,6 +4085,16 @@ def handle_image_production(ctx: JobContext) -> dict:
         return None
 
     out = image_production.run_stage(ctx.db, dict(ctx.job.inputs), follow=follow)
+    if out.get("gallery_certified") is True:
+        # IMAGE-E2E: the certified gallery changes the listing package (its image blockers
+        # are gone), so the package for this release is re-assembled now, not at the next
+        # six-hourly sweep. Before this the recorded package kept saying "gallery
+        # incomplete" for up to six hours after the certificate was issued. Internal only.
+        i = ctx.job.inputs
+        ctx.enqueue("listing", "listing.package",
+                    {"slug": i["slug"], "version": i["version"], "release": i["release"]},
+                    idempotency_key=f"listing.package:gallery:{out.get('run_key')}"
+                                    f":{int(i.get('epoch') or 0)}")
     ctx.audit("visual.image_production", artifact=out.get("run_key"),
               detail={k: out.get(k) for k in ("stage", "status", "next", "skipped", "why")})
     return out

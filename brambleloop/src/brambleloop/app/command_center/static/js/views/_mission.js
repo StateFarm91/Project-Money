@@ -1,12 +1,12 @@
-// MISSION-CONTROL-2: Home's P0 board and Approvals' "Approve all eligible". Unknown is never 0.
+// MC2: P0 board; Approve all (Laura cards show frames)
 import { h } from "../dom.js";
 import { api } from "../api.js";
 import { card, statTile, statusPill, guardedAction, errorState, freshness } from "../components.js";
 
 const n = (v) => (typeof v === "number" ? v : null);
 const u = (v) => n(v) ?? "Unknown";
-const row = (t, why, pill) => h("li", { class: "row" },
-  h("div", { class: "row-head" }, h("p", { class: "row-title" }, t), pill || null), h("p", { class: "muted" }, why || ""));
+const row = (t, why, pill, x) => h("li", { class: "row" },
+  h("div", { class: "row-head" }, h("p", { class: "row-title" }, t), pill || null), h("p", { class: "muted" }, why || ""), x || null);
 
 export async function missionBoard() {
   let r;
@@ -37,7 +37,8 @@ export async function approveAllCard({ rerender }) {
   return card({ title: "Approve all eligible", subtitle: "One step-up approves every routine card", actions: btn },
     h("p", { class: "card-meta" }, freshness(p.as_of, r)),
     h("details", null, h("summary", null, `${u(k)} eligible`),
-      h("ul", { class: "rows" }, ...(p.eligible || []).map((e) => row(e.title || e.requirement_key, e.why)))),
+      h("ul", { class: "rows" }, ...(p.eligible || []).map((e) => row(e.title || e.requirement_key, e.why, null,
+        e.frames && h("div", null, ...e.frames.map((f) => h("img", { src: f.image_url, alt: f.role, width: 120 }))))))),
     h("h3", { class: "section-title" }, `Never approved in bulk (${u(p.excluded_count)})`),
     h("ul", { class: "rows" }, ...Object.keys(by).filter((c) => by[c]).map((c) => row(`${c.replace(/_/g, " ")}: ${by[c]}`, why[c]))));
 }

@@ -353,6 +353,41 @@ def make_router(db) -> APIRouter:
                               session_public_id=auth.current_public_id(request)) from None
         return ok({"ok": True, "action": approve_all.STEP_UP_ACTION, **out})
 
+    # IMAGE-BF (finding B): the owner's decision on one generated gallery's Laura frames. The
+    # card (read) shows the frames; the decision needs the existing fresh step-up (passphrase
+    # + TOTP), CSRF and a nonce, and is recorded per gallery and frame hash.
+    @router.get("/laura-gallery/card")
+    def laura_gallery_card(request: Request, key: str = ""):
+        from ...visual import laura_approval
+
+        got = laura_approval.card(db, str(key)[:200])
+        if got is None:
+            return ok({"error": "no such Laura gallery card", "code": "NOT_FOUND"}, 404)
+        return ok(got)
+
+    @router.post("/laura-gallery/decide")
+    async def laura_gallery_decide(request: Request):
+        from ...visual import laura_approval
+
+        body = await body_of(request)
+        auth.require_stepup(db, request, laura_approval.STEP_UP_ACTION)
+        try:
+            out = await run_in_threadpool(lambda: laura_approval.decide(
+                db, str(body.get("requirement_key") or ""),
+                decision=str(body.get("decision") or ""), actor=actor(request),
+                step_up=True, via="route", session_public_id=auth.current_public_id(request),
+                note=str(body.get("note") or "")[:500]))
+        except laura_approval.Refused as exc:
+            raise auth.refuse(db, request, 409, "REFUSED_BY_AUTHORITY", str(exc),
+                              kind="action",
+                              session_public_id=auth.current_public_id(request)) from None
+        auth.record(db, kind="action", outcome="ok", request=request,
+                    session_public_id=auth.current_public_id(request),
+                    detail={"action": laura_approval.STEP_UP_ACTION,
+                            "requirement_key": body.get("requirement_key"),
+                            "decision": out.get("decision")})
+        return ok({"ok": True, "action": laura_approval.STEP_UP_ACTION, **out})
+
     # ENG-DAILY: the Daily panel -- per-day production counts and today's zero-output
     # diagnoses. Read-only, owner session, the same `/api/cc` default-deny gate.
     @router.get("/daily")

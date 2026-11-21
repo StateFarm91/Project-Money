@@ -9,6 +9,34 @@
 > a SQLite backup copy (`_cycle_copy`). No assertion, budget or production file changed. Decision D-PRODUCT-RUN-PERF.
 > Report: `w6/review_requests/PRODUCT-RUN-PERF.md`. The DECISION_LOG entry the brief cited
 > (D-MAIN-19B-PRODUCT-RUN-INCOMPLETE) does not exist in this branch.
+> **2026-11-21 — IMAGE-BF on `eng/image-bf` (from `claude/batch19c` 9757c1d + `eng/image-e2e` 45a012be; NOT merged,
+> NOT deployed; production unchanged, still 0 images).** IMAGE-E2E findings B and F fixed. **B:** Laura publication
+> approval now has a production path (`visual.laura_approval`, D-IMAGE-BF-LAURA). A generated gallery verified in every
+> respect but Laura raises ONE OwnerAction card per gallery (run + Laura frame-set digest) showing the frames; the owner
+> decides via `POST /api/cc/laura-gallery/decide` (existing passphrase + TOTP step-up) or "Approve all eligible" (frames
+> shown as thumbnails; eligible by explicit rule). Decisions are stored per gallery and frame hash
+> (`laura_gallery_approvals`); `laura_publication` reads PASS for exactly those hashes, UNMEASURED otherwise; every
+> decision audited; never inferred. `canonical.PUBLICATION_APPROVED` stays empty; Laura untouched. **F:** first-customer
+> `imagery` judges a certified generated certificate as that gallery (>= CAMPAIGN_MIN_FRAMES, release-bound, each frame
+> selected, on file, re-judged exportable with its AI-concept disclosure; CONTENTS re-verified) (D-IMAGE-BF-IMAGERY).
+> New suite `tests/test_image_bf.py` (9, incl. a step-up mutation). OPEN: no real Laura gallery exists yet, so no real
+> card; OWNER ACTION when one appears (review + approve/reject in Mission Control, CA$0, ~3 min). CC static bundle
+> 399,984 / 400,000 B. Findings A, C, D, E of IMAGE-E2E not addressed. Report:
+> `research/final_build/w6/review_requests/IMAGE-BF.md`.
+> **2026-11-21 — IMAGE-E2E on `eng/image-e2e` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT deployed;
+> production unchanged, still 0 images).** New `tests/test_image_e2e_worker.py`: from a production-like DB (certified
+> Launch-0 blanket, certified PDFs, D-OWNER-APPROVE-ALL applied) the real Worker, unaided, with a stub BFL transport
+> and the labelled judge doubles, reaches a valid 7-frame listing-set certificate and a refreshed listing package.
+> Three broken handoffs fixed, each pinned: (1) `owner_card` dead-lettered on the worker's provenance check because
+> `write_frames` wrote `backfilled` lineage with no job id, so no gallery could ever certify unaided; (2) nothing
+> refreshed `listing.package` after certification (stale "gallery incomplete" for up to 6 h); (3) a paid-gate cap
+> refusal left the pending-call hold and blocked the run as "unresolved cost". Ceilings (per-gallery, daily) and
+> no-repeat-on-redrive are asserted. OPEN, not fixed: vessels (both Launch-0 baskets) can never pass the FLUX anchor
+> (no side view is ever generated; `side_data` is read, never written); Laura's per-image publication approval has no
+> production path (`canonical.PUBLICATION_APPROVED` is an empty constant), so no Laura gallery can certify in
+> production -- OWNER decision; the first-customer `imagery` area FAILs a generated 7-frame certificate (judges it
+> as the 3-frame disclosed set), blocking publish; PDFs do not embed the gallery while `PDF_LAYOUT="engine"`. Report:
+> `research/final_build/w6/review_requests/IMAGE-E2E.md`.
 > **2026-11-21 — NEW-PRODUCT-FLOW on `eng/new-product-flow` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT
 > deployed; production unchanged, no production row read).** Readback prod 2f7da291: 0 certified in 7 d (only the 9
 > Launch-0 at LISTING_READY), loop 11/12 with no `original_product`. Cause, reproduced on the real handlers: with

@@ -15,7 +15,6 @@ export const H_CSRF = "X-CSRF-Token";
 export const H_NONCE = "X-CC-Nonce";
 export const H_TS = "X-CC-Timestamp";
 
-// Response shapes (envelope, tab, money): COMMAND_CENTER_API.md §0.
 
 const q = (params) => {
   const s = new URLSearchParams();

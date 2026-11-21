@@ -3968,3 +3968,40 @@ Batch 19d1 (code 80ce7211b) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the ow
   - The PDF determinism test runs inside `bypassed()`.
   - Scope is one process, because run_tests.sh runs each file separately.
 - **Result.** 36 passed / 0 failed, 1544 s. Report: `w6/review_requests/PRODUCT-RUN-PERF.md`.
+## D-IMAGE-BF-LAURA — the owner's production path to approve Laura in a generated gallery (IMAGE-BF, 2026-11-21; implements the owner brief for IMAGE-E2E findings B and F)
+**Problem.** `canonical.PUBLICATION_APPROVED` is an empty code constant and was the only source of
+Laura publication approval, so every Laura frame read `laura_publication` UNMEASURED and no gallery
+with Laura could be certified in production (IMAGE-E2E finding B).
+**Rule (`visual/laura_approval.py`).**
+- **One card per gallery.** When `_certify_route` finds a generated gallery that passes every frame
+  gate and set check except Laura's publication (judged by re-reading the gallery with a
+  review-only "as if approved" flag that is never certified or written), it raises ONE OwnerAction,
+  `laura_gallery_review:<run hash>:<frame-set digest>`, listing every Laura frame (position, role,
+  candidate, sha256, the Command Center image URL). A card ever raised for that key, open or
+  answered, is never raised again; different bytes are a different gallery.
+- **Decided only with the existing step-up.** `POST /api/cc/laura-gallery/decide` (owner session,
+  CSRF + nonce, fresh passphrase + TOTP step-up, action `laura_gallery.decide`), or "Approve all
+  eligible", which the owner directed may include these cards because its preview shows the frames
+  on screen and its press needs the same fresh step-up. `approve_all.judge` marks the prefix
+  eligible explicitly (before the classifier and the key guard); the approval goes through
+  `laura_approval`, never a bare close. `decide` also refuses a non-owner actor, a call that does
+  not assert the step-up, an answered card, and a gallery whose Laura frames changed since the card.
+- **Recorded per gallery and frame hash** (`laura_gallery_approvals`). `laura_publication` (and the
+  same check in `candidate_gates.publication_verdict` and `release_gates.generated_frame_verdict`)
+  reads PASS when the canonical registry approves the bytes, or the latest decision for exactly
+  that (run, sha256) is an owner `approved` with step-up; anything else stays UNMEASURED. A
+  rejection is recorded and leaves the frames UNMEASURED.
+- **Audited:** `laura_gallery.card_raised`, `laura_gallery.decision`, the OwnerAction lifecycle row,
+  the route's action record (and approve-all's per-row and batch rows).
+- An approval re-judges the gallery for its certificate at once and enqueues `listing.package`.
+**Not changed.** `canonical.PUBLICATION_APPROVED` stays empty; Laura (laura-r2-a42aeac7) is locked
+and nothing modifies, regenerates or substitutes her; no approval is inferred or swept.
+## D-IMAGE-BF-IMAGERY — first-customer `imagery` judges a certified generated gallery as that gallery (IMAGE-BF, 2026-11-21; finding F)
+`gates.first_customer.disclosed_imagery` first asks `generated_gallery_imagery`: when the release's
+current valid listing-set certificate carries generated frames, the area is PASS only if the
+certificate is bound to the release's certified hash, names at least `CAMPAIGN_MIN_FRAMES` frames,
+each generated frame is the selected gallery frame on file and re-judges now through
+`release_gates.generated_frame_verdict` as exportable (truth, identity, Laura approval, provenance,
+the route's exception), each carries its certified AI-concept honesty label and alt text, and the
+one other frame is the CONTENTS preview re-verified on its bytes. Otherwise the disclosed-set path
+runs unchanged.

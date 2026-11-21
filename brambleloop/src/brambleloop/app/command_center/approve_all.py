@@ -108,8 +108,24 @@ def guard(requirement_key: str | None) -> str | None:
     return None
 
 
+LAURA_GALLERY_CLASS = "laura_gallery_review"
+LAURA_GALLERY_VERDICT = {
+    "disposition": "owner_review_on_screen", "class": LAURA_GALLERY_CLASS,
+    "rule": "prefix:laura_gallery_review:", "directive": "D-IMAGE-BF-LAURA",
+    "why": ("the owner reviews this gallery's Laura frames on screen in this preview and approves "
+            "them with this button's fresh step-up; recorded per gallery and frame hash")}
+
+
 def judge(requirement_key: str | None) -> dict:
     """{eligible, category, guarded, verdict} for one OwnerAction kind. Fails closed."""
+    from ...visual import laura_approval
+
+    if laura_approval.is_card(requirement_key):
+        # IMAGE-BF: the owner directed that "Approve all eligible" may include these cards,
+        # because the preview shows the frames and the press is the owner's own step-up. The
+        # approval goes through `laura_approval` (per frame hash), never a bare close.
+        return {"eligible": True, "category": None, "guarded": False,
+                "verdict": {"key": requirement_key, **LAURA_GALLERY_VERDICT}}
     verdict = SI.classify(requirement_key)
     guarded = guard(requirement_key)
     if verdict["disposition"] == SI.GENUINE_EXCEPTION:
@@ -133,6 +149,9 @@ def _target(row, verdict: dict, *, now: datetime) -> tuple[str, str]:
     from ...ops import owner_queue
     from ...ops import owner_queue_consolidate as OQC
 
+    if verdict.get("class") == LAURA_GALLERY_CLASS:
+        return owner_queue.SATISFIED, ("approved by the owner with 'Approve all eligible' "
+                                       "(step-up session): Laura gallery frames shown on screen")
     decided = OQC.decide(row, verdict, now=now)
     base = "approved by the owner with 'Approve all eligible' (step-up session)"
     if decided is None:   # e.g. a stale-class row not yet past STALE_AFTER: the owner answers
@@ -190,7 +209,14 @@ def preview(db, *, now: datetime | None = None, include_cards: bool = True) -> d
                     "disposition": j["verdict"]["disposition"]}
             if j["eligible"]:
                 state, reason = _target(row, j["verdict"], now=now)
-                eligible.append({**base, "to": state, "why": j["verdict"]["why"]})
+                item = {**base, "to": state, "why": j["verdict"]["why"]}
+                if j["verdict"]["class"] == LAURA_GALLERY_CLASS:
+                    from ...visual import laura_approval
+
+                    raised = laura_approval.card(db, row.requirement_key) or {}
+                    item["frames"] = raised.get("frames") or []
+                    item["run_key"] = raised.get("run_key")
+                eligible.append(item)
             else:
                 excluded.append({**base, "category": j["category"], "guarded": j["guarded"],
                                  "reason": EXCLUDED[j["category"]],
@@ -218,7 +244,7 @@ class Refused(ValueError):
 
 
 def execute(db, *, actor: str, expected_digest: str, session_public_id: str = "",
-            now: datetime | None = None) -> dict:
+            now: datetime | None = None, recertify_laura: bool = True) -> dict:
     """Approve every eligible row, in one transaction, auditing each. The CALLER enforces the
     owner session and step-up; this refuses a stale preview."""
     from sqlalchemy import select
@@ -235,6 +261,7 @@ def execute(db, *, actor: str, expected_digest: str, session_public_id: str = ""
                       f"({current['eligible_count']} eligible now)")
     batch = current["digest"][:16]
     approved, skipped = [], []
+    laura_runs: list[str] = []
     ids = [i["id"] for i in current["eligible"]]
     with db.session() as s:
         rows = {r.id: r for r in s.scalars(select(OwnerAction).where(OwnerAction.id.in_(ids)))}
@@ -249,7 +276,22 @@ def execute(db, *, actor: str, expected_digest: str, session_public_id: str = ""
                 skipped.append({"id": row.id, "why": f"now excluded ({j['category']})"})
                 continue
             state, reason = _target(row, j["verdict"], now=now)
-            moved = owner_queue.transition(s, row, state, reason, actor=actor, now=now)
+            if j["verdict"]["class"] == LAURA_GALLERY_CLASS:
+                from ...visual import laura_approval
+
+                try:
+                    with s.begin_nested():
+                        got = laura_approval._decide_in(
+                            s, db, row, decision=laura_approval.APPROVED, actor=actor,
+                            step_up=True, via="approve_all",
+                            session_public_id=session_public_id, now=now)
+                except laura_approval.Refused as exc:
+                    skipped.append({"id": row.id, "why": f"Laura gallery: {exc}"[:300]})
+                    continue
+                laura_runs.append(got["run_key"])
+                moved = {"from": owner_queue.OPEN, "changed": True}
+            else:
+                moved = owner_queue.transition(s, row, state, reason, actor=actor, now=now)
             if not moved.get("changed"):
                 skipped.append({"id": row.id, "why": "already in that state"})
                 continue
@@ -271,6 +313,17 @@ def execute(db, *, actor: str, expected_digest: str, session_public_id: str = ""
                                "excluded_by_category": current["excluded_by_category"],
                                "digest": current["digest"], "step_up": True,
                                "session": session_public_id[:64], "at": now.isoformat()}))
+    recertified = {}
+    if recertify_laura:
+        from ...visual import laura_approval
+
+        for run_key in laura_runs:      # after the approvals committed: re-judge each gallery
+            try:
+                recertified[run_key] = laura_approval.after_decision(db, run_key)
+            except Exception as exc:  # noqa: BLE001 - recorded; the approval stands
+                recertified[run_key] = {"certified": False,
+                                        "error": f"{type(exc).__name__}: {str(exc)[:200]}"}
     return {"batch": batch, "approved_count": len(approved), "approved": approved,
             "skipped": skipped, "excluded_by_category": current["excluded_by_category"],
+            "laura_galleries": recertified if recertify_laura else laura_runs,
             "at": now.isoformat()}
