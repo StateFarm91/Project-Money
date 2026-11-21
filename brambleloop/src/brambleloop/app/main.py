@@ -441,7 +441,11 @@ def _startup() -> None:
     # the health sweep's truth pass re-evaluates the systemic halt. Run each once per deployed
     # commit, so a fix to either does not wait an hour; both are read-and-record, no spend.
     for _name, _agent, _jt in (("stale_artefact_sentinel", "orchestrator", "ops.sentinel"),
-                               ("health_sweep", "orchestrator", "ops.health")):
+                               ("health_sweep", "orchestrator", "ops.health"),
+                               # supply: the six-hourly pool pass and intake, once per deploy,
+                               # so a supply fix does not wait up to six hours (CA$0, no model)
+                               ("concept_pool", "market_radar", "radar.concept_pool"),
+                               ("concept_intake", "market_radar", "radar.concept_intake")):
         try:
             _boot_enqueue(_name, when=True, agent=_agent, job_type=_jt,
                           key=f"boot-{_name}-{build_identity().get('commit', '') or 'dev'}")
