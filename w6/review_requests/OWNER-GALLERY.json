@@ -1,0 +1,959 @@
+{
+  "slug": "market-basket-small",
+  "version": "1.3.0",
+  "release": "c4aa14a000e5439b0dfb32812039178b5efed6b4ba840efef7e7c64a6b7c659c",
+  "certified": false,
+  "why": "54 blocker(s); nothing written, nothing certified",
+  "consistency": {
+    "status": "UNKNOWN",
+    "why": "6 image(s): one version, release, CIR and outfit; 15 frame pair(s) not judged against each other"
+  },
+  "blockers": [
+    {
+      "file": "5fc4ac77-image.png",
+      "role": "hero",
+      "gate": "cir_references",
+      "status": "UNMEASURED",
+      "why": "the run's prepared CIR references are not on file",
+      "owner": "ENG-VIS-GALLERY"
+    },
+    {
+      "file": "5fc4ac77-image.png",
+      "role": "hero",
+      "gate": "product_fidelity",
+      "status": "UNMEASURED",
+      "why": "product_truth: fidelity UNKNOWN (anchor, region_palette, anchor_consistency, craft_texture unknown); structural floor UNKNOWN: no qualified whole-product construction/gauge evidence producer; motif/proxy/pixel prese",
+      "owner": "ENG-VIS-GALLERY"
+    },
+    {
+      "file": "5fc4ac77-image.png",
+      "role": "hero",
+      "gate": "motif_fidelity",
+      "status": "UNMEASURED",
+      "why": "motif_fidelity: motif fidelity unmeasurable: the comparison call failed: no ANTHROPIC_API_KEY in this environment",
+      "owner": "ENG-VIS-GALLERY"
+    },
+    {
+      "file": "5fc4ac77-image.png",
+      "role": "hero",
+      "gate": "realism",
+      "status": "UNMEASURED",
+      "why": "realism: photographic realism not judged: the vision judge (image_vision) is unfunded; nothing was called",
+      "owner": "ENG-VIS-IDENTITY"
+    },
+    {
+      "file": "5fc4ac77-image.png",
+      "role": "hero",
+      "gate": "image_quality",
+      "status": "FAIL",
+      "why": "quality: 1024x1024 px is below the 2000 px minimum on each side",
+      "owner": "ENG-VIS-FLUX"
+    },
+    {
+      "file": "5fc4ac77-image.png",
+      "role": "hero",
+      "gate": "exception_route",
+      "status": "FAIL",
+      "why": "generated gallery (generated_gallery) refused: structural_fidelity is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: motif_fidelity is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: product_truth is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: photographic is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: qua",
+      "owner": "ENG-VIS-GALLERY"
+    },
+    {
+      "file": "5fc4ac77-image.png",
+      "role": "hero",
+      "gate": "stripe_layout",
+      "status": "FAIL",
+      "why": "stripe_layout: band 3 (cream) is 26% of the wall; the CIR's is 8% (1 of 12 rounds); worst off by 214%",
+      "owner": "ENG-OWNER-GALLERY"
+    },
+    {
+      "file": "2fb50fed-image.png",
+      "role": "colour_context",
+      "gate": "cir_references",
+      "status": "UNMEASURED",
+      "why": "the run's prepared CIR references are not on file",
+      "owner": "ENG-VIS-GALLERY"
+    },
+    {
+      "file": "2fb50fed-image.png",
+      "role": "colour_context",
+      "gate": "product_fidelity",
+      "status": "UNMEASURED",
+      "why": "product_truth: fidelity UNKNOWN (anchor, region_palette, anchor_consistency, craft_texture unknown); structural floor UNKNOWN: no qualified whole-product construction/gauge evidence producer; motif/proxy/pixel prese",
+      "owner": "ENG-VIS-GALLERY"
+    },
+    {
+      "file": "2fb50fed-image.png",
+      "role": "colour_context",
+      "gate": "motif_fidelity",
+      "status": "UNMEASURED",
+      "why": "motif_fidelity: motif fidelity unmeasurable: the comparison call failed: no ANTHROPIC_API_KEY in this environment",
+      "owner": "ENG-VIS-GALLERY"
+    },
+    {
+      "file": "2fb50fed-image.png",
+      "role": "colour_context",
+      "gate": "realism",
+      "status": "UNMEASURED",
+      "why": "realism: photographic realism not judged: the vision judge (image_vision) is unfunded; nothing was called",
+      "owner": "ENG-VIS-IDENTITY"
+    },
+    {
+      "file": "2fb50fed-image.png",
+      "role": "colour_context",
+      "gate": "image_quality",
+      "status": "FAIL",
+      "why": "quality: 912x1152 px is below the 2000 px minimum on each side",
+      "owner": "ENG-VIS-FLUX"
+    },
+    {
+      "file": "2fb50fed-image.png",
+      "role": "colour_context",
+      "gate": "exception_route",
+      "status": "FAIL",
+      "why": "generated gallery (generated_gallery) refused: structural_fidelity is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: motif_fidelity is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: product_truth is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: photographic is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: qua",
+      "owner": "ENG-VIS-GALLERY"
+    },
+    {
+      "file": "2fb50fed-image.png",
+      "role": "colour_context",
+      "gate": "product_scale",
+      "status": "UNMEASURED",
+      "why": "product_scale: no known-size anchor in frame (none)",
+      "owner": "ENG-OWNER-GALLERY"
+    },
+    {
+      "file": "2fb50fed-image.png",
+      "role": "colour_context",
+      "gate": "stripe_layout",
+      "status": "FAIL",
+      "why": "stripe_layout: band 3 (cream) is 26% of the wall; the CIR's is 8% (1 of 12 rounds); worst off by 210%",
+      "owner": "ENG-OWNER-GALLERY"
+    },
+    {
+      "file": "0394c9ef-image.png",
+      "role": "lifestyle",
+      "gate": "cir_references",
+      "status": "UNMEASURED",
+      "why": "the run's prepared CIR references are not on file",
+      "owner": "ENG-VIS-GALLERY"
+    },
+    {
+      "file": "0394c9ef-image.png",
+      "role": "lifestyle",
+      "gate": "product_fidelity",
+      "status": "UNMEASURED",
+      "why": "product_truth: fidelity UNKNOWN (anchor, region_palette, anchor_consistency, craft_texture unknown); structural floor UNKNOWN: no qualified whole-product construction/gauge evidence producer; motif/proxy/pixel prese",
+      "owner": "ENG-VIS-GALLERY"
+    },
+    {
+      "file": "0394c9ef-image.png",
+      "role": "lifestyle",
+      "gate": "motif_fidelity",
+      "status": "UNMEASURED",
+      "why": "motif_fidelity: motif fidelity unmeasurable: the comparison call failed: no ANTHROPIC_API_KEY in this environment",
+      "owner": "ENG-VIS-GALLERY"
+    },
+    {
+      "file": "0394c9ef-image.png",
+      "role": "lifestyle",
+      "gate": "anatomy",
+      "status": "UNMEASURED",
+      "why": "anatomy: anatomy not judged: the vision judge (image_vision) is unfunded; nothing was called",
+      "owner": "ENG-VIS-IDENTITY"
+    },
+    {
+      "file": "0394c9ef-image.png",
+      "role": "lifestyle",
+      "gate": "realism",
+      "status": "UNMEASURED",
+      "why": "realism: photographic realism not judged: the vision judge (image_vision) is unfunded; nothing was called",
+      "owner": "ENG-VIS-IDENTITY"
+    },
+    {
+      "file": "0394c9ef-image.png",
+      "role": "lifestyle",
+      "gate": "image_quality",
+      "status": "FAIL",
+      "why": "quality: 896x1132 px is below the 2000 px minimum on each side",
+      "owner": "ENG-VIS-FLUX"
+    },
+    {
+      "file": "0394c9ef-image.png",
+      "role": "lifestyle",
+      "gate": "exception_route",
+      "status": "FAIL",
+      "why": "generated gallery (generated_gallery) refused: structural_fidelity is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: motif_fidelity is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: product_truth is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: photographic is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: qua",
+      "owner": "ENG-VIS-GALLERY"
+    },
+    {
+      "file": "0394c9ef-image.png",
+      "role": "lifestyle",
+      "gate": "product_scale",
+      "status": "UNMEASURED",
+      "why": "product_scale: no known-size anchor in frame (none)",
+      "owner": "ENG-OWNER-GALLERY"
+    },
+    {
+      "file": "0394c9ef-image.png",
+      "role": "lifestyle",
+      "gate": "stripe_layout",
+      "status": "FAIL",
+      "why": "stripe_layout: band 3 (cream) is 30% of the wall; the CIR's is 8% (1 of 12 rounds); worst off by 264%",
+      "owner": "ENG-OWNER-GALLERY"
+    },
+    {
+      "file": "7fe9128f-image.png",
+      "role": "angle",
+      "gate": "cir_references",
+      "status": "UNMEASURED",
+      "why": "the run's prepared CIR references are not on file",
+      "owner": "ENG-VIS-GALLERY"
+    },
+    {
+      "file": "7fe9128f-image.png",
+      "role": "angle",
+      "gate": "product_fidelity",
+      "status": "UNMEASURED",
+      "why": "product_truth: fidelity UNKNOWN (anchor, region_palette, anchor_consistency, craft_texture unknown); structural floor UNKNOWN: no qualified whole-product construction/gauge evidence producer; motif/proxy/pixel prese",
+      "owner": "ENG-VIS-GALLERY"
+    },
+    {
+      "file": "7fe9128f-image.png",
+      "role": "angle",
+      "gate": "motif_fidelity",
+      "status": "UNMEASURED",
+      "why": "motif_fidelity: motif fidelity unmeasurable: the comparison call failed: no ANTHROPIC_API_KEY in this environment",
+      "owner": "ENG-VIS-GALLERY"
+    },
+    {
+      "file": "7fe9128f-image.png",
+      "role": "angle",
+      "gate": "realism",
+      "status": "UNMEASURED",
+      "why": "realism: photographic realism not judged: the vision judge (image_vision) is unfunded; nothing was called",
+      "owner": "ENG-VIS-IDENTITY"
+    },
+    {
+      "file": "7fe9128f-image.png",
+      "role": "angle",
+      "gate": "image_quality",
+      "status": "FAIL",
+      "why": "quality: 912x1152 px is below the 2000 px minimum on each side",
+      "owner": "ENG-VIS-FLUX"
+    },
+    {
+      "file": "7fe9128f-image.png",
+      "role": "angle",
+      "gate": "exception_route",
+      "status": "FAIL",
+      "why": "generated gallery (generated_gallery) refused: structural_fidelity is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: motif_fidelity is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: product_truth is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: photographic is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: qua",
+      "owner": "ENG-VIS-GALLERY"
+    },
+    {
+      "file": "7fe9128f-image.png",
+      "role": "angle",
+      "gate": "product_scale",
+      "status": "UNMEASURED",
+      "why": "product_scale: no known-size anchor in frame (none)",
+      "owner": "ENG-OWNER-GALLERY"
+    },
+    {
+      "file": "7fe9128f-image.png",
+      "role": "angle",
+      "gate": "stripe_layout",
+      "status": "FAIL",
+      "why": "stripe_layout: band 3 (cream) is 24% of the wall; the CIR's is 8% (1 of 12 rounds); worst off by 189%",
+      "owner": "ENG-OWNER-GALLERY"
+    },
+    {
+      "file": "6c6539b4-image.png",
+      "role": "detail",
+      "gate": "cir_references",
+      "status": "UNMEASURED",
+      "why": "the run's prepared CIR references are not on file",
+      "owner": "ENG-VIS-GALLERY"
+    },
+    {
+      "file": "6c6539b4-image.png",
+      "role": "detail",
+      "gate": "product_fidelity",
+      "status": "UNMEASURED",
+      "why": "product_truth: fidelity UNKNOWN (anchor, region_palette, anchor_consistency, craft_texture unknown); structural floor UNKNOWN: no qualified whole-product construction/gauge evidence producer; motif/proxy/pixel prese",
+      "owner": "ENG-VIS-GALLERY"
+    },
+    {
+      "file": "6c6539b4-image.png",
+      "role": "detail",
+      "gate": "motif_fidelity",
+      "status": "UNMEASURED",
+      "why": "motif_fidelity: motif fidelity unmeasurable: the comparison call failed: no ANTHROPIC_API_KEY in this environment",
+      "owner": "ENG-VIS-GALLERY"
+    },
+    {
+      "file": "6c6539b4-image.png",
+      "role": "detail",
+      "gate": "realism",
+      "status": "UNMEASURED",
+      "why": "realism: photographic realism not judged: the vision judge (image_vision) is unfunded; nothing was called",
+      "owner": "ENG-VIS-IDENTITY"
+    },
+    {
+      "file": "6c6539b4-image.png",
+      "role": "detail",
+      "gate": "image_quality",
+      "status": "FAIL",
+      "why": "quality: 912x1152 px is below the 2000 px minimum on each side",
+      "owner": "ENG-VIS-FLUX"
+    },
+    {
+      "file": "6c6539b4-image.png",
+      "role": "detail",
+      "gate": "exception_route",
+      "status": "FAIL",
+      "why": "generated gallery (generated_gallery) refused: structural_fidelity is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: motif_fidelity is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: product_truth is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: photographic is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: qua",
+      "owner": "ENG-VIS-GALLERY"
+    },
+    {
+      "file": "6c6539b4-image.png",
+      "role": "detail",
+      "gate": "product_scale",
+      "status": "UNMEASURED",
+      "why": "product_scale: no known-size anchor in frame (none)",
+      "owner": "ENG-OWNER-GALLERY"
+    },
+    {
+      "file": "6c6539b4-image.png",
+      "role": "detail",
+      "gate": "stripe_layout",
+      "status": "FAIL",
+      "why": "stripe_layout: band 3 (cream) is 27% of the wall; the CIR's is 8% (1 of 12 rounds); worst off by 229%",
+      "owner": "ENG-OWNER-GALLERY"
+    },
+    {
+      "file": "f37f518e-image.png",
+      "role": "size",
+      "gate": "cir_references",
+      "status": "UNMEASURED",
+      "why": "the run's prepared CIR references are not on file",
+      "owner": "ENG-VIS-GALLERY"
+    },
+    {
+      "file": "f37f518e-image.png",
+      "role": "size",
+      "gate": "identity",
+      "status": "UNMEASURED",
+      "why": "identity: no identity reading: an unconfirmed likeness is not Laura (unanswered: image_vision: the vision judge (image_vision) is unfunded; nothing was called)",
+      "owner": "ENG-VIS-IDENTITY"
+    },
+    {
+      "file": "f37f518e-image.png",
+      "role": "size",
+      "gate": "body_proportions",
+      "status": "UNMEASURED",
+      "why": "body_proportions: not judged: the vision judge (image_vision) is unfunded; nothing was called",
+      "owner": "ENG-VIS-IDENTITY"
+    },
+    {
+      "file": "f37f518e-image.png",
+      "role": "size",
+      "gate": "outfit",
+      "status": "UNMEASURED",
+      "why": "outfit: Laura appears and no outfit id was given; an image with Laura and no outfit cannot be checked for uniqueness; outfit_distinctness: no outfit id; distinctness cannot be measured; outfit_consistency: no reserved outfit to compare the image against",
+      "owner": "ENG-VIS-IDENTITY"
+    },
+    {
+      "file": "f37f518e-image.png",
+      "role": "size",
+      "gate": "product_fidelity",
+      "status": "UNMEASURED",
+      "why": "product_truth: fidelity UNKNOWN (anchor, region_palette, anchor_consistency, craft_texture unknown); structural floor UNKNOWN: no qualified whole-product construction/gauge evidence producer; motif/proxy/pixel prese",
+      "owner": "ENG-VIS-GALLERY"
+    },
+    {
+      "file": "f37f518e-image.png",
+      "role": "size",
+      "gate": "motif_fidelity",
+      "status": "UNMEASURED",
+      "why": "motif_fidelity: motif fidelity unmeasurable: the comparison call failed: no ANTHROPIC_API_KEY in this environment",
+      "owner": "ENG-VIS-GALLERY"
+    },
+    {
+      "file": "f37f518e-image.png",
+      "role": "size",
+      "gate": "anatomy",
+      "status": "UNMEASURED",
+      "why": "anatomy: anatomy not judged: the vision judge (image_vision) is unfunded; nothing was called",
+      "owner": "ENG-VIS-IDENTITY"
+    },
+    {
+      "file": "f37f518e-image.png",
+      "role": "size",
+      "gate": "realism",
+      "status": "UNMEASURED",
+      "why": "realism: photographic realism not judged: the vision judge (image_vision) is unfunded; nothing was called",
+      "owner": "ENG-VIS-IDENTITY"
+    },
+    {
+      "file": "f37f518e-image.png",
+      "role": "size",
+      "gate": "image_quality",
+      "status": "FAIL",
+      "why": "quality: 912x1152 px is below the 2000 px minimum on each side",
+      "owner": "ENG-VIS-FLUX"
+    },
+    {
+      "file": "f37f518e-image.png",
+      "role": "size",
+      "gate": "laura_publication",
+      "status": "UNMEASURED",
+      "why": "Laura's publication gate reads 'not_for_publication' for these bytes",
+      "owner": "ENG-VIS-IDENTITY"
+    },
+    {
+      "file": "f37f518e-image.png",
+      "role": "size",
+      "gate": "exception_route",
+      "status": "FAIL",
+      "why": "generated gallery (generated_gallery) refused: structural_fidelity is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: motif_fidelity is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: product_truth is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: photographic is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: qua",
+      "owner": "ENG-VIS-GALLERY"
+    },
+    {
+      "file": "f37f518e-image.png",
+      "role": "size",
+      "gate": "product_scale",
+      "status": "FAIL",
+      "why": "product_scale: reads about 25 cm against the CIR's 16 cm (+55%, beside a adult head, chin to crown)",
+      "owner": "ENG-OWNER-GALLERY"
+    },
+    {
+      "file": "f37f518e-image.png",
+      "role": "size",
+      "gate": "stripe_layout",
+      "status": "FAIL",
+      "why": "stripe_layout: band 3 (cream) is 23% of the wall; the CIR's is 8% (1 of 12 rounds); worst off by 175%",
+      "owner": "ENG-OWNER-GALLERY"
+    },
+    {
+      "file": null,
+      "role": "gallery",
+      "gate": "campaign_consistency",
+      "status": "UNMEASURED",
+      "why": "6 image(s): one version, release, CIR and outfit; 15 frame pair(s) not judged against each other",
+      "owner": "ENG-OWNER-GALLERY"
+    }
+  ],
+  "frames": [
+    {
+      "name": "5fc4ac77-image.png",
+      "sha256": "b2c968bbb599af3b62f114804d1219f670e1f74e49860422636e52e5821c8878",
+      "role": "hero",
+      "job": "DESIRE",
+      "alternate": false,
+      "laura_present": false,
+      "alt_text": "Hexagonal crochet basket in cream with two wine stripes, standing alone on a pale wood table against a plain cream wall.",
+      "ok": false,
+      "gates": {
+        "cir_references": {
+          "status": "UNMEASURED",
+          "why": "the run's prepared CIR references are not on file"
+        },
+        "identity": {
+          "status": "NOT_APPLICABLE",
+          "why": "Laura does not appear"
+        },
+        "body_proportions": {
+          "status": "NOT_APPLICABLE",
+          "why": "Laura does not appear"
+        },
+        "outfit": {
+          "status": "NOT_APPLICABLE",
+          "why": "Laura does not appear"
+        },
+        "product_fidelity": {
+          "status": "UNMEASURED",
+          "why": "product_truth: fidelity UNKNOWN (anchor, region_palette, anchor_consistency, craft_texture unknown); structural floor UNKNOWN: no qualified whole-product construction/gauge evidence producer; motif/proxy/pixel prese"
+        },
+        "motif_fidelity": {
+          "status": "UNMEASURED",
+          "why": "motif_fidelity: motif fidelity unmeasurable: the comparison call failed: no ANTHROPIC_API_KEY in this environment"
+        },
+        "anatomy": {
+          "status": "NOT_APPLICABLE",
+          "why": "anatomy: no person or hands in a product-only frame"
+        },
+        "realism": {
+          "status": "UNMEASURED",
+          "why": "realism: photographic realism not judged: the vision judge (image_vision) is unfunded; nothing was called"
+        },
+        "image_quality": {
+          "status": "FAIL",
+          "why": "quality: 1024x1024 px is below the 2000 px minimum on each side"
+        },
+        "role": {
+          "status": "PASS",
+          "why": "role: generated-gallery hero: held to structural Product Truth and motif fidelity on its exact bytes (D-OWNER-FLUX-GALLERY)"
+        },
+        "provenance": {
+          "status": "PASS",
+          "why": "provenance: AI-generated (bfl-dashboard/FLUX 3 (BFL dashboard, owner-reported)), never a photograph; disclosure: honesty label assigned to the image's alt text and caption"
+        },
+        "exception_route": {
+          "status": "FAIL",
+          "why": "generated gallery (generated_gallery) refused: structural_fidelity is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: motif_fidelity is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: product_truth is UNKNOWN; every gate must read PASS and UNMEASURED never c"
+        },
+        "product_scale": {
+          "status": "NOT_APPLICABLE",
+          "why": "product_scale: plain product shot with no scene objects: nothing in the frame states a size"
+        },
+        "stripe_layout": {
+          "status": "FAIL",
+          "why": "stripe_layout: band 3 (cream) is 26% of the wall; the CIR's is 8% (1 of 12 rounds); worst off by 214%"
+        },
+        "alt_text": {
+          "status": "PASS",
+          "why": "alt_text: describes the scene; no label, no render wording, no made-sample claim"
+        }
+      }
+    },
+    {
+      "name": "2fb50fed-image.png",
+      "sha256": "5fec052b5bbf36ecdf8cafba0526da73f8773b65ad11d03860d9b81bb5b3a268",
+      "role": "colour_context",
+      "job": "COLOUR_CONTEXT",
+      "alternate": false,
+      "laura_present": false,
+      "alt_text": "Hexagonal crochet basket in cream with two wine stripes, on a wooden dresser beside a vase of eucalyptus and a folded cloth.",
+      "ok": false,
+      "gates": {
+        "cir_references": {
+          "status": "UNMEASURED",
+          "why": "the run's prepared CIR references are not on file"
+        },
+        "identity": {
+          "status": "NOT_APPLICABLE",
+          "why": "Laura does not appear"
+        },
+        "body_proportions": {
+          "status": "NOT_APPLICABLE",
+          "why": "Laura does not appear"
+        },
+        "outfit": {
+          "status": "NOT_APPLICABLE",
+          "why": "Laura does not appear"
+        },
+        "product_fidelity": {
+          "status": "UNMEASURED",
+          "why": "product_truth: fidelity UNKNOWN (anchor, region_palette, anchor_consistency, craft_texture unknown); structural floor UNKNOWN: no qualified whole-product construction/gauge evidence producer; motif/proxy/pixel prese"
+        },
+        "motif_fidelity": {
+          "status": "UNMEASURED",
+          "why": "motif_fidelity: motif fidelity unmeasurable: the comparison call failed: no ANTHROPIC_API_KEY in this environment"
+        },
+        "anatomy": {
+          "status": "NOT_APPLICABLE",
+          "why": "anatomy: no person or hands in a product-only frame"
+        },
+        "realism": {
+          "status": "UNMEASURED",
+          "why": "realism: photographic realism not judged: the vision judge (image_vision) is unfunded; nothing was called"
+        },
+        "image_quality": {
+          "status": "FAIL",
+          "why": "quality: 912x1152 px is below the 2000 px minimum on each side"
+        },
+        "role": {
+          "status": "PASS",
+          "why": "role: CONVERSION_CREATIVE can do COLOUR_CONTEXT"
+        },
+        "provenance": {
+          "status": "PASS",
+          "why": "provenance: AI-generated (bfl-dashboard/FLUX 3 (BFL dashboard, owner-reported)), never a photograph; disclosure: honesty label assigned to the image's alt text and caption"
+        },
+        "exception_route": {
+          "status": "FAIL",
+          "why": "generated gallery (generated_gallery) refused: structural_fidelity is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: motif_fidelity is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: product_truth is UNKNOWN; every gate must read PASS and UNMEASURED never c"
+        },
+        "product_scale": {
+          "status": "UNMEASURED",
+          "why": "product_scale: no known-size anchor in frame (none)"
+        },
+        "stripe_layout": {
+          "status": "FAIL",
+          "why": "stripe_layout: band 3 (cream) is 26% of the wall; the CIR's is 8% (1 of 12 rounds); worst off by 210%"
+        },
+        "alt_text": {
+          "status": "PASS",
+          "why": "alt_text: describes the scene; no label, no render wording, no made-sample claim"
+        }
+      }
+    },
+    {
+      "name": "0394c9ef-image.png",
+      "sha256": "7fba90cd1f968a8ab0eae314bc77d1bf61f48584a4c1b9766d1763657da649e1",
+      "role": "lifestyle",
+      "job": "LIFESTYLE",
+      "alternate": false,
+      "laura_present": false,
+      "alt_text": "Hexagonal crochet basket in cream with two wine stripes, on a wooden dresser holding rolled cloths and small knitted items.",
+      "ok": false,
+      "gates": {
+        "cir_references": {
+          "status": "UNMEASURED",
+          "why": "the run's prepared CIR references are not on file"
+        },
+        "identity": {
+          "status": "NOT_APPLICABLE",
+          "why": "Laura does not appear"
+        },
+        "body_proportions": {
+          "status": "NOT_APPLICABLE",
+          "why": "Laura does not appear"
+        },
+        "outfit": {
+          "status": "NOT_APPLICABLE",
+          "why": "Laura does not appear"
+        },
+        "product_fidelity": {
+          "status": "UNMEASURED",
+          "why": "product_truth: fidelity UNKNOWN (anchor, region_palette, anchor_consistency, craft_texture unknown); structural floor UNKNOWN: no qualified whole-product construction/gauge evidence producer; motif/proxy/pixel prese"
+        },
+        "motif_fidelity": {
+          "status": "UNMEASURED",
+          "why": "motif_fidelity: motif fidelity unmeasurable: the comparison call failed: no ANTHROPIC_API_KEY in this environment"
+        },
+        "anatomy": {
+          "status": "UNMEASURED",
+          "why": "anatomy: anatomy not judged: the vision judge (image_vision) is unfunded; nothing was called"
+        },
+        "realism": {
+          "status": "UNMEASURED",
+          "why": "realism: photographic realism not judged: the vision judge (image_vision) is unfunded; nothing was called"
+        },
+        "image_quality": {
+          "status": "FAIL",
+          "why": "quality: 896x1132 px is below the 2000 px minimum on each side"
+        },
+        "role": {
+          "status": "PASS",
+          "why": "role: CONVERSION_CREATIVE can do LIFESTYLE"
+        },
+        "provenance": {
+          "status": "PASS",
+          "why": "provenance: AI-generated (bfl-dashboard/FLUX 3 (BFL dashboard, owner-reported)), never a photograph; disclosure: honesty label assigned to the image's alt text and caption"
+        },
+        "exception_route": {
+          "status": "FAIL",
+          "why": "generated gallery (generated_gallery) refused: structural_fidelity is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: motif_fidelity is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: product_truth is UNKNOWN; every gate must read PASS and UNMEASURED never c"
+        },
+        "product_scale": {
+          "status": "UNMEASURED",
+          "why": "product_scale: no known-size anchor in frame (none)"
+        },
+        "stripe_layout": {
+          "status": "FAIL",
+          "why": "stripe_layout: band 3 (cream) is 30% of the wall; the CIR's is 8% (1 of 12 rounds); worst off by 264%"
+        },
+        "alt_text": {
+          "status": "PASS",
+          "why": "alt_text: describes the scene; no label, no render wording, no made-sample claim"
+        }
+      }
+    },
+    {
+      "name": "7fe9128f-image.png",
+      "sha256": "d167c384b4c5784a0da6baccf8722365adb23da890b2b507410048f954349abd",
+      "role": "angle",
+      "job": "ANGLE",
+      "alternate": false,
+      "laura_present": false,
+      "alt_text": "Hexagonal crochet basket in cream with two wine stripes, on a wooden dresser, seen from above to show the inside.",
+      "ok": false,
+      "gates": {
+        "cir_references": {
+          "status": "UNMEASURED",
+          "why": "the run's prepared CIR references are not on file"
+        },
+        "identity": {
+          "status": "NOT_APPLICABLE",
+          "why": "Laura does not appear"
+        },
+        "body_proportions": {
+          "status": "NOT_APPLICABLE",
+          "why": "Laura does not appear"
+        },
+        "outfit": {
+          "status": "NOT_APPLICABLE",
+          "why": "Laura does not appear"
+        },
+        "product_fidelity": {
+          "status": "UNMEASURED",
+          "why": "product_truth: fidelity UNKNOWN (anchor, region_palette, anchor_consistency, craft_texture unknown); structural floor UNKNOWN: no qualified whole-product construction/gauge evidence producer; motif/proxy/pixel prese"
+        },
+        "motif_fidelity": {
+          "status": "UNMEASURED",
+          "why": "motif_fidelity: motif fidelity unmeasurable: the comparison call failed: no ANTHROPIC_API_KEY in this environment"
+        },
+        "anatomy": {
+          "status": "NOT_APPLICABLE",
+          "why": "anatomy: no person or hands in a product-only frame"
+        },
+        "realism": {
+          "status": "UNMEASURED",
+          "why": "realism: photographic realism not judged: the vision judge (image_vision) is unfunded; nothing was called"
+        },
+        "image_quality": {
+          "status": "FAIL",
+          "why": "quality: 912x1152 px is below the 2000 px minimum on each side"
+        },
+        "role": {
+          "status": "PASS",
+          "why": "role: CONVERSION_CREATIVE can do ANGLE"
+        },
+        "provenance": {
+          "status": "PASS",
+          "why": "provenance: AI-generated (bfl-dashboard/FLUX 3 (BFL dashboard, owner-reported)), never a photograph; disclosure: honesty label assigned to the image's alt text and caption"
+        },
+        "exception_route": {
+          "status": "FAIL",
+          "why": "generated gallery (generated_gallery) refused: structural_fidelity is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: motif_fidelity is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: product_truth is UNKNOWN; every gate must read PASS and UNMEASURED never c"
+        },
+        "product_scale": {
+          "status": "UNMEASURED",
+          "why": "product_scale: no known-size anchor in frame (none)"
+        },
+        "stripe_layout": {
+          "status": "FAIL",
+          "why": "stripe_layout: band 3 (cream) is 24% of the wall; the CIR's is 8% (1 of 12 rounds); worst off by 189%"
+        },
+        "alt_text": {
+          "status": "PASS",
+          "why": "alt_text: describes the scene; no label, no render wording, no made-sample claim"
+        }
+      }
+    },
+    {
+      "name": "6c6539b4-image.png",
+      "sha256": "30778caedade04d0aa1be1c1c99f733a91001232e21f67a5b9758e67ae2d4065",
+      "role": "detail",
+      "job": "DETAIL",
+      "alternate": false,
+      "laura_present": false,
+      "alt_text": "Hexagonal crochet basket in cream with two wine stripes, close view of the stitches and stripes on a wooden dresser.",
+      "ok": false,
+      "gates": {
+        "cir_references": {
+          "status": "UNMEASURED",
+          "why": "the run's prepared CIR references are not on file"
+        },
+        "identity": {
+          "status": "NOT_APPLICABLE",
+          "why": "Laura does not appear"
+        },
+        "body_proportions": {
+          "status": "NOT_APPLICABLE",
+          "why": "Laura does not appear"
+        },
+        "outfit": {
+          "status": "NOT_APPLICABLE",
+          "why": "Laura does not appear"
+        },
+        "product_fidelity": {
+          "status": "UNMEASURED",
+          "why": "product_truth: fidelity UNKNOWN (anchor, region_palette, anchor_consistency, craft_texture unknown); structural floor UNKNOWN: no qualified whole-product construction/gauge evidence producer; motif/proxy/pixel prese"
+        },
+        "motif_fidelity": {
+          "status": "UNMEASURED",
+          "why": "motif_fidelity: motif fidelity unmeasurable: the comparison call failed: no ANTHROPIC_API_KEY in this environment"
+        },
+        "anatomy": {
+          "status": "NOT_APPLICABLE",
+          "why": "anatomy: no person or hands in a product-only frame"
+        },
+        "realism": {
+          "status": "UNMEASURED",
+          "why": "realism: photographic realism not judged: the vision judge (image_vision) is unfunded; nothing was called"
+        },
+        "image_quality": {
+          "status": "FAIL",
+          "why": "quality: 912x1152 px is below the 2000 px minimum on each side"
+        },
+        "role": {
+          "status": "PASS",
+          "why": "role: CONVERSION_CREATIVE can do DETAIL"
+        },
+        "provenance": {
+          "status": "PASS",
+          "why": "provenance: AI-generated (bfl-dashboard/FLUX 3 (BFL dashboard, owner-reported)), never a photograph; disclosure: honesty label assigned to the image's alt text and caption"
+        },
+        "exception_route": {
+          "status": "FAIL",
+          "why": "generated gallery (generated_gallery) refused: structural_fidelity is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: motif_fidelity is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: product_truth is UNKNOWN; every gate must read PASS and UNMEASURED never c"
+        },
+        "product_scale": {
+          "status": "UNMEASURED",
+          "why": "product_scale: no known-size anchor in frame (none)"
+        },
+        "stripe_layout": {
+          "status": "FAIL",
+          "why": "stripe_layout: band 3 (cream) is 27% of the wall; the CIR's is 8% (1 of 12 rounds); worst off by 229%"
+        },
+        "alt_text": {
+          "status": "PASS",
+          "why": "alt_text: describes the scene; no label, no render wording, no made-sample claim"
+        }
+      }
+    },
+    {
+      "name": "f37f518e-image.png",
+      "sha256": "881c178d66486e2bda058beb9fdec3bb71fe5bbd791ae69c2465564c1184cb48",
+      "role": "size",
+      "job": "SCALE",
+      "alternate": false,
+      "laura_present": true,
+      "alt_text": "Hexagonal crochet basket in cream with two wine stripes, held in both hands by a woman in a sage blouse in a bright room.",
+      "ok": false,
+      "gates": {
+        "cir_references": {
+          "status": "UNMEASURED",
+          "why": "the run's prepared CIR references are not on file"
+        },
+        "identity": {
+          "status": "UNMEASURED",
+          "why": "identity: no identity reading: an unconfirmed likeness is not Laura (unanswered: image_vision: the vision judge (image_vision) is unfunded; nothing was called)"
+        },
+        "body_proportions": {
+          "status": "UNMEASURED",
+          "why": "body_proportions: not judged: the vision judge (image_vision) is unfunded; nothing was called"
+        },
+        "outfit": {
+          "status": "UNMEASURED",
+          "why": "outfit: Laura appears and no outfit id was given; an image with Laura and no outfit cannot be checked for uniqueness; outfit_distinctness: no outfit id; distinctness cannot be measured; outfit_consistency: no reserved outfit to compare the image against"
+        },
+        "product_fidelity": {
+          "status": "UNMEASURED",
+          "why": "product_truth: fidelity UNKNOWN (anchor, region_palette, anchor_consistency, craft_texture unknown); structural floor UNKNOWN: no qualified whole-product construction/gauge evidence producer; motif/proxy/pixel prese"
+        },
+        "motif_fidelity": {
+          "status": "UNMEASURED",
+          "why": "motif_fidelity: motif fidelity unmeasurable: the comparison call failed: no ANTHROPIC_API_KEY in this environment"
+        },
+        "anatomy": {
+          "status": "UNMEASURED",
+          "why": "anatomy: anatomy not judged: the vision judge (image_vision) is unfunded; nothing was called"
+        },
+        "realism": {
+          "status": "UNMEASURED",
+          "why": "realism: photographic realism not judged: the vision judge (image_vision) is unfunded; nothing was called"
+        },
+        "image_quality": {
+          "status": "FAIL",
+          "why": "quality: 912x1152 px is below the 2000 px minimum on each side"
+        },
+        "role": {
+          "status": "PASS",
+          "why": "role: CONVERSION_CREATIVE can do SCALE"
+        },
+        "provenance": {
+          "status": "PASS",
+          "why": "provenance: AI-generated (bfl-dashboard/FLUX 3 (BFL dashboard, owner-reported); Laura model laura-r2-a42aeac7), never a photograph; disclosure: honesty label assigned to the image's alt text and caption"
+        },
+        "laura_publication": {
+          "status": "UNMEASURED",
+          "why": "Laura's publication gate reads 'not_for_publication' for these bytes"
+        },
+        "exception_route": {
+          "status": "FAIL",
+          "why": "generated gallery (generated_gallery) refused: structural_fidelity is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: motif_fidelity is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: product_truth is UNKNOWN; every gate must read PASS and UNMEASURED never c"
+        },
+        "product_scale": {
+          "status": "FAIL",
+          "why": "product_scale: reads about 25 cm against the CIR's 16 cm (+55%, beside a adult head, chin to crown)"
+        },
+        "stripe_layout": {
+          "status": "FAIL",
+          "why": "stripe_layout: band 3 (cream) is 23% of the wall; the CIR's is 8% (1 of 12 rounds); worst off by 175%"
+        },
+        "alt_text": {
+          "status": "PASS",
+          "why": "alt_text: describes the scene; no label, no render wording, no made-sample claim"
+        }
+      }
+    },
+    {
+      "name": "7b132c05-image.png",
+      "sha256": "7da9b35423fcf795393ca43b284c4f7b6c47722d69b2d96d9b81d54d737be64b",
+      "role": "size",
+      "job": "SCALE",
+      "alternate": true,
+      "laura_present": true,
+      "alt_text": "Hexagonal crochet basket in cream with two wine stripes, held by a woman placing a folded cloth inside it.",
+      "ok": false,
+      "gates": {
+        "cir_references": {
+          "status": "UNMEASURED",
+          "why": "the run's prepared CIR references are not on file"
+        },
+        "identity": {
+          "status": "UNMEASURED",
+          "why": "identity: no identity reading: an unconfirmed likeness is not Laura (unanswered: image_vision: the vision judge (image_vision) is unfunded; nothing was called)"
+        },
+        "body_proportions": {
+          "status": "UNMEASURED",
+          "why": "body_proportions: not judged: the vision judge (image_vision) is unfunded; nothing was called"
+        },
+        "outfit": {
+          "status": "UNMEASURED",
+          "why": "outfit: Laura appears and no outfit id was given; an image with Laura and no outfit cannot be checked for uniqueness; outfit_distinctness: no outfit id; distinctness cannot be measured; outfit_consistency: no reserved outfit to compare the image against"
+        },
+        "product_fidelity": {
+          "status": "UNMEASURED",
+          "why": "product_truth: fidelity UNKNOWN (anchor, region_palette, anchor_consistency, craft_texture unknown); structural floor UNKNOWN: no qualified whole-product construction/gauge evidence producer; motif/proxy/pixel prese"
+        },
+        "motif_fidelity": {
+          "status": "UNMEASURED",
+          "why": "motif_fidelity: motif fidelity unmeasurable: the comparison call failed: no ANTHROPIC_API_KEY in this environment"
+        },
+        "anatomy": {
+          "status": "UNMEASURED",
+          "why": "anatomy: anatomy not judged: the vision judge (image_vision) is unfunded; nothing was called"
+        },
+        "realism": {
+          "status": "UNMEASURED",
+          "why": "realism: photographic realism not judged: the vision judge (image_vision) is unfunded; nothing was called"
+        },
+        "image_quality": {
+          "status": "FAIL",
+          "why": "quality: 912x1152 px is below the 2000 px minimum on each side"
+        },
+        "role": {
+          "status": "PASS",
+          "why": "role: CONVERSION_CREATIVE can do SCALE"
+        },
+        "provenance": {
+          "status": "PASS",
+          "why": "provenance: AI-generated (bfl-dashboard/FLUX 3 (BFL dashboard, owner-reported); Laura model laura-r2-a42aeac7), never a photograph; disclosure: honesty label assigned to the image's alt text and caption"
+        },
+        "laura_publication": {
+          "status": "UNMEASURED",
+          "why": "Laura's publication gate reads 'not_for_publication' for these bytes"
+        },
+        "exception_route": {
+          "status": "FAIL",
+          "why": "generated gallery (generated_gallery) refused: structural_fidelity is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: motif_fidelity is UNKNOWN; every gate must read PASS and UNMEASURED never counts as PASS; generated gallery (generated_gallery) refused: product_truth is UNKNOWN; every gate must read PASS and UNMEASURED never c"
+        },
+        "product_scale": {
+          "status": "FAIL",
+          "why": "product_scale: reads about 24 cm against the CIR's 16 cm (+50%, beside a adult head, chin to crown)"
+        },
+        "stripe_layout": {
+          "status": "FAIL",
+          "why": "stripe_layout: band 3 (cream) is 22% of the wall; the CIR's is 8% (1 of 12 rounds); worst off by 165%"
+        },
+        "alt_text": {
+          "status": "PASS",
+          "why": "alt_text: describes the scene; no label, no render wording, no made-sample claim"
+        }
+      }
+    }
+  ]
+}
