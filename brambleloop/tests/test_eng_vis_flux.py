@@ -531,12 +531,16 @@ def test_a_rejected_render_is_rechecked_before_a_replacement_and_recovered_if_it
 
 def test_open_motif_recoveries_block_a_replacement():
     db = _db()
+    # The real table (publish.motif_backlog, now registered on the shared metadata).
+    from brambleloop.publish import motif_backlog as MB
+
+    MB.ensure_tables(db)
     with db.session() as s:
-        s.execute(text("CREATE TABLE motif_recovery (id INTEGER PRIMARY KEY, slug TEXT, "
-                       "state TEXT)"))
-        s.execute(text("INSERT INTO motif_recovery (slug, state) VALUES "
-                       "('fixture', 'QUEUED_BUDGET'), ('other', 'BLOCKED'), "
-                       "('fixture', 'PASSED')"))
+        for i, (slug, state) in enumerate((("fixture", "QUEUED_BUDGET"), ("other", "BLOCKED"),
+                                           ("fixture", "PASSED"))):
+            s.add(MB.MotifRecovery(render_key=f"rk-{i}", source_action="test", audit_id=i,
+                                   slug=slug, version="1.0.0", image_sha256="0" * 64,
+                                   refusal_code="test", state=state))
     got = FPR.replacement_allowed(db, gallery="imgprod:none", slug="fixture")
     assert not got["allowed"] and got["open_motif_recoveries"] == 1
     assert FPR.replacement_allowed(db, gallery="imgprod:none", slug="third")["allowed"]

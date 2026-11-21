@@ -188,32 +188,40 @@ def test_orchestrator_refuses_the_uncertified_release_without_experiment_mode():
     db, _ = scratch("orch")
     inputs = {"slug": cir.slug, "version": cir.version, "release": cert["content_hash"],
               "stage": "retrieve_release", "round": 0}
-    out = IP.run_stage(db, inputs, follow=lambda *a: None)
-    check("plain_run_waits_for_certification", out.get("state") ==
-          "awaiting_certified_pattern", out)
-    exp_in = {**inputs, "experiment": True}
-    check("experiment_flag_without_an_open_experiment_refused",
-          raises(lambda: IP.run_stage(db, exp_in, follow=lambda *a: None)) is not None)
-    reg = opened(db)
-    out_plain = IP.run_stage(db, inputs, follow=lambda *a: None)
-    check("plain_run_not_bound_by_an_open_experiment",
-          out_plain.get("state") == "awaiting_certified_pattern", out_plain)
-    check("open_but_not_installed_refused",
-          raises(lambda: IP.run_stage(db, exp_in, follow=lambda *a: None)) is not None)
-    rend = H.BudgetedRenderer(H.stub_renderer_class()(), XP.ExperimentBudget(cap_cad=5.0),
-                              live=False, per_role=2, log=[])
-    XP.install(db, reg, judges_factory=H.StubJudges,
-               generator_factory=H.generator_factory(renderer=rend, live=False,
-                                                     work_root=tempfile.mkdtemp()))
-    sent = []
-    out = IP.run_stage(db, exp_in, follow=lambda i, k: sent.append((i, k)))
-    check("installed_experiment_passes_retrieve", out.get("next") == "prepare_references", out)
-    check("next_stage_keeps_the_flag", sent and sent[0][0].get("experiment") is True, sent)
-    rec = IP._stage_data(db, IP.run_key(cir.slug, cir.version, reg["release"]))
-    r0 = rec["retrieve_release"]
-    check("stage_record_stamped", r0.get("label") == XP.LABEL and r0["evidence"].get(
-        "certified") is False and XP.LABEL in r0["evidence"]["why"], r0)
-    XP.uninstall(reg)
+    # D-OWNER-SALE-PIPELINE: a plain run first waits for for-sale admission (tested in
+    # test_vis_gallery_e2e). Admit it so this test reaches the certification wait it checks.
+    real_admission = IP.sale_admission
+    IP.sale_admission = lambda *a, **k: {"admitted": True, "test_double": True,
+                                         "why": "admitted for the wrap orchestrator test"}
+    try:
+        out = IP.run_stage(db, inputs, follow=lambda *a: None)
+        check("plain_run_waits_for_certification", out.get("state") ==
+              "awaiting_certified_pattern", out)
+        exp_in = {**inputs, "experiment": True}
+        check("experiment_flag_without_an_open_experiment_refused",
+              raises(lambda: IP.run_stage(db, exp_in, follow=lambda *a: None)) is not None)
+        reg = opened(db)
+        out_plain = IP.run_stage(db, inputs, follow=lambda *a: None)
+        check("plain_run_not_bound_by_an_open_experiment",
+              out_plain.get("state") == "awaiting_certified_pattern", out_plain)
+        check("open_but_not_installed_refused",
+              raises(lambda: IP.run_stage(db, exp_in, follow=lambda *a: None)) is not None)
+        rend = H.BudgetedRenderer(H.stub_renderer_class()(), XP.ExperimentBudget(cap_cad=5.0),
+                                  live=False, per_role=2, log=[])
+        XP.install(db, reg, judges_factory=H.StubJudges,
+                   generator_factory=H.generator_factory(renderer=rend, live=False,
+                                                         work_root=tempfile.mkdtemp()))
+        sent = []
+        out = IP.run_stage(db, exp_in, follow=lambda i, k: sent.append((i, k)))
+        check("installed_experiment_passes_retrieve", out.get("next") == "prepare_references", out)
+        check("next_stage_keeps_the_flag", sent and sent[0][0].get("experiment") is True, sent)
+        rec = IP._stage_data(db, IP.run_key(cir.slug, cir.version, reg["release"]))
+        r0 = rec["retrieve_release"]
+        check("stage_record_stamped", r0.get("label") == XP.LABEL and r0["evidence"].get(
+            "certified") is False and XP.LABEL in r0["evidence"]["why"], r0)
+        XP.uninstall(reg)
+    finally:
+        IP.sale_admission = real_admission
 
 
 def test_experiment_candidates_are_never_publishable():
