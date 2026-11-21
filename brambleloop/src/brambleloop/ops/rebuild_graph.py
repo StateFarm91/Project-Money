@@ -239,8 +239,9 @@ def _bounded_key(prefix: str, stamp: str) -> str:
 RETRY_AFTER = timedelta(hours=12)
 
 
-def _current_deploy_started_at(db):
-    """The first `runtime.started` audit row of the commit now running, else None."""
+def _current_deploy(db) -> tuple[str | None, datetime | None]:
+    """(commit, first `runtime.started` of that commit) for the commit now running, else
+    (None, None)."""
     try:
         from sqlalchemy import select
 
@@ -249,14 +250,39 @@ def _current_deploy_started_at(db):
 
         commit = (build_identity() or {}).get("commit") or ""
         if not commit or commit == "dev":
-            return None
+            return None, None
         for at, detail in db.execute(select(AuditLog.at, AuditLog.detail).where(
                 AuditLog.action == "runtime.started").order_by(AuditLog.id)):
             if (detail or {}).get("commit") == commit:
-                return at if at.tzinfo else at.replace(tzinfo=timezone.utc)
+                return commit, (at if at.tzinfo else at.replace(tzinfo=timezone.utc))
     except Exception:  # noqa: BLE001 - unknown deploy time keeps the plain window
-        return None
-    return None
+        return None, None
+    return None, None
+
+
+def _current_deploy_started_at(db):
+    """The first `runtime.started` audit row of the commit now running, else None."""
+    return _current_deploy(db)[1]
+
+
+def retry_stamp(db, now: datetime) -> str:
+    """eng/halt-380-live: the stamp of a retry key. The UTC date, as before -- plus the running
+    commit when this deploy is what reopened RETRY_AFTER (`_recent_rebuild_slugs`).
+
+    19h4 counted RETRY_AFTER from the current deploy so that new code gets one immediate retry
+    per product, but the retry it then enqueued still carried the plain daily key. Any earlier
+    retry that UTC day (production 2026-11-21: the ~12:57Z wave on 19h4, before
+    eng/halt-380-marketing) already held that key, so the deploy's retry raised DuplicateJob,
+    which read as `retry_waiting`: 01ab8df3's 14:57Z sentinel enqueued 0, 18 waiting, nothing
+    unfinished, and no attempt ever ran on the fixed code. Keyed on the commit as well, each
+    deploy's one retry is its own; a re-run inside one deploy stays idempotent, and without a
+    deploy inside the window the key is the plain daily one, unchanged. The attempt budget
+    (REBUILD_MAX_ATTEMPTS, the rebuild-incomplete hold) is unchanged."""
+    stamp = now.date().isoformat()
+    commit, started = _current_deploy(db)
+    if commit and started is not None and started > now - RETRY_AFTER:
+        stamp += ":" + "".join(c for c in commit[:12] if c.isalnum())
+    return stamp
 
 
 def _recent_rebuild_slugs(db, now: datetime) -> set[str]:
@@ -639,15 +665,16 @@ def _prior_attempt_keys(db, by_product, *, now: datetime) -> dict[str, str]:
 
 
 def _retry_key(db, slug: str, key: str, *, now: datetime | None = None,
-               recent: set[str] | None = None) -> str | None:
-    """A fresh daily key when no chain.rebuild for `slug` is in flight and none ended inside
-    RETRY_AFTER; otherwise None (the existing attempt stands)."""
+               recent: set[str] | None = None, stamp: str | None = None) -> str | None:
+    """A fresh retry key (daily; per deploy when a deploy reopened the window, `retry_stamp`)
+    when no chain.rebuild for `slug` is in flight and none ended inside RETRY_AFTER;
+    otherwise None (the existing attempt stands)."""
     now = now or datetime.now(timezone.utc)
     if recent is None:
         recent = _recent_rebuild_slugs(db, now)
     if slug in recent:
         return None
-    return job_key(f"{key}:retry", now.date().isoformat())
+    return job_key(f"{key}:retry", stamp if stamp is not None else retry_stamp(db, now))
 
 
 def enqueue(db, queue, *, changed: dict[str, str], reason: str,
@@ -683,6 +710,8 @@ def enqueue(db, queue, *, changed: dict[str, str], reason: str,
         failed: dict[str, list[dict]] | None = None
         legacy_failed: dict[str, int] = {}
         priors: dict[str, str] | None = None
+        rstamp: str | None = None
+        spent: list[str] = []
         for slug, rows in sorted(by_product.items()):
             key = job_key(f"rebuild:product:{slug}", stamp)
             # eng/stale-rebuild-loop: only the refs this product's artefacts record. The
@@ -738,7 +767,9 @@ def enqueue(db, queue, *, changed: dict[str, str], reason: str,
                 # for this product is terminal and old enough, ask again, once a day.
                 if recent is None:
                     recent = _recent_rebuild_slugs(db, now or datetime.now(timezone.utc))
-                again = _retry_key(db, slug, key, now=now, recent=recent)
+                if rstamp is None:
+                    rstamp = retry_stamp(db, now or datetime.now(timezone.utc))
+                again = _retry_key(db, slug, key, now=now, recent=recent, stamp=rstamp)
                 # INTEG7 (review S-2): no daily retry while an owner- or policy-gated reason
                 # refuses this product's rebuild; it resumes when the gate clears.
                 held_why = hold(slug) if (again and hold is not None) else None
@@ -755,7 +786,9 @@ def enqueue(db, queue, *, changed: dict[str, str], reason: str,
                         retried.append(slug)
                         continue
                     except DuplicateJob:
-                        pass
+                        # eng/halt-380-live: this stamp's retry already ran. Named, so a
+                        # readback can tell "retry spent" from "waiting out RETRY_AFTER".
+                        spent.append(slug)
                 # eng/stale-rebuild-loop (production ea3aacc7: 50 "already queued", zero
                 # unfinished jobs): "already queued" means a job for this change is in
                 # flight. An attempt that ended and is waiting out RETRY_AFTER, or whose
@@ -767,7 +800,7 @@ def enqueue(db, queue, *, changed: dict[str, str], reason: str,
                 else:
                     waiting.append(slug)
         return {"enqueued": enqueued, "already_queued": already, "retried": retried,
-                "retry_held": held, "retry_waiting": waiting,
+                "retry_held": held, "retry_waiting": waiting, "retry_spent": spent,
                 "plan": plan, "reason": reason, "per": per,
                 "idempotency": ("keyed on the product and the new fingerprint, so the same "
                                 "change enqueues once and a different change enqueues again")}

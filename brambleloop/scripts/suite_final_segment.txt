@@ -302,3 +302,4 @@ tests/test_halt_380_marketing.py
 tests/test_etsy_exercise.py
 tests/test_supply_feed.py
 tests/test_amigurumi_judging.py
+tests/test_halt_380_live.py
