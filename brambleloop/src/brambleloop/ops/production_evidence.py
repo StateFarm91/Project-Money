@@ -1964,9 +1964,8 @@ def factory_visibility(db, *, now: datetime) -> dict:
     try:
         from . import owner_etsy_exercise as OEE
 
-        out["owner_etsy_exercise"] = [
-            {"attempt": a.get("attempt"), "ok": a.get("ok"), "status": a.get("status"),
-             "refused": a.get("refused")} for a in OEE._attempts(db)]
+        # ENG-ETSY-RECOVERY: fixed vocabulary only (counts, classes); no listing ids or titles.
+        out["owner_etsy_exercise"] = OEE.visibility(db)
     except Exception as exc:  # noqa: BLE001
         out["owner_etsy_exercise"] = _unreadable(exc)
     return out

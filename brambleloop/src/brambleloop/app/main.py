@@ -6066,7 +6066,9 @@ def api_etsy_exercise(mode: str = "full",
     update, read-back, contract verification, delete, verify the delete -- then reads the
     shop back independently, reconciles the durable draft ledger, and proves refresh-token
     rotation. `mode=rotation` runs the rotation proof alone: two authenticated shop reads, no
-    draft, nothing to clean up, and the safest form the evidence takes.
+    draft, nothing to clean up, and the safest form the evidence takes. `mode=recover` only
+    removes the exercise's own leftover/duplicate drafts (ledger-proven, draft, never active,
+    each delete verified by read-back) and reports anything it left alone.
 
     **Nothing on this path can activate or publish.** The client is built with
     `owner_authorised=False`, which `EtsyClient.refusal()` checks before anything else, and
@@ -6087,6 +6089,17 @@ def api_etsy_exercise(mode: str = "full",
         return JSONResponse({"error": "operator credential required"}, status_code=401)
 
     try:
+        if (mode or "").lower() == "recover":
+            # ENG-ETSY-RECOVERY: remove only the exercise's own ledger-proven, never-active
+            # drafts, each verified by read-back; leave and report everything else. No draft
+            # is created and nothing is activated.
+            report = etsy_exercise.recover(db)
+            report["mode"] = "recover"
+            Registry(db).audit("orchestrator", "etsy.exercise",
+                               detail={"mode": "recover", "ok": report.get("ok"),
+                                       "counts": report.get("counts"),
+                                       "cleaned": report.get("cleaned")})
+            return JSONResponse(report, status_code=200 if report.get("ok") else 502)
         report = etsy_exercise.run(db, mode=mode, verify=_verify_snapshot)
     except etsy_exercise.ExerciseBusy as e:
         return JSONResponse({"error": str(e), "retry": "when the run in flight finishes"},

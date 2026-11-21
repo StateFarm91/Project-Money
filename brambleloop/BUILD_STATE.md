@@ -1058,6 +1058,17 @@ session resumes without rediscovery (Execution Directive step 1, Master Plan sec
 >   `test_vacuity` passed.
 > - **Report.** `w6/review_requests/PUBLISH-UNHALT.md`.
 
+## ENG-ETSY-RECOVERY — 2026-11-21 12:40 UTC (branch eng/etsy-recovery, NOT deployed)
+
+- BUILT: ledger-bound recovery of the exercise's own leftover/duplicate drafts (operator
+  `mode=recover`; first step of `mode=full`). It deletes only own, draft, never-active
+  listings, each verified by read-back. Fixed-vocabulary run `cause` and recovery counts
+  appear in factory_visibility.owner_etsy_exercise.
+- NOT BUILT: D-OWNER-ETSY-EXERCISE-2 (the boot re-run). Blocked by safety review pending an
+  explicit owner instruction: OWNER_ACTIONS_P0.md P0-1b.
+- UNKNOWN: why D-OWNER-ETSY-EXERCISE's two attempts were not clean. Their rows kept no cause.
+- The Etsy shop may still hold a marked test draft. Not verified.
+
 ## PRODUCTION DIAGNOSIS — 2026-11-20 04:55 UTC (Main, live readback of 5496bc4a / Batch 11)
 
 Read-only evidence via the readback token: **FAIL 9, PASS 4, UNKNOWN 0.**

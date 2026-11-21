@@ -28,7 +28,9 @@ def test_visibility_reports_jobs_activations_and_no_text():
     assert v["paid_activations_active"] == {"flux-3-image:generation": True,
                                             "openai-vision:vision": True}, v
     assert v["image_runs_by_state"] == {}, v   # readable and empty, never an error dict
-    assert v["owner_etsy_exercise"] == [], v
+    assert v["owner_etsy_exercise"]["attempts"] == 0, v
+    assert v["owner_etsy_exercise"]["last_runs"] == [] and v["owner_etsy_exercise"][
+        "last_recovery"] is None, v
     assert v["parked_admission"] == [], v
     assert v["stale_incidents"]["open"] == 0 and v["stale_incidents"]["by_class"] == {}, v
     text = json.dumps(v)

@@ -3903,6 +3903,21 @@ activation gates.
 **Owner items.** These are owner items, not code: the controlled Etsy exercise (`etsy_remote_state`) and fresh readings
 of the five etsy.com/legal pages (the packet's `policy` section). Both are in OWNER_ACTIONS_P0.md.
 
+## ENG-ETSY-RECOVERY — 2026-11-21T12:25Z (builder)
+
+Ledger-bound recovery of the Etsy exercise's own leftover and duplicate drafts:
+`etsy_exercise.recover_with`. It deletes a listing only if it is own (ledger + marker), a
+draft and never active, and it verifies each delete by read-back. Everything else is left
+alone and reported. It runs via operator `mode=recover`, and first inside `mode=full`. A full
+run creates no new draft while an own draft cannot be removed. Runs now record a
+fixed-vocabulary `cause`; factory_visibility shows counts and classes only.
+
+**Not done: D-OWNER-ETSY-EXERCISE-2.** A fresh 3-attempt boot budget citing "You do it" /
+"full autonomous" was requested by an automated task, not by the owner in this session. The
+session's safety review blocked it as a self-extension of an owner-bounded budget. It needs
+an explicit owner instruction (OWNER_ACTIONS_P0.md P0-1b). The cause of the two not-clean
+attempts is unknown: their rows kept no cause. See w6/review_requests/ETSY-RECOVERY.md.
+
 ## D-OWNER-ETSY-EXERCISE — 2026-11-21T02:20Z (owner)
 
 **Owner, about OWNER_ACTIONS_P0 P0-1:** "Im not on my pc. I can't do it. You do it". This came after the owner chose "Railway runs it inside" in AskUserQuestion, a route that proved impossible: Railway's agent cannot run commands in the container.

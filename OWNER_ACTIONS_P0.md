@@ -42,6 +42,22 @@ fee cap, child-safety and grant gates are unchanged.
 - **Consequence of delay:** No Etsy draft candidate can exist, whatever else passes. Each day
   of delay is a day with no first listing.
 
+## P0-1b — (2026-11-21, ENG-ETSY-RECOVERY) Decide on a second Etsy exercise budget
+
+- **Exact action:** Choose one. (a) After `eng/etsy-recovery` deploys, call
+  `POST /api/etsy/exercise?mode=recover`, then `?mode=full`, with the operator credential.
+  This can be from a phone, or by a session you give the credential to. (b) Or reply with an
+  explicit new instruction, for example "D-OWNER-ETSY-EXERCISE-2: up to 3 attempts in the next
+  24 h, recovery first, at boot". A session then builds that boot runner.
+- **Reason:** D-OWNER-ETSY-EXERCISE spent its 2 attempts, and both reported the shop not
+  clean. Recovery code that removes only the exercise's own ledger-proven drafts now exists,
+  but nothing runs it unattended. A fresh unattended budget for writes to the real shop needs
+  your decision. It was not minted from earlier instructions.
+- **Maximum cost:** CA$0. Drafts and deletes only; `owner_authorised=False`; nothing publishes.
+- **Minutes required:** 2 for (a); 1 for (b).
+- **Consequence of delay:** a marked test draft may stay in the shop as a draft (no buyer
+  sees it, no fee). P0-1's evidence stays absent, so publication stays blocked.
+
 ## P0-2 — Record a fresh reading of the five etsy.com/legal policy pages
 
 - **Exact action:** In the Command Center policy form (owner session, step-up, verbatim
