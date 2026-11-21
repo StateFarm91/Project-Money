@@ -1227,6 +1227,278 @@ def test_recovery_cannot_activate_or_publish():
 
 
 
+
+# ETSY-EXERCISE-FIX: upload_image, verify_contract and the read-back
+
+
+class _WireCapture(Recording):
+    """The real transport; every urllib Request it builds is kept, bytes and headers exact."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.wire: list = []
+
+    def request(self, method, url, *, headers, json=None, form=None, multipart=None):
+        import urllib.request as ur
+
+        real = ur.urlopen
+        wire = self.wire
+
+        def capture(req, *a, **kw):
+            wire.append({"method": req.get_method(), "url": req.full_url,
+                         "headers": list(req.header_items()), "data": req.data})
+            return real(req, *a, **kw)
+
+        ur.urlopen = capture
+        try:
+            return super().request(method, url, headers=headers, json=json, form=form,
+                                   multipart=multipart)
+        finally:
+            ur.urlopen = real
+
+
+def test_the_upload_wire_format_is_exactly_etsys():
+    """uploadListingImage, byte for byte, as Etsy's OpenAPI document describes it.
+
+    Etsy: multipart/form-data with the binary in `image`, plus `rank` and `alt_text` as text
+    parts. One Content-Type header, carrying the boundary the body uses (the manual
+    'multipart/form-data' without a boundary is the failure github.com/etsy/open-api/
+    discussions/976 reports). The image is the 2000x2000 RGB JPEG exercise fixture.
+    """
+    import email
+    import io
+    import re
+
+    from PIL import Image
+
+    reset()
+    transport = _WireCapture()
+    with FakeEtsy() as fake:
+        report = run_full(fake, transport=transport)
+    uploads = [w for w in transport.wire if w["url"].endswith("/images")
+               and w["method"] == "POST"]
+    assert len(uploads) == 1, [w["url"] for w in transport.wire]
+    up = uploads[0]
+    lid = report["exercise"]["listing_id"]
+    assert up["url"].endswith(f"/v3/application/shops/12345/listings/{lid}/images"), up["url"]
+    ctypes = [v for k, v in up["headers"] if k.lower() == "content-type"]
+    assert len(ctypes) == 1, up["headers"]
+    m = re.fullmatch(r"multipart/form-data; boundary=(----brambleloop[0-9a-f]{32})", ctypes[0])
+    assert m, ctypes
+    b = m.group(1)
+    names = sorted(k.lower() for k, _ in up["headers"])
+    assert names == ["authorization", "content-type", "x-api-key"], names
+    body = up["data"]
+    assert isinstance(body, bytes)
+    head, rest = body.split(b'Content-Type: image/jpeg\r\n\r\n', 1)
+    assert head == (
+        f"--{b}\r\nContent-Disposition: form-data; name=\"rank\"\r\n\r\n1\r\n"
+        f"--{b}\r\nContent-Disposition: form-data; name=\"alt_text\"\r\n\r\n"
+        f"Automated transport test image. Not a product photograph.\r\n"
+        f"--{b}\r\nContent-Disposition: form-data; name=\"image\"; "
+        f"filename=\"brambleloop-transport-test.jpg\"\r\n").encode(), head
+    assert rest.endswith(f"\r\n--{b}--\r\n".encode())
+    image = rest[: -len(f"\r\n--{b}--\r\n")]
+    assert image.startswith(b"\xff\xd8") and image.count(b"--" + b.encode()) == 0
+    with Image.open(io.BytesIO(image)) as img:
+        assert (img.format, img.size, img.mode) == ("JPEG", (2000, 2000), "RGB")
+    assert len(image) < 1_000_000, len(image)
+    # An independent parser reads the same three parts.
+    msg = email.message_from_bytes(f"Content-Type: {ctypes[0]}\r\n\r\n".encode() + body)
+    parts = {p.get_param("name", header="content-disposition"): p for p in msg.get_payload()}
+    assert list(parts) == ["rank", "alt_text", "image"]
+    assert parts["image"].get_payload(decode=True) == image
+    steps = {st["step"]: st for st in report["exercise"]["steps"]}
+    assert steps["upload_image"]["ok"] is True
+    assert steps["upload_image"]["image"]["format"] == "JPEG"
+
+
+def test_the_exercise_image_meets_every_published_rule_and_a_one_pixel_png_does_not():
+    good = etsy_probe.exercise_image()
+    assert etsy_probe.exercise_image_refusals(good, etsy_probe.EXERCISE_IMAGE_FILENAME) == []
+    tiny = etsy_probe.exercise_image_refusals(etsy_probe.one_pixel_png(), "x.png")
+    assert any("635px" in r for r in tiny), tiny
+    assert any("declares PNG but the bytes are JPEG" in r
+               for r in etsy_probe.exercise_image_refusals(good, "x.png"))
+    assert etsy_probe.exercise_image_refusals(b"not an image", "x.jpg")
+
+
+def test_an_image_outside_etsys_rules_is_never_sent_and_the_reason_is_recorded():
+    reset()
+    with FakeEtsy() as fake, pointed_at(fake):
+        client = etsy_exercise._client(DB, dict(os.environ), Recording(), breadcrumbs=False)
+        ex = etsy_probe.run_exercise(client, image=etsy_probe.one_pixel_png(),
+                                     image_filename="t.png")
+        assert not [r for r in fake.requests if r["operation"] == "uploadListingImage"]
+        assert ex["shop_is_clean"] is True
+    steps = {st["step"]: st for st in ex["steps"]}
+    assert steps["upload_image"]["ok"] is False
+    assert [f["outcome"] for f in steps["upload_image"]["classified"]] == [
+        "image_fixture_refused"]
+
+
+def test_verify_contract_names_a_failed_upload_instead_of_failing_silently():
+    """Attempt 1's verify_contract failed with no finding saying why: the upload had failed."""
+    reset()
+    with FakeEtsy(image_failure=(400, "Either a valid image file or a listing_image_id "
+                                      "must be provided.")) as fake:
+        report = run_full(fake)
+    steps = {st["step"]: st for st in report["exercise"]["steps"]}
+    assert steps["upload_image"]["ok"] is False
+    assert [f["outcome"] for f in steps["upload_image"]["classified"]] == [
+        "image_not_valid_or_missing"]
+    vc = steps["verify_contract"]
+    assert vc["ok"] is False, "the check is not weakened: no image, no verdict"
+    outcomes = [f["outcome"] for f in vc["classified"]]
+    assert "blocked_by_image_upload" in outcomes and "remote_values_match" not in outcomes
+    cause = etsy_exercise.outcome_cause(report)
+    assert cause["step_outcomes"]["upload_image:image_not_valid_or_missing"] == 1, cause
+    assert cause["step_outcomes"]["verify_contract:blocked_by_image_upload"] == 1, cause
+    assert cause["failed_status_classes"] == {"upload_image": "http_400"}, cause
+    assert cause["image_sent"] == {"format": "jpeg", "width": 2000, "height": 2000,
+                                   "bytes": cause["image_sent"]["bytes"]}, cause
+    vis = __import__("brambleloop.ops.owner_etsy_exercise", fromlist=["x"]).visibility(DB)
+    last = vis["last_runs"][0]["cause"]
+    assert last["step_outcomes"]["upload_image:image_not_valid_or_missing"] == 1, last
+    assert last["image_sent"]["width"] == 2000
+    assert str(report["exercise"]["listing_id"]) not in repr(last)
+
+
+class _ReadBackStub:
+    """Only what `shop_read_back` calls: the shop's draft index and getListing."""
+
+    def __init__(self, pages, held=()):
+        self.pages = list(pages)
+        self.held = set(held)
+        self.states, self.asked = [], []
+
+    def get_shop_listings(self, *, state="draft"):
+        self.states.append(state)
+        return self.pages.pop(0) if len(self.pages) > 1 else self.pages[0]
+
+    def listing_exists(self, lid):
+        self.asked.append(lid)
+        return (lid in self.held), ("draft" if lid in self.held else "")
+
+
+def _marked(lid):
+    return {"listing_id": int(lid), "state": "draft",
+            "title": f"{etsy_probe.TEST_TITLE_PREFIX} {lid}"}
+
+
+def _ledger_gone(*ids):
+    for lid in ids:
+        etsy_exercise._audit(DB, etsy_exercise.DRAFT_CREATED,
+                             {"listing_id": lid, "title": f"{etsy_probe.TEST_TITLE_PREFIX} {lid}"})
+        etsy_exercise._audit(DB, etsy_exercise.DRAFT_REMOVED,
+                             {"listing_id": lid, "title": "t", "confirmed_by": "read of Etsy"})
+
+
+def test_the_read_back_waits_out_index_lag_for_a_draft_the_ledger_verified_gone():
+    reset()
+    _ledger_gone("777")
+    stub = _ReadBackStub([[_marked("777")], [_marked("777")], []])
+    slept = []
+    rb = etsy_exercise.shop_read_back(stub, DB, sleep=slept.append)
+    assert rb["ok"] is True and rb["test_drafts_remaining"] == [], rb
+    assert rb["index_lag_verified_gone"] == [] and rb["attempts"] == 3, rb
+    assert slept == [5, 10] and set(stub.states) == {"draft"}
+
+
+def test_index_lag_that_outlasts_the_bound_is_judged_by_id_and_a_fresh_404():
+    reset()
+    _ledger_gone("777")
+    slept = []
+    rb = etsy_exercise.shop_read_back(_ReadBackStub([[_marked("777")]]), DB,
+                                      sleep=slept.append)
+    assert rb["ok"] is True, rb
+    assert [r["listing_id"] for r in rb["index_lag_verified_gone"]] == ["777"]
+    assert rb["attempts"] == len(etsy_exercise.READ_BACK_WAITS)
+    assert sum(slept) == sum(etsy_exercise.READ_BACK_WAITS) <= 240
+
+
+def test_a_marked_draft_that_truly_exists_is_never_ignored():
+    reset()
+    _ledger_gone("777")
+    slept = []
+    # The ledger says gone, but getListing still finds it: it remains.
+    rb = etsy_exercise.shop_read_back(_ReadBackStub([[_marked("777")]], held={"777"}), DB,
+                                      sleep=slept.append)
+    assert rb["ok"] is False and rb["test_drafts_remaining"][0]["listing_id"] == "777", rb
+    assert rb["test_drafts_remaining"][0]["ledger_says_gone_but"] == "still_held"
+    # Not in the verified-gone set: remains at once, even if getListing would 404.
+    stub = _ReadBackStub([[_marked("888")]])
+    rb = etsy_exercise.shop_read_back(stub, DB, sleep=slept.append)
+    assert rb["ok"] is False and rb["attempts"] == 1 and stub.asked == [], rb
+    assert slept == []
+
+
+def _ghost_after_delete(fake, calls=2):
+    """Etsy's index lag: the drafts read keeps listing a deleted draft for `calls` reads."""
+    real = EtsyClient.get_shop_listings
+    state = {"left": calls, "ghosts": {}}
+
+    def lagging(self, *, state_name=None, **kw):
+        rows = real(self, **kw)
+        for path in [r["path"] for r in fake.requests if r["operation"] == "deleteListing"]:
+            lid = path.rstrip("/").rsplit("/", 1)[-1]
+            state["ghosts"].setdefault(lid, {"listing_id": int(lid), "state": "draft",
+                                             "title": f"{etsy_probe.TEST_TITLE_PREFIX} ghost"})
+        if state["ghosts"] and state["left"] > 0:
+            state["left"] -= 1
+            rows = rows + list(state["ghosts"].values())
+        return rows
+
+    return real, lagging, state
+
+
+def test_a_full_run_is_clean_when_etsys_index_lags_the_verified_delete():
+    """Production attempt 1's shape: deleted_and_gone, ledger gone 1, read-back listed it."""
+    reset()
+    slept = []
+    with FakeEtsy() as fake:
+        real, lagging, st = _ghost_after_delete(fake, calls=2)
+        EtsyClient.get_shop_listings = lagging
+        try:
+            with pointed_at(fake):
+                report = etsy_exercise.run(DB, transport=Recording(), mode="full",
+                                           verify=green_verify, read_back_sleep=slept.append)
+        finally:
+            EtsyClient.get_shop_listings = real
+    rb = report["shop_read_back"]
+    assert report["shop_is_clean"] is True and rb["ok"] is True, rb
+    assert rb["attempts"] >= 2 and slept, (rb, slept)
+    assert report["ok"] is True, report["status"]
+    cause = etsy_exercise.outcome_cause(report)
+    assert cause["read_back_ok"] is True and cause["marked_drafts_in_shop"] == 0, cause
+
+
+def test_recovery_reads_a_lagging_index_row_the_ledger_closed_as_gone_not_foreign():
+    reset()
+    _ledger_gone("777")
+    with FakeEtsy() as fake:
+        real = EtsyClient.get_shop_listings
+        EtsyClient.get_shop_listings = lambda self, **kw: real(self, **kw) + [_marked("777")]
+        try:
+            out = _recover(fake)
+        finally:
+            EtsyClient.get_shop_listings = real
+        assert _deletes(fake) == []
+    assert out["counts"]["index_lag_gone"] == 1 and out["counts"]["left_foreign"] == 0, out
+    assert out["ok"] is True, out
+
+
+def test_recovery_still_reports_a_ledger_gone_id_that_etsy_holds_as_foreign():
+    reset()
+    with FakeEtsy() as fake:
+        lid = _own_draft(fake, marker="stillhere1")
+        etsy_exercise._audit(DB, etsy_exercise.DRAFT_REMOVED,
+                             {"listing_id": lid, "title": "t", "confirmed_by": "wrong"})
+        out = _recover(fake)
+        assert lid in fake.listings and _deletes(fake) == []
+    assert out["counts"]["left_foreign"] == 1 and out["ok"] is False, out
+
+
 if __name__ == "__main__":
     import traceback
 
