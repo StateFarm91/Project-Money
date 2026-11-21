@@ -631,6 +631,10 @@ def test_9_a_release_with_a_failing_non_image_gate_makes_no_paid_call():
 # ---- D-MAIN-IMAGE-ADMISSION: publish-time gates do not stop image admission -----------------
 
 PUBLISH_TIME = {"gauge_and_size_claims", "etsy_remote_state"}
+# ENG-ESTIMATE-CLAIMS: this basket's gauge and size claims now PASS as truthful calculated
+# estimates, so of the two allow-listed publish-time gates only the store-wide Etsy one still
+# blocks it. The allow-list itself is unchanged (test_13).
+BASKET_PUBLISH_TIME = {"etsy_remote_state"}
 
 
 def _price_off_plan(db, slug):
@@ -687,13 +691,13 @@ def test_10_a_release_blocked_only_by_publish_time_gates_and_images_is_admitted(
     blockers = pkg["blockers"]
     assert pkg["state"] == LP.BLOCKED and blockers, pkg
     areas = {b.get("publish_time") for b in blockers if b.get("publish_time")}
-    assert areas == PUBLISH_TIME, blockers
+    assert areas == BASKET_PUBLISH_TIME, blockers
     assert any(b.get("image") is True for b in blockers), blockers
     assert all(b.get("image") is True or b.get("publish_time") in PUBLISH_TIME
                for b in blockers), blockers
     adm = IP.sale_admission(db, slug, version, rh)
     assert adm["admitted"] is True, adm
-    assert set(adm["publish_time_blockers"]) == PUBLISH_TIME, adm
+    assert set(adm["publish_time_blockers"]) == BASKET_PUBLISH_TIME, adm
     assert "still block publishing" in adm["why"], adm
     jobs = _flux_jobs(db)
     assert len(jobs) == 1 and jobs[0].inputs["release"] == rh, [j.inputs for j in jobs]
@@ -749,7 +753,7 @@ def test_12_the_publish_path_still_refuses_on_both_publish_time_gates():
                              stage=RG.STAGE_ACTIVATION)
     assert verdict["blocks_release"] is True
     gated = RG.publish_time_reasons(verdict)
-    assert set(gated.values()) == PUBLISH_TIME, gated
+    assert set(gated.values()) == BASKET_PUBLISH_TIME, gated
     assert all(r in verdict["reasons"] for r in gated), (gated, verdict["reasons"])
     real_scope = eligibility.product_publication
     with FakeEtsy() as fake, SH._owner_and_fake(fake):
@@ -761,7 +765,7 @@ def test_12_the_publish_path_still_refuses_on_both_publish_time_gates():
         out = job.outputs or {}
         assert job.status is not JobStatus.DONE or out.get("published") is not True, out
         said = (job.last_error or "") + str(out)
-        for area in PUBLISH_TIME:
+        for area in BASKET_PUBLISH_TIME:
             assert f"FIRST_CUSTOMER_BLOCKING: {area}:" in said, (area, said[:2000])
         assert SH._creates(fake) == [] and not fake.received_images, fake.requests
 
@@ -780,7 +784,8 @@ def test_13_the_allow_list_is_what_admits():
     try:
         adm = IP.sale_admission(db, slug, version, rh)
         assert adm["admitted"] is False, adm
-        assert {b.get("publish_time") for b in adm["non_image_blockers"]} == PUBLISH_TIME, adm
+        assert {b.get("publish_time") for b in adm["non_image_blockers"]} == \
+            BASKET_PUBLISH_TIME, adm
         assert RG.publish_time_reasons({"publication_scope": {"reasons": [
             {"code": "FIRST_CUSTOMER_BLOCKING", "area": "etsy_remote_state", "why": "x"}]}}) \
             == {}
