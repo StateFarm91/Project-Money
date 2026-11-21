@@ -28,6 +28,12 @@ DIRECTIVE_AT = "2026-11-20T13:20:00Z"
 ACTOR = f"owner-directive:{DIRECTIVE_ID}"
 ACTION = "owner_directive.applied"
 EXPIRY = timedelta(days=30)
+# B19-SEC S1: the directive was "approve what is pending now". It mints authority only inside
+# its own window: from when it was given until EXPIRY later. After that a fresh or reset store
+# (new environment, restore from an older backup, recreated table) is never given a new one.
+GIVEN_AT = datetime(2026, 11, 20, 13, 20, tzinfo=timezone.utc)
+SUNSET = GIVEN_AT + EXPIRY
+_SLACK = timedelta(seconds=1)
 
 # (provider, scope) -> ceilings. Image generation for the 7-photo galleries, and the second,
 # independent vision judge. Nothing else: no ads, no text-model widening, no company ceiling.
@@ -46,6 +52,43 @@ def recognised(step_up: dict | None, provider: str, scope: str) -> bool:
             and (str(provider), str(scope)) in ACTIVATIONS)
 
 
+def _aware(v):
+    if v is None:
+        return None
+    return v if v.tzinfo is not None else v.replace(tzinfo=timezone.utc)
+
+
+def authorises(row) -> bool:
+    """B19-SEC S2: whether a stored row carries this directive's authority. Only a row written
+    inside the directive's window, with ceilings no wider than `ACTIVATIONS` and the gate's
+    default call ceilings, and a lifetime no longer than EXPIRY. Any other row bearing the
+    directive's name authorises nothing (fail closed)."""
+    from ..gateway import paid_provider_gate as G
+
+    try:
+        if str(row.activated_by or "") != ACTOR:
+            return False
+        if not recognised(row.step_up, row.provider, row.scope):
+            return False
+        if (row.step_up or {}).get("session_public_id"):
+            return False                       # a directive row never claims a login
+        ceil = ACTIVATIONS[(str(row.provider), str(row.scope))]
+        for k in ("daily_ceiling_cad", "monthly_ceiling_cad", "per_gallery_cad"):
+            v = float(getattr(row, k))
+            if not (v == v) or v <= 0 or v > ceil[k] + 1e-9:
+                return False
+        if not 1 <= int(row.max_attempts_per_request or 0) <= G.DEFAULT_MAX_ATTEMPTS:
+            return False
+        if not 1 <= int(row.max_calls_per_run or 0) <= G.DEFAULT_MAX_CALLS_PER_RUN:
+            return False
+        at, exp = _aware(row.activated_at), _aware(row.expires_at)
+        if at is None or exp is None or at < GIVEN_AT - _SLACK or at > SUNSET:
+            return False
+        return exp - at <= EXPIRY + _SLACK
+    except Exception:  # noqa: BLE001 - unreadable evidence authorises nothing
+        return False
+
+
 def apply(db, *, now: datetime | None = None) -> dict:
     """Write each directive activation once. Idempotent; never renews; never raises."""
     from sqlalchemy import select
@@ -54,8 +97,13 @@ def apply(db, *, now: datetime | None = None) -> dict:
     from ..gateway import anthropic as gw
     from ..gateway import paid_provider_gate as G
 
-    now = now or datetime.now(timezone.utc)
+    now = _aware(now) or datetime.now(timezone.utc)
     out = {"directive": DIRECTIVE_ID, "activated": [], "already": [], "refused": []}
+    if not GIVEN_AT <= now <= SUNSET:
+        out["refused"].append({"why": f"outside the directive's window {GIVEN_AT.isoformat()}"
+                                      f"..{SUNSET.isoformat()}; never renewed by the system"})
+        return out
+    expires = min(now + EXPIRY, SUNSET)
     try:
         G.ensure_tables(db)
         company = gw.monthly_ceiling_cad()
@@ -64,7 +112,9 @@ def apply(db, *, now: datetime | None = None) -> dict:
         return out
     for (provider, scope), ceil in ACTIVATIONS.items():
         try:
-            with db.session() as s:
+            # B19-SEC S3: check-and-write under the spend lock (pg advisory / BEGIN IMMEDIATE)
+            # so a booting web process and the hourly job cannot both write the triple.
+            with gw.budget_lock(db) as s:
                 prior = s.scalar(select(G.PaidProviderActivation).where(
                     G.PaidProviderActivation.provider == provider,
                     G.PaidProviderActivation.scope == scope,
@@ -85,16 +135,18 @@ def apply(db, *, now: datetime | None = None) -> dict:
                     per_gallery_cad=ceil["per_gallery_cad"],
                     max_attempts_per_request=G.DEFAULT_MAX_ATTEMPTS,
                     max_calls_per_run=G.DEFAULT_MAX_CALLS_PER_RUN,
-                    expires_at=now + EXPIRY,
+                    expires_at=expires,
                     note=f"owner directive {DIRECTIVE_ID} ({DIRECTIVE_AT}); no step-up")
                 s.add(row)
                 s.flush()
                 s.add(AuditLog(at=now, actor=ACTOR[:64], action=ACTION,
                                artifact=f"{provider}:{scope}",
                                detail={"directive": DIRECTIVE_ID, "activation_id": row.id,
-                                       **ceil, "expires_at": (now + EXPIRY).isoformat()}))
+                                       **ceil, "expires_at": expires.isoformat()}))
                 out["activated"].append(f"{provider}:{scope}")
         except Exception as exc:  # noqa: BLE001 - one failure never blocks the other
+            # B19-SEC: the exception's type only; its text (SQL, DSN fragments) stays out of
+            # the job summary and the audit row it lands in.
             out["refused"].append({"activation": f"{provider}:{scope}",
-                                   "why": f"{type(exc).__name__}: {str(exc)[:120]}"})
+                                   "why": type(exc).__name__})
     return out

@@ -582,8 +582,8 @@ def _directive(row) -> bool:
     (provider, scope) pairs `ops.owner_directives.ACTIVATIONS` lists, and nothing else."""
     from ..ops import owner_directives
 
-    return (str(row.activated_by or "") == owner_directives.ACTOR
-            and owner_directives.recognised(row.step_up, row.provider, row.scope))
+    # B19-SEC S2: the row must also sit inside the directive's own ceilings and window.
+    return owner_directives.authorises(row)
 
 
 def is_active_id(db, activation_id, *, now: datetime | None = None) -> bool:
