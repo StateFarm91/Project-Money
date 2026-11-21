@@ -5840,6 +5840,28 @@ def _close_on_verified_rebuild(ctx: JobContext, slug: str, *, completed: list,
     return closed
 
 
+def _close_set_aside(ctx: JobContext, set_aside: dict) -> list[str]:
+    """eng/halt-chain: close the sentinel rows of names this pass read RETIRED or SUPERSEDED.
+
+    This is the sweep's own rule (`ops.artefacts.sweep`: publish-unhalt U1 for retired, R1
+    for superseded), applied to exactly the names this rebuild was asked about and read with
+    the same deterministic check. Without it those rows stayed open until the next hourly
+    sentinel happened to run, so a product whose rebuild had verified -- every stale name
+    rewritten, its earlier plan's pieces retired by `marketing.schedule` -- still counted
+    toward the company-wide halt in the meantime (test_halt_380_live: 12 products' earlier
+    pinterest pieces). Each row is closed with the check's reason, never as "rebuilt"."""
+    from ..ops import incident_lifecycle
+    from ..ops.artefacts import SENTINEL_SIGNATURE
+
+    closed: list[str] = []
+    with ctx.db.session() as s:
+        for k, why in sorted(set_aside.items()):
+            closed += incident_lifecycle.resolve_signatures(
+                s, [f"{SENTINEL_SIGNATURE}:{k}"],
+                resolution=(f"set aside, not stale: {why}")[:400])
+    return closed
+
+
 def _targeted_rebuild(ctx: JobContext) -> dict:
     """Rebuild exactly the artefacts the dependency graph named, and prove each one was.
 
@@ -5982,10 +6004,12 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
         # eng/halt-380-verify: retired names alone are no evidence of a delivered rebuild, so
         # a pass that completed nothing and set only retired names aside leaves the product's
         # row to the sentinel's positive-evidence rule rather than closing it here.
-        set_aside = {**retired_now, **superseded_now}
+        set_aside = {**{k: f"retired: {w}" for k, w in retired_now.items()},
+                     **{k: f"superseded: {w}" for k, w in superseded_now.items()}}
         closed = _close_on_verified_rebuild(
             ctx, slug, completed=fresh,
             outstanding=stale if (stale or fresh or not set_aside) else sorted(set_aside))
+        closed += _close_set_aside(ctx, set_aside)
         ctx.audit("chain.rebuild_verified", artifact=f"{slug}@{version}", detail={
             "completed": fresh, "outstanding": stale, "unbound": unbound, "check": verify,
             "closed": closed, "retired": dict(list(retired_now.items())[:50]),
