@@ -35,7 +35,15 @@ SEED_PREFIX = "launch0-seed"
 def halted_releases(db) -> list[dict]:
     """Every release whose latest certify attempt was halted and not decided since.
 
-    Returns [{artifact, slug, version, halt_audit_id, job_id}], oldest halt first."""
+    Returns [{artifact, slug, version, halt_audit_id, job_id}], oldest halt first.
+    eng/evidence-perf: read once per request inside `core.request_memo.scope` (the readback
+    evidence reads it for two sections); a live read everywhere else."""
+    from ..core import request_memo
+
+    return request_memo.memo(("halted_releases", id(db)), lambda: _halted_releases(db))
+
+
+def _halted_releases(db) -> list[dict]:
     from sqlalchemy import select
 
     from ..core.models import AuditLog

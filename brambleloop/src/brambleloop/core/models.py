@@ -92,6 +92,10 @@ class Job(Base):
     __table_args__ = (
         UniqueConstraint("idempotency_key", name="uq_jobs_idempotency_key"),
         Index("ix_jobs_claimable", "status", "run_after", "priority"),
+        # eng/evidence-perf: "the newest DONE / DEAD job of this type" (weekly_jobs, the
+        # scheduler readback) and type+status windows, without a sort over every row of
+        # the type. Additive: `core.migrate` creates it on an existing database.
+        Index("ix_jobs_type_status_finished", "job_type", "status", "finished_at"),
     )
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid
@@ -143,6 +147,14 @@ class AuditLog(Base):
     model_version: Mapped[str | None] = mapped_column(String(80), nullable=True)
     policy_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
     detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    # eng/evidence-perf: "the newest row of this action" (ops.truth.sweep, ops.sentinel,
+    # ops.rebuild_propagated, ...) is a backward index scan, not a sort of every such row;
+    # (action, at) serves the windowed reads. Additive (`core.migrate`).
+    __table_args__ = (
+        Index("ix_audit_log_action_id", "action", "id"),
+        Index("ix_audit_log_action_at", "action", "at"),
+    )
 
 
 class CostEntry(Base):

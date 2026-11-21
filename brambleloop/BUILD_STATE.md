@@ -1,3 +1,12 @@
+> **2026-11-21 — EVIDENCE-PERF on `eng/evidence-perf` (from `claude/w6-release-19h4` b42f89d; NOT merged, NOT
+> deployed; production unchanged, no production row read).** `GET /api/readback/evidence` took 45-91 s in production and
+> `ops/readback.py` (60 s) timed out. Profiled on seeded production-shaped DBs: whole `PatternVersion` rows (CIR and
+> certificate JSON) were loaded ~4 passes per request (`lifecycle.derive` x28, `newest_release` x16, `current_from_db`).
+> Fix: per-request `core.request_memo` (derive, halted_releases, listing_package.latest, ONE shared provenance check);
+> column-only reads; dead-letter and factory-job scans bounded in SQL; 3 additive indexes; client timeout 120 s. Body
+> byte-identical before/after on 3 seeds; worst seed 9.6 s -> 6.5 s at a simulated 5 ms RTT. 45-91 s NOT reproduced
+> locally, so the production effect is UNVERIFIED until deployed (read `timing_ms`). New suite
+> `tests/test_evidence_perf.py` 7/7 (3 fail on base). Report: `w6/review_requests/EVIDENCE-PERF.md`.
 > **2026-11-21 — HALT-380-VERIFY on `eng/halt-380-verify` (from `claude/w6-release-19h1` 90403e5 = deployed 1bb7c4f5;
 > NOT merged, NOT deployed; production unchanged, no production row read).** Readback 08:20Z: done 199, unfinished 0,
 > no artefact completed since 2026-11-20T13:12Z, 14 retry-waiting, 12 rebuild-incomplete. Clean-slate rebuilds verify
