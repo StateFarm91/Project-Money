@@ -2013,12 +2013,231 @@ def factory_visibility(db, *, now: datetime) -> dict:
     except Exception as exc:  # noqa: BLE001
         out["paid_activations_active"] = _unreadable(exc)
     try:
+        out["rebuild_outcomes"] = rebuild_outcomes(db, now=now)
+    except Exception as exc:  # noqa: BLE001
+        out["rebuild_outcomes"] = _unreadable(exc)
+    try:
         from . import owner_etsy_exercise as OEE
 
         # ENG-ETSY-RECOVERY: fixed vocabulary only (counts, classes); no listing ids or titles.
         out["owner_etsy_exercise"] = OEE.visibility(db)
     except Exception as exc:  # noqa: BLE001
         out["owner_etsy_exercise"] = _unreadable(exc)
+    return out
+
+
+# eng/rebuild-outcomes: what one targeted rebuild attempt did, end to end, in fixed vocabulary.
+# The stage jobs a targeted rebuild drives (pricing.position -> listing.seo -> launch.plan ->
+# marketing.schedule, or assets.build / gate.certify before them) and the audit actions that
+# say a gate refused it. Anything outside these tuples is counted as `other`, never echoed.
+REBUILD_OUTCOME_WINDOW = timedelta(days=7)
+REBUILD_OUTCOME_MAX_PRODUCTS = 50
+_OUTCOME_CHAIN_JOBS = ("gate.certify", "assets.build", "pricing.position", "listing.seo",
+                       "launch.plan", "marketing.schedule", "listing.package")
+_OUTCOME_ACTIONS = ("chain.rebuild_refused", "gate.blocked", "gate.release_withheld",
+                    "assets.listing_images_blocked", "pricing.refused", "listing.seo_blocked",
+                    "launch.held", "launch.pivot_queued", "marketing.blocked",
+                    "childrens.decision_required", "chain.rebuild_unbound",
+                    "listing.release_withheld", "release_withheld")
+_OUTCOME_STATES = ("fresh", "stale", "unproven", "invalidated", "superseded")
+
+
+def _outcome_attempt_kind(key: str | None, inputs: dict) -> str:
+    key = str(key or "")
+    if inputs.get("retry"):
+        return "retry"
+    if inputs.get("hold_released") or key.startswith("rebuild:hold-released:"):
+        return "hold_released"
+    if inputs.get("legacy_restart") or key.startswith("rebuild:legacy-restart:"):
+        return "legacy_restart"
+    if key.startswith("rebuild:product:"):
+        return "sentinel"
+    return "other"
+
+
+def _outcome_reason_codes(reasons) -> list[str]:
+    """`#173` style tags only: a gate's reason text is never echoed."""
+    import re as _re
+
+    codes: list[str] = []
+    for r in list(reasons or [])[:10]:
+        tags = _re.findall(r"#(\d{1,4})\b", str(r))
+        code = ("#" + tags[0]) if tags else "untagged"
+        if code not in codes:
+            codes.append(code)
+    return codes
+
+
+def rebuild_outcomes(db, *, now: datetime) -> dict:
+    """eng/rebuild-outcomes: per product slug, the LATEST targeted `chain.rebuild` attempt
+    (a first pass, not a verify pass) in the last 7 days, and what became of it:
+
+    * `attempt`: kind (sentinel / retry / hold_released / legacy_restart / other), its own
+      status, and the age in hours;
+    * `stage`: the stage it enqueued (`gate.certify` / `assets.build` / `pricing.position`
+      or `none`), that stage job's terminal status and error class (`error_class`, never
+      the text);
+    * `chain`: every chain stage job of this product written from the stage job onward,
+      `job_type:status`, with the error class of any that died -- so "pricing ran, listing.seo
+      never ran" is visible;
+    * `verify`: the checks done (by status) and the last check number;
+    * `by_class`: completed / outstanding / retired / unbound counts per artefact class from
+      the newest `chain.rebuild_verified` of this attempt, and what each outstanding name reads
+      (`outstanding_states`, state words only);
+    * `refusals`: audit action codes of this attempt's own chain (`chain.rebuild_refused`,
+      `gate.blocked`, `marketing.blocked`, `gate.release_withheld`, ...) with counts, plus
+      `#NNN` reason tags of the newest `marketing.blocked`;
+    * `incident`: whether `rebuild-incomplete:<slug>` is open, `held`, its attempt count and
+      the `parked` gate name.
+
+    No job inputs or outputs, error text, reason text, artefact key or audit detail leaves
+    here: slugs, job types, statuses, class names, action names, counts and `#NNN` tags."""
+    from collections import Counter
+
+    from sqlalchemy import or_, select
+
+    from ..core.models import AuditLog, Incident, Job
+    from . import artefacts as provenance
+    from .rebuild_graph import REBUILD_INCOMPLETE_SIGNATURE
+
+    since = now - REBUILD_OUTCOME_WINDOW
+    st = lambda v: str(getattr(v, "value", v))  # noqa: E731
+    with db.session() as s:
+        rows = s.execute(select(Job.id, Job.idempotency_key, Job.inputs, Job.status,
+                                Job.outputs, Job.created_at, Job.last_error)
+                         .where(Job.job_type == "chain.rebuild", Job.created_at >= since)
+                         .order_by(Job.id)).all()
+    latest: dict[str, tuple] = {}
+    verifies: dict[int, list[tuple]] = {}
+    for jid, key, inputs, status, outputs, created, err in rows:
+        inputs = dict(inputs or {})
+        slug = str(inputs.get("product_slug") or "")
+        if not slug or not (inputs.get("artefacts") or inputs.get("artefact_key")):
+            continue                      # whole-catalogue scans are not targeted attempts
+        if inputs.get("verify"):
+            try:
+                verifies.setdefault(int(inputs.get("requested_by")), []).append(
+                    (jid, int(inputs.get("verify") or 0), status))
+            except (TypeError, ValueError):
+                pass
+            continue
+        latest[slug] = (jid, key, inputs, status, dict(outputs or {}), created, err)
+    slugs = sorted(latest, key=lambda sl: -latest[sl][0])[:REBUILD_OUTCOME_MAX_PRODUCTS]
+    out: dict = {"window_days": REBUILD_OUTCOME_WINDOW.days, "products": len(latest),
+                 "by_product": {}}
+    if not slugs:
+        return out
+    stage_ids = {sl: latest[sl][4].get("stage_job") for sl in slugs}
+    floor = min(latest[sl][0] for sl in slugs)
+    with db.session() as s:
+        chain_rows = s.execute(select(Job.id, Job.job_type, Job.status, Job.inputs,
+                                      Job.last_error)
+                               .where(Job.job_type.in_(_OUTCOME_CHAIN_JOBS), Job.id >= floor)
+                               .order_by(Job.id)).all()
+        artifacts = [sl for sl in slugs]
+        audits = s.execute(select(AuditLog.id, AuditLog.action, AuditLog.artifact,
+                                  AuditLog.job_id, AuditLog.detail)
+                           .where(AuditLog.action.in_(_OUTCOME_ACTIONS
+                                                      + ("chain.rebuild_verified",)),
+                                  AuditLog.job_id >= floor,
+                                  or_(AuditLog.artifact.in_(artifacts),
+                                      *[AuditLog.artifact.like(f"{sl}@%") for sl in slugs],
+                                      *[AuditLog.artifact.like(f"%:{sl}@%") for sl in slugs],
+                                      *[AuditLog.artifact.like(f"%:{sl}:%") for sl in slugs]))
+                           .order_by(AuditLog.id)).all()
+        incidents = {str(sig).split(":", 1)[1]: dict(detail or {}) for sig, detail in s.execute(
+            select(Incident.signature, Incident.detail).where(
+                Incident.resolved.is_(False),
+                Incident.signature.in_([f"{REBUILD_INCOMPLETE_SIGNATURE}:{sl}"
+                                        for sl in slugs])))}
+
+    def _slug_of_artifact(a: str) -> str | None:
+        a = str(a or "")
+        node = a.split(":", 1)[1] if ":" in a.split("@", 1)[0] else a
+        head = node.split("@", 1)[0].split(":", 1)[0].split("#", 1)[0]
+        return head or None
+
+    from ..runtime.release_recovery import _job_slug
+
+    for sl in slugs:
+        jid, key, inputs, status, outputs, created, err = latest[sl]
+        stage_job = stage_ids[sl]
+        try:
+            stage_job = int(stage_job) if stage_job is not None else None
+        except (TypeError, ValueError):
+            stage_job = None
+        stage_name = outputs.get("stage")
+        rec: dict = {
+            "attempt": {"kind": _outcome_attempt_kind(key, inputs), "status": st(status),
+                        "error_class": error_class(err) if err else None,
+                        "age_h": (round((now - _aware(created)).total_seconds() / 3600, 1)
+                                  if created is not None else None),
+                        "refused": bool(outputs.get("refused") or outputs.get("withheld"))},
+            "stage": {"enqueued": (stage_name if stage_name in _OUTCOME_CHAIN_JOBS else
+                                   "none" if not stage_name else "other"),
+                      "status": None, "error_class": None},
+        }
+        chain: list[str] = []
+        died: Counter = Counter()
+        for cid, jt, cst, cin, cerr in chain_rows:
+            if stage_job is None or cid < stage_job or _job_slug(dict(cin or {})) != sl:
+                continue
+            if cid == stage_job:
+                rec["stage"]["status"] = st(cst)
+                rec["stage"]["error_class"] = error_class(cerr) if cerr else None
+            chain.append(f"{jt}:{st(cst)}")
+            if cerr and st(cst) in ("dead", "failed"):
+                died[f"{jt}:{error_class(cerr)}"] += 1
+        if stage_job is not None and rec["stage"]["status"] is None:
+            rec["stage"]["status"] = "not_found"
+        rec["chain"] = chain[:20]
+        rec["chain_errors"] = dict(died)
+        passes = verifies.get(jid) or []
+        rec["verify"] = {"checks": len(passes),
+                         "by_status": dict(Counter(st(p[2]) for p in passes)),
+                         "last_check": max((p[1] for p in passes), default=0)}
+        pass_ids = {p[0] for p in passes}
+        verified = None
+        refusals: Counter = Counter()
+        mkt_codes: list[str] = []
+        for aid, action, artifact, ajob, detail in audits:
+            if _slug_of_artifact(artifact) != sl or ajob is None or ajob < jid:
+                continue
+            if action == "chain.rebuild_verified":
+                if ajob in pass_ids:
+                    verified = dict(detail or {})
+                continue
+            refusals[action] += 1
+            if action == "marketing.blocked":
+                mkt_codes = _outcome_reason_codes((detail or {}).get("reasons"))
+        rec["refusals"] = dict(refusals)
+        rec["marketing_blocked_codes"] = mkt_codes
+        classes: dict[str, Counter] = {}
+        for bucket in ("completed", "outstanding", "retired", "unbound"):
+            names = (verified or {}).get(bucket) or []
+            if isinstance(names, dict):
+                names = list(names)
+            c: Counter = Counter()
+            for k in names:
+                cls = str(k).split(":", 1)[0]
+                c[cls if cls in provenance.ARTEFACT_CLASSES else "unrecognised"] += 1
+            classes[bucket] = c
+        rec["by_class"] = {b: dict(c) for b, c in classes.items()}
+        states: Counter = Counter()
+        for why in ((verified or {}).get("outstanding_read") or {}).values():
+            word = str(why).split(":", 1)[0].strip().lower()
+            states[word if word in _OUTCOME_STATES else
+                   ("no_row" if word.startswith("no provenance") else "other")] += 1
+        rec["outstanding_states"] = dict(states)
+        rec["verified_pass_seen"] = verified is not None
+        inc = incidents.get(sl)
+        parked = (inc or {}).get("parked") or {}
+        gate = str(parked.get("gate") or "") if isinstance(parked, dict) else ""
+        rec["incident"] = {
+            "open": inc is not None, "held": bool((inc or {}).get("held")),
+            "attempts": int((inc or {}).get("attempts") or 0) if inc is not None else 0,
+            "parked": (gate if gate in _OUTCOME_ACTIONS else ("other" if gate else None))}
+        out["by_product"][sl] = rec
     return out
 
 
