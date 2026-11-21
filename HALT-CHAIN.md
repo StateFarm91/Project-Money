@@ -1,6 +1,6 @@
 # eng/halt-chain: rebuilds that start at certification now drive the whole chain
 
-Base: `claude/w6-release-19h12`, which is production `f860904d`. This branch is not released yet.
+Base: `claude/w6-release-19h12`, with `claude/w6-release-19h13` (production `0aeb81d2`) merged in. This branch is not released yet.
 
 ## What production showed (evidence 2026-11-21T19:10Z)
 
@@ -18,11 +18,15 @@ Eleven halted products show the same `rebuild_outcomes` pattern:
 
 2. **Superseded names were counted as outstanding.** The provenance check reads an artefact built from a release the product has since moved past as `SUPERSEDED`. No stage rewrites such an artefact, because the chain builds the newest release's artefacts under that release's own keys. Publication already refuses a superseded release, and the sentinel raises no halting incident for one. But the verify pass counted these names as outstanding. Even with root cause 1 fixed, the 11 superseded names would have kept the products' `rebuild-incomplete` incidents open for good.
 
+3. **Sentinel rows of set-aside names stayed open until the next hourly sentinel.**
+   `test_halt_380_live`'s end-to-end test fails on deployed 19h12, and also on 19h11 + halt-380-live when run now, so this is not a 19h12 regression. Every product verifies, but the stale-artefact rows of the 12 earlier-plan pinterest pieces stay open. `marketing.schedule` had already retired those pieces, and the verify pass sets them aside as retired. Only `ops.sentinel`'s sweep closes a retired name's row, and nothing in the drain runs one, so whether the test passed depended on whether some job happened to sweep. Production has the same gap: rows stay open for up to an hour after a verified rebuild.
+
 ## Fix
 
 - **`runtime/release.py` `_targeted_rebuild`:**
   - `gate.certify` is now enqueued with `"rebuild": token`.
   - Superseded names are set aside on the request and verify passes, exactly like retired names. They are recorded under `superseded` in the outputs and in the `chain.rebuild_verified` audit, never counted as completed, and close nothing on their own. The incident closes only when every stale name has bound, verified completion evidence.
+- **`runtime/release.py` `_close_set_aside`:** on a verify pass, closes the `stale-artefact:<name>` rows of exactly the names this pass read RETIRED or SUPERSEDED. It uses the sweep's own rule (U1 for retired, R1 for superseded) and records the check's reason, never "rebuilt".
 - **`runtime/pipeline.py` `handle_certify`:** reads `inputs["rebuild"]` and passes it into the `listing.draft` inputs and its `chain_key` token. With no token, the key is unchanged, so the normal chain behaves exactly as before.
 
 Nothing is marked complete without being regenerated; completion still needs a bound, fresh row written by this attempt's stage job or a later one. Verify, child safety and every other gate are unchanged.
@@ -44,7 +48,17 @@ Nothing is marked complete without being regenerated; completion still needs a b
 
 ## Suites
 
-See the final report for the suite results.
+Run on the merged 19h13 tree:
+
+- `test_halt_380_live` passes, with the test file unmodified.
+- `test_halt_chain` passes 2/2.
+
+Run earlier on the 19h12 base:
+
+- 15 of 16 halt and rebuild suites passed (108 passing).
+- The one failure was `test_halt_380_live`, which root cause 3 explains.
+
+The overlap suites on the merged tree are listed in the final report.
 
 ## Not resolved here
 
