@@ -106,6 +106,11 @@ MAX_REPAIR_ROUNDS = 2
 MAX_GENERATION_CALLS = 12          # per gallery, every role and repair included
 MAX_SPEND_CAD_PER_GALLERY = 2.00   # = the publishing agent's daily ceiling; never raised here
 ANCHOR_ROLE = "product_anchor"     # the product-only candidate: a fidelity anchor, not a frame
+# IMAGE-AD (V2): a vessel's anchor is a pair. This is its side view, standing, rendered by
+# `image_stages.product_only(view="side")` as its own paid call before the top-down anchor;
+# its bytes ride on the anchor (`side_data`) and its id in the anchor's checks
+# (`_anchor_side`), so recovery and re-verification read the same pair. Never a frame.
+ANCHOR_SIDE_ROLE = "product_anchor_side"
 IDENTITY_ANCHOR_ROLE = "laura_identity_anchor"   # stage A: an intermediate reference, not a frame
 MAX_IDENTITY_ANCHOR_ATTEMPTS = 2   # one generation + one bounded proportion-correction pass
 MAX_RESTARTS = 3                   # per run; a restart never resets attempts, calls or spend
@@ -328,7 +333,14 @@ def _park_for_sale(db, key: str, stage: str, adm: dict) -> dict:
         r = _run_locked(s, key)
         st = dict(r.stages or {})
         waits = dict(st.get(_SALE_WAITS) or {})
-        if r.status != SALE_WAITING:
+        # IMAGE-AD: a run re-entered by `_readmit` that parks again is a NEW wait, even though
+        # its status never left SALE_WAITING (readmission does not change it). Before this the
+        # count stayed put, the next readmission reused the taken "#admitted<n>" key, and an
+        # admitted release waited forever (found on the bread basket, whose listing is
+        # re-drafted once after its first package).
+        if r.status != SALE_WAITING or (
+                waits.get("readmitted") is not None
+                and int(waits.get("readmitted") or 0) == int(waits.get("count") or 0)):
             waits["count"] = int(waits.get("count") or 0) + 1
         waits.update(at=_now().isoformat(), why=str(adm.get("why"))[:500], stage=stage)
         st[_SALE_WAITS] = waits
@@ -381,6 +393,17 @@ def _readmit(db, enqueue, key: str, slug: str, version: str, release: str,
     job = enqueue(inputs, stage_key(slug, version, release, STAGES[0][0], 0,
                                     run.get("restarts") or 0, "", route)
                   + f"#admitted{waits}")
+    if job is not None:
+        from sqlalchemy.orm.attributes import flag_modified
+
+        with db.session() as s:
+            r = _run_locked(s, key)
+            st = dict(r.stages or {})
+            w = dict(st.get(_SALE_WAITS) or {})
+            w["readmitted"] = waits
+            st[_SALE_WAITS] = w
+            r.stages = st
+            flag_modified(r, "stages")
     return job is not None
 
 
@@ -515,6 +538,8 @@ def record_candidate(db, cand: dict, verdict: dict, *, method: str, run: str = "
                     **({"_route": {"route": str(cand["route"])}} if cand.get("route") else {}),
                     **({"_paid_call": {"token": cand["_paid_call_token"]}}
                        if cand.get("_paid_call_token") else {}),
+                    **({"_anchor_side": dict(cand["_anchor_side"])}
+                       if cand.get("_anchor_side") else {}),
                     **({"_generation_operation": {"key": cand["_generation_operation"],
                                                    "mode": cand.get("_generation_mode")}}
                        if cand.get("_generation_operation") else {}),
@@ -902,7 +927,7 @@ def _recover_generation(db, key, *, operation, stage, role, slug, version, relea
 def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, refs, outfit,
               laura: bool, judges, plan_attempt: int, evaluate: bool = True,
               repair: dict | None = None, exp=None, operation: str = "",
-              route: str = "") -> dict:
+              route: str = "", side: dict | None = None) -> dict:
     from . import spend_plan
     from .gallery import gates_now
 
@@ -1014,6 +1039,11 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
             "repair": repair}
     if paid:
         cand["_paid_call_token"] = call_token
+    if side is not None and role == ANCHOR_ROLE:
+        # IMAGE-AD: the vessel's side view, judged with the top-down anchor as one pair
+        cand["side_data"] = side["data"]
+        cand["_anchor_side"] = {"candidate_id": side["candidate_id"],
+                                "sha256": side["sha256"]}
     if operation:
         cand["_generation_operation"] = operation
         cand["_generation_mode"] = "experiment" if exp is not None else "normal"
@@ -1033,6 +1063,8 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
     elif role == IDENTITY_ANCHOR_ROLE:
         verdict = identity_anchor_verdict(db, cand, judges,
                                           _binding(db, exp, slug, version, release))
+    elif role == ANCHOR_SIDE_ROLE:
+        verdict = side_view_verdict(cand, _binding(db, exp, slug, version, release))
     else:
         verdict = CG.evaluate(db, cand, judges=judges)
     rec = record_candidate(db, cand, verdict, method="autonomous", run=key, stage=stage,
@@ -1041,6 +1073,49 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
         _complete_paid_generation(db, key, call_token, rec["candidate_id"])
     return {**rec, "technical_status": verdict["technical_status"],
             "publishable": verdict["publishable"], "cost_cad": cost, "attempt": plan_attempt}
+
+
+def side_view_verdict(cand: dict, bind: dict) -> dict:
+    """IMAGE-AD: a vessel's side view on its own is only bound and decodable; whether it
+    shows the CIR's wall is decided with the top-down view, as one pair, by the anchor's
+    fidelity verifier (`fidelity.verify_anchor(side=...)`). Never publishable."""
+    q = CG.quality(cand["data"])
+    tech = CG.worst(bind["status"], q["status"])
+    return {"sha256": cand["sha256"], "listing": cand.get("listing", ""),
+            "checks": {"binding": bind, "quality": q}, "technical_status": tech,
+            "publishable": False,
+            "publication": {"publishable": False, "blockers": [
+                "a vessel's side view is half of its fidelity anchor, never a gallery frame"]},
+            "failure_categories": sorted({CG.FAILURE_CATEGORY[k] for k, c in (
+                ("binding", bind), ("quality", q)) if c["status"] == CG.FAIL})}
+
+
+def is_vessel_release(db, slug: str, version: str) -> bool:
+    """Whether the certified CIR is a vessel (its anchor needs a side view). Unreadable is
+    False: the anchor verifier then reads the CIR itself and refuses by name."""
+    try:
+        from ..publish.release_gates import _release
+        from . import vessel
+
+        cir, _rh = _release(db, slug, version)
+        return bool(cir is not None and vessel.is_vessel(cir))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _anchor_side_bytes(db, side: dict | None) -> dict | None:
+    """The recorded side view's bytes, checked against its sha256, or None."""
+    if not side or not side.get("sha256"):
+        return None
+    from ..core.artifacts import ArtifactStore
+
+    try:
+        data = ArtifactStore().get(side["sha256"], db=db)
+    except Exception:  # noqa: BLE001 - bytes gone: the pair cannot be judged
+        return None
+    if not data or hashlib.sha256(data).hexdigest() != side["sha256"]:
+        return None
+    return {"candidate_id": side.get("candidate_id"), "sha256": side["sha256"], "data": data}
 
 
 def identity_anchor_verdict(db, cand: dict, judges, bind: dict) -> dict:
@@ -1284,12 +1359,35 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
                      if attempt > 1 else None)
             repair = (_repair_for(prior) if prior and prior.get("technical_status") == "FAIL"
                       else None)
+            side = None
+            if recovered is None and is_vessel_release(db, slug, version):
+                # IMAGE-AD (V2): a vessel is verified from a top-down and a side view of it
+                # standing. The side view is its own paid render, through the same budget,
+                # run cap and paid-provider gate (per-gallery, daily), with its own replay
+                # key, so a redrive recovers it instead of buying it again.
+                side_op = operation_for(ANCHOR_SIDE_ROLE)
+                got_side = _recover_generation(
+                    db, key, operation=side_op, stage=stage, role=ANCHOR_SIDE_ROLE,
+                    slug=slug, version=version, release=release,
+                    experiment=exp is not None) or _generate(
+                    db, key, gen, slug=slug, version=version, release=release,
+                    role=ANCHOR_SIDE_ROLE, stage=stage, laura=False, judges=judges,
+                    brief="the finished piece alone, standing, seen from the side at eye "
+                          "level, plain background, the whole wall and rim visible",
+                    refs=_refs_with_bytes(), outfit=None, plan_attempt=attempt,
+                    exp=exp, operation=side_op)
+                if got_side.get("provider_error"):
+                    return block(f"vessel side view could not be rendered: "
+                                 f"{got_side['provider_error']}")
+                side = _anchor_side_bytes(db, got_side)
+                if side is None:
+                    return block("vessel side view bytes unavailable; review required")
             got = recovered or _generate(db, key, gen, slug=slug, version=version, release=release,
                             role=ANCHOR_ROLE, stage=stage, laura=False, judges=judges,
                             brief="the finished piece alone, flat, plain background, every "
                                   "piece visible", refs=_refs_with_bytes(), outfit=None,
                             plan_attempt=attempt, repair=repair, exp=exp,
-                            operation=operation)
+                            operation=operation, side=side)
             _update(db, key, stage=stage, status=st,
                     record={"outputs": got, "cost_cad": got.get("cost_cad")})
             return {"run_key": key, "next": go(_next(stage), rnd=got.get("attempt", attempt) - 1)}
@@ -1707,7 +1805,7 @@ def reverify(db, candidate_id: int, *, judges, exp=None) -> dict:
                 "prompt_version": row.prompt_version,
                 "route": ((row.checks or {}).get("_route") or {}).get("route") or ""}
         kept = {k: v for k, v in (row.checks or {}).items()
-                if k in ("_route", "_paid_call", "_generation_operation")}
+                if k in ("_route", "_paid_call", "_generation_operation", "_anchor_side")}
         prev = {"technical_status": row.technical_status,
                 "failure_categories": list(row.failure_categories or []),
                 "unknown": sorted(k for k, c in (row.checks or {}).items()
@@ -1723,6 +1821,10 @@ def reverify(db, candidate_id: int, *, judges, exp=None) -> dict:
     if exp is not None:
         cand["experiment"] = True
     if cand["role"] == ANCHOR_ROLE:
+        # IMAGE-AD: a vessel anchor is re-judged as the same pair it was generated as
+        side = _anchor_side_bytes(db, kept.get("_anchor_side"))
+        if side is not None:
+            cand["side_data"] = side["data"]
         bind = _binding(db, exp, cand["slug"], cand["version"], cand["release"])
         pt = judges.product_truth({**cand}, bind)
         q = CG.quality(data)

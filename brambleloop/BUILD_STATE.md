@@ -1,3 +1,16 @@
+> **2026-11-21 — IMAGE-AD on `eng/image-ad` (from `claude/batch19c` 9757c1d + `eng/image-e2e` 45a012be; NOT merged,
+> NOT deployed; production unchanged, still 0 images; Laura untouched).** IMAGE-E2E findings A and D closed.
+> A: a vessel's FLUX anchor is now a pair: a side view (`product_only(view="side")`, its own paid call inside the
+> run, per-gallery and daily caps, own replay key) judged with the top view by `verify_anchor(side=...)`, kept
+> through recovery and reverify. Proof: the Hexagonal Bread Basket reaches a PASS `vessel_anchor` under the real
+> Worker with stub BFL pixels and labelled judge doubles; caps and no-repeat-on-redrive asserted. Also fixed: a
+> readmitted run that parked again could never be readmitted (taken `#admitted<n>` key) -- a silent for-sale stall.
+> D: `PDF_LAYOUT="template"`; the template document is used only with a certified gallery and a PASS from
+> PremiumStandard + the sale checker, else the engine PDF is `engine_interim`. A certified gallery enqueues
+> `assets.build{illustrate}` (PDFs only), bound to the certificate's frames. READY now requires the illustrated
+> PDFs (`PDF_NOT_ILLUSTRATED` / `PDF_GALLERY_STALE`, image-tagged); before, any certified PDF counted. Open:
+> inventory `premium_pdf_completed` still counts an interim PDF; findings B, C, F unchanged. Decision D-IMAGE-AD.
+> Report: `research/final_build/w6/review_requests/IMAGE-AD.md` (results there).
 > **2026-11-21 — NEW-PRODUCT-FLOW on `eng/new-product-flow` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT
 > deployed; production unchanged, no production row read).** Readback prod 2f7da291: 0 certified in 7 d (only the 9
 > Launch-0 at LISTING_READY), loop 11/12 with no `original_product`. Cause, reproduced on the real handlers: with

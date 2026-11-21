@@ -3870,3 +3870,34 @@ M2/L4). No existing check was relaxed; four rules were added to `publish.pdf_sta
   amigurumi PDF, correctly). Real progress photos need a physical sample. The real amigurumi build
   still blocks on the child-safety width x height gap (D-ENG-PDF-TEMPLATE-2); the fixture is a test
   fixture only.
+
+## D-IMAGE-AD — 2026-11-21 (IMAGE-E2E findings A and D; eng/image-ad)
+
+**Decision:**
+- **A.** A vessel's FLUX anchor is a pair. A side view (`product_anchor_side`, from
+  `image_stages.product_only(view="side")`) is rendered as its own paid call, counted in the
+  run cap and in the paid-provider gate's per-gallery and daily caps. It has its own replay
+  key, so a redrive never buys it twice. It is judged with the top-down anchor by
+  `fidelity.verify_anchor(side=...)` and kept through recovery and reverify (`_anchor_side`).
+- **D.** `PDF_LAYOUT = "template"`. The release default builds the template document only
+  when three things hold: the gallery is certified, the document is customer_ready, and it
+  PASSes PremiumStandard and the sale checker (`pdf_template.audit(expected_gallery=...)`).
+  Otherwise the engine PDF is the `engine_interim` deliverable.
+- **Rebuild on certification.** A certified gallery enqueues `assets.build{illustrate:
+  <record>}`, one job per certificate record. It rebuilds and re-certifies only the two PDFs,
+  then binds the build to the certificate's frames, in order.
+- **READY rule.** A listing package is READY only when the newest build for the release is
+  the template in both editions and its binding matches the valid certificate's frames.
+  Otherwise it carries `PDF_NOT_ILLUSTRATED` or `PDF_GALLERY_STALE`. Both are image-tagged,
+  so they do not block admission for images.
+- **Stall fix.** A run readmitted for sale that parks again is a new wait: the
+  `#admitted<n>` key moves, so the run can be readmitted again.
+
+**Why:**
+- D-OWNER-SALE-PIPELINE step 2, and D-OWNER-PDF-STANDARD ("The PDFs have images").
+- Before this, any certified PDF, including the engine one, could make a package READY.
+- The binding compares frames, not record ids. A certificate re-issued for identical frames
+  changes no embedded byte.
+
+**Not changed:** the inventory stage `premium_pdf_completed` is still reached by any
+certified PDF; the run cap `FLUX_MAX_GENERATION_CALLS`; and Laura.

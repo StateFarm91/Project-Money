@@ -169,7 +169,8 @@ def _cir(db, version):
 
 # ---- the unaided worker ---------------------------------------------------------------------
 
-def run_worker(db, *, limit=400, laura_double=True, judges_for=None, after=None, env=None):
+def run_worker(db, *, limit=400, laura_double=True, judges_for=None, after=None, env=None,
+               seed=True):
     """Seed what production's own triggers enqueue (the listing.package event and the
     six-hourly capability probe), then let one real Worker claim every job until the queue
     is empty. Returns the ordered list of (job_type, status) it ran."""
@@ -184,10 +185,11 @@ def run_worker(db, *, limit=400, laura_double=True, judges_for=None, after=None,
     q = JobQueue(db)
     with db.session() as s:
         version = s.scalar(select(Job).where(Job.job_type == "listing.seo")).inputs["version"]
-    q.enqueue("orchestrator", "ops.capability_probes", {},
-              idempotency_key=f"probe:{time.time_ns()}")
-    q.enqueue("listing", "listing.package", {"slug": SLUG, "version": version},
-              idempotency_key=f"pkg:{time.time_ns()}")
+    if seed:
+        q.enqueue("orchestrator", "ops.capability_probes", {},
+                  idempotency_key=f"probe:{time.time_ns()}")
+        q.enqueue("listing", "listing.package", {"slug": SLUG, "version": version},
+                  idempotency_key=f"pkg:{time.time_ns()}")
     vision = V6.StubVision(cir)
     real_judges = CG.RealJudges
     def factory(db_, **kw):
