@@ -768,6 +768,13 @@ def chunky_hook_range_text(cir) -> str | None:
             f"down within this range and swatch again.")
 
 
+EYE_AGE_GUIDANCE = (
+    "Age guidance: embroidered eyes are the only eyes for a toy for a child under 3, or for "
+    "any child who still puts toys in their mouth. Safety eyes are only ever for a toy for a "
+    "child aged 3 or over, fitted with their washers. The age band this toy is designed for, "
+    "and how to check it, are in the safety notes below.")
+
+
 def eye_option_lines(cir) -> list[str] | None:
     """Embroidered or safety eyes, from the CIR's own materials and the head's rounds; None
     when the CIR has no head (or single piece) worked in counted rounds to place eyes on.
@@ -803,6 +810,7 @@ def eye_option_lines(cir) -> list[str] | None:
         out.append("Safety eyes are not part of this pattern: they are a small part, and "
                    "the materials, safety notes and age guidance here are for the "
                    "embroidered face only.")
+    out.append(EYE_AGE_GUIDANCE)
     return out
 
 

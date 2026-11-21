@@ -1312,11 +1312,7 @@ class _Facts:
 
 # ---- pages -----------------------------------------------------------------------------------
 
-EYE_AGE_GUIDANCE = (
-    "Age guidance: embroidered eyes are the only eyes for a toy for a child under 3, or for "
-    "any child who still puts toys in their mouth. Safety eyes are only ever for a toy for a "
-    "child aged 3 or over, fitted with their washers. The age band this toy is designed for, "
-    "and how to check it, are in the safety notes below.")
+from .pdf_standard import EYE_AGE_GUIDANCE  # noqa: E402  (one source for both layouts)
 
 
 def _cover(t: _T, f: _Facts, slots: list[dict]) -> None:
