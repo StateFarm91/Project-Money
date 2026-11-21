@@ -1917,11 +1917,19 @@ def handle_certify(ctx: JobContext) -> dict:
                     "reasons": [f"owner veto (#228): {veto['why']}"]}
         from .release import chain_key
 
-        ctx.enqueue("listing", "listing.draft",
-                    {"slug": cir.slug, "version": cir.version,
-                     "release": cert.release_hash},
+        # eng/halt-chain: a targeted rebuild that starts at certification carries its rebuild
+        # token here, as every later stage already does. Without it, a re-certification of an
+        # unchanged release (same release hash) enqueued listing.draft under the original
+        # chain's key, found that finished job, and the rebuild ended at gate.certify with
+        # every downstream artefact still stale -- halt 380's "rebuild-incomplete" products.
+        rebuild_token = str(ctx.job.inputs.get("rebuild") or "")
+        draft_inputs = {"slug": cir.slug, "version": cir.version,
+                        "release": cert.release_hash}
+        if rebuild_token:
+            draft_inputs["rebuild"] = rebuild_token
+        ctx.enqueue("listing", "listing.draft", draft_inputs,
                     idempotency_key=chain_key("listing", cir.slug, cir.version,
-                                              cert.release_hash or ""))
+                                              cert.release_hash or "", rebuild_token))
     else:
         _withdraw_listing(ctx, cir)
 

@@ -6112,6 +6112,28 @@ def _close_on_verified_rebuild(ctx: JobContext, slug: str, *, completed: list,
     return closed
 
 
+def _close_set_aside(ctx: JobContext, set_aside: dict) -> list[str]:
+    """eng/halt-chain: close the sentinel rows of names this pass read RETIRED or SUPERSEDED.
+
+    This is the sweep's own rule (`ops.artefacts.sweep`: publish-unhalt U1 for retired, R1
+    for superseded), applied to exactly the names this rebuild was asked about and read with
+    the same deterministic check. Without it those rows stayed open until the next hourly
+    sentinel happened to run, so a product whose rebuild had verified -- every stale name
+    rewritten, its earlier plan's pieces retired by `marketing.schedule` -- still counted
+    toward the company-wide halt in the meantime (test_halt_380_live: 12 products' earlier
+    pinterest pieces). Each row is closed with the check's reason, never as "rebuilt"."""
+    from ..ops import incident_lifecycle
+    from ..ops.artefacts import SENTINEL_SIGNATURE
+
+    closed: list[str] = []
+    with ctx.db.session() as s:
+        for k, why in sorted(set_aside.items()):
+            closed += incident_lifecycle.resolve_signatures(
+                s, [f"{SENTINEL_SIGNATURE}:{k}"],
+                resolution=str(why)[:400])
+    return closed
+
+
 def _targeted_rebuild(ctx: JobContext) -> dict:
     """Rebuild exactly the artefacts the dependency graph named, and prove each one was.
 
@@ -6211,7 +6233,19 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
     # with the check's reason, never counted as completed, and closes nothing by itself.
     retired_now = {k: verdicts[k].retired for k in keys
                    if k in verdicts and provenance.retired(verdicts[k])}
-    stale = [k for k in keys if k not in fresh and k not in retired_now]
+    # eng/halt-chain: a named artefact the check now reads SUPERSEDED was built from a release
+    # the product has since moved past. No stage rewrites it -- the chain builds the newest
+    # release's artefacts under that release's own keys -- and publication already refuses a
+    # superseded release (`publish.release_gates.superseded_release`), which is why the check
+    # raises no halting incident for it. Counted as outstanding, it failed every verify pass
+    # (production: 11 of winter-village-graphghan's 20 outstanding names), so the product's
+    # `rebuild-incomplete` row could never close. It is set aside exactly like a retired name:
+    # recorded with the check's reason, never counted as completed, closing nothing by itself.
+    superseded_now = {k: verdicts[k].why[:200] for k in keys
+                      if k in verdicts and verdicts[k].state == provenance.SUPERSEDED
+                      and k not in retired_now}
+    stale = [k for k in keys if k not in fresh and k not in retired_now
+             and k not in superseded_now]
 
     if verify:
         for k in fresh:
@@ -6242,19 +6276,26 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
         # eng/halt-380-verify: retired names alone are no evidence of a delivered rebuild, so
         # a pass that completed nothing and set only retired names aside leaves the product's
         # row to the sentinel's positive-evidence rule rather than closing it here.
+        # The sweep's own resolution wording (`ops.artefacts`), so a row closed here reads
+        # exactly as the hourly sentinel would have closed it.
+        set_aside = {**{k: f"retired, not stale: {w}" for k, w in retired_now.items()},
+                     **{k: f"superseded, not stale: {w}" for k, w in superseded_now.items()}}
         closed = _close_on_verified_rebuild(
             ctx, slug, completed=fresh,
-            outstanding=stale if (stale or fresh or not retired_now) else sorted(retired_now))
+            outstanding=stale if (stale or fresh or not set_aside) else sorted(set_aside))
+        closed += _close_set_aside(ctx, set_aside)
         ctx.audit("chain.rebuild_verified", artifact=f"{slug}@{version}", detail={
             "completed": fresh, "outstanding": stale, "unbound": unbound, "check": verify,
             "closed": closed, "retired": dict(list(retired_now.items())[:50]),
+            "superseded": dict(list(superseded_now.items())[:50]),
             # eng/halt-380-verify: why each outstanding name is still outstanding, as the
             # check reads it now, so a readback can tell "not rewritten" from "refused".
             "outstanding_read": {k: (verdicts[k].state + ": " + verdicts[k].why[:160]
                                      if k in verdicts else "no provenance row")
                                  for k in stale[:20]}})
         return {"targeted": True, "verify": verify, "slug": slug, "completed": fresh,
-                "outstanding": stale, "unbound": unbound, "retired": sorted(retired_now)}
+                "outstanding": stale, "unbound": unbound, "retired": sorted(retired_now),
+                "superseded": sorted(superseded_now)}
 
     classes = {k.split(":", 1)[0] for k in stale}
     unknown = sorted(c for c in classes if c not in REBUILD_STAGE)
@@ -6278,7 +6319,10 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
         stamp, sort_keys=True, default=str).encode()).hexdigest()[:12]
     stage_job = None
     if stage == "gate.certify":
-        stage_job = ctx.enqueue(STAGE_AGENT[stage], stage, {"cir": cir_json},
+        # eng/halt-chain: the token rides certification too, so certify's listing.draft (and
+        # the whole chain after it) runs again for this rebuild instead of deduplicating onto
+        # the original chain's finished jobs.
+        stage_job = ctx.enqueue(STAGE_AGENT[stage], stage, {"cir": cir_json, "rebuild": token},
                                 idempotency_key=f"rebuild-cert:{slug}:{version}:{token}")
     elif stage == "assets.build":
         stage_job = ctx.enqueue(STAGE_AGENT[stage], stage,
@@ -6329,7 +6373,7 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
                     run_after=utcnow() + _td(minutes=REBUILD_VERIFY_DELAY_MINUTES))
     return {"targeted": True, "slug": slug, "version": version, "reason": reason,
             "requested": stale, "already_fresh": fresh, "stage": stage,
-            "retired": sorted(retired_now),
+            "retired": sorted(retired_now), "superseded": sorted(superseded_now),
             "fresh_but_unbound": unbound,
             "stage_job": getattr(stage_job, "id", None), "unknown_classes": unknown}
 
