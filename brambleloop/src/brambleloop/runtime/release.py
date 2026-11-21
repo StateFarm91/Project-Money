@@ -2683,7 +2683,16 @@ def handle_marketing_schedule(ctx: JobContext) -> dict:
                 # C-69 (#172): a rebuild remakes the piece from the current release -- this
                 # run wrote these words, so it records their lineage.
                 existing.body = piece.body
-                existing.detail = piece.detail
+                detail_ = piece.detail
+                if existing.state == provenance.CONTENT_SUPERSEDED:
+                    # eng/halt-380-marketing: back in the current plan, so a draft again, and
+                    # it says so. Left `superseded`, its row would read RETIRED the next
+                    # time it went stale.
+                    existing.state = "drafted"
+                    detail_ = dict(piece.detail or {}, restored_by={
+                        "job": ctx.job.id, "version": version,
+                        "superseded_by": (existing.detail or {}).get("superseded_by")})
+                existing.detail = detail_
                 existing.scheduled_for = piece.scheduled_for
                 provenance.record_lineage(
                     s, artefact_class="marketing_asset",
@@ -2708,22 +2717,36 @@ def handle_marketing_schedule(ctx: JobContext) -> dict:
         # handed on and stays judged as it is. Nothing is deleted.
         from datetime import datetime as _dt, timezone as _tz
 
+        # eng/halt-380-marketing: not only drafts. Production's halt was 102 marketing rows of
+        # an earlier plan whose pieces were in no state this loop matched, so they were never
+        # superseded and read STALE for good. Every piece the current plan no longer
+        # contains and that was never PUBLISHED is superseded here, with its prior state and
+        # the plan that replaced it on the row (`superseded_by`). Published content is never
+        # retired: it is listed (`published_out_of_plan`) and its row stays as it reads, so
+        # it keeps halting the product until someone decides about content that is public.
         planned = {(p.channel, p.title) for p in pieces}
-        superseded = []
-        for old in s.scalars(select(ContentPiece).where(ContentPiece.product_slug == slug,
-                                                        ContentPiece.state == "drafted")):
-            if (old.channel, old.title) not in planned:
-                old.state = provenance.CONTENT_SUPERSEDED
-                old.detail = dict(old.detail or {}, superseded_by={
-                    "job": ctx.job.id, "version": version,
-                    "at": _dt.now(_tz.utc).isoformat()})
-                superseded.append(provenance.marketing_key(slug, old.channel, old.title))
+        superseded, published_kept = [], []
+        for old in s.scalars(select(ContentPiece).where(ContentPiece.product_slug == slug)):
+            if (old.channel, old.title) in planned or old.state == provenance.CONTENT_SUPERSEDED:
+                continue
+            key_ = provenance.marketing_key(slug, old.channel, old.title)
+            if provenance.content_published(old.state, old.detail):
+                published_kept.append(key_)
+                continue
+            prior_state = old.state
+            old.state = provenance.CONTENT_SUPERSEDED
+            old.detail = dict(old.detail or {}, superseded_by={
+                "job": ctx.job.id, "version": version, "prior_state": prior_state,
+                "reason": "the current content plan no longer contains this piece",
+                "at": _dt.now(_tz.utc).isoformat()})
+            superseded.append(key_)
 
     ctx.audit("marketing.scheduled" if not problems else "marketing.blocked",
               artifact=f"{slug}@{version}",
               detail={"pieces": len(pieces), "channels": sorted({p.channel for p in pieces}),
                       "problems": problems[:5], "published": False,
                       "superseded_drafts": superseded[:50],
+                      "published_out_of_plan": published_kept[:50],
                       "cultural_timing": [n["lesson"] for n in cultural_timing]})
     return {"slug": slug, "version": version, "pieces": len(pieces),
             "problems": problems, "published": False}

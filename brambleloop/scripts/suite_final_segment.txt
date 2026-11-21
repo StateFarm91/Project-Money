@@ -296,3 +296,4 @@ tests/test_eng_autocoder.py
 tests/test_autopromote.py
 tests/test_clothing_e2e.py
 tests/test_eng_animals.py
+tests/test_halt_380_marketing.py

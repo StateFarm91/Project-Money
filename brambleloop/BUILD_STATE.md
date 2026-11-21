@@ -1,3 +1,15 @@
+> **2026-11-21 — HALT-380-MARKETING on `eng/halt-380-marketing` (from `claude/w6-release-19h3` 52aa7ae = deployed
+> dc10a48d; NOT merged, NOT deployed; production unchanged, no production row read).** Readback 10:35Z: 102 of 111
+> halting stale rows are marketing_asset (94 from an older release), plus 2 products' 9 current-release core rows.
+> The readback was 14 min after HALT-380-VERIFY went live (10:21Z), inside the 12 h RETRY_AFTER after the chain-9
+> attempt (19b, 02:06Z), so it could not show that fix. Reproduced on the real chain, 12 products in production's
+> shape. The rebuild order is already core first (asserted from job ids). Defects fixed: (1) an earlier-plan piece in
+> any unpublished non-draft state was never superseded, so it read STALE for good; now superseded with its prior state.
+> Published content is never retired: it is listed, stays STALE and keeps the product halted. (2) A just-retired
+> piece's open row refused the next marketing rebuild "halted (#173)" until the sweep; waived for the rebuild flag
+> only. (3) A superseded piece back in the plan is restored to drafted. New suite `tests/test_halt_380_marketing.py`
+> 4/4; all 4 fail on base. UNVERIFIED in production until deployed AND a retry has run (read after about 15:00Z).
+> Decision D-HALT-380-MARKETING. Report: `w6/review_requests/HALT-380-MARKETING.md`.
 > **2026-11-21 — HALT-380-VERIFY on `eng/halt-380-verify` (from `claude/w6-release-19h1` 90403e5 = deployed 1bb7c4f5;
 > NOT merged, NOT deployed; production unchanged, no production row read).** Readback 08:20Z: done 199, unfinished 0,
 > no artefact completed since 2026-11-20T13:12Z, 14 retry-waiting, 12 rebuild-incomplete. Clean-slate rebuilds verify

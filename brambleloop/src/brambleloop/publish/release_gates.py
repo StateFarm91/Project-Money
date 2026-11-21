@@ -1626,8 +1626,15 @@ def staleness(db, *, slug: str) -> dict:
     # product's PDF, charts and copy reaches marketing.schedule before the hourly sweep has
     # closed the sentinel rows for those artefacts. Counting rows whose artefact already reads
     # FRESH refused the marketing rebuild on every attempt, so marketing never converged.
-    halting_other = _halting_other_than_staleness(db, slug, own_marketing,
-                                                  set(graph.get("fresh") or ()))
+    # eng/halt-380-marketing (production dc10a48d shape, reproduced on the real chain): the
+    # same holds for a row whose artefact now reads RETIRED -- an earlier plan's piece this
+    # very rebuild superseded. Its row stays open until the next sweep closes it "retired,
+    # not stale", and until then every marketing.schedule of the product (a pivot, a parity
+    # escalation, the next attempt) was refused "halted (#173)" on content that no longer
+    # exists. Waived for this rebuild flag only, like FRESH; publication still reads it.
+    halting_other = _halting_other_than_staleness(
+        db, slug, own_marketing,
+        set(graph.get("fresh") or ()) | set(graph.get("retired") or ()))
     # Review F4: an unreviewed platform-policy change (#39) is not staleness, so it is never
     # waived by the marketing rebuild exception.
     # ENG-RECOVERY: only a change governing growth or product creation holds the marketing
@@ -1644,7 +1651,15 @@ def staleness(db, *, slug: str) -> dict:
     # work still refuses, and `halted`, `reasons` and `blocks` (what publication reads) still
     # carry the halt and every unreviewed publishing change.
     own_rebuild_pending = not outstanding and _own_rebuild_pending(db, slug)
-    only_marketing = ((bool(outstanding) or own_rebuild_pending)
+    # eng/halt-380-marketing (reproduced on the real chain, production shape): once a rebuild
+    # has delivered, nothing is outstanding, but the sentinel rows of what it remade (FRESH)
+    # or superseded (RETIRED) stay open until the next hourly sweep. A marketing rebuild that
+    # ran in that window (a pivot, a parity escalation) was refused "halted (#173)" on rows
+    # every one of which the sweep is about to close. It may proceed when nothing is
+    # outstanding and every halting row is such a row (`halting_other` empty). Publication
+    # still reads `halted`, `reasons` and `blocks` unchanged.
+    awaiting_sweep = not outstanding and bool(halting) and not halting_other
+    only_marketing = ((bool(outstanding) or own_rebuild_pending or awaiting_sweep)
                       and not halting_other and not policy_marketing
                       and all(str(k).startswith("marketing_asset:") for k in outstanding))
     return {"halted": bool(halting), "incidents": halting[:5], "rebuild": graph,
