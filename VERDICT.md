@@ -111,3 +111,13 @@ The boot `apply` (web process) and the hourly job (worker) can run at the same m
 
 1. Merge `review-results/b19-security-fix` into `claude/batch19-fixers` before `8204c93b` goes to production. The boot-time apply in `8204c93b` must not ship without the S1 sunset.
 2. Production today (`13585c4f`) already applies the directive hourly with no sunset. That is S1 already in production, and the next release should carry this fix.
+
+## Regression check (fix branch vs 8204c93b)
+
+27 suites that import the gate, the directive or the owner queue were run on the fix branch: 23 pass.
+Three fail **identically on unfixed `8204c93b`**, so they are pre-existing in batch19-fixers and not caused by this fix:
+- `test_eng_vis_flux::test_open_motif_recoveries_block_a_replacement` (22/23)
+- `test_w4_wraptest`: `plain_run_waits_for_certification`, `plain_run_not_bound_by_an_open_experiment` ("no listing package is recorded")
+- `test_w5_v0_paid_provider_gate::test_key_without_activation_a_render_and_a_paid_production_generator_are_refused` (51/52; the run stops at `waiting_for_sale_admission`)
+
+`test_cert_design_pipeline` timed out at 900 s under a 27-way parallel run and was not rerun. These pre-existing failures are a batch19-fixers merge issue for its own owner, separate from this security verdict.
