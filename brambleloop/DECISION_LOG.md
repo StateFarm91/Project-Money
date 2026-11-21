@@ -3949,3 +3949,33 @@ M2/L4). No existing check was relaxed; four rules were added to `publish.pdf_sta
   amigurumi PDF, correctly). Real progress photos need a physical sample. The real amigurumi build
   still blocks on the child-safety width x height gap (D-ENG-PDF-TEMPLATE-2); the fixture is a test
   fixture only.
+
+## D-BATCH19D-FLAT-DIAGRAMS — flat row-worked pieces get row-progress construction diagrams; the premium read-back compares the premium certificate (BATCH19D, 2026-11-21; routine engineering)
+
+- **Defect.** `construction_diagrams.stages` drew round geometry only. A flat row-worked piece
+  (blanket, panel, scarf, wrap) got no inline construction diagram in the engine layout, so the
+  sale checker's `diagrams` check (`publish.pdf_standard`) FAILed it, and no flat product could
+  become READY under D-OWNER-SALE-PIPELINE.
+- **Decision.** A pattern whose components are all `flat_rows` gets up to six row-progress
+  diagrams. They are drawn from the twin (`width_cm`, `height_cm`, `row_top_cm`, cells in fabric
+  order), on one scale, at finished width × rows. Worked rows are drawn cell by cell in their own
+  colour; rows still to work are faint. The newest row has a rose outline, row markers run down
+  the left, and the picture is labelled DIAGRAM. The engine caption calls each one a
+  "construction diagram … not a photograph". They describe the twin's component, and the engine
+  places them only in that component's block.
+- **Reconciled with ENG-PDF-DIAGRAMS (D-ENG-PDF-DIAGRAMS-1), not duplicated.** A pattern with any
+  piece worked in rounds keeps its component diagrams (`pdf_template.component_profile`) and gets
+  no row-progress stage. The template layout already draws a flat piece's inline diagrams as
+  mini-grids at the tricky rows, so it takes only the round-geometry stages
+  (`pdf_template._template_stages`). Each layout draws a piece's rows once.
+- **Premium read-back.** `store.publish` sends the certified premium edition (ENG-SALE-PIPELINE).
+  The read-back now compares the bytes Etsy holds with that edition's hash, re-hashed on read by
+  `sale_pipeline.certified_premium_pdfs`. Those certificates are bound to the `assets.build`
+  hashes, which are checked first and kept beside it as `base_certified`. Before this, every
+  READY release's draft would have read back as unverified.
+- **Not done (honest).** In `test_vis_gallery_e2e`, tests 3 and 7 drive the real sale chain for
+  the blanket. Both premium PDFs now certify PASS. The release still stops at
+  `SAMPLE_PHOTO_REQUIRED`: no unedited photograph of a physical sample exists. That is a listing
+  gate D-OWNER-SALE-PIPELINE requires to PASS. `test_w6_listing_chain_e2e` documents that it cannot
+  be reached in a test without forging, so the two tests stay red until a real sample photo
+  exists. No gate was relaxed and nothing was forged.

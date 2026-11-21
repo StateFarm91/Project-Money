@@ -1,3 +1,17 @@
+> **2026-11-21 — BATCH19D on `claude/batch19d` (batch19c d8751850 + `claude/batch19-sale` 61b508b4; NOT merged to
+> the main branch, NOT deployed; production unchanged).** The sale pipeline is merged onto the Batch 19 fixers. The
+> premium standard now lives in `publish/premium_standard.py`, and `publish/pdf_standard.py` is the sale checker;
+> eng/pdf-diagrams was merged into the former. The defect fixed: flat row-worked pieces FAILed the sale checker's
+> `diagrams` check, so no flat product could become READY. `construction_diagrams.stages` now draws row-progress
+> construction diagrams for flat pieces: width × rows at finished size, from the twin, with row markers and the
+> DIAGRAM label. The template keeps its mini-grids, and amigurumi keeps its component diagrams, so nothing is drawn
+> twice. On the real sale chain the blanket's premium US/UK PDFs now certify PASS. Also found and fixed: the
+> `store.publish` read-back compared the uploaded premium PDF with the base `assets.build` hash, so a READY
+> release's draft could never verify. `test_search_hero_publish` has its byte-for-byte draft-upload assertion
+> back. **Still red, honestly:** `test_vis_gallery_e2e` tests 3 and 7 stop at `SAMPLE_PHOTO_REQUIRED`. No physical
+> sample photo exists, and READY needs every listing gate to PASS; this needs an owner action, not code. Run
+> 20261121T020920Z-4751 @ 5151529: 288 passing, 1 suite failing. Decision D-BATCH19D-FLAT-DIAGRAMS. Report:
+> `research/final_build/w6/review_requests/BATCH19D.md`.
 > **2026-11-21 — NEW-PRODUCT-FLOW on `eng/new-product-flow` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT
 > deployed; production unchanged, no production row read).** Readback prod 2f7da291: 0 certified in 7 d (only the 9
 > Launch-0 at LISTING_READY), loop 11/12 with no `original_product`. Cause, reproduced on the real handlers: with
