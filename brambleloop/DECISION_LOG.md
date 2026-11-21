@@ -4009,3 +4009,22 @@ They also made `marketing.schedule` refuse each product's real marketing rebuild
 **Fix.** Narrow and fail-closed: only those two vanished or superseded cases read RETIRED. Real-gate refusals park the product: it stays halted itself but no longer counts toward the systemic halt. No gate was weakened.
 
 **Tests.** 17 suites, no failures (vis_gallery completes before release). The release needs the owner's per-SHA approval; the auto-deploy window closed at 05:00Z.
+
+## D-OWNER-EXTENSION-24H — 2026-11-21T10:40Z (owner, via AskUserQuestion)
+
+The owner extended the P0 deadline by 24 hours, to **2026-11-22T05:00Z**, with standing auto-deploy approval for that window ("Yes + auto-deploy"). The conditions are those of D-OWNER-AUTODEPLOY-TONIGHT:
+- the changed and overlap suites pass;
+- the rollback is rehearsed (ALLOW);
+- the push is a fast-forward;
+- the deploy is verified and read back;
+- a failure rolls back.
+
+## D-OWNER-NO-SAMPLE — 2026-11-21T10:40Z (owner)
+
+**Owner, verbatim:** "I dont plan to crochet anything. I said this from the very start. Thats why I offered to buy multiple patterns from Etsy to learn from."
+
+Consequence:
+- Etsy's pattern-listing rule (Help 44297885802647: at least one real, unedited photo of something made from the pattern) cannot be met by the owner.
+- A render is never presented as a sample photo (Product Truth, no fake evidence). `SAMPLE_PHOTO_REQUIRED` stays a publication gate.
+- Private drafts remain allowed (D-OWNER-PRIVATE-DRAFT-BEFORE-SAMPLE).
+- The compliant routes are put to the owner: a paid independent tester through the existing tester-kit programme (consequential spend, so the owner decides), or a sales channel without that rule.
