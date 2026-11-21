@@ -1,3 +1,14 @@
+> **2026-11-21 — PRODUCT-RUN-PERF on `eng/product-run-perf` (from `claude/batch19c-etsy`; NOT merged, NOT deployed;
+> test-only, no `src/` change).** `tests/test_product_run.py` now completes: **36 passed / 0 failed, 1544 s** on a
+> 4-CPU host (with other processes using the CPU). cProfile of the shared cycle (1336 s profiled, 957 s plain):
+> `build_pattern_pdf` 59% (68 calls, 40 from `first_customer` re-rendering identical documents), `disclosed_render.render`
+> 24% (335 calls, 43 unique). Two tests also re-ran the whole cycle from empty (the upgrade test alone took 1609 s on
+> the original code). No real sleeps or lease waits were involved. Fix: `tests/render_memo.py`, a content-addressed
+> memo installed only by this file, covering render, PDF, title-safe ink and the CONTENTS/gallery draws. Every input
+> is in the key; side effects are replayed; the determinism test bypasses it. The cycle is built once and shared as
+> a SQLite backup copy (`_cycle_copy`). No assertion, budget or production file changed. Decision D-PRODUCT-RUN-PERF.
+> Report: `w6/review_requests/PRODUCT-RUN-PERF.md`. The DECISION_LOG entry the brief cited
+> (D-MAIN-19B-PRODUCT-RUN-INCOMPLETE) does not exist in this branch.
 > **2026-11-21 — NEW-PRODUCT-FLOW on `eng/new-product-flow` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT
 > deployed; production unchanged, no production row read).** Readback prod 2f7da291: 0 certified in 7 d (only the 9
 > Launch-0 at LISTING_READY), loop 11/12 with no `original_product`. Cause, reproduced on the real handlers: with

@@ -3903,3 +3903,26 @@ of the five etsy.com/legal pages (the packet's `policy` section). Both are in OW
 - Every attempt is audited. A refusal, such as an expired Etsy grant, is recorded and never worked around.
 
 The operator token is never read by any session.
+
+
+## D-PRODUCT-RUN-PERF — test_product_run.py made completable without weakening it (eng/product-run-perf, 2026-11-21; routine engineering)
+
+- **Decision.** Answer repeated deterministic renders from a content-addressed, test-process-only memo
+  (`tests/render_memo.py`), and build the full unattended cycle once, shared as an immutable SQLite backup copy, instead
+  of re-running it from empty in two tests.
+- **Why.** Profiling showed the cost was repetition of identical work, not the work itself:
+  - `build_pattern_pdf` was 59% of the cycle (68 calls, 40 of them `first_customer` re-rendering documents it had
+    already rendered);
+  - `disclosed_render.render` was 24% (335 calls, 43 unique);
+  - two tests each rebuilt the same cycle, at 1609 s for one of them.
+  The rejected alternatives were narrowing the scenario (fewer products, smaller renders, lower drain budgets), which
+  violates "slow and representative beats fast and unrepresentative" (run_tests.sh), and caching in production code,
+  which is out of scope and would hide renderer regressions from other suites.
+- **Guards.**
+  - Every input each function reads is in the key: the full CIR dict, the twin, the printed date, the lesson effects,
+    pixel bytes.
+  - The first call always runs the real code, and exceptions are never cached.
+  - Hits are deep copies; the lesson notes and the layout out-parameters are replayed.
+  - The PDF determinism test runs inside `bypassed()`.
+  - Scope is one process, because run_tests.sh runs each file separately.
+- **Result.** 36 passed / 0 failed, 1544 s. Report: `w6/review_requests/PRODUCT-RUN-PERF.md`.
