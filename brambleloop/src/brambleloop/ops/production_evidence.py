@@ -1866,8 +1866,12 @@ def factory_visibility(db, *, now: datetime) -> dict:
     except Exception as exc:  # noqa: BLE001
         out["image_runs_by_state"] = _unreadable(exc)
     try:  # what the open stale-artefact incidents are: class, release relation, moved upstreams
-        from ..core.models import Incident, PatternVersion, Product
+        import re as _re
+
+        from ..core.models import Incident, Product
         from . import artefacts as provenance
+
+        _re_vocab = _re.compile(r"[a-z][a-z0-9_]{0,30}")
 
         with db.session() as s:
             sigs = [r for (r,) in s.execute(select(Incident.signature).where(
@@ -1885,7 +1889,9 @@ def factory_visibility(db, *, now: datetime) -> dict:
         for sig in sigs:
             node = sig.split(":", 1)[1] if ":" in sig else sig
             cls, _, key = node.partition(":")
-            by_class[cls] += 1
+            # fixed vocabulary only: an unknown class (or a signature of another shape) is
+            # counted, never echoed
+            by_class[cls if cls in provenance.ARTEFACT_CLASSES else "unrecognised"] += 1
             m = provenance._VERSIONED_KEY.match(key)
             if m is None:
                 by_release["unversioned"] += 1
@@ -1896,7 +1902,8 @@ def factory_visibility(db, *, now: datetime) -> dict:
             v = verdicts.get(node)
             by_state["no_row" if v is None else str(v.state)] += 1
             for ref in (v.moved if v is not None else ()):
-                moved[str(ref).split(":", 1)[0][:40]] += 1
+                head = str(ref).split(":", 1)[0]
+                moved[head if _re_vocab.fullmatch(head) else "other"] += 1
         out["stale_incidents"] = {"open": len(sigs), "by_class": dict(by_class),
                                   "by_release": dict(by_release), "by_state": dict(by_state),
                                   "moved_upstreams": dict(moved.most_common(12))}
