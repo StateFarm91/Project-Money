@@ -1361,14 +1361,23 @@ def _production_with_paid_generator(db) -> str:
         except DuplicateJob:
             return None
 
-    IP.trigger(follow, slug=cir.slug, version=cir.version, release=rel)
-    for _ in range(30):
-        job = q.claim("v0-worker", job_types=[IP.JOB_TYPE])
-        if job is None:
-            break
-        IP.run_stage(db, dict(job.inputs), follow=follow, generator=PaidGenerator(),
-                     judges=Judges())
-        q.complete(job.id, outputs={}, worker="v0-worker", lease_token=job.lease_token)
+    # D-OWNER-SALE-PIPELINE: a FLUX run first waits for for-sale admission (tested in
+    # test_vis_gallery_e2e / test_w4_ownerimg). Admit it here so this test reaches the gate
+    # it exists for: the closed paid-provider gate must still refuse, with nothing spent.
+    real_admission = IP.sale_admission
+    IP.sale_admission = lambda *a, **k: {"admitted": True, "test_double": True,
+                                         "why": "admitted for the paid-gate test"}
+    try:
+        IP.trigger(follow, slug=cir.slug, version=cir.version, release=rel)
+        for _ in range(30):
+            job = q.claim("v0-worker", job_types=[IP.JOB_TYPE])
+            if job is None:
+                break
+            IP.run_stage(db, dict(job.inputs), follow=follow, generator=PaidGenerator(),
+                         judges=Judges())
+            q.complete(job.id, outputs={}, worker="v0-worker", lease_token=job.lease_token)
+    finally:
+        IP.sale_admission = real_admission
     run = IP.get_run(db, IP.run_key(cir.slug, cir.version, rel))
     assert run["state"] == "blocked" and PaidGenerator.calls == 0, run
     assert run["spent_cad"] == 0.0 and run["generation_calls"] == 0
