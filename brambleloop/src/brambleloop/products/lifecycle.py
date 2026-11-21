@@ -98,9 +98,11 @@ def _derive(db, slug: str) -> dict:
                 "why": rec["body"].get("why")}
     with db.session() as s:
         product = s.scalar(select(Product).where(Product.slug == slug))
-        # eng/evidence-perf: only the `certified` flag is read here; loading whole rows
-        # pulled every release's CIR and certificate JSON for a yes/no.
-        versions = list(s.execute(select(PatternVersion.certified).where(
+        # eng/evidence-perf: only the columns read here; loading whole rows pulled every
+        # release's CIR and certificate JSON. BATCH19F: the sale pipeline's version choice
+        # also reads id and version.
+        versions = list(s.execute(select(PatternVersion.id, PatternVersion.version,
+                                         PatternVersion.certified).where(
             PatternVersion.product_id == product.id))) if product else []
         listings = list(s.scalars(select(Listing).where(Listing.product_slug == slug)))
         assets = s.scalar(select(func.count()).select_from(ListingAsset).where(
