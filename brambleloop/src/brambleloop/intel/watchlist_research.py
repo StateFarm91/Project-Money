@@ -77,14 +77,17 @@ def _readings(db, kind: str, *, until: date) -> list[tuple[str, dict]]:
 
 
 def _entry(payload: dict, pod: str) -> dict | None:
-    for a in payload.get("validated_arenas") or []:
+    # ENG-SUPPLY-FEED: an arena we already sell in is corroborated by the same rules and
+    # recorded under `demand_arenas`; it is the same kind of observation evidence.
+    for a in (payload.get("validated_arenas") or []) + (payload.get("demand_arenas") or []):
         if a.get("pod") == pod:
             return a
     return None
 
 
 def _unknown(payload: dict, pod: str) -> dict | None:
-    for a in payload.get("unknown_arenas") or []:
+    for a in ((payload.get("unknown_arenas") or [])
+              + (payload.get("demand_unknown_arenas") or [])):
         if a.get("pod") == pod:
             return a
     return None
@@ -209,14 +212,18 @@ def answer(db, *, gap_id: int, task_id: int, pod: str, now: datetime | None = No
                   f"#validated_arenas/{pod}/observations (observation dates: "
                   f"{'; '.join(a + ': ' + ', '.join(d) for a, d in dates.items())})"),
         retrieval="internal", read_on=read_on)
+    # ENG-SUPPLY-FEED: an arena we already sell in says so; it is never called uncovered.
+    shops_word = "watchlist shops" if entry.get("covered") else "uncovered watchlist shops"
+    where = (f"the {pod} arena (one we already sell in)" if entry.get("covered")
+             else f"the {pod} arena")
     f_now = research.add_finding(
         db, task_id, claim_class="fact", rests_on=[s_latest], confidence="high",
-        statement=(f"In fresh official-API observations, {len(obs)} uncovered watchlist shops "
+        statement=(f"In fresh official-API observations, {len(obs)} {shops_word} "
                    f"each had at least {MIN_LISTINGS_FOR_ARENA} live (not withdrawn) listings "
-                   f"in the {pod} arena: {per_shop}."))
+                   f"in {where}: {per_shop}."))
     f_durable = research.add_finding(
         db, task_id, claim_class="fact", rests_on=[s_series], confidence="high",
-        statement=(f"At least {MIN_SHOPS_FOR_ARENA} uncovered watchlist shops each "
+        statement=(f"At least {MIN_SHOPS_FOR_ARENA} {shops_word} each "
                    f"corroborated the {pod} arena on {days} or more distinct observation dates "
                    f"in the last {DURABILITY_WINDOW_DAYS} days: "
                    f"{'; '.join(a + ': ' + ', '.join(d) for a, d in dates.items())}."))
@@ -231,7 +238,7 @@ def answer(db, *, gap_id: int, task_id: int, pod: str, now: datetime | None = No
                 "statement": (f"{pod}: corroborated on {days} distinct observation dates by "
                               f"{MIN_SHOPS_FOR_ARENA}+ shops ({f_now}, {f_durable})")},
         conclusion={"alternatives": [], "constraints": [
-                        f"corroborated by {len(obs)} uncovered watchlist shops in fresh "
+                        f"corroborated by {len(obs)} {shops_word} in fresh "
                         f"observations read {latest_day}",
                         f"corroborated on {days} distinct observation dates"],
                     "unresolved": [f_unknown], "next_test": {},

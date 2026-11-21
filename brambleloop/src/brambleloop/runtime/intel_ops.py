@@ -391,6 +391,12 @@ def handle_concept_pool(ctx: JobContext) -> dict:
 
     out = concept_pool.replenish(ctx.db, audit=ctx.audit)
     counts = out["health"]["counts"]
+    if out["admitted"]:
+        # ENG-SUPPLY-FEED: an admitted concept is judged by concept intake now, while the
+        # research it was attached on is fresh (a market_radar answer lasts one day), rather
+        # than waiting up to six hours for intake's own cadence. Intake judges it as always.
+        ctx.enqueue("market_radar", "radar.concept_intake", {"after": "radar.concept_pool"},
+                    idempotency_key=f"pool-intake:{ctx.job.id}")
     ctx.audit("radar.concept_pool", detail={
         "candidates": out["candidates"], "new": len(out["new"]), "changed": len(out["changed"]),
         "stale": len(out["stale"]), "admitted": out["admitted"],
