@@ -3499,6 +3499,24 @@ Batch 18 (code 511a8c63) = production Batch 17 b098fcce plus three changes:
 **Safeguards:** rollback rehearsal to 09be42d6, verify_deploy, readback, and rollback on a P0.
 The deploy goes out only with the owner's explicit OK for this exact SHA.
 
+## D-NEW-PRODUCT-FLOW — 2026-11-21 (builder)
+
+**Decision.** An approved radar research concept that the pre-engineering gate leaves WAITING on
+`image_vision` is judged by the same budgeted vision judge as a tournament winner
+(`creative.intake.judge_radar_waiting`, run inside `regate_held` under its `REGATE_LIMIT` cap).
+Its board is the deterministic #126 digital-twin render (`creative.board.make_board`, CA$0,
+disclosed as a render), filed as `creative.concept_board`, and the judgement is bound to that
+board's sha256. The judged concept goes back through `radar.score` (key
+`score-judged:<slug>:<board sha[:16]>`), which re-runs the whole gate.
+
+**Why.** With Launch-0 exhausted, research concepts were the only new supply, and nothing ever
+asked the judge about them, so `original_product` was 0 in production even with vision open.
+Routing through the existing judge and the existing gate, rather than adding an exemption, keeps
+#83/#88 measured by a model that looked at an image.
+
+**Not decided here.** Whether the radar judge may also use the `openai-vision` activation. It uses
+the Anthropic vision path, the same as `regate_held`, and that path's owner activation governs it.
+
 ## D-OWNER-APPROVE-ALL — 2026-11-20T13:20Z (owner directive, recorded 2026-11-20T22:20Z)
 
 **Owner, verbatim:** "I approve every single one. You go and approve every single one now." /

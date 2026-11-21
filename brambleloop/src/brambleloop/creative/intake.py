@@ -1139,8 +1139,138 @@ def regate_held(ctx, *, today: date | None = None, provider=None) -> dict:
                         reason=f"{slug} cleared the pre-engineering gate on re-presentation")
             queued.append({"slug": slug, "job": job.get("job"),
                            "admitted": job.get("admitted"), "why": job.get("why")})
+    # NEW-PRODUCT-FLOW: approved radar research concepts waiting on the same judgement are
+    # judged too, inside the same per-run cap on paid judge calls.
+    radar = judge_radar_waiting(ctx, today=today, provider=provider, vision_ok=vision_ok,
+                                limit=max(0, REGATE_LIMIT - asked_n), stopped=stopped)
     return {"presented": presented, "queued": queued, "held": held[:REGATE_LIMIT],
-            "vision_usable": vision_ok}
+            "vision_usable": vision_ok, "radar_judged": radar["judged"],
+            "radar_held": radar["held"][:REGATE_LIMIT], "radar_rescored": radar["rescored"]}
+
+
+# ---------------------------------------------------------------------------
+# NEW-PRODUCT-FLOW: the judgement a waiting RADAR concept needs
+#
+# Production (prod 2f7da291) certified nothing new in seven days. Every approved research
+# concept (`radar.concept_intake` -> `radar.score`) waits at the pre-engineering gate on
+# `image_vision` (#88 grid-size read, #83 craft impression), exactly like a tournament winner.
+# But `regate_held` above only ever asked the judge about `creative.winner_intake` rows, and
+# nothing filed a board for a radar concept, so `radar.intake.rescore_judged` never found a
+# judgement: with vision open, the concept still waited forever.
+#
+# This pass gives a waiting radar concept the same two things a held winner gets, and nothing
+# more: a deterministic digital-twin board (`creative.board.make_board`, CA$0, disclosed as a
+# render), filed where `board_for` / `board_digest_for` read it, and one vision judgement bound
+# to that board's bytes (`judge_held`, budgeted, refused rather than faked). It never writes a
+# taste field itself. The judged concept is handed straight back to `radar.score`, which runs
+# the whole pre-engineering gate again on the recorded judgement and offers it to supply only
+# if every check passes; a concept judged not to read at grid size is refused there.
+
+RADAR_BOARD_SOURCE = "radar.board"
+RADAR_RESCORE_PREFIX = "score-judged"
+
+
+def _gate_waits_on_vision(db, slug: str) -> bool:
+    """The newest pre-engineering verdict for `slug` is WAITING and names image_vision."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+    from .preengineering import GATE_ACTION
+
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(
+            AuditLog.artifact == slug,
+            AuditLog.action.in_([f"{GATE_ACTION}_waiting", f"{GATE_ACTION}_refused",
+                                 f"{GATE_ACTION}_passed"]))
+            .order_by(desc(AuditLog.id)).limit(1))
+        detail = dict(row.detail or {}) if row is not None else {}
+        action = row.action if row is not None else ""
+    return action == f"{GATE_ACTION}_waiting" and "image_vision" in (detail.get("waiting_on")
+                                                                       or [])
+
+
+def file_radar_board(db, slug: str) -> dict:
+    """Render and file the concept board for an approved radar concept, or say why not.
+
+    The board is the concept's own prototype drawn from its compiled digital twin (#126's
+    board, `creative.board.make_board`): deterministic, no image provider, CA$0. It is filed
+    as a `creative.concept_board` row so the judge and `judgement_for` read the same bytes."""
+    from ..core.models import AuditLog
+    from ..products.moment_candidates import BOARD_ACTION
+    from ..radar import intake as radar_intake
+    from .board import make_board
+    from .preengineering import concept_from
+
+    built, _brief, problem = concept_from(radar_intake.gate_inputs(db, slug, {}))
+    if built is None:
+        return {"board": "", "why": f"no concept to draw: {problem}"[:200]}
+    made = make_board(db, built)
+    sha = _sha256_hex(made.get("sha256"))
+    if not made.get("board_image") or not sha:
+        return {"board": "", "why": str(made.get("why") or "no board was drawn")[:200]}
+    record = {"slug": slug, "kind": made.get("kind"), "image": {"sha256": sha},
+              "image_ref": f"sha256:{sha}", "disclosure": made.get("disclosure"),
+              "source": RADAR_BOARD_SOURCE, "board_source": made.get("source")}
+    with db.session() as s:
+        s.add(AuditLog(actor="creative", action=BOARD_ACTION, artifact=slug, detail=record))
+    return {"board": record["image_ref"], "why": ""}
+
+
+def judge_radar_waiting(ctx, *, today: date | None = None, provider=None,
+                        vision_ok: bool | None = None, limit: int = REGATE_LIMIT,
+                        stopped: bool = False) -> dict:
+    """Judge approved, undrafted radar concepts the gate left waiting on image_vision, then
+    hand each judged one back to `radar.score`. At most `limit` paid judge calls."""
+    from sqlalchemy import select
+
+    from ..core.models import Job
+    from ..gateway import providers as gw
+    from ..radar import intake as radar_intake
+
+    today = today or date.today()
+    vision_ok = gw.vision_usable(ctx.db) if vision_ok is None else vision_ok
+    judged_now, held = [], []
+    asked_n = 0
+    for row in radar_intake.approved_rows(ctx.db):
+        slug = row.slug
+        with ctx.db.session() as s:
+            drafted = s.scalar(select(Job.id).where(
+                Job.idempotency_key == f"draft:{slug}").limit(1))
+        if drafted is not None or judgement_for(ctx.db, slug):
+            continue
+        if not _gate_waits_on_vision(ctx.db, slug):
+            continue
+        if not vision_ok:
+            # Nothing is rendered or asked while the judge cannot answer.
+            held.append({"slug": slug,
+                         "waiting_on": ["vision_model (no vision probe has succeeded)"]})
+            continue
+        if stopped or asked_n >= limit:
+            held.append({"slug": slug, "waiting_on": [
+                "a vision judgement (this run's judge-call cap or budget is spent)"]})
+            continue
+        board = board_for(ctx.db, slug)
+        if not board or not board_digest_for(ctx.db, slug):
+            filed = file_radar_board(ctx.db, slug)
+            board = filed["board"]
+            if not board:
+                held.append({"slug": slug, "waiting_on": [
+                    f"board_image (no board could be drawn: {filed['why']})"[:240]]})
+                continue
+        asked_n += 1
+        asked = judge_held(ctx, slug=slug, board=board, provider=provider)
+        stopped = bool(asked.get("stopped"))
+        if not asked.get("judged"):
+            held.append({"slug": slug, "waiting_on": ["a vision judgement of the board on file"],
+                         "judge_said": str(asked.get("why") or "")[:200]})
+            continue
+        judged_now.append({"slug": slug, **{k: asked.get(k) for k in (
+            "thumbnail_reads_small", "craft_impression", "judge")}})
+    rescored = radar_intake.rescore_judged(
+        ctx.db, audit=ctx.audit, enqueue=ctx.enqueue, today=today,
+        key_for=lambda slug: f"{RADAR_RESCORE_PREFIX}:{slug}:{board_digest_for(ctx.db, slug)[:16]}"
+    ) if judged_now else []
+    return {"judged": judged_now, "held": held, "rescored": rescored}
 
 
 # ---------------------------------------------------------------------------
