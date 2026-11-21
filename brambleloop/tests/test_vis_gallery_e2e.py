@@ -873,13 +873,6 @@ def _publication_refused_without_the_sample_photo(S) -> dict:
     photo = [r for r in act["reasons"] if str(r).startswith("SAMPLE_PHOTO_REQUIRED:")]
     assert act["blocks_release"] is True and photo, act["reasons"]
     assert act["sample_photo"]["satisfied"] is False
-    # READY for the private draft, never publishable while the photo is missing.
-    from brambleloop.publish import listing_package as LP
-
-    sale = SPL.ready_for_sale(db, slug, version, rh)
-    assert sale["ready"] is True, (sale, (LP.latest(db, slug, version) or {}).get("blockers"))
-    assert sale["publishable"] is False and \
-        sale["publication_blockers"] == ["SAMPLE_PHOTO_REQUIRED"], sale
     with laura_publication_double(db):
         with FakeEtsy() as fake, SH._owner_and_fake(fake):
             from sqlalchemy import select
@@ -904,6 +897,18 @@ def _publication_refused_without_the_sample_photo(S) -> dict:
             changed = [r["operation"] for r in fake.requests if not r["operation"].startswith(
                 ("get", "ping"))]
             assert changed == [], changed
+    # READY for the private draft, never publishable while the photo is missing. Storing the
+    # draft changed the Listing row, so `listing_package_fence` withdrew the reviewed package;
+    # the package is reassembled (as the hourly `listing.package` sweep does) before reading.
+    from brambleloop.publish import listing_package as LP
+
+    with laura_publication_double(db):
+        job = SH._run(db, "listing", "listing.package", {"slug": slug, "version": version})
+        assert job.status is JobStatus.DONE, job.last_error
+    sale = SPL.ready_for_sale(db, slug, version, rh)
+    assert sale["ready"] is True, (sale, (LP.latest(db, slug, version) or {}).get("blockers"))
+    assert sale["publishable"] is False and \
+        sale["publication_blockers"] == ["SAMPLE_PHOTO_REQUIRED"], sale
     return {"job_status": job.status, "reasons": out.get("reasons")}
 
 
