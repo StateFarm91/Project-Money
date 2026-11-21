@@ -193,6 +193,26 @@ def laura_publication_double(db):
         canonical.PUBLICATION_APPROVED = real
 
 
+@contextmanager
+def sample_photo_double():
+    """The owner's physical-sample photograph (Etsy Help 44297885802647), doubled for THIS
+    test's upload mechanics only, like `laura_publication_double` and the grants
+    `_owner_and_fake` holds. Production approves none: the real rule
+    (`publish.sample_photo.requirement`) is untouched, and
+    `test_3b_without_a_sample_photo_the_release_is_not_ready_for_sale` proves it still
+    blocks."""
+    from brambleloop.publish import sample_photo
+
+    real = sample_photo.requirement
+    sample_photo.requirement = lambda *a, **k: {
+        "satisfied": True, "reasons": [], "qualifying": [], "rejected": [],
+        "first_frame": None, "test_double": True}
+    try:
+        yield
+    finally:
+        sample_photo.requirement = real
+
+
 # ---- the chain, once --------------------------------------------------------------------------
 
 def run_gallery(db, *, fail_role=None, unknown_role=None):
@@ -332,7 +352,7 @@ def test_3_package_draft_upload_and_byte_for_byte_readback_of_every_image_and_bo
     slug = SH.SLUG
     certified = _certified_pdf_hashes(db, slug, version, rh)
     assert set(certified or {}) == {"US", "UK"}, certified
-    with laura_publication_double(db):
+    with laura_publication_double(db), sample_photo_double():
         job = SH._run(db, "listing", "listing.package", {"slug": slug, "version": version})
         assert job.status is JobStatus.DONE, job.last_error
         pkg = lp.latest(db, slug, version)
@@ -373,6 +393,19 @@ def test_3_package_draft_upload_and_byte_for_byte_readback_of_every_image_and_bo
     assert rb["verified"] is True and rb["files"]["verified"] is True, rb
     assert rb["images"]["verified"] is True, rb["images"]
     S["published"] = True
+
+
+def test_3b_without_a_sample_photo_the_release_is_not_ready_for_sale():
+    """The real sample-photo rule still holds the release out of READY (no double)."""
+    import test_search_hero_publish as SH
+    from brambleloop.publish import sale_pipeline as SPL
+
+    S = chain()
+    db, version, rh = S["db"], S["version"], S["rh"]
+    got = SPL.ready_for_sale(db, SH.SLUG, version, rh)
+    assert got["ready"] is False, got
+    assert any("SAMPLE_PHOTO_REQUIRED" in str(r) or "not READY" in str(r) or "package" in str(r)
+               for r in got["reasons"]), got
 
 
 def _drive_sale_pipeline(db, slug, version, rh) -> dict:
