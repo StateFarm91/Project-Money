@@ -3741,3 +3741,12 @@ mutants (including `|| true` and `pull_request_target`) are killed.
 - is verified with `verify_deploy` and a read-back after the push.
 
 A failed verify or read-back rolls back to the previous production SHA. After 05:00Z, the per-SHA owner question returns.
+
+## D-MAIN-19B-PRODUCT-RUN-INCOMPLETE — 2026-11-21T02:08Z
+
+Batch 19b ships with `test_product_run` **incomplete, not passed**: 3 of 36 tests passed, 33 were not run, and none failed. At the local pace (about 20 minutes a test on a contended 4-CPU host) it cannot finish before the owner's 05:00Z deadline. Every other changed and overlap suite passes:
+- 22 merged-unit suites;
+- 17 batch suites;
+- the paid gate, the owner directive (with the B19-SEC sunset), approvals, vis_gallery, physfix, garment2 and readback evidence.
+
+The cloud full-suite cert (cert-results/d8751850) runs product_run in full. If it fails there, the fix ships next, or production rolls back to 2f7da291.
