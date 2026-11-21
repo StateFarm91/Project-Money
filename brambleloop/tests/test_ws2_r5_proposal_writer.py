@@ -64,10 +64,13 @@ def test_a_validated_gap_with_answered_research_gets_one_proposal_in_our_words()
     props = _proposals(db, tid)
     assert len(props) == 1
     p = props[0]
-    assert p["slug"] == f"coaster-kitchen-bath-gap-{gid}" and p["category"] == "coaster"
+    # CERTFIX-2: the kitchen arena's concept is a placemat pair. A coaster is refused at
+    # intake since ENG-FAMILIES (2ed3294, review SHIP): no verified engine drafts one from
+    # flat rows. See `proposal_writer.POD_CONCEPTS`.
+    assert p["slug"] == f"placemat-kitchen-bath-gap-{gid}" and p["category"] == "placemat"
     assert p["concept"]["construction"] == "flat_rows" and p["concept"]["pod"] == "kitchen_bath"
     assert p["evidence"] == ["F1", "S1"], p["evidence"]
-    band = W.bands("coaster")
+    band = W.bands("placemat")
     assert p["price_cad"] == band["price_cad"] and p["maker_hours"] == band["maker_hours"]
     with db.session() as s:
         row = s.scalar(select(AuditLog).where(AuditLog.action == W.ACTION))
@@ -160,6 +163,7 @@ def test_no_competitor_text_reaches_a_proposal():
 
 def test_every_mapped_pod_is_a_supported_flat_rows_concept_in_the_closed_vocabulary():
     from brambleloop.creative import concept as C
+    from brambleloop.creative import construction_families as CF
     from brambleloop.intel.pods import POD_KEYS
 
     for pod, spec in W.POD_CONCEPTS.items():
@@ -168,6 +172,13 @@ def test_every_mapped_pod_is_a_supported_flat_rows_concept_in_the_closed_vocabul
         assert spec["recipient"] in C.RECIPIENTS and spec["occasion"] in C.OCCASIONS
         assert spec["feeling"] in C.FEELINGS
         assert W.bands(spec["category"]) is not None, pod
+        # CERTFIX-2: and a verified construction engine admits it, so intake can approve it.
+        p = W.proposal_for(1, pod, 1, 2, {"refs": [], "confidence": "medium", "facts": 1},
+                           W.bands(spec["category"]))
+        routed = CF.route(category=p["category"], title=p["title"],
+                          form=p["concept"]["form"], construction=p["concept"]["construction"],
+                          slug=p["slug"])
+        assert routed["admitted"], (pod, routed)
 
 
 def test_the_state_table_covers_the_whole_lifecycle_and_only_uncovered_is_eligible():

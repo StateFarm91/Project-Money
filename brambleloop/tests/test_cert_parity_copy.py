@@ -43,7 +43,7 @@ from brambleloop.creative import blind_review as R  # noqa: E402
 from brambleloop.queue.durable import JobQueue  # noqa: E402
 from brambleloop.runtime import pipeline  # noqa: F401,E402 - registers handlers
 from brambleloop.runtime import release  # noqa: E402
-from brambleloop.runtime.worker import Worker  # noqa: E402
+from brambleloop.runtime.worker import Worker, handlers  # noqa: E402
 from brambleloop.core.models import Phase  # noqa: E402
 from brambleloop.visual import parity  # noqa: E402
 
@@ -65,6 +65,15 @@ def _boot(path: str) -> Database:
     return db
 
 
+# CERTFIX-2: this fixture proves ONE product's chain. Since ENG-SUPPLY (2d5f2eb) and
+# D-ENG-DEMAND-SUPPLY Rule 2 ("capacity refill: after_chain_job"), the worker enqueues a
+# `supply.admit` pass when a chain ends, and on a fresh database that admits the next
+# Launch-0 product -- the whole catalogue then runs through the same drain. The refill is
+# proven in tests/test_eng_supply.py; here it is left pending so the chain stays one product.
+def _chain_only() -> list[str]:
+    return [t for t in handlers.known() if t != "supply.admit"]
+
+
 def _chain_file() -> str:
     """One certified product through the whole post-certification chain, run once."""
     if not _CHAIN:
@@ -72,7 +81,7 @@ def _chain_file() -> str:
         db = _boot(path)
         JobQueue(db).enqueue("quality_director", "gate.certify",
                              {"cir": CHAIN_CIR.to_dict()})
-        w = Worker(db, "w1b-chain")
+        w = Worker(db, "w1b-chain", job_types=_chain_only())
         for _ in range(100):
             if not w.run_once():
                 break

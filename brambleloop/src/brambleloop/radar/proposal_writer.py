@@ -46,9 +46,16 @@ POD_CONCEPTS: dict[str, dict] = {
                  "occasion": "winter_nesting", "feeling": "serene",
                  "function": "keeps a sofa sitter warm through an evening",
                  "motif": "wide tonal bands", "palette": "three tones from the house palette"},
-    "kitchen_bath": {"category": "coaster", "form": "coaster", "recipient": "host",
+    # CERTFIX-2: a placemat pair, not a coaster. Since ENG-FAMILIES (2ed3294, reviewed SHIP)
+    # intake routes every concept through `construction_families.route`, and no verified
+    # engine drafts a coaster from flat rows (a coaster needs a disc worked in joined rounds,
+    # `fallback_constructions.NEEDS`). A coaster here was a concept intake must refuse, so the
+    # kitchen arena could never reach an approved concept. A placemat is a flat_panel pair
+    # with its own end-to-end proof (`construction_families.PAIR_PROOFS`), and its
+    # `flat_panel` form is still generic, so #108 still judges it on its qualifiers.
+    "kitchen_bath": {"category": "placemat", "form": "flat_panel", "recipient": "host",
                      "occasion": "housewarming", "feeling": "bold",
-                     "function": "protects a table surface under a hot mug",
+                     "function": "lays a place at the table for a shared meal",
                      "motif": "offset row stripes", "palette": "two contrasting house colours"},
     # Review H1: `housewarming`, not `spring_refresh` -- plain bands draw nothing from the
     # spring motif grammar (#110), so a seasonal occasion was a claim the concept could not
