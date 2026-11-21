@@ -619,6 +619,14 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                                "cir.draft verifies a design's funnel run from its winner "
                                "intake, and regate re-presents held winners from it; a pruned "
                                "intake makes a held winner unengineerable"),
+    # NEW-PRODUCT-FLOW: creative.intake.judge_radar_waiting reads the newest pre-engineering
+    # verdict per radar concept; a pruned verdict leaves a waiting concept unjudged (held).
+    "concept.gate_waiting": ("latest", "creative.intake reads the newest gate verdict per "
+                                       "radar concept to find those waiting on image_vision"),
+    "concept.gate_refused": ("latest", "creative.intake reads the newest gate verdict per "
+                                       "radar concept; a newer refusal is never re-judged"),
+    "concept.gate_passed": ("latest", "creative.intake reads the newest gate verdict per "
+                                      "radar concept; a newer pass is never re-judged"),
     "concept.judged": ("lifetime_total",
                        "creative.intake reads the vision judgement recorded per design; a "
                        "pruned judgement silently returns a design to unjudged"),

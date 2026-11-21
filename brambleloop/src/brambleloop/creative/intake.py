@@ -1175,18 +1175,19 @@ def _gate_waits_on_vision(db, slug: str) -> bool:
     from sqlalchemy import desc, select
 
     from ..core.models import AuditLog
-    from .preengineering import GATE_ACTION
 
+    # `preengineering.record` writes f"{GATE_ACTION}_{decision}"; named literally here so the
+    # retention scan resolves every action this reads.
     with db.session() as s:
         row = s.scalar(select(AuditLog).where(
             AuditLog.artifact == slug,
-            AuditLog.action.in_([f"{GATE_ACTION}_waiting", f"{GATE_ACTION}_refused",
-                                 f"{GATE_ACTION}_passed"]))
+            AuditLog.action.in_(["concept.gate_waiting", "concept.gate_refused",
+                                 "concept.gate_passed"]))
             .order_by(desc(AuditLog.id)).limit(1))
         detail = dict(row.detail or {}) if row is not None else {}
         action = row.action if row is not None else ""
-    return action == f"{GATE_ACTION}_waiting" and "image_vision" in (detail.get("waiting_on")
-                                                                       or [])
+    return action == "concept.gate_waiting" and "image_vision" in (detail.get("waiting_on")
+                                                                    or [])
 
 
 def file_radar_board(db, slug: str) -> dict:
