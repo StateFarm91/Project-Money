@@ -1,3 +1,12 @@
+> **2026-11-21 — ENG-PDF-DIAGRAMS on `eng/pdf-diagrams` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT
+> deployed; production unchanged).** Premium PDF (template and engine) now has: per-component CIR-drawn DIAGRAM
+> silhouettes at finished size at gauge with round markers (never presented as photos); A-numbered assembly steps with
+> round-number placement callouts and placement diagrams; an eye-options panel with age guidance; and a "Techniques used
+> in this pattern" appendix generated from the CIR stitch set (`publish/technique_appendix.py`). Four new
+> `pdf_standard` rules check each (`component_diagrams`, `assembly_steps`, `eye_options`, `techniques_appendix`);
+> nothing relaxed; UNKNOWN fails. 503 passing; 2 failing suites both pre-existing on base (tote routing text, pdfium
+> exit SIGSEGV on py3.13). Real progress photos still need a physical sample. Decision D-ENG-PDF-DIAGRAMS-1. Report:
+> `w6/review_requests/PDF-DIAGRAMS.md`.
 > **2026-11-20 — CERTFIX-3 on `certfix/3` (cut from `claude/w6-INTEG8-wip` 511a8c6; NOT merged, NOT deployed;
 > production unchanged).** Real fixes for nine Batch 18 certification failures; no gate, assertion or child-safety
 > rule weakened. Teen garments grade at CYC 14/16 only (a teen drop-shoulder was drafted at size 2 and held by the
