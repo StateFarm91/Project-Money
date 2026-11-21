@@ -4120,3 +4120,7 @@ Limits:
 - Window: [12:20Z, +24 h].
 - At most 3 attempts; it stops after the first clean run.
 - Every attempt is audited.
+
+## D-OWNER-DEPLOY-19h6 — 2026-11-21T13:11:49Z
+
+Batch 19h6 (code 088d6c04d) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 55172d3c886c5b67e511c294a8d70541a53519ac was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
