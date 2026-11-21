@@ -336,7 +336,7 @@ if __name__ == "__main__":
     for t in TESTS:
         try:
             t()
-            print(f"  ok   {t.__name__}")
+            print(f"OK   {t.__name__}")
         except Exception as exc:  # noqa: BLE001
             import traceback
 

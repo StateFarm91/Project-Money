@@ -152,4 +152,27 @@ Targeted run: see "Suite run" below.
 
 ## Suite run
 
-(filled in below by the builder after the targeted run)
+Runs used `JOBS=4 SUITE_REGISTRY=0 SUITES=... bash run_tests.sh` on the py3.11 lockfile venv. None of
+them is release-eligible: the tree was dirty, and HEAD moved during run 2.
+
+1. **Run 20261121T003201Z-1262** (the fix, before the retention follow-up), 14 suites:
+   - 264 passing, 3 suites failing.
+   - `test_w5_concept_intake`: 2 failures, `RetentionRefused`. The retention scan could not resolve
+     the f-string audit actions that `_gate_waits_on_vision` reads. This was **caused by this
+     branch, and fixed**: the actions are now named literally, and `concept.gate_waiting`,
+     `concept.gate_refused` and `concept.gate_passed` have `latest` retention decisions.
+   - `test_eng_demand_supply`: 1 failure in
+     `test_originals_run_through_intake_gates_into_buildable_work_and_engine_demand`
+     (`cosy-round-bear-amigurumi` held `construction_unsupported:outline_round`). This is
+     **pre-existing**: it fails identically on the base commit 8204c93 in a clean worktree. Not
+     caused by this branch, and not fixed here.
+   - Passing: `test_cert_design_pipeline`, `test_eng_families`, `test_eng_homedecor`,
+     `test_eng_supply`, `test_fb2_i_repairs`, `test_new_product_flow`, `test_research_flow`,
+     `test_vacuity`, `test_w4_auto_pipe2_wiring`, `test_w4_pipe2_candidates`,
+     `test_w4_research_to_product_stall`, `test_w5_a7_supply_stall`.
+2. **Run 20261121T005130Z-3588** (after the retention fix), 8 suites:
+   - `test_w5_concept_intake`, the three retention suites, `test_cert_design_pipeline`,
+     `test_w4_research_to_product_stall` and `test_vacuity` all pass.
+   - `test_new_product_flow`: 6 of 6 passed, but the runner counted no passes (lowercase `ok`
+     output). Fixed to `OK`.
+3. **Final run:** `test_new_product_flow` + `test_vacuity`, 14 passing, 0 failing.
