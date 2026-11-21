@@ -88,6 +88,14 @@ def test_boot_asks_for_one_listing_package_sweep_per_commit():
     assert '"retry_for_commit": _commit' in text
 
 
+def test_boot_runs_the_sentinel_and_the_health_sweep_once_per_commit():
+    src = (Path(__file__).resolve().parents[1] / "src/brambleloop/app/main.py").read_text()
+    start = next(n for n in ast.walk(ast.parse(src))
+                 if isinstance(n, ast.FunctionDef) and n.name == "_startup")
+    text = ast.get_source_segment(src, start)
+    assert '"ops.sentinel"' in text and '"ops.health"' in text and "boot-{_name}-" in text
+
+
 if __name__ == "__main__":
     import traceback
     fails = 0

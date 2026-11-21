@@ -4036,3 +4036,20 @@ CONTENTS previews the interim PDF. Storing them would break the gallery's export
 publish re-render. Open: re-make CONTENTS from the illustrated PDF, re-certify, re-illustrate.
 **Not changed:** the inventory stage `premium_pdf_completed` is still reached by any
 certified PDF; the run cap `FLUX_MAX_GENERATION_CALLS`; and Laura.
+## D-HALT-380 — 2026-11-21
+Systemic halt #380 (production 7b250d61: 12 products stale and rebuild-incomplete, a fresh pending
+rebuild every hour, no verified rebuild since the chain moved to 9). Hypothesis "every deploy
+re-stales" rejected: freshness keys only on `chain:release` = fingerprint(CHAIN_VERSION), a manual
+constant. Cause: the sentinel keyed each product's rebuild on the estate-wide change set, so any
+other product's ref moving stacked a new attempt (bypassing in-flight, RETRY_AFTER and the hold),
+and that attempt's stage token equalled the first attempt's, so it deduplicated onto a finished or
+dead stage and rebuilt nothing; its no-op verify failures then held the product. Decided: (1) an
+existing attempt at the product's own change owns the key; (2) the stage token is per attempt;
+(3) a hold whose counted attempts did not each run a stage of their own is released once, onto a
+recorded fresh budget, with one targeted rebuild; the row stays open until verified evidence closes
+it. No gate, binding rule, attempt cap or halt rule changed. Branch `eng/halt-380`; report
+`w6/review_requests/HALT-380.md`. Not deployed.
+## D-OWNER-DEPLOY-19h — 2026-11-21T04:19:09Z
+Batch 19h (code 384399c64) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 7b250d6164e4509617edd157048cc42db9a6b9bb was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+## D-OWNER-DEPLOY-19h1 — 2026-11-21T04:25:50Z
+Batch 19h1 (code c391386fd) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to b17649901845b9a20fcfe596d108a18c75578b1a was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.

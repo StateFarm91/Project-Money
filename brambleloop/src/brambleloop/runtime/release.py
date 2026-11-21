@@ -5940,6 +5940,9 @@ def _rebuild_incomplete(ctx: JobContext, slug: str, version: str, *, stale: list
                 f"{attempts} rebuild attempts at this change left {len(stale)} artefact(s) "
                 f"stale ({', '.join(sorted({k.split(':', 1)[0] for k in stale}))})"
                 + (f"; refused by: {'; '.join(refused)}" if refused else
+                   # eng/halt-380: say so when this attempt had no stage job of its own
+                   "; no refusal was recorded -- this attempt ran no stage job of its own"
+                   if not dict(ctx.job.inputs or {}).get("stage_job") else
                    "; no refusal was recorded -- the stage ran and did not rewrite them"))
             inc.severity = "P1"
         inc.summary = summary[:500]
@@ -6106,6 +6109,13 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
     stamp = {"artefacts": sorted(stale), "fingerprints": fingerprints}
     if i.get("retry"):
         stamp["retry"] = str(i["retry"])
+    # eng/halt-380: and every *attempt* is a new attempt, whichever door it came through (the
+    # sentinel under a new key, a released hold, a legacy restart, growth.steer). Keyed on the
+    # artefacts and fingerprints alone, a second attempt at the same change deduplicated onto
+    # the first attempt's stage job -- finished, dead or refused -- so it rebuilt nothing and
+    # its verify pass (bound to a stage job it never got) could not bind. The attempt's own
+    # idempotency key keeps a re-run of the same job idempotent.
+    stamp["attempt"] = str(getattr(ctx.job, "idempotency_key", None) or ctx.job.id)
     token = hashlib.sha256(json.dumps(
         stamp, sort_keys=True, default=str).encode()).hexdigest()[:12]
     stage_job = None
@@ -8330,8 +8340,8 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         settled = (provenance.FRESH, provenance.SUPERSEDED)
         incomplete_close, incomplete_open = [], {}
         legacy_restart: list[tuple[str, int, list[str]]] = []
-        from ..ops.rebuild_graph import (held_policy_cause_cleared, legacy_incomplete,
-                                         release_cleared_hold)
+        from ..ops.rebuild_graph import (held_policy_cause_cleared, held_without_own_stage,
+                                         legacy_incomplete, release_cleared_hold)
         # eng/publish-unhalt U3: what refuses on policy now -- the cause an exhausted hold
         # recorded is re-read against this, never against the hold's own wording alone.
         try:
@@ -8347,8 +8357,11 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
             policy_unreviewed, policy_not_current, policy_readable = set(), set(), False
         retired_slugs = provenance._retired_slugs()
         retired_close: list[str] = []
+        obsolete_close: list[str] = []
+        latest_ = getattr(current, "latest_version", None) or {}
         holds_released: list[str] = []
         released_restart: list[tuple[str, int, list[str], str]] = []
+        stageless_restart: list[tuple[str, int, list[str], str, dict]] = []
         for r in list(session.scalars(_select(_Incident).where(
                 _Incident.signature.like(f"{REBUILD_INCOMPLETE_SIGNATURE}:%"),
                 _Incident.resolved == False))):  # noqa: E712
@@ -8371,7 +8384,32 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
                     if keys_:
                         released_restart.append((slug_, r.id, keys_,
                                                  cleared["held_digest"]))
+            # eng/halt-380: a hold counted from attempts that never ran a stage of their own
+            # (deduplicated onto an earlier attempt's stage) is released once, onto a fresh
+            # budget, with one targeted rebuild at the hold's own change. The row stays OPEN
+            # and halting; only verified evidence closes it.
+            stageless = held_without_own_stage(session, slug_, r.detail,
+                                               final_check=REBUILD_VERIFY_ATTEMPTS,
+                                               now=_utcnow())
+            if stageless is not None:
+                fps_ = dict((r.detail or {}).get("fingerprints") or {})
+                release_cleared_hold(r, stageless, now=_utcnow())
+                holds_released.append(slug_)
+                keys_ = [str(k) for k in ((r.detail or {}).get("stale") or [])][:50]
+                if keys_:
+                    stageless_restart.append((slug_, r.id, keys_, stageless["held_digest"],
+                                              fps_))
             named = [str(k) for k in ((r.detail or {}).get("stale") or [])]
+            # eng/halt-380-h3: the row is per product, the artefacts it names are per
+            # release. Names of a release the product has moved past (superseded, retired or
+            # gone) are not an outstanding rebuild -- nothing rebuilds them -- so they are
+            # set aside and the row is judged on its CURRENT release: what it still names
+            # there, or, when it named only obsolete releases, every non-retired artefact
+            # of the product (the same positive-evidence rule as a row naming none). A
+            # genuinely stale current release still reads STALE and keeps the row open.
+            obsolete = {k: why for k in named
+                        if (why := provenance.obsolete_release_key(k, slug_, latest_))}
+            named = [k for k in named if k not in obsolete]
             own = [v for v in by_slug.get(slug_, []) if not v.get("retired")]
             keys = named or [f"{v['artefact_class']}:{v['artefact_key']}" for v in own]
             read = {k: (by_key[k]["state"] + (" (retired)" if by_key[k].get("retired") else "")
@@ -8380,7 +8418,11 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
                   and all(k in by_key and by_key[k]["state"] in settled for k in keys)
                   and not any(v["state"] == provenance.STALE
                               for v in by_slug.get(slug_, [])))
-            if ok:
+            if ok and obsolete:
+                obsolete_close.append(r.signature)
+                r.detail = dict(r.detail or {}, obsolete_release_names=dict(
+                    list(obsolete.items())[:50]))
+            elif ok:
                 incomplete_close.append(r.signature)
             else:
                 # ENG-RECOVERY slice 2: a pre-branch row whose product reads nothing STALE
@@ -8395,6 +8437,9 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
                                     for v in by_slug.get(slug_, []))):
                     legacy_restart.append((slug_, r.id, keys[:50]))
                 incomplete_open[r.signature] = read or {"(none)": "no artefact on file"}
+                if obsolete:
+                    r.detail = dict(r.detail or {}, obsolete_release_names=dict(
+                        list(obsolete.items())[:50]))
                 r.detail = dict(r.detail or {}, sentinel_read={
                     "at": _utcnow().isoformat(), "verdicts": dict(list(read.items())[:50])
                     or {"(none)": "no artefact of this product is on file"}})
@@ -8403,6 +8448,13 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
             resolution=("every artefact this row named reads fresh (or superseded) in the "
                         "provenance check and none of the product's reads stale: the "
                         "outstanding rebuild has been delivered"))
+        incomplete_cleared += _life.resolve_signatures(
+            session, obsolete_close,
+            resolution=("the artefacts this row named belong to a release the product has "
+                        "moved past (eng/halt-380-h3: nothing rebuilds a superseded release), "
+                        "and every non-obsolete artefact it is judged on reads fresh (or "
+                        "superseded) with none of the product's reads stale: no rebuild of "
+                        "the current release is outstanding"))
         incomplete_cleared += _life.resolve_signatures(
             session, retired_close,
             resolution=("the product is a retired legacy-duplicate concept slug "
@@ -8436,6 +8488,23 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         if job is not None:
             legacy_restarted.append(slug_)
 
+    # eng/halt-380: the released stage-less hold's one rebuild, at the hold's own change (its
+    # fingerprints, so the verify pass binds only rows that record the new ones).
+    from ..ops.rebuild_graph import change_id as _change_id
+
+    for slug_, row_id, keys_, digest_, fps_ in stageless_restart:
+        new_ = {ref: v.get("new") for ref, v in fps_.items()
+                if isinstance(v, dict) and v.get("new")}
+        job = ctx.enqueue("listing", "chain.rebuild",
+                          {"product_slug": slug_, "artefacts": keys_, "fingerprints": fps_,
+                           "change_id": _change_id(new_, set(new_)),
+                           "reason": ("rebuild-incomplete hold released: the attempts it "
+                                      "counted ran no stage of their own (eng/halt-380)"),
+                           "hold_released": row_id},
+                          idempotency_key=f"rebuild:hold-released:{slug_}:{row_id}:{digest_}")
+        if job is not None:
+            legacy_restarted.append(slug_)
+
     # W4-LISTREADY (delta review N3): a live listing of a superseded release is owner-visible.
     from . import release_recovery
 
@@ -8463,6 +8532,8 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         "rebuild_incomplete_legacy_restarted": legacy_restarted[:50],
         "rebuild_incomplete_holds_released": holds_released[:50],
         "rebuild_incomplete_retired_closed": [s_.split(":", 1)[1] for s_ in retired_close][:50],
+        "rebuild_incomplete_obsolete_release_closed": [s_.split(":", 1)[1]
+                                                       for s_ in obsolete_close][:50],
     }
     ctx.audit("ops.sentinel", detail=detail)
 

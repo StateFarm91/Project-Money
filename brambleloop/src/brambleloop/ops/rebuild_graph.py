@@ -357,6 +357,60 @@ def held_policy_cause_cleared(detail, *, unreviewed: set[str], not_current: set[
     return {"sources": named, "held_digest": digest}
 
 
+def held_without_own_stage(db, slug: str, detail, *, final_check: int,
+                           now: datetime | None = None):
+    """eng/halt-380: an exhausted `_rebuild_incomplete` hold whose counted attempts did not
+    each run a stage job of their own -- or None.
+
+    Before this branch a second attempt at the same change (minted by another product's ref
+    moving the estate-wide key) deduplicated onto the first attempt's stage job and rebuilt
+    nothing; its verify passes ran out and counted a failed attempt. Three such no-op attempts
+    held the product with "the stage ran and did not rewrite them", which was not true, and
+    nothing re-read it: the product never rebuilt and the systemic halt it fed stayed open.
+
+    Read deterministically from the product's final verify passes at the hold's own change
+    (same fingerprints) inside REBUILD_FAILURE_WINDOW: each carries the `stage_job` its
+    attempt enqueued, or none. Released only when fewer than REBUILD_MAX_ATTEMPTS of them ran
+    a stage of their own and at least one did not. A hold of the DEAD/refused kind
+    (`failed_attempts`) is a different cause and is never released here; one release per
+    distinct hold text (`hold_released.held_digest`)."""
+    from sqlalchemy import select
+
+    from ..core.models import Job, JobStatus
+
+    d = detail or {}
+    if not d.get("held") or d.get("failed_attempts"):
+        return None
+    fps = d.get("fingerprints") or {}
+    now = now or datetime.now(timezone.utc)
+    ran = without = 0
+    for inputs, outputs in db.execute(select(Job.inputs, Job.outputs).where(
+            Job.job_type == "chain.rebuild", Job.status == JobStatus.DONE,
+            Job.finished_at >= now - REBUILD_FAILURE_WINDOW,
+            Job.idempotency_key.like(f"rebuild-verify:{slug}:%"))):
+        inputs, outputs = dict(inputs or {}), dict(outputs or {})
+        if (str(inputs.get("product_slug") or "") != slug
+                or int(inputs.get("verify") or 0) != int(final_check)
+                or (inputs.get("fingerprints") or {}) != fps
+                or not outputs.get("outstanding")):
+            continue
+        if inputs.get("stage_job"):
+            ran += 1
+        else:
+            without += 1
+    if without == 0 or ran >= REBUILD_MAX_ATTEMPTS:
+        return None
+    digest = hashlib.sha256(_hold_text(d).encode()).hexdigest()[:16]
+    if (d.get(HOLD_RELEASE_KEY) or {}).get("held_digest") == digest:
+        return None
+    return {"sources": [], "held_digest": digest, "attempts_with_own_stage": ran,
+            "attempts_without_own_stage": without,
+            "why": (f"{without} of the attempts this hold counted ran no stage job of their "
+                    f"own (their stage key was already taken by an earlier attempt, so they "
+                    f"rebuilt nothing); {ran} ran one. One fresh budget of "
+                    f"{REBUILD_MAX_ATTEMPTS} attempts (eng/halt-380)")}
+
+
 def release_cleared_hold(inc, cleared: dict, *, now: datetime | None = None) -> dict:
     """Give a hold whose cause cleared one fresh, recorded budget (the row stays OPEN and
     halting; only a verified rebuild or the sentinel's positive evidence closes it)."""
@@ -365,9 +419,13 @@ def release_cleared_hold(inc, cleared: dict, *, now: datetime | None = None) -> 
               "sources": cleared["sources"], "held_digest": cleared["held_digest"],
               "previous_held": str(detail.get("held") or "")[:500],
               "previous_report_count": int(inc.report_count or 1),
-              "why": ("the policy refusal this hold recorded has cleared (no named source is "
-                      "unreviewed, stale or unread now); one fresh budget of "
-                      f"{REBUILD_MAX_ATTEMPTS} attempts")}
+              "why": cleared.get("why") or (
+                  "the policy refusal this hold recorded has cleared (no named source is "
+                  "unreviewed, stale or unread now); one fresh budget of "
+                  f"{REBUILD_MAX_ATTEMPTS} attempts")}
+    for k in ("attempts_with_own_stage", "attempts_without_own_stage"):
+        if k in cleared:
+            record[k] = cleared[k]
     detail.pop("held", None)
     detail["attempts"] = 0
     detail[HOLD_RELEASE_KEY] = record
@@ -526,6 +584,33 @@ def _inflight_slugs(db) -> set[str]:
     return {str((inputs or {}).get("product_slug") or "") for (inputs,) in rows}
 
 
+def _prior_attempt_keys(db, by_product, *, now: datetime) -> dict[str, str]:
+    """eng/halt-380: `slug|change_id` -> the key of the newest first attempt (not a retry,
+    not a verify pass) at that product's own change, inside REBUILD_FAILURE_WINDOW, whatever
+    its status. One bounded query per sentinel run. Attempts written before round 3 carry no
+    `change_id` and are not matched (they keep their own keys, as before)."""
+    from sqlalchemy import or_, select
+
+    from ..core.models import Job
+
+    slugs = sorted({s for s in by_product if s})
+    out: dict[str, str] = {}
+    if not slugs:
+        return out
+    like = [Job.idempotency_key.like(f"rebuild:product:{s}:%") for s in slugs]
+    for key, inputs in db.execute(select(Job.idempotency_key, Job.inputs).where(
+            Job.job_type == "chain.rebuild",
+            Job.created_at >= now - REBUILD_FAILURE_WINDOW,
+            or_(*like, Job.idempotency_key.like("rebuild:sha256=%"))).order_by(Job.id)):
+        inputs = dict(inputs or {})
+        slug, change = str(inputs.get("product_slug") or ""), inputs.get("change_id")
+        if (slug not in slugs or not change or inputs.get("verify")
+                or inputs.get("retry_of_key")):
+            continue
+        out[f"{slug}|{change}"] = key
+    return out
+
+
 def _retry_key(db, slug: str, key: str, *, now: datetime | None = None,
                recent: set[str] | None = None) -> str | None:
     """A fresh daily key when no chain.rebuild for `slug` is in flight and none ended inside
@@ -570,6 +655,7 @@ def enqueue(db, queue, *, changed: dict[str, str], reason: str,
         inflight: set[str] | None = None
         failed: dict[str, list[dict]] | None = None
         legacy_failed: dict[str, int] = {}
+        priors: dict[str, str] | None = None
         for slug, rows in sorted(by_product.items()):
             key = job_key(f"rebuild:product:{slug}", stamp)
             # eng/stale-rebuild-loop: only the refs this product's artefacts record. The
@@ -597,7 +683,24 @@ def enqueue(db, queue, *, changed: dict[str, str], reason: str,
                     fingerprints=payload["fingerprints"], change=change,
                     legacy_failures=legacy_failed.get(slug, 0), now=now)
                 continue
+            # eng/halt-380: the key carries the estate-wide change set, so any *other*
+            # product's ref moving (a re-engineered design, a new release) minted a new key
+            # for this product while its change was unchanged. That new key skipped the
+            # in-flight check, RETRY_AFTER and the hold below, and -- carrying the same stage
+            # token -- deduplicated onto the first attempt's stage job, so nothing was ever
+            # rebuilt again and the verify passes never bound (production 7b250d61: 12
+            # products stale and rebuild-incomplete, a fresh pending rebuild every hour, no
+            # verified rebuild since the chain moved). An earlier attempt at this product's
+            # own change routes through the existing attempt's key instead.
+            if priors is None:
+                priors = _prior_attempt_keys(db, by_product, now=now or datetime.now(
+                    timezone.utc))
+            prior = priors.get(f"{slug}|{change}")
+            if prior is not None:
+                key = prior
             try:
+                if prior is not None:
+                    raise DuplicateJob(key, -1)     # that attempt stands: retry rules below
                 queue.enqueue("listing", "chain.rebuild", payload, idempotency_key=key)
                 enqueued.extend(r["key"] for r in rows)
             except DuplicateJob:
