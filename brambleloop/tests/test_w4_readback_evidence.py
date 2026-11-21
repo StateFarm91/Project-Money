@@ -600,7 +600,8 @@ def test_readback_evidence_cli_never_prints_the_token_and_keeps_unknown_apart():
         # ENG-AUTOCODER: advisory; the kill switch is OFF by default, so WARN here.
         assert by["autocoder (change requests -> reviewed auto/* branches)"]["verdict"] == \
             readback.WARN, by
-        assert len(out["items"]) == 21, out["items"]
+        # Batch 19: 20 rows + engine demand (ENG-DEMAND-SUPPLY) + autocoder (ENG-AUTOCODER).
+        assert len(out["items"]) == 22, out["items"]
         # ENG-DAILY: the daily row never PASSes on UNKNOWN.
         for sec in (None, {"readable": False, "error_class": "OperationalError"}):
             assert readback._judge_section("daily_ledger", sec, None)[0] == readback.UNKNOWN
