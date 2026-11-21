@@ -63,6 +63,14 @@ from brambleloop.gates import platform_policy as PP  # noqa: E402
 from brambleloop.integrations import etsy_exercise as EX  # noqa: E402
 from brambleloop.publish import listing_schema as LS  # noqa: E402
 
+# These tests pin the SAMPLE_PHOTO_REQUIRED gate's own mechanics, so they run as if
+# D-OWNER-PUBLISH-WITH-RENDERS were not recorded; its waiver is covered by
+# test_publish_with_renders and test_vis_gallery_e2e::test_7a.
+from brambleloop.publish import sample_photo as _SPH  # noqa: E402
+
+_SPH.publish_with_renders = lambda: False
+
+
 PASS = "owner passphrase for the launchfix harness"
 OPS = "L" * 40
 os.environ[opsauth.TOKEN_VAR] = OPS

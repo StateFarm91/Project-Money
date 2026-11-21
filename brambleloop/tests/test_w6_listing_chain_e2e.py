@@ -69,6 +69,14 @@ from brambleloop.runtime import listing_package_ops, pipeline, release  # noqa: 
 from brambleloop.runtime.lineage import JobLink  # noqa: E402
 from brambleloop.runtime.worker import CADENCES, Worker  # noqa: E402
 
+# These tests pin the SAMPLE_PHOTO_REQUIRED gate's own mechanics, so they run as if
+# D-OWNER-PUBLISH-WITH-RENDERS were not recorded; its waiver is covered by
+# test_publish_with_renders and test_vis_gallery_e2e::test_7a.
+from brambleloop.publish import sample_photo as _SPH  # noqa: E402
+
+_SPH.publish_with_renders = lambda: False
+
+
 SLUG = "hexagon-coaster-set"
 FIXTURE = "FIXTURE — not physical evidence"
 FIXTURE_TESTER = "fixture-tester-w6e2e"

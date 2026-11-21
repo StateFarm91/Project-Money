@@ -374,8 +374,12 @@ def test_3_package_draft_upload_and_byte_for_byte_readback_of_every_image_and_bo
 
             run = SPL.get(db, slug, version, rh) or {}
             assert run.get("state") == SPL.READY, (run, premium["ran"])
-            assert run["evidence"].get("publication_waits_on") == ["SAMPLE_PHOTO_REQUIRED"], \
-                run["evidence"]
+            from brambleloop.publish import sample_photo as SPH
+
+            # D-OWNER-PUBLISH-WITH-RENDERS (recorded): publication waits on nothing photo-
+            # related; without it, on SAMPLE_PHOTO_REQUIRED (test_7a covers both).
+            waits = [] if SPH.publish_with_renders() else ["SAMPLE_PHOTO_REQUIRED"]
+            assert run["evidence"].get("publication_waits_on") == waits, run["evidence"]
             S["draft"] = dict(fake.listings[lid])
             S["draft_files"] = list(fake.received_files[lid])
             S["draft_images"] = list(fake.received_images[lid])

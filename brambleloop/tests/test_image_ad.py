@@ -425,8 +425,18 @@ def test_d3_the_interim_state_is_consistent_and_never_ready():
     db, rh, _jobs, _bfl = _blanket()
     pkg = LP.latest(db, E.SLUG, E.VERSION)
     ill = [b for b in pkg["blockers"] if b["source"] == "pdf_illustration"]
-    assert ill and ill[0]["image"] is True and "PDF_NOT_ILLUSTRATED" in ill[0]["why"], \
-        pkg["blockers"]
+    from brambleloop.publish import sale_pipeline as SPL
+
+    certs = SPL.pdf_certificates(db, E.SLUG, E.VERSION, rh)
+    if certs["both_pass"]:
+        # BATCH19F: the sale pipeline's certified premium editions are the illustrated
+        # documents; the package carries them, and the interim engine build no longer stands.
+        assert not ill, pkg["blockers"]
+        prem = pkg["files"]["premium_pdfs"]
+        assert set(prem) == {"US", "UK"} and all(e["verdict"] == "PASS" for e in prem.values())
+    else:
+        assert ill and ill[0]["image"] is True and "PDF_NOT_ILLUSTRATED" in ill[0]["why"], \
+            pkg["blockers"]
     assert pkg["state"] != LP.READY
     # the certified (interim) PDFs and every re-render agree: no PDF_HASH_DRIFT, with or
     # without the Laura double the worker ran under
