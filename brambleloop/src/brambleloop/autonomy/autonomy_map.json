@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-21T14:08:09.863668+00:00",
+ "generated_at": "2026-11-21T15:12:40.955167+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -13,7 +13,7 @@
   "cadences": 152,
   "handlers": 185,
   "agents": 35,
-  "follow_on_edges": 100
+  "follow_on_edges": 101
  },
  "departments": [
   {
@@ -459,6 +459,7 @@
      "owner/API route api_mjs_scan",
      "plan.cycle",
      "portfolio.review",
+     "radar.concept_pool",
      "radar.scan",
      "radar/ideation.py:open_briefs",
      "research.sweep",
