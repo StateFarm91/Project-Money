@@ -37,6 +37,23 @@
 > production -- OWNER decision; the first-customer `imagery` area FAILs a generated 7-frame certificate (judges it
 > as the 3-frame disclosed set), blocking publish; PDFs do not embed the gallery while `PDF_LAYOUT="engine"`. Report:
 > `research/final_build/w6/review_requests/IMAGE-E2E.md`.
+> **2026-11-21 — IMAGE-AD on `eng/image-ad` (from `claude/batch19c` 9757c1d + `eng/image-e2e` 45a012be; NOT merged,
+> NOT deployed; production unchanged, still 0 images; Laura untouched).** IMAGE-E2E findings A and D closed.
+> A: a vessel's FLUX anchor is now a pair: a side view (`product_only(view="side")`, its own paid call inside the
+> run, per-gallery and daily caps, own replay key) judged with the top view by `verify_anchor(side=...)`, kept
+> through recovery and reverify. Proof: the Hexagonal Bread Basket reaches a PASS `vessel_anchor` under the real
+> Worker with stub BFL pixels and labelled judge doubles; caps and no-repeat-on-redrive asserted. Also fixed: a
+> readmitted run that parked again could never be readmitted (taken `#admitted<n>` key) -- a silent for-sale stall.
+> D: `PDF_LAYOUT="template"`; the template document is used only with a certified gallery and a PASS from
+> PremiumStandard + the sale checker, else the engine PDF is `engine_interim`. A certified gallery enqueues
+> `assets.build{illustrate}` (PDFs only), bound to the certificate's frames. READY now requires the illustrated
+> PDFs (`PDF_NOT_ILLUSTRATED` / `PDF_GALLERY_STALE`, image-tagged); before, any certified PDF counted.
+> **OPEN (finding G): the rebuild is built, bound and checked but REFUSED before storing** -- the gallery's
+> CONTENTS frame previews the interim PDF, so storing the illustrated PDF would break the gallery's export and
+> the publish re-render (hash drift). Until CONTENTS is re-made from the illustrated PDF and the gallery
+> re-certified, no release reaches READY and D-OWNER-SALE-PIPELINE step 2 is still unmet end to end. Also open:
+> inventory `premium_pdf_completed` still counts an interim PDF; findings B, C, F unchanged. Decision D-IMAGE-AD.
+> Report: `research/final_build/w6/review_requests/IMAGE-AD.md` (results there).
 > **2026-11-21 — NEW-PRODUCT-FLOW on `eng/new-product-flow` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT
 > deployed; production unchanged, no production row read).** Readback prod 2f7da291: 0 certified in 7 d (only the 9
 > Launch-0 at LISTING_READY), loop 11/12 with no `original_product`. Cause, reproduced on the real handlers: with
@@ -117,6 +134,20 @@
 > crashed assets.build; the kids tank (neck cannot pass a child's head) was certified then refused at the PDF (now held).
 > Status of the last stages (pricing -> listing package) is in the review request; read it before claiming the chain.
 > Decisions D-CLOTHING-E2E-1..8. Report: `w6/review_requests/CLOTHING-E2E.md` (repo root).
+> **2026-11-21 — IMAGE-E2E on `eng/image-e2e` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT deployed;
+> production unchanged, still 0 images).** New `tests/test_image_e2e_worker.py`: from a production-like DB (certified
+> Launch-0 blanket, certified PDFs, D-OWNER-APPROVE-ALL applied) the real Worker, unaided, with a stub BFL transport
+> and the labelled judge doubles, reaches a valid 7-frame listing-set certificate and a refreshed listing package.
+> Three broken handoffs fixed, each pinned: (1) `owner_card` dead-lettered on the worker's provenance check because
+> `write_frames` wrote `backfilled` lineage with no job id, so no gallery could ever certify unaided; (2) nothing
+> refreshed `listing.package` after certification (stale "gallery incomplete" for up to 6 h); (3) a paid-gate cap
+> refusal left the pending-call hold and blocked the run as "unresolved cost". Ceilings (per-gallery, daily) and
+> no-repeat-on-redrive are asserted. OPEN, not fixed: vessels (both Launch-0 baskets) can never pass the FLUX anchor
+> (no side view is ever generated; `side_data` is read, never written); Laura's per-image publication approval has no
+> production path (`canonical.PUBLICATION_APPROVED` is an empty constant), so no Laura gallery can certify in
+> production -- OWNER decision; the first-customer `imagery` area FAILs a generated 7-frame certificate (judges it
+> as the 3-frame disclosed set), blocking publish; PDFs do not embed the gallery while `PDF_LAYOUT="engine"`. Report:
+> `research/final_build/w6/review_requests/IMAGE-E2E.md`.
 > **2026-11-20 — CERTFIX-3 on `certfix/3` (cut from `claude/w6-INTEG8-wip` 511a8c6; NOT merged, NOT deployed;
 > production unchanged).** Real fixes for nine Batch 18 certification failures; no gate, assertion or child-safety
 > rule weakened. Teen garments grade at CYC 14/16 only (a teen drop-shoulder was drafted at size 2 and held by the

@@ -4005,3 +4005,34 @@ each generated frame is the selected gallery frame on file and re-judges now thr
 the route's exception), each carries its certified AI-concept honesty label and alt text, and the
 one other frame is the CONTENTS preview re-verified on its bytes. Otherwise the disclosed-set path
 runs unchanged.
+## D-IMAGE-AD — 2026-11-21 (IMAGE-E2E findings A and D; eng/image-ad)
+**Decision:**
+- **A.** A vessel's FLUX anchor is a pair. A side view (`product_anchor_side`, from
+  `image_stages.product_only(view="side")`) is rendered as its own paid call, counted in the
+  run cap and in the paid-provider gate's per-gallery and daily caps. It has its own replay
+  key, so a redrive never buys it twice. It is judged with the top-down anchor by
+  `fidelity.verify_anchor(side=...)` and kept through recovery and reverify (`_anchor_side`).
+- **D.** `PDF_LAYOUT = "template"`. The release default builds the template document only
+  when three things hold: the gallery is certified, the document is customer_ready, and it
+  PASSes PremiumStandard and the sale checker (`pdf_template.audit(expected_gallery=...)`).
+  Otherwise the engine PDF is the `engine_interim` deliverable.
+- **Rebuild on certification.** A certified gallery enqueues `assets.build{illustrate:
+  <record>}`, one job per certificate record. It rebuilds and re-certifies only the two PDFs,
+  then binds the build to the certificate's frames, in order.
+- **READY rule.** A listing package is READY only when the newest build for the release is
+  the template in both editions and its binding matches the valid certificate's frames.
+  Otherwise it carries `PDF_NOT_ILLUSTRATED` or `PDF_GALLERY_STALE`. Both are image-tagged,
+  so they do not block admission for images.
+- **Stall fix.** A run readmitted for sale that parks again is a new wait: the
+  `#admitted<n>` key moves, so the run can be readmitted again.
+**Why:**
+- D-OWNER-SALE-PIPELINE step 2, and D-OWNER-PDF-STANDARD ("The PDFs have images").
+- Before this, any certified PDF, including the engine one, could make a package READY.
+- The binding compares frames, not record ids. A certificate re-issued for identical frames
+  changes no embedded byte.
+**Refusal before storing:** the illustrated PDFs are not stored when the gallery's CONTENTS
+frame is not their preview (`CONTENTS_PREVIEW_STALE`). Today that is every gallery, because
+CONTENTS previews the interim PDF. Storing them would break the gallery's export and the
+publish re-render. Open: re-make CONTENTS from the illustrated PDF, re-certify, re-illustrate.
+**Not changed:** the inventory stage `premium_pdf_completed` is still reached by any
+certified PDF; the run cap `FLUX_MAX_GENERATION_CALLS`; and Laura.

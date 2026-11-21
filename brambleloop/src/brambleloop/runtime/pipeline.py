@@ -3918,7 +3918,7 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "storefront.review": ("work_done",),
     "visual.model_ledger": ("work_done",),
     "ads.adjust": ("enqueued", "escalations"),
-    "assets.build": ("pdf_sha256",),
+    "assets.build": ("pdf_sha256", "illustrated"),   # IMAGE-AD: the gallery rebuild
     "autonomy.department_review": ("new_finding", "lessons_routed"),
     "autonomy.morning_handoff": ("new_brief",),
     "autonomy.orchestrate": ("enqueued",),
