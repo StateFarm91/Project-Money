@@ -4497,3 +4497,7 @@ The other suites keep their result from the 94dc37cad run:
 - test_new_product_flow
 - test_compiler
 - test_w4_resume_runner (default TMPDIR, passing)
+
+## D-OWNER-DEPLOY-19h14 — 2026-11-21T22:21:55Z
+
+Batch 19h14 (code ab4165cf7) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 1945d90068fe7e86c8cf676ddeba6599975b8062 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
