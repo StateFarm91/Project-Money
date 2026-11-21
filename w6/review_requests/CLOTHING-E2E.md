@@ -97,14 +97,19 @@ Also not fixed:
 
 ## Tests
 
-The OK counts below are the test lines that passed in each suite.
+Every run used a venv built from `requirements.lock` plus `requirements-test.lock`.
 
-Run with: `JOBS=3 SUITE_REGISTRY=0 SUITES="…" bash run_tests.sh`, using a venv built from `requirements.lock` plus `requirements-test.lock`. That run's tree was dirty, and it started before the last `pdf.py`, `pdf_standard.py` and `outline_round` edits. The suites were then re-run on the committed tree; final figures are below.
+**Runner, `JOBS=3 SUITE_REGISTRY=0 SUITES="…" bash run_tests.sh`.** The tree was dirty, and the run started before the last `pdf.py`, `pdf_standard.py` and `outline_round` edits. Result: 236 passing, 2 suites failing.
+- `test_concepts100`: 2 failures, **identical on the unmodified base 8204c93** (pre-existing): the `hat` held key, and the synthetic-scan families.
+- `test_vacuity`: failed on the new e2e loops. They now assert non-emptiness.
+- Passed: `test_compiler`, `test_reverse`, `test_twin`, `test_eng_families`, `test_eng_garment`, `test_eng_garment2` (0 failed; its 2 failures on base are fixed), `test_eng_homedecor`, `test_garments`, `test_cert_grading`.
 
-| Suite | Result |
-|---|---|
-| test_compiler, test_reverse, test_twin | pass |
-| test_eng_families, test_eng_garment, test_eng_garment2, test_eng_demand_supply, test_eng_homedecor, test_garments, test_cert_grading | pass (0 failed) |
-| test_vacuity | pass after the e2e loops gained non-emptiness asserts |
-| test_clothing_e2e | see the final line in the commit message |
-| test_concepts100 | 2 failures, **identical on unmodified base 8204c93** (pre-existing): `hat` held key, synthetic-scan families |
+**Re-runs on the pushed tree 9125b51:**
+- `test_clothing_e2e`, run with `CLOTHING_E2E_ONLY=thistledown-baby-beanie` (3 sizes): 10 OK, 0 failed.
+- `test_vacuity`: 0 failed.
+- `test_eng_demand_supply`: 0 failed. On base it has 1 failure, Cosy Round Bear, which is fixed here.
+
+**Not re-run on the final tree:**
+- The default two-product e2e. On the earlier tree the romper's 5 sizes all passed compile, certify, listing.draft, the PDF checks and the child-safety stage. Its PDFs were rendered directly after the last PDF edits: size chart, schematic, finished measurements, care, "size X of 5", no problems.
+- `test_eng_families`, `test_eng_garment2` and `test_eng_homedecor`, after the last `pdf.py`, `pdf_standard.py` and `outline_round` edits.
+- Run these before merging.
