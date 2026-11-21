@@ -365,6 +365,7 @@ def stale_rebuilds(db, *, now: datetime) -> dict:
         "last_propagation_retried": len(pd.get("rebuild_retried") or []),
         "last_propagation_already_queued": len(pd.get("rebuild_already_queued") or []),
         "last_propagation_retry_waiting": len(pd.get("rebuild_retry_waiting") or []),
+        "last_propagation_retry_spent": len(pd.get("rebuild_retry_spent") or []),
         "last_propagation_retry_held": len(pd.get("rebuild_retry_held") or {}),
         "last_propagation_retry_held_reasons": dict(list(
             (pd.get("rebuild_retry_held") or {}).items())[:EXAMPLES]),
