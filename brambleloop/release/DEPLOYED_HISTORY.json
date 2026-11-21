@@ -101,6 +101,26 @@
    "sha": "a4952711c5e1dcab1d668239656778d016ba1cfd",
    "observed": "2026-11-20T22:04Z",
    "evidence": "owner exact-SHA OK ('Yes, push Batch 18 now'). Batch 18 code 511a8c63 (demand-supply + etsy-publish fixes + demand-stall fix) + release records. Overlap 353/0. Rollback rehearsal to 09be42d6 ALLOW. verify_deploy DEPLOYED; worker alive. Readback: 9/9 shops scanned, engine-demand row live; seasonal.cycle_proof re-billing (6 calls) traced to dead-letter redrive, fix in eng/fix-cycle-proof-billing."
+  },
+  {
+   "sha": "2f7da291f2d1d3199ccf0b93a96be5b723606aa9",
+   "batch": "19a",
+   "code": "13585c4f",
+   "at": "2026-11-21T00:15:34Z",
+   "verify_deploy": "DEPLOYED",
+   "readback_evidence": "FAIL (PASS 11, FAIL 6, UNKNOWN 0)",
+   "override": "D-OWNER-DEPLOY-OVERRIDE-4",
+   "rollback_to": "a4952711"
+  },
+  {
+   "sha": "c9e8549f3592cf9c609619066243051ba3f7e0e9",
+   "batch": "19b",
+   "code": "46748ff53",
+   "at": "2026-11-21T02:06:32Z",
+   "verify_deploy": "DEPLOYED",
+   "override": "D-OWNER-DEPLOY-19b",
+   "authorization": "D-OWNER-AUTODEPLOY-TONIGHT",
+   "rollback_to": "2f7da291f2d1d3199ccf0b93a96be5b723606aa9"
   }
  ]
 }
