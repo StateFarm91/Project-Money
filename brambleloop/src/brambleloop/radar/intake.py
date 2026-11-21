@@ -1072,11 +1072,16 @@ def evaluate(db, candidate: dict, *, audit, enqueue, today: date) -> dict:
             "score_job": getattr(job, "id", None)}
 
 
-def rescore_judged(db, *, audit, enqueue, today: date) -> list[str]:
+def rescore_judged(db, *, audit, enqueue, today: date, key_for=None) -> list[str]:
     """An approved concept that waited at the pre-engineering gate for a taste judgement is
     re-scored once the vision judge's verdict is on record, so it reaches `cir.draft` with no
     session in the loop. Keyed `score:<slug>:<date>` (shared with radar.scan): at most once a
-    day, and never for a concept whose `draft:<slug>` already exists. No judgement, no job."""
+    day, and never for a concept whose `draft:<slug>` already exists. No judgement, no job.
+
+    NEW-PRODUCT-FLOW: the judge's own pass (`creative.intake.judge_radar_waiting`) passes
+    `key_for`, a key bound to the judged board, so the concept is re-scored in the same run
+    it was judged -- the day's `score:<slug>:<date>` key was usually taken by the score that
+    left it waiting -- and still at most once per judged board."""
     from ..core.models import Job
     from ..creative import intake as creative_intake
 
@@ -1090,8 +1095,8 @@ def rescore_judged(db, *, audit, enqueue, today: date) -> list[str]:
         payload = score_concept(_seed_from(row), today).to_dict()
         payload["intake"] = {"row": row.id, "source_ref": row.source_ref,
                              "reason": "vision judgement recorded"}
-        job = enqueue("market_radar", "radar.score", payload,
-                      idempotency_key=f"score:{row.slug}:{today.isoformat()}")
+        key = key_for(row.slug) if key_for else f"score:{row.slug}:{today.isoformat()}"
+        job = enqueue("market_radar", "radar.score", payload, idempotency_key=key)
         if job is not None:
             audit(HANDOFF_ACTION, artifact=row.slug, detail={
                 "row": row.id, "job_type": "radar.score", "job_id": job.id,

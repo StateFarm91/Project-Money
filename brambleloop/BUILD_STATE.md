@@ -1,3 +1,18 @@
+> **2026-11-21 — NEW-PRODUCT-FLOW on `eng/new-product-flow` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT
+> deployed; production unchanged, no production row read).** Readback prod 2f7da291: 0 certified in 7 d (only the 9
+> Launch-0 at LISTING_READY), loop 11/12 with no `original_product`. Cause, reproduced on the real handlers: with
+> Launch-0 exhausted the only new supply is research concepts, and every one WAITS at the pre-engineering gate on
+> `image_vision`. The vision judge (`creative.intake.regate_held`) was only ever asked about `creative.winner_intake`
+> rows, so a radar concept got no board and no judgement and waited forever even with vision open; and the
+> post-judgement re-score reused the day's taken `score:<slug>:<date>` key. Fix: `judge_radar_waiting` (inside
+> `regate_held`, same judge-call cap and budget) files the #126 digital-twin board (CA$0, disclosed) and asks the
+> existing budgeted `judge_held`; the judged concept is re-scored by `radar.score` on a board-bound key and offered to
+> supply only if the whole gate passes. No gate, threshold or child-safety hold changed; a concept judged not to read
+> at grid size is refused. New suite `tests/test_new_product_flow.py` (failed before the fix, 6/6 after, incl. a
+> mutation test). **UNVERIFIED:** `vision_usable` needs the anthropic-vision activation + probe; D-OWNER-APPROVE-ALL
+> activated openai-vision only. If anthropic-vision is closed in production the stall remains, now named per concept
+> under `regated.radar_held`. Decision D-NEW-PRODUCT-FLOW. Report:
+> `research/final_build/w6/review_requests/NEW-PRODUCT-FLOW.md`.
 > **2026-11-20 — CERTFIX-3 on `certfix/3` (cut from `claude/w6-INTEG8-wip` 511a8c6; NOT merged, NOT deployed;
 > production unchanged).** Real fixes for nine Batch 18 certification failures; no gate, assertion or child-safety
 > rule weakened. Teen garments grade at CYC 14/16 only (a teen drop-shoulder was drafted at size 2 and held by the
