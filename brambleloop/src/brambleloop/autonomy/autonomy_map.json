@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-21T02:47:01.107294+00:00",
+ "generated_at": "2026-11-21T03:39:31.386438+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -13,7 +13,7 @@
   "cadences": 151,
   "handlers": 183,
   "agents": 35,
-  "follow_on_edges": 96
+  "follow_on_edges": 100
  },
  "departments": [
   {
@@ -1254,6 +1254,10 @@
     {
      "from": "assets.build",
      "to": "pricing.position"
+    },
+    {
+     "from": "visual.image_production",
+     "to": "listing.package"
     }
    ],
    "learning_signal": [
@@ -1497,9 +1501,12 @@
      "pricing.position",
      "runtime/pipeline.py:_read_back_and_record",
      "runtime/release.py:_enqueue_listing_package",
+     "runtime/release.py:_illustrate",
      "runtime/release.py:_price_launch0",
      "runtime/release.py:_reprice_on_plan_drift",
-     "runtime/release.py:_targeted_rebuild"
+     "runtime/release.py:_targeted_rebuild",
+     "visual.image_production",
+     "visual/laura_approval.py:after_decision"
     ]
    },
    "cadence": [
