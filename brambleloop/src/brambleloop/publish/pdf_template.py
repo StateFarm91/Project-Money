@@ -113,7 +113,7 @@ PROOF_MARKER = "TEXT-ONLY PROOF  ·  NOT CUSTOMER-READY  ·  AWAITING CERTIFIED 
 TEST_DOUBLE_MARKER = "PROOF WITH TEST-DOUBLE IMAGES  ·  NOT CUSTOMER-READY"
 
 # The template's section sequence: (key, number, kicker, title). Keys are the names a checker
-# reads (`SECTIONS`), aligned with publish.pdf_standard where a counterpart exists
+# reads (`SECTIONS`), aligned with publish.premium_standard where a counterpart exists
 # (`CHECKER_SECTION_ALIASES`).
 SECTIONS: tuple[tuple[str, str, str, str], ...] = (
     ("cover", "", "", ""),
@@ -1059,11 +1059,10 @@ class _Facts:
                 or not self.chart_art().get("tiles"))
 
     def includes_line(self) -> str:
-        from .construction_diagrams import stages as _stages
 
         unit = "round" if "round" in self.cir.components[0].construction else "row"
         parts = ["a schematic"] + (["a chart"] if self.chart_included() else [])
-        if self.memo("stages", lambda: _stages(self.cir)) or _tricky_rows(self, []):
+        if self.memo("stages", lambda: _template_stages(self.cir)) or _tricky_rows(self, []):
             parts.append("inline diagrams at the key steps")
         if self.has_gallery:
             parts.append("the certified gallery")
@@ -1244,7 +1243,7 @@ class _Facts:
                 f"within this range and check the gauge again.")
 
     def eye_options(self) -> list[str]:
-        """Embroidered or safety eyes (`pdf_standard.eye_option_lines`, shared with the engine
+        """Embroidered or safety eyes (`premium_standard.eye_option_lines`, shared with the engine
         layout). Safety eyes are offered only when the certified materials list them; they
         are a small part, so an embroidered face is the only option for a child under 3."""
         out = P._std.eye_option_lines(self.cir)
@@ -1312,7 +1311,7 @@ class _Facts:
 
 # ---- pages -----------------------------------------------------------------------------------
 
-from .pdf_standard import EYE_AGE_GUIDANCE  # noqa: E402  (one source for both layouts)
+from .premium_standard import EYE_AGE_GUIDANCE  # noqa: E402  (one source for both layouts)
 
 
 def _cover(t: _T, f: _Facts, slots: list[dict]) -> None:
@@ -1600,12 +1599,22 @@ def _sizing(t: _T, f: _Facts) -> None:
     t.top += h + 14
 
 
+def _template_stages(cir) -> list:
+    """The construction stages this layout places. BATCH19D: a flat row-worked piece's
+    row-progress stages (`construction_diagrams`, part "flat") are the engine layout's inline
+    diagrams; this layout already draws a flat piece's inline diagrams as its mini-grids at the
+    tricky rows (`_mini_grid`), so it takes only the round-geometry stages and never draws the
+    same rows twice."""
+    from .construction_diagrams import stages
+
+    return [st for st in stages(cir) if st.part != "flat"]
+
+
 def _schematic_image(f: _Facts):
     return f.memo("schematic", lambda: _schematic_image_uncached(f))
 
 
 def _schematic_image_uncached(f: _Facts):
-    from .construction_diagrams import stages
     from .schematic import schematic_for
 
     sch = schematic_for(f.cir, f.result)
@@ -1619,7 +1628,7 @@ def _schematic_image_uncached(f: _Facts):
     views = P._disclosed_views(f.cir)
     if "scale" in views:
         return views["scale"][0], "visual.disclosed_render (scale view, from the twin)"
-    st = stages(f.cir)
+    st = _template_stages(f.cir)
     if st:
         return st[-1].image(), "publish.construction_diagrams.stages"
     grid = _mini_grid(f, 1, max(P._rows_by_index(f.twin) or {1: []}), cols=None, px=480)
@@ -1792,14 +1801,13 @@ def _tricky_rows(f: _Facts, labels: list[tuple[int, str]]) -> set[int]:
 def _pattern(t: _T, f: _Facts, slots: list[dict]) -> int:
     """Section 06: two columns, component bars, Row/Round labels, a stitch count on every
     row, inline mini-diagrams and the progress-photo slot at the tricky steps."""
-    from .construction_diagrams import stages as _stages
 
     t.section_page("pattern")
     sub = f"{f.cir.title.upper()}  •  {f.terminology} TERMINOLOGY"
     t.text(47, 207, sub, SANS_BOLD, MIN_PT, ROSE, track=1.0)
     t.prose.append(f"Instructions ({f.terminology} terms)")
     header = [h for h in f.parsed["header"] if h != f.cir.title]
-    stages = f.memo("stages", lambda: _stages(f.cir))
+    stages = f.memo("stages", lambda: _template_stages(f.cir))
     stage_at = {st.round: st for st in stages}
     progress = next((s for s in slots if s["slot"] == "construction_materials"), None)
     progress_used = False
@@ -2461,21 +2469,112 @@ def build_customer_pdf(cir: CIR, *, layout: str | None = None, db=None, **kw):
 
     Under the template a release's gallery is read from its valid listing-set certificate
     (`gallery_from_release`) when the caller has a database and passed none; no complete
-    certified gallery is GalleryAwaiting ("awaiting gallery"), never a PDF with empty slots."""
+    certified gallery is GalleryAwaiting ("awaiting gallery"), never a PDF with empty slots.
+
+    IMAGE-AD (D-OWNER-PDF-TEMPLATE is production): with the switch left to the release
+    default (`layout=None`) and the default "template", a release without a complete
+    certified gallery gets the engine PDF as its interim deliverable instead of a refusal;
+    see `build_customer_pdf_with_layout`, which also says which one was built and why."""
+    return build_customer_pdf_with_layout(cir, layout=layout, db=db, **kw)[0]
+
+
+INTERIM = "engine_interim"      # the engine PDF standing in until the gallery is certified
+
+
+def _contents_cycle(cir: CIR, doc, db, kw) -> str | None:
+    """IMAGE-AD finding G: the certified gallery's CONTENTS frame is a preview of the
+    certified PDF, and the template embeds the gallery. A template document whose own preview
+    is not the certified CONTENTS frame cannot be the customer's file (the gallery would no
+    longer export, the listing image would show another document), so the release stays on
+    the interim PDF. The previewed edition is `contents_frame.TERMINOLOGY`."""
+    from ..runtime import etsy_ops
+    from ..runtime.release import contents_preview_mismatch
+    from ..visual import contents_frame as CF
+
+    framed = etsy_ops.certified_frames(db, cir.slug, cir.version)
+    if framed.get("problems"):
+        return None
+    preview = doc
+    if doc.terminology != CF.TERMINOLOGY:
+        allowed = {"twin", "released_on", "gallery", "designer", "childrens", "family"}
+        preview = build_template_pdf(cir, terminology=CF.TERMINOLOGY,
+                                     **{k: v for k, v in kw.items() if k in allowed})
+    return contents_preview_mismatch(cir.slug, framed, preview.pdf_bytes, P.TERMINOLOGIES)
+
+
+def build_customer_pdf_with_layout(cir: CIR, *, layout: str | None = None, db=None,
+                                   **kw) -> tuple:
+    """`(document, info)`. `info["layout"]` is "template" (the customer-ready illustrated
+    document, the certified gallery embedded) or "engine"; for the release default it may be
+    `INTERIM`: the engine PDF, built because no illustrated document can be certified yet,
+    with `info["why"]` naming the reason.
+
+    Under the release default the template document is accepted only when it is
+    customer-ready AND passes both deterministic checkers on its own bytes: PremiumStandard
+    (`publish.pdf_standard`, enforced inside `build_template_pdf`) and the sale checker
+    (`audit(..., expected_gallery=...)`: page order, logo, the seven certified renditions,
+    no uncertified photo, no placeholder, a count on every row). Anything less falls back to
+    the interim engine document. The fall-back is a pure function of the CIR and the release's
+    certified gallery, so every build and re-render site makes the same choice."""
+    explicit = layout is not None
     if layout is None:
         from ..runtime.release import PDF_LAYOUT as layout  # noqa: N811
     if layout == "template":
         allowed = {"terminology", "twin", "released_on", "gallery", "proof", "designer",
                    "childrens", "family"}
-        if kw.get("gallery") is None and db is not None and not kw.get("proof"):
-            kw["gallery"] = gallery_from_release(db, cir.slug, cir.version)
-        return build_template_pdf(cir, **{k: v for k, v in kw.items() if k in allowed})
-    if layout != "engine":
+        if explicit:
+            if kw.get("gallery") is None and db is not None and not kw.get("proof"):
+                kw["gallery"] = gallery_from_release(db, cir.slug, cir.version)
+            doc = build_template_pdf(cir, **{k: v for k, v in kw.items() if k in allowed})
+            return doc, {"layout": "template", "status": doc.status}
+        why = None
+        gallery = kw.get("gallery")
+        if gallery is None and db is not None:
+            try:
+                gallery = gallery_from_release(db, cir.slug, cir.version)
+            except GalleryAwaiting as exc:
+                why = str(exc.reason)
+        elif gallery is None:
+            why = "awaiting gallery: no database to read the certified gallery from"
+        if why is None:
+            try:
+                doc = build_template_pdf(
+                    cir, **{k: v for k, v in {**kw, "gallery": gallery}.items()
+                            if k in allowed and k != "proof"})
+            except TemplateBlocked as exc:      # PremiumStandardRefused is not a TemplateBlocked
+                why = f"template refused: {exc.reason}"
+            except P._std.PremiumStandardRefused as exc:
+                why = f"PremiumStandard refused the template document: {str(exc)[:300]}"
+            else:
+                sale = audit(doc.pdf_bytes, expected_gallery=doc.gallery)
+                if doc.status != "customer_ready":
+                    why = f"the template document is {doc.status}, not customer_ready"
+                elif sale["verdict"] != "PASS":
+                    why = (f"sale checker {sale['verdict']}: "
+                           + "; ".join(c["check"] + ": " + str(c.get("why", ""))[:120]
+                                       for c in sale["checks"] if c["status"] != "PASS")[:400])
+                elif db is not None:
+                    why = _contents_cycle(cir, doc, db, {**kw, "gallery": gallery})
+                if why is None and sale["verdict"] == "PASS" \
+                        and doc.status == "customer_ready":
+                    return doc, {"layout": "template", "status": doc.status,
+                                 "sale_check": {"verdict": sale["verdict"],
+                                                "pages": sale.get("pages")},
+                                 "premium_standard": "PASS",
+                                 "gallery": [{k: g.get(k) for k in (
+                                     "slot", "position", "role", "frame_sha256",
+                                     "rendition_sha256", "kind")} for g in doc.gallery]}
+        layout = INTERIM
+    if layout not in ("engine", INTERIM):
         raise ValueError(f"unknown PDF layout {layout!r}")
     kw.pop("gallery", None)
     kw.pop("proof", None)
     kw.pop("family", None)
-    return P.build_pattern_pdf(cir, **kw)
+    doc = P.build_pattern_pdf(cir, **kw)
+    info = {"layout": layout}
+    if layout == INTERIM:
+        info["why"] = why
+    return doc, info
 
 
 # ---- test doubles (proof builds only) --------------------------------------------------------

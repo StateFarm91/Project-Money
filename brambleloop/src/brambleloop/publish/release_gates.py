@@ -125,6 +125,7 @@ def generated_frame_verdict(db, slug: str, version: str, f) -> dict:
                 "gates": {}}
     checks: dict = {}
     cand: dict = {}
+    cand_run_key = ""
     cid = (f.claims or {}).get("candidate_id")
     if cid:
         from ..visual.image_records import ImageCandidate, ensure_tables
@@ -142,6 +143,7 @@ def generated_frame_verdict(db, slug: str, version: str, f) -> dict:
                         "laura_present": bool(row.laura_present),
                         "identity_evidence": checks.get("_identity_evidence") or {},
                         "route": (checks.get("_route") or {}).get("route") or ""}
+                cand_run_key = row.run_key or ""
                 if is_gallery_route_frame(f) and cand["route"] != el.GALLERY_ROUTE:
                     # written as a gallery frame but not generated and judged under the route
                     cand["route"] = "mismatch"
@@ -178,8 +180,11 @@ def generated_frame_verdict(db, slug: str, version: str, f) -> dict:
         other = []
         if cand["laura_present"]:
             from ..visual import canonical
+            from ..visual import laura_approval
 
-            status = canonical.asset_status(f.sha256 or "")
+            # IMAGE-BF: the registry, or the owner's step-up approval of these bytes for the
+            # gallery run that made them (`visual.laura_approval`); nothing else.
+            status = laura_approval.publication_status(db, f.sha256 or "", cand_run_key)
             if status != canonical.PUBLICATION_APPROVED_STATUS:
                 other.append(f"Laura publication gate: '{status}'")
         evidence = CG.exception_evidence(cand, {k: v for k, v in checks.items()
@@ -2006,8 +2011,17 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
     from . import sample_photo
 
     photo = sample_photo.requirement(db, slug, version)
+    waivers: list[dict] = []
     if stage == STAGE_ACTIVATION:
-        reasons.extend(photo["reasons"])
+        if (photo["reasons"] and not photo["satisfied"]
+                and sample_photo.publish_with_renders()):
+            # D-OWNER-PUBLISH-WITH-RENDERS: waived, and recorded as a waiver -- never as a
+            # sample photo. The labelled-rendering and truthful-copy rules still hold below
+            # (`copy_problems(photographed_sample=False)` and the listing-set certificate).
+            waivers.append({"code": sample_photo.CODE, "waiver": sample_photo.WAIVER,
+                            "waived": [str(r) for r in photo["reasons"]]})
+        else:
+            reasons.extend(photo["reasons"])
     if row is not None:
         reasons.extend(sample_photo.copy_problems(
             row.description, photographed_sample=photo["satisfied"]))
@@ -2015,7 +2029,7 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
             "reasons": reasons, "staleness": stale, "window": window,
             "superseded": superseded, "listing_set": set_verdict, "search": search, "standards": standards,
             "withholding": held, "publication_scope": scope, "originality": originality,
-            "sample_photo": photo, "stage": stage}
+            "sample_photo": photo, "stage": stage, "waivers": waivers}
 
 
 IMAGE_STANDARDS = ("gallery_images", "video_in_gallery")
@@ -2063,6 +2077,36 @@ def publish_time_reasons(verdict: dict | None) -> dict[str, str]:
                 and isinstance(r.get("area"), str) and r["area"] in PUBLISH_TIME_AREAS):
             out[f"{r['code']}: {r['why']}"] = r["area"]
     return out
+
+
+# D-OWNER-PRIVATE-DRAFT-BEFORE-SAMPLE (owner, 2026-11-21T03:55Z): "yes, private drafts before
+# sample photo are fine". The gates that block only PUBLICATION -- the move of a private draft
+# to active -- and not the sale pipeline's READY state or the creation, upload and read-back of
+# a private draft. An explicit allow-list of gate CODES. Only `SAMPLE_PHOTO_REQUIRED` is on it
+# (Etsy Help 44297885802647); it still refuses at activation exactly as before
+# (`for_publish(stage=activation)` above), and nothing else is relaxed.
+ACTIVATION_ONLY_CODES = frozenset({"SAMPLE_PHOTO_REQUIRED"})
+
+
+def activation_only_reasons(verdict: dict | None) -> dict[str, str]:
+    """The reasons of an activation-stage `for_publish` verdict that block only activation,
+    mapped to their code (`ACTIVATION_ONLY_CODES`).
+
+    Read from the verdict's own `sample_photo` part, never matched over other text: a reason
+    is here only when the sample-photo requirement itself produced it, it carries that
+    requirement's code, and the code is on the allow-list. The listing copy's truthfulness
+    about the photo (`sample_photo.copy_problems`) is not here: it blocks a draft too."""
+    from . import sample_photo
+
+    v = verdict or {}
+    if v.get("stage") != STAGE_ACTIVATION:
+        return {}
+    code = sample_photo.CODE
+    if code not in ACTIVATION_ONLY_CODES:
+        return {}
+    own = (v.get("sample_photo") or {}).get("reasons") or []
+    return {str(r): code for r in own if str(r).startswith(f"{code}:")
+            and str(r) in [str(x) for x in v.get("reasons") or []]}
 
 
 def our_competitive_reading(db, *, slug: str, version: str, key: str) -> float | None:
@@ -2222,7 +2266,16 @@ def _gallery_alt_text(job: str) -> str:
     what = {el.DESIRE: "the finished piece", el.COLOUR_CONTEXT: "full view of the finished piece",
             el.LIFESTYLE: "the finished piece in use", el.ANGLE: "another angle of the piece",
             el.DETAIL: "stitch close-up", el.SCALE: "the finished piece showing its size"}
-    return f"{el.CONCEPT_LABEL}. {what.get(job, job.lower())}."[:ALT_TEXT_MAX]
+    from . import sample_photo
+
+    scene = what.get(job, job.lower())
+    if sample_photo.publish_with_renders():
+        # D-OWNER-PUBLISH-WITH-RENDERS (owner, 10:55Z: "NO FLUX PHOTOS WILL SAY RENDERING"):
+        # the buyer-facing alt text describes the scene only. The frame's honesty_label and
+        # provenance stay recorded internally (certificate, audit). Nothing here, or in the
+        # copy, may claim a photograph of a made sample (`sample_photo.copy_problems`).
+        return f"{scene[:1].upper()}{scene[1:]}."[:ALT_TEXT_MAX]
+    return f"{el.CONCEPT_LABEL}. {scene}."[:ALT_TEXT_MAX]
 
 
 class _Shown:

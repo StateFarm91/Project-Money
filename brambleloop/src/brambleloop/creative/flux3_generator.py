@@ -45,6 +45,8 @@ from . import image_stages as S
 from . import pattern_refs as P
 
 ANCHOR_ROLE = "product_anchor"
+# IMAGE-AD (V2): a vessel's side view, standing -- half of its fidelity anchor
+ANCHOR_SIDE_ROLE = "product_anchor_side"
 # W-VISNEXT: the orchestrator sends an outfit's approved reference image only to a generator
 # that declares it can carry one (as the stage's `outfit` supplementary reference).
 ACCEPTS_OUTFIT_REFERENCE = True
@@ -377,6 +379,8 @@ class Flux3Generator:
         kw = dict(renderer=self.renderer, work_dir=work, db=self.db)
         if role == ANCHOR_ROLE:
             cand = S.product_only(rel, size=self.size, **kw)
+        elif role == ANCHOR_SIDE_ROLE:
+            cand = S.product_only(rel, size=self.size, view="side", **kw)
         elif role == IDENTITY_ANCHOR_ROLE:
             # Stage A (W-VISNEXT2): Laura alone in the listing's outfit; an intermediate
             # reference at the 1k tier, with at most one proportion-correction pass.

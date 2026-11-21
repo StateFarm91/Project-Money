@@ -3072,6 +3072,20 @@ the listing. Then it's ready to be for sale. Hard rule."
   Mission Control and in readback.
 - Ready for sale = certified pattern + complete certified gallery + both premium illustrated
   PDFs certified for this release + every listing gate PASS. Nothing less counts.
+**D-ENG-VIS-FLUX-1: the FLUX 3 provider follows the documented contract, rejects bad frames at generation, and caps images in code (ENG-VIS-FLUX slice 1, 2026-11-20).** This applies the owner's directive "PERFECT FLUX 3 LISTING IMAGES" within D-W4-F852-AMEND. It changes no publication gate.
+- **The contract is data, with citations.** `gateway/flux_contract.py` holds BFL's documented FLUX 3 Image contract, read 2026-11-20 from the openapi schema, the API reference, pricing, integration and errors pages.
+  - The request builder validates the whole body against it before any reservation.
+  - A test pins the contract to a machine-extracted snapshot of the official schema and rate card.
+- **No seed.** FLUX 3 Image has no seed field (`additionalProperties: false`). The seed is recorded only when BFL's result reports one, and is never invented.
+- **Generation-time rejection.**
+  - A listing frame must be PNG/JPEG, opaque, at least 2000 px on its shortest side and within 1% of the aspect it asked for. An intermediate frame must be at least 900 px.
+  - A frame that fails is rejected before QA. It stays billed, and its bytes and an audit row are kept.
+  - A corrupt download is re-fetched up to twice; this costs nothing.
+  - A rejection is never retried with the same request, because the owner gate would refuse it as already billed.
+  - A replacement is bought only after `flux_provider.replacement_allowed` has re-checked the kept bytes. It also requires that no `motif_recovery` row for the product is open (ENG-MOTIF-BACKLOG's table, read only).
+- **Caps in code, lower-only.** Within `paid_provider_gate.authorize` the caps are 60 images per UTC day and 16 images / CA$2.50 per gallery. The environment can lower them and never raise them. They sit beneath the owner's activation ceilings, so the lower one binds.
+- **Readiness.** It is READY only when `BRAMBLELOOP_IMAGE_KEY_BFL` is present (presence only; the value is never read into output) and the owner's `flux-3-image` generation activation is active. Otherwise it is UNKNOWN with the reason, and the generation job refuses before reserving.
+- **Retention.** `image.generation_rejected` and `image.generation_rejection_rechecked` are lifetime-protected.
 
 ## D-OWNER-PDF-LOGO — 2026-11-20 (owner directive) — supersedes integrator decision N1 (2026-10-31)
 
@@ -3348,6 +3362,71 @@ at intake. Reversible by decision; widen only by adding a proof.
 - **Units.** The US edition gives yarn in yd (m), and the UK edition in m. Ball counts use 100 g balls at the shortest CYC-typical length, so the count does not run short. The hook is given in mm with its CYC US name, and only when the size is on the table. Substitution states the CYC class and its typical length per gram.
 - **Covers.** A design the stitch renderer cannot draw whole (a garment, an assembled pillow) uses its compiler-checked schematic as the cover hero, labelled as a rendering. A multi-component design reads "Made from N pieces", not "Makes 4 bodys".
 - **Not yet built (slice 2+):** a single multi-size garment edition with the other sizes in parentheses (today each size ships as its own CIR/PDF), inline diagrams at garment tricky steps, and a per-fabric gauge table for CIRs that carry component gauges (none in the catalogue today; the rule already checks each one).
+
+## D-ENG-PDF-TEMPLATE-1 — how the owner's master template is rendered (ENG-PDF-TEMPLATE, 2026-11-20; routine engineering)
+
+**Status:** routine engineering decisions implementing D-OWNER-PDF-TEMPLATE. No gate or test was
+weakened. Renderer: `publish/pdf_template.py`; switch: `runtime.release.PDF_LAYOUT` (still
+`"engine"`, see below).
+
+- **Faithful where the template is a layout; never where it is an instruction.** Page sequence,
+  header, footer, palette (read from the template's own fills), Lato + Noto Serif Display
+  (embedded, pinned in `brand/fonts/pdf/SHA256SUMS`), cards, forest bands, numbered sequences,
+  two-column pattern and 4 + 3 gallery grid are reproduced. Its bracketed placeholders, the
+  "ILLUSTRATIVE SLOT" art and the "MASTER LAYOUT • REQUIRES CERTIFIED PRODUCT DATA" marker are
+  never printed; `pdf_template.audit` reads the placeholder list from the template itself.
+- **Brand floors win over the template's smallest type.** The template's 6.3-8.2 pt labels are
+  set at the 9 pt brand minimum, and its rose is darkened only as far as the 4.5:1 contrast floor
+  requires on its ground (`publish.pdf._legible`).
+- **Logo:** the canonical owner logo, resampled only, on the cover (`publish.pdf._cover_logo`),
+  in every page header and in the thank-you block. The template's header shows a monogram crop;
+  a crop is not "resampled only", so the full artwork is used at header size.
+- **Footer additions:** the release id and "page N of M" sit on their own line in the footer band,
+  so a truncated download is visible. The template's footer line and page number are unchanged.
+- **Gallery:** slot n is the valid listing-set certificate's frame at position n (the campaign's
+  order is the gallery's order), embedded as `publish.pdf_photos.rendition` JPEG bytes (the same
+  certified bytes as the listing, provable from the built file). No complete certified gallery is
+  `GalleryAwaiting` ("awaiting gallery"). `proof=True` is an internal text-only proof marked
+  NOT CUSTOMER-READY on every page; test-double images make `proof_test_double`, also marked.
+- **The cover hero sits in the template's card slot, not full bleed.** This follows the owner's
+  layout; the sale-pipeline checker's `slot:cover_hero` full-bleed rule conflicts and is reported
+  to its owner rather than resolved here.
+- **Family variants:** garment (size table, fit + ease, care required), baby and amigurumi
+  (child-safety gate text required, or the build blocks), pillow, blanket and colourwork (the
+  chart always), home décor (concise). The chart appears for other families only when it fits
+  on one page (a 36-tile chart of plain stitches is not help).
+- **Blocking:** a missing required fact (gauge, yarn, yarn quantity, finished size, schematic,
+  making sequence, finishing, a row's stitch count, garment fit or care, child-safety text) raises
+  `TemplateBlocked` with a named reason. Optional sections with nothing to say are omitted.
+- **Default stays `engine`.** The template becomes the default only when it passes every existing
+  PDF suite. Those suites assert engine-specific headings and structure (e.g. "Terms and
+  support", "Instructions (US terms)"), and the premium and sale-pipeline checkers key on the
+  same names (`pdf_template.CHECKER_SECTION_ALIASES` maps them). Switching now would fail them,
+  so the switch is not flipped.
+
+Reversible by decision.
+
+## D-ENG-SALE-PIPELINE-1 — 2026-11-20 (ENG-SALE-PIPELINE, engineering decision)
+
+**Decision:** the sale chain's premium PDFs are always built in the owner's master template
+(`publish.pdf_template.build_template_pdf`, D-OWNER-PDF-TEMPLATE) with the release's seven
+certified gallery frames, independent of the release chain's `PDF_LAYOUT` switch (still
+"engine" for the base release PDFs). Certification uses `publish.pdf_standard.check(...,
+require_template=True)`, which FAILs any other layout.
+- `publish.pdf_standard` (checker `pdf_standard/2`) adds, from the built bytes:
+  - `logo:cover`: a cover image matching the canonical owner logo as resampled by
+    `publish.pdf._cover_logo`. The match is perceptual: greyscale 32×32, mean difference ≤ 8/255,
+    aspect within 3% (D-OWNER-PDF-LOGO);
+  - `slot:gallery7`: exactly the seven certified renditions, in certificate order;
+  - the template's own byte audit (`pdf_template.audit`), included in the verdict.
+- Name clash at merge: ENG-PDF-PREMIUM's family-content module, also called `pdf_standard`, is
+  now `publish.premium_standard` (tests: `test_premium_standard.py`). `publish.pdf_standard`
+  stays the D-OWNER-PDF-STANDARD bytes checker named in D-OWNER-SALE-PIPELINE.
+- Pre-image readiness still reads the base engine PDFs for text, schematics and diagrams,
+  with `logo:cover` PENDING there. The engine cover has no logo, so `logo:cover` is
+  certified only on the template build.
+
+Reversible by decision.
 ## D-ENG-VIS-IDENTITY-2 — held-out calibration and race settlement (ENG-VIS-IDENTITY slice 2, 2026-11-20; routine engineering)
 **Status:** routine engineering decisions within autonomy, made in response to the slice-1 review.
 No gate was relaxed; the calibration gate was tightened.
@@ -3881,6 +3960,37 @@ M2/L4). No existing check was relaxed; four rules were added to `publish.pdf_sta
   amigurumi PDF, correctly). Real progress photos need a physical sample. The real amigurumi build
   still blocks on the child-safety width x height gap (D-ENG-PDF-TEMPLATE-2); the fixture is a test
   fixture only.
+
+## D-BATCH19D-FLAT-DIAGRAMS — flat row-worked pieces get row-progress construction diagrams; the premium read-back compares the premium certificate (BATCH19D, 2026-11-21; routine engineering)
+
+- **Defect.** `construction_diagrams.stages` drew round geometry only. A flat row-worked piece
+  (blanket, panel, scarf, wrap) got no inline construction diagram in the engine layout, so the
+  sale checker's `diagrams` check (`publish.pdf_standard`) FAILed it, and no flat product could
+  become READY under D-OWNER-SALE-PIPELINE.
+- **Decision.** A pattern whose components are all `flat_rows` gets up to six row-progress
+  diagrams. They are drawn from the twin (`width_cm`, `height_cm`, `row_top_cm`, cells in fabric
+  order), on one scale, at finished width × rows. Worked rows are drawn cell by cell in their own
+  colour; rows still to work are faint. The newest row has a rose outline, row markers run down
+  the left, and the picture is labelled DIAGRAM. The engine caption calls each one a
+  "construction diagram … not a photograph". They describe the twin's component, and the engine
+  places them only in that component's block.
+- **Reconciled with ENG-PDF-DIAGRAMS (D-ENG-PDF-DIAGRAMS-1), not duplicated.** A pattern with any
+  piece worked in rounds keeps its component diagrams (`pdf_template.component_profile`) and gets
+  no row-progress stage. The template layout already draws a flat piece's inline diagrams as
+  mini-grids at the tricky rows, so it takes only the round-geometry stages
+  (`pdf_template._template_stages`). Each layout draws a piece's rows once.
+- **Premium read-back.** `store.publish` sends the certified premium edition (ENG-SALE-PIPELINE).
+  The read-back now compares the bytes Etsy holds with that edition's hash, re-hashed on read by
+  `sale_pipeline.certified_premium_pdfs`. Those certificates are bound to the `assets.build`
+  hashes, which are checked first and kept beside it as `base_certified`. Before this, every
+  READY release's draft would have read back as unverified.
+- **Not done (honest).** In `test_vis_gallery_e2e`, tests 3 and 7 drive the real sale chain for
+  the blanket. Both premium PDFs now certify PASS. The release still stops at
+  `SAMPLE_PHOTO_REQUIRED`: no unedited photograph of a physical sample exists. That is a listing
+  gate D-OWNER-SALE-PIPELINE requires to PASS. `test_w6_listing_chain_e2e` documents that it cannot
+  be reached in a test without forging, so the two tests stay red until a real sample photo
+  exists. No gate was relaxed and nothing was forged.
+
 ## D-ENG-PUBLISH-UNHALT — halting rows close on their cleared cause (eng/publish-unhalt, 2026-11-21; routine engineering)
 **Problem.** The company-wide halt is evidenced only by per-product halting rows, so it clears only when they can close.
 Three shapes of row could never close. Each is fixed here, with no gate relaxed.
@@ -3964,8 +4074,122 @@ Batch 19d (code 43609a8de) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the own
 
 Batch 19d1 (code 80ce7211b) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 15d03a0a17002990d1c06085c10fc98bdaf48aa9 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
 
-## D-HALT-380 — 2026-11-21
+## D-OWNER-PRIVATE-DRAFT-BEFORE-SAMPLE — 2026-11-21T03:55Z (owner)
 
+**Question put to the owner:** may a private, unpublished Etsy draft exist before a real sample
+photo is on file, with publishing still waiting for the photo?
+**Owner, verbatim:** "yes, private drafts before sample photo are fine".
+
+**Decision (implemented BATCH19D-SALE2).** `SAMPLE_PHOTO_REQUIRED` (Etsy Help 44297885802647)
+blocks PUBLICATION, the move of a draft to active, exactly as before. It no longer blocks the
+sale pipeline's READY state (D-OWNER-SALE-PIPELINE) or the creation, upload and byte-for-byte
+read-back of a PRIVATE DRAFT.
+- **Mechanism.** `release_gates.ACTIVATION_ONLY_CODES = {"SAMPLE_PHOTO_REQUIRED"}` is an explicit
+  allow-list. `release_gates.activation_only_reasons` reads it from an activation-stage verdict's
+  own `sample_photo` part, never from other text. `listing_package.assemble` tags such a blocker
+  `activation_only`. The tag is read only by `sale_pipeline.publication_blockers`, which
+  re-checks the source, the allow-list and the code prefix. `package_ready_for_sale` accepts a
+  package whose only blockers are publication-only. `ready_for_sale` returns
+  `publication_blockers` and `publishable`. READY records `publication_waits_on`, and the board
+  counts it under `ready_publication_waits_on`.
+- **Unchanged.** The listing package stays BLOCKED, so the owner review is not raised and the
+  package is not "ready for owner review". `for_publish(stage=activation)` still refuses on
+  the photo, and `store.activate` reads it three times. The draft path keeps
+  `owner_authorised=False` for the exercise client, the `BRAMBLELOOP_PUBLISH_AUTHORISED` kill
+  switch and the listing-fee cap. Every other gate is unchanged, including the photo-copy
+  truthfulness check, which still blocks a draft. No photo was forged.
+- **Tests.** `test_vis_gallery_e2e` tests 3 and 7 assert the draft upload and its byte-for-byte
+  read-back. Test 7a shows publication refused without the photo. Test 7b kills a mutant of
+  `for_publish` that has the activation-stage photo gate removed.
+## D-PRODUCT-RUN-PERF — test_product_run.py made completable without weakening it (eng/product-run-perf, 2026-11-21; routine engineering)
+- **Decision.** Answer repeated deterministic renders from a content-addressed, test-process-only memo
+  (`tests/render_memo.py`), and build the full unattended cycle once, shared as an immutable SQLite backup copy, instead
+  of re-running it from empty in two tests.
+- **Why.** Profiling showed the cost was repetition of identical work, not the work itself:
+  - `build_pattern_pdf` was 59% of the cycle (68 calls, 40 of them `first_customer` re-rendering documents it had
+    already rendered);
+  - `disclosed_render.render` was 24% (335 calls, 43 unique);
+  - two tests each rebuilt the same cycle, at 1609 s for one of them.
+  The rejected alternatives were narrowing the scenario (fewer products, smaller renders, lower drain budgets), which
+  violates "slow and representative beats fast and unrepresentative" (run_tests.sh), and caching in production code,
+  which is out of scope and would hide renderer regressions from other suites.
+- **Guards.**
+  - Every input each function reads is in the key: the full CIR dict, the twin, the printed date, the lesson effects,
+    pixel bytes.
+  - The first call always runs the real code, and exceptions are never cached.
+  - Hits are deep copies; the lesson notes and the layout out-parameters are replayed.
+  - The PDF determinism test runs inside `bypassed()`.
+  - Scope is one process, because run_tests.sh runs each file separately.
+- **Result.** 36 passed / 0 failed, 1544 s. Report: `w6/review_requests/PRODUCT-RUN-PERF.md`.
+## D-IMAGE-BF-LAURA — the owner's production path to approve Laura in a generated gallery (IMAGE-BF, 2026-11-21; implements the owner brief for IMAGE-E2E findings B and F)
+**Problem.** `canonical.PUBLICATION_APPROVED` is an empty code constant and was the only source of
+Laura publication approval, so every Laura frame read `laura_publication` UNMEASURED and no gallery
+with Laura could be certified in production (IMAGE-E2E finding B).
+**Rule (`visual/laura_approval.py`).**
+- **One card per gallery.** When `_certify_route` finds a generated gallery that passes every frame
+  gate and set check except Laura's publication (judged by re-reading the gallery with a
+  review-only "as if approved" flag that is never certified or written), it raises ONE OwnerAction,
+  `laura_gallery_review:<run hash>:<frame-set digest>`, listing every Laura frame (position, role,
+  candidate, sha256, the Command Center image URL). A card ever raised for that key, open or
+  answered, is never raised again; different bytes are a different gallery.
+- **Decided only with the existing step-up.** `POST /api/cc/laura-gallery/decide` (owner session,
+  CSRF + nonce, fresh passphrase + TOTP step-up, action `laura_gallery.decide`), or "Approve all
+  eligible", which the owner directed may include these cards because its preview shows the frames
+  on screen and its press needs the same fresh step-up. `approve_all.judge` marks the prefix
+  eligible explicitly (before the classifier and the key guard); the approval goes through
+  `laura_approval`, never a bare close. `decide` also refuses a non-owner actor, a call that does
+  not assert the step-up, an answered card, and a gallery whose Laura frames changed since the card.
+- **Recorded per gallery and frame hash** (`laura_gallery_approvals`). `laura_publication` (and the
+  same check in `candidate_gates.publication_verdict` and `release_gates.generated_frame_verdict`)
+  reads PASS when the canonical registry approves the bytes, or the latest decision for exactly
+  that (run, sha256) is an owner `approved` with step-up; anything else stays UNMEASURED. A
+  rejection is recorded and leaves the frames UNMEASURED.
+- **Audited:** `laura_gallery.card_raised`, `laura_gallery.decision`, the OwnerAction lifecycle row,
+  the route's action record (and approve-all's per-row and batch rows).
+- An approval re-judges the gallery for its certificate at once and enqueues `listing.package`.
+**Not changed.** `canonical.PUBLICATION_APPROVED` stays empty; Laura (laura-r2-a42aeac7) is locked
+and nothing modifies, regenerates or substitutes her; no approval is inferred or swept.
+## D-IMAGE-BF-IMAGERY — first-customer `imagery` judges a certified generated gallery as that gallery (IMAGE-BF, 2026-11-21; finding F)
+`gates.first_customer.disclosed_imagery` first asks `generated_gallery_imagery`: when the release's
+current valid listing-set certificate carries generated frames, the area is PASS only if the
+certificate is bound to the release's certified hash, names at least `CAMPAIGN_MIN_FRAMES` frames,
+each generated frame is the selected gallery frame on file and re-judges now through
+`release_gates.generated_frame_verdict` as exportable (truth, identity, Laura approval, provenance,
+the route's exception), each carries its certified AI-concept honesty label and alt text, and the
+one other frame is the CONTENTS preview re-verified on its bytes. Otherwise the disclosed-set path
+runs unchanged.
+## D-IMAGE-AD — 2026-11-21 (IMAGE-E2E findings A and D; eng/image-ad)
+**Decision:**
+- **A.** A vessel's FLUX anchor is a pair. A side view (`product_anchor_side`, from
+  `image_stages.product_only(view="side")`) is rendered as its own paid call, counted in the
+  run cap and in the paid-provider gate's per-gallery and daily caps. It has its own replay
+  key, so a redrive never buys it twice. It is judged with the top-down anchor by
+  `fidelity.verify_anchor(side=...)` and kept through recovery and reverify (`_anchor_side`).
+- **D.** `PDF_LAYOUT = "template"`. The release default builds the template document only
+  when three things hold: the gallery is certified, the document is customer_ready, and it
+  PASSes PremiumStandard and the sale checker (`pdf_template.audit(expected_gallery=...)`).
+  Otherwise the engine PDF is the `engine_interim` deliverable.
+- **Rebuild on certification.** A certified gallery enqueues `assets.build{illustrate:
+  <record>}`, one job per certificate record. It rebuilds and re-certifies only the two PDFs,
+  then binds the build to the certificate's frames, in order.
+- **READY rule.** A listing package is READY only when the newest build for the release is
+  the template in both editions and its binding matches the valid certificate's frames.
+  Otherwise it carries `PDF_NOT_ILLUSTRATED` or `PDF_GALLERY_STALE`. Both are image-tagged,
+  so they do not block admission for images.
+- **Stall fix.** A run readmitted for sale that parks again is a new wait: the
+  `#admitted<n>` key moves, so the run can be readmitted again.
+**Why:**
+- D-OWNER-SALE-PIPELINE step 2, and D-OWNER-PDF-STANDARD ("The PDFs have images").
+- Before this, any certified PDF, including the engine one, could make a package READY.
+- The binding compares frames, not record ids. A certificate re-issued for identical frames
+  changes no embedded byte.
+**Refusal before storing:** the illustrated PDFs are not stored when the gallery's CONTENTS
+frame is not their preview (`CONTENTS_PREVIEW_STALE`). Today that is every gallery, because
+CONTENTS previews the interim PDF. Storing them would break the gallery's export and the
+publish re-render. Open: re-make CONTENTS from the illustrated PDF, re-certify, re-illustrate.
+**Not changed:** the inventory stage `premium_pdf_completed` is still reached by any
+certified PDF; the run cap `FLUX_MAX_GENERATION_CALLS`; and Laura.
+## D-HALT-380 — 2026-11-21
 Systemic halt #380 (production 7b250d61: 12 products stale and rebuild-incomplete, a fresh pending
 rebuild every hour, no verified rebuild since the chain moved to 9). Hypothesis "every deploy
 re-stales" rejected: freshness keys only on `chain:release` = fingerprint(CHAIN_VERSION), a manual
@@ -3978,17 +4202,28 @@ existing attempt at the product's own change owns the key; (2) the stage token i
 recorded fresh budget, with one targeted rebuild; the row stays open until verified evidence closes
 it. No gate, binding rule, attempt cap or halt rule changed. Branch `eng/halt-380`; report
 `w6/review_requests/HALT-380.md`. Not deployed.
-
 ## D-OWNER-DEPLOY-19h — 2026-11-21T04:19:09Z
-
 Batch 19h (code 384399c64) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 7b250d6164e4509617edd157048cc42db9a6b9bb was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
-
 ## D-OWNER-DEPLOY-19h1 — 2026-11-21T04:25:50Z
-
 Batch 19h1 (code c391386fd) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to b17649901845b9a20fcfe596d108a18c75578b1a was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
 
-## D-HALT-380-VERIFY — 2026-11-21
+## D-OWNER-PUBLISH-WITH-RENDERS — 2026-11-21T10:50Z, amended 10:55Z (owner)
 
+**Owner.** The owner answered "Yes, publish with labelled renders" to the question "May listings publish with no real sample photo, using only FLUX images…?". They added, verbatim: "Yes publish, and ignore etsy policy. I said 100 times ignore etsy policies. I will deal with them its my risk." At 10:55Z they amended it, verbatim: "NO FLUX PHOTOS WILL SAY RENDERING. THATS A DIRECT ORDER. Everything is supposed to look real. Do not add labels."
+
+**Decision.**
+- `SAMPLE_PHOTO_REQUIRED` (Etsy Help 44297885802647) no longer blocks publication while this heading is in the decision index. The waiver is recorded on the activation verdict, on the listing package (`waivers`) and on the publish audit (`publish.gate_waived`) as `owner_directed_without_attestation: D-OWNER-PUBLISH-WITH-RENDERS`. It is NOT a sample attestation: `sample_photo.requirement` still reports the photo as missing.
+- FLUX (generated-gallery) frames carry no buyer-visible "rendering" label. Their alt text describes the scene only. Their honesty_label and provenance (generator, model, prompt hash) stay recorded internally in the certificate and the audit.
+
+**Unchanged:**
+- Fidelity and scale gates: each frame must match the certified CIR's size, colours, stripes and shape.
+- Copy truth: no listing copy may claim a photo of a made sample, a tested make, or "I made this" (`sample_photo.copy_problems`, which now detects such claims).
+- The listing's AI-disclosure copy and fields.
+- Child safety, the kill switch, fees and budgets.
+- The signed publication grant and the owner's separate publishing approval.
+
+**Supersedes** the line "`SAMPLE_PHOTO_REQUIRED` stays a publication gate" of D-OWNER-NO-SAMPLE (10:40Z), on the owner's later instruction (10:50Z). Every other line of D-OWNER-NO-SAMPLE stands, including that a render is never presented as a sample photo.
+## D-HALT-380-VERIFY — 2026-11-21
 Production 1bb7c4f5: chain.rebuild done 199 and unfinished 0, but no artefact completed since
 2026-11-20T13:12Z. Reproduced on the real chain: a provenance row whose artefact no longer exists
 reads STALE for good. This covers a `visual_truth` row of a gallery frame `_persist_frames` deleted,
@@ -4010,34 +4245,23 @@ Rejected: closing rows on absence alone; waiving gate.certify's incident halt (l
 GET /api/readback/evidence: parked_admission measured at about 40 ms locally, so it is not shown to be
 the 45 s. It was made cheaper anyway (one admission read per release, column selects), and the body
 now carries `timing_ms` per section. Report: `w6/review_requests/HALT-380-VERIFY.md`.
-
 ## D-MAIN-HALT-380-VERIFY-RELEASE — 2026-11-21T09:32Z
-
 Release of eng/halt-380-verify on top of 19h1 (1bb7c4f5).
-
 **Cause.** Provenance rows for artefacts that no longer exist read STALE forever, and no stage can ever rewrite them. They are:
 - `visual_truth` rows for deleted gallery frames;
 - `marketing_asset` rows for superseded drafts.
-
 They also made `marketing.schedule` refuse each product's real marketing rebuild. That kept 12 products and systemic halt 380 open. eng/halt-380-h5 reached the same orphan-frame cause independently.
-
 **Fix.** Narrow and fail-closed: only those two vanished or superseded cases read RETIRED. Real-gate refusals park the product: it stays halted itself but no longer counts toward the systemic halt. No gate was weakened.
-
 **Tests.** 17 suites, no failures (vis_gallery completes before release). The release needs the owner's per-SHA approval; the auto-deploy window closed at 05:00Z.
-
 ## D-OWNER-EXTENSION-24H — 2026-11-21T10:40Z (owner, via AskUserQuestion)
-
 The owner extended the P0 deadline by 24 hours, to **2026-11-22T05:00Z**, with standing auto-deploy approval for that window ("Yes + auto-deploy"). The conditions are those of D-OWNER-AUTODEPLOY-TONIGHT:
 - the changed and overlap suites pass;
 - the rollback is rehearsed (ALLOW);
 - the push is a fast-forward;
 - the deploy is verified and read back;
 - a failure rolls back.
-
 ## D-OWNER-NO-SAMPLE — 2026-11-21T10:40Z (owner)
-
 **Owner, verbatim:** "I dont plan to crochet anything. I said this from the very start. Thats why I offered to buy multiple patterns from Etsy to learn from."
-
 Consequence:
 - Etsy's pattern-listing rule (Help 44297885802647: at least one real, unedited photo of something made from the pattern) cannot be met by the owner.
 - A render is never presented as a sample photo (Product Truth, no fake evidence). `SAMPLE_PHOTO_REQUIRED` stays a publication gate.
@@ -4249,3 +4473,11 @@ Batch 19h12 (code 093bb69a1) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the o
 ## D-OWNER-DEPLOY-19h13 — 2026-11-21T19:50:19Z
 
 Batch 19h13 (code d3edf96bc) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to f860904d16a7f8716ebf3b0b9e09c7e3d7bdecc8 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-ENG-19F-KNOWN-FAILURE — 2026-11-21 (integrator)
+
+Batch 19f is released with one known failure that predates it. In test_halt_380_live, `test_production_sequence_a_second_deploy_the_same_day_retries_and_converges` fails the same way on a clean 19h12 checkout without 19f, so it is not counted against 19f. A separate lane is fixing it. Every other suite in the 19f union passes, and so do the overlap suites run after merging claude/w6-release-19h13 (supply-research).
+
+## D-OWNER-DEPLOY-19f — 2026-11-21T20:58:08Z
+
+Batch 19f (code 1bfd86bf1) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 0aeb81d2cce16c60377e52614e7ffd3c387e4420 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.

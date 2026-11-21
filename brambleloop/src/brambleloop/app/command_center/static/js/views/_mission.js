@@ -5,8 +5,8 @@ import { card, statTile, statusPill, guardedAction, errorState, freshness } from
 
 const n = (v) => (typeof v === "number" ? v : null);
 const u = (v) => n(v) ?? "Unknown";
-const row = (t, why, pill) => h("li", { class: "row" },
-  h("div", { class: "row-head" }, h("p", { class: "row-title" }, t), pill || null), h("p", { class: "muted" }, why || ""));
+const row = (t, why, pill, x) => h("li", { class: "row" },
+  h("div", { class: "row-head" }, h("p", { class: "row-title" }, t), pill || null), h("p", { class: "muted" }, why || ""), x || null);
 
 export async function missionBoard() {
   let r;
@@ -41,7 +41,8 @@ export async function approveAllCard({ rerender }) {
     } }, `Approve everything I can decide (${u(k)})`);
   return card({ title: "Approve everything I can decide", subtitle: `${u(c.owner_rows_open)} owner cards open; ${u(c.stays_with_reason)} stay with you`, actions: btn },
     h("p", { class: "card-meta" }, freshness(p.as_of, r)),
-    h("details", null, h("summary", null, `${u(k)} in this press`), h("ul", { class: "rows" }, ...acted.map((i) => row(nm(i), lbl(i.bucket))))),
+    h("details", null, h("summary", null, `${u(k)} in this press`), h("ul", { class: "rows" }, ...acted.map((i) => row(nm(i), lbl(i.bucket), null,
+      i.frames && h("div", null, ...i.frames.map((f) => h("img", { src: f.image_url, alt: f.role, width: 120 }))))))),
     h("h3", { class: "section-title" }, `Stays with you (${u(p.kept_count)})`),
     h("ul", { class: "rows" }, ...(p.kept || []).map((i) => row(nm(i), i.reason, i.link
       ? h("a", { class: "btn", href: i.link.external || i.link.card, rel: "noopener" }, `Do it at ${i.link.where}`) : null))));

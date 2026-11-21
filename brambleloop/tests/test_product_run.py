@@ -38,6 +38,12 @@ from datetime import date  # noqa: E402,F811 - rebind to the pinned classes
 
 from sqlalchemy import select  # noqa: E402
 
+# ENG-PRODUCT-RUN-PERF (2026-11-21): repeated renders of identical inputs are answered from a
+# content-addressed memo (tests/render_memo.py -- every input the render reads is in the key;
+# the first call always runs the production code). The determinism test bypasses it.
+import render_memo  # noqa: E402
+render_memo.install()
+
 from brambleloop.agents.registry import PermissionDenied, Registry  # noqa: E402
 from brambleloop.cir.compiler import compile_cir  # noqa: E402
 from brambleloop.cir.model import CIR, Op, Row  # noqa: E402
@@ -77,11 +83,53 @@ def _run_once() -> dict:
     Registry(db).seed_defaults()
     JobQueue(db).enqueue("orchestrator", "plan.cycle", {"as_of": TODAY.isoformat()})
     w = Worker(db, "run-worker")
+    steps, drained = 0, False
     for _ in range(900):
+        steps += 1
         if not w.run_once():
+            drained = True
             break
-    _RUN["db"] = db
+    # ENG-PRODUCT-RUN-PERF: two tests below start from exactly this cycle (same seed, same
+    # as_of, same code) and then attack it. They used to run it again from an empty database,
+    # each costing as much as this whole run. They now start from a byte copy of the
+    # warehouse taken here, before any test has read or written it (`_cycle_copy`).
+    pristine = f"{tmp}/pristine.sqlite"
+    _sqlite_copy(f"{tmp}/run.sqlite", pristine)
+    _RUN.update(db=db, pristine=pristine, steps=steps, drained=drained)
     return _RUN
+
+
+def _sqlite_copy(src: str, dst: str) -> None:
+    """A consistent copy of a WAL-mode SQLite file, through SQLite's own backup API."""
+    import sqlite3
+
+    a, b = sqlite3.connect(src), sqlite3.connect(dst)
+    try:
+        a.backup(b)
+    finally:
+        a.close()
+        b.close()
+
+
+def _cycle_copy(name: str, worker: str, budget: int):
+    """A private, writable warehouse in the state a fresh `plan.cycle` drain leaves it.
+
+    Equivalent to enqueueing plan.cycle on an empty database and running `budget` worker
+    steps: the copy is of `_run_once`'s warehouse immediately after its drain, and if that
+    drain stopped on its own step cap rather than on an empty queue, the copy is drained on
+    for the rest of `budget`, so a caller never starts from a less finished cycle than it
+    would have built itself."""
+    base = _run_once()
+    tmp = tempfile.mkdtemp()
+    path = f"{tmp}/{name}.sqlite"
+    _sqlite_copy(base["pristine"], path)
+    db = Database(f"sqlite:///{path}")
+    w = Worker(db, worker)
+    if not base["drained"]:
+        for _ in range(max(0, budget - base["steps"])):
+            if not w.run_once():
+                break
+    return tmp, db, JobQueue(db), w
 
 
 def _outputs(db: Database, job_type: str) -> list[dict]:
@@ -392,30 +440,16 @@ def test_a_pipeline_upgrade_reaches_products_that_already_shipped():
     collapsed silently. Certification is correctly once-per-version; everything after it has
     to be reachable again when the code that does it changes.
     """
-    import tempfile as _tempfile
-
     from sqlalchemy import select as _select
 
-    from brambleloop.agents.registry import Registry as _Registry
-    from brambleloop.core.db import Database as _Database
     from brambleloop.core.models import Collection, ContentPiece, Listing, ListingAsset
-    from brambleloop.queue.durable import JobQueue as _JobQueue
     from brambleloop.runtime.release import CHAIN_VERSION, chain_key
-    from brambleloop.runtime.worker import Worker as _Worker
 
     assert chain_key("assets", "s", "1.0.0").endswith(f":c{CHAIN_VERSION}")
 
-    tmp = _tempfile.mkdtemp()
+    # The full unattended cycle, as `plan.cycle` on an empty warehouse leaves it (`_cycle_copy`).
+    tmp, db, q, w = _cycle_copy("upgrade", "upgrade", 2500)
     os.environ["BRAMBLELOOP_ARTIFACT_DIR"] = f"{tmp}/art"
-    db = _Database(f"sqlite:///{tmp}/upgrade.sqlite")
-    db.create_all()
-    _Registry(db).seed_defaults()
-    q = _JobQueue(db)
-    q.enqueue("orchestrator", "plan.cycle", {"as_of": TODAY.isoformat()})
-    w = _Worker(db, "upgrade")
-    for _ in range(2500):
-        if not w.run_once():
-            break
 
     # Reproduce "certified under an older chain": keep the certificates, remove everything the
     # current chain produces, and strip the current chain's keys.
@@ -470,28 +504,14 @@ def test_a_stale_listing_is_rebuilt_not_only_a_missing_one():
     So a copy fix reached nothing: every shipped product kept its old listing through two
     deploys, because a stale listing is present and the check only asked whether one existed.
     """
-    import tempfile as _tempfile
-
     from sqlalchemy import select as _select
 
-    from brambleloop.agents.registry import Registry as _Registry
-    from brambleloop.core.db import Database as _Database
     from brambleloop.core.models import Listing
-    from brambleloop.queue.durable import JobQueue as _JobQueue
     from brambleloop.runtime.release import CHAIN_VERSION
-    from brambleloop.runtime.worker import Worker as _Worker
 
-    tmp = _tempfile.mkdtemp()
+    # The full unattended cycle, as `plan.cycle` on an empty warehouse leaves it (`_cycle_copy`).
+    tmp, db, q, w = _cycle_copy("stale", "stale", 2500)
     os.environ["BRAMBLELOOP_ARTIFACT_DIR"] = f"{tmp}/art"
-    db = _Database(f"sqlite:///{tmp}/stale.sqlite")
-    db.create_all()
-    _Registry(db).seed_defaults()
-    q = _JobQueue(db)
-    q.enqueue("orchestrator", "plan.cycle", {"as_of": TODAY.isoformat()})
-    w = _Worker(db, "stale")
-    for _ in range(2500):
-        if not w.run_once():
-            break
 
     with db.session() as s:
         listings = list(s.scalars(_select(Listing)))
@@ -942,8 +962,10 @@ def test_the_same_certified_pattern_renders_the_same_file_every_time():
     for cir in (nf.build("throw"), build_cable_throw()):
         result = compile_cir(cir)
         twin = build_twin(cir, result)
-        hashes = {hashlib.sha256(build_pattern_pdf(cir, twin=twin).pdf_bytes).hexdigest()
-                  for _ in range(3)}
+        # Three real renders: the memo (tests/render_memo.py) would make this trivially true.
+        with render_memo.bypassed():
+            hashes = {hashlib.sha256(build_pattern_pdf(cir, twin=twin).pdf_bytes).hexdigest()
+                      for _ in range(3)}
         assert len(hashes) == 1, f"{cir.slug} rendered {len(hashes)} different files"
 
 if __name__ == "__main__":

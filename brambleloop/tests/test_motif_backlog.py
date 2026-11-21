@@ -631,7 +631,8 @@ def test_e2e_a_completed_gallery_hands_a_stalled_release_on_to_listing_package()
     readers accept (its verified disclosed renders): the handoff alone carries it through
     pricing.position -> listing.seo -> launch.plan -> listing.package, and the package is
     assembled. In SHADOW with no physical sample it is BLOCKED on the owner's physical-sample,
-    Etsy and SAMPLE_PHOTO_REQUIRED gates -- and on no image or gallery gate."""
+    Etsy and SAMPLE_PHOTO_REQUIRED gates and on D-OWNER-GALLERY-COMPLETE (6 of 7 frames)
+    -- and on no other image or gallery gate."""
     db, cir, rh = _certified("e2e-package")
     _chain(db, cir, rh, stop_after_assets=True)
     assert not [j for j in _jobs(db, "listing.package")]
@@ -656,18 +657,21 @@ def test_e2e_a_completed_gallery_hands_a_stalled_release_on_to_listing_package()
         payload = dict(row.payload)
     assert payload["state"] in (LP.READY, LP.BLOCKED)
     blockers = payload.get("blockers") or []
-    # D-OWNER-GALLERY-COMPLETE (merged with b17-c A4): this fixture's photography set
-    # certifies fewer than CAMPAIGN_MIN_FRAMES frames, so the package correctly names the
-    # gallery as incomplete -- an image blocker, tagged as one. Every other image gate the
-    # handoff exists to clear must be gone.
+    # D-OWNER-GALLERY-COMPLETE (merged with b17-c A4 and ENG-SALE-PIPELINE): this fixture's
+    # set certifies fewer than CAMPAIGN_MIN_FRAMES frames, so the package names the gallery as
+    # incomplete -- exactly one image blocker, citing the owner rule. No other image or gallery
+    # gate may block.
     from brambleloop.visual.shot_plans import CAMPAIGN_MIN_FRAMES
 
     incomplete = [b for b in blockers if b.get("source") == "certified_frames"
                   and str(b.get("why", "")).startswith("gallery incomplete")]
+    assert payload["state"] == LP.BLOCKED and len(incomplete) == 1, blockers
     assert all(b.get("image") is True for b in incomplete), incomplete
     assert all(f"of the {CAMPAIGN_MIN_FRAMES} required" in b["why"] for b in incomplete)
+    assert all("D-OWNER-GALLERY-COMPLETE" in b["why"] for b in incomplete), incomplete
     why = " ".join(b.get("why", "") for b in blockers if b not in incomplete)
-    for image_gate in ("POLICY_CLASSIFICATION", "GALLERY", "ASSET_", "listing images"):
+    for image_gate in ("POLICY_CLASSIFICATION", "GALLERY", "ASSET_", "listing images",
+                       "gallery incomplete"):
         assert image_gate not in why, (image_gate, why[:400])
     # A second handoff of the same gallery is the same job (idempotent).
     again = MB.gallery_handoff(enqueue, db, cir.slug, cir.version)

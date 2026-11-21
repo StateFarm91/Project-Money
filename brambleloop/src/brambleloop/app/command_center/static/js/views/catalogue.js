@@ -1,4 +1,4 @@
-// ENG-CATALOGUE: full product catalogue (GET /api/cc/catalogue). Read-only; server totals; null = Unknown.
+// ENG-CATALOGUE: full catalogue (GET /api/cc/catalogue); read-only; null = Unknown.
 import { h } from "../dom.js";
 import { api } from "../api.js";
 import { card, statusPill, statTile } from "../components.js";

@@ -1367,6 +1367,12 @@ def _production_with_paid_generator(db) -> str:
     real_admission = IP.sale_admission
     IP.sale_admission = lambda *a, **k: {"admitted": True, "test_double": True,
                                          "why": "admitted for the paid-gate test"}
+    # BATCH19F: the sale pipeline's own spend admission (tested in test_sale_pipeline) is
+    # the second spend gate; admitted here so the closed paid-provider gate is what refuses.
+    from brambleloop.publish import sale_pipeline as _SPL
+
+    real_spend = _SPL.spend_admitted
+    _SPL.spend_admitted = lambda *a, **k: True
     try:
         IP.trigger(follow, slug=cir.slug, version=cir.version, release=rel)
         for _ in range(30):
@@ -1378,6 +1384,7 @@ def _production_with_paid_generator(db) -> str:
             q.complete(job.id, outputs={}, worker="v0-worker", lease_token=job.lease_token)
     finally:
         IP.sale_admission = real_admission
+        _SPL.spend_admitted = real_spend
     run = IP.get_run(db, IP.run_key(cir.slug, cir.version, rel))
     assert run["state"] == "blocked" and PaidGenerator.calls == 0, run
     assert run["spent_cad"] == 0.0 and run["generation_calls"] == 0

@@ -63,6 +63,14 @@ from brambleloop.gates import platform_policy as PP  # noqa: E402
 from brambleloop.integrations import etsy_exercise as EX  # noqa: E402
 from brambleloop.publish import listing_schema as LS  # noqa: E402
 
+# These tests pin the SAMPLE_PHOTO_REQUIRED gate's own mechanics, so they run as if
+# D-OWNER-PUBLISH-WITH-RENDERS were not recorded; its waiver is covered by
+# test_publish_with_renders and test_vis_gallery_e2e::test_7a.
+from brambleloop.publish import sample_photo as _SPH  # noqa: E402
+
+_SPH.publish_with_renders = lambda: False
+
+
 PASS = "owner passphrase for the launchfix harness"
 OPS = "L" * 40
 os.environ[opsauth.TOKEN_VAR] = OPS
@@ -610,7 +618,12 @@ def _photo_fixture(db, *, bind=True, version_of_photo=None, unedited=True, first
         s.add(test)
         s.flush()
         test_id = test.id
-        for pos, role in enumerate(("hero", "chart"), start=1):     # the render gallery
+        # D-OWNER-GALLERY-COMPLETE: a listing-set certificate names the whole campaign
+        # (`shot_plans.CAMPAIGN_MIN_FRAMES`, seven), so the render gallery is seven frames;
+        # the photo, when it qualifies, is upgraded in ahead of them.
+        for pos, role in enumerate(("hero", "chart", "whats_included", "size", "materials",
+                                    "pattern_preview", "collection"),
+                                   start=1):                            # the render gallery
             rsha = store.put(f"r-{uuid.uuid4().hex}.png", f"render {role} {pos}".encode(),
                              "image/png").sha256
             s.add(ListingAsset(product_slug=cir.slug, version=cir.version, position=pos,
