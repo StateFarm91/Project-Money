@@ -138,6 +138,18 @@ FAMILIES: dict[str, Family] = {f.key: f for f in (
            "ball-body bear or bunny only; embroidered features; no texture, clothing or "
            "accessory; certification withholds for the physical sample and the child-safety "
            "physical evidence"),
+    # ENG-AMIGURUMI-BREADTH: shaped low-sew animals (creative.animals): head and body in one
+    # closed piece, limbs, ears, tails and fins crocheted in through a flattened edge
+    # (`cir.low_sew`, validated by the compiler, the twin and the reverse compiler).
+    # Physical-gated exactly like the ball-body toy; pinned by the proof below.
+    Family(FC.AMIGURUMI_ANIMAL, "creative.animals.build", PHYSICAL_GATE,
+           "tests/test_eng_animals.py::test_a_research_animal_is_physical_gated_end_to_end",
+           ("one size",), "creative.animals.ANIMALS at the drafted yarn weight (house design "
+                          "choices; circumference only, height from a sample)",
+           "frog, capybara, lamb, duckling, whale, otter, cow, dinosaur, octopus (chunky only); "
+           "embroidered features; no texture, accessory, patches, spikes or gills; "
+           "certification withholds for the physical sample and the child-safety physical "
+           "evidence"),
     # ENG-PLUSH slice 2: envelope-back cushion covers and appliqué-face covers, risk class A
     # (no stuffing, no hard part), certified end to end by the proofs below.
     Family(FC.ENVELOPE, "creative.cushions.envelope_cover", VERIFIED,
@@ -323,7 +335,8 @@ NAMED_FEATURES: tuple[tuple[str, str, frozenset], ...] = (
     ("handles", r"\bhandles?\b|\bhandled\b", frozenset({FC.TOTE, HD.HANDLED})),
     ("straps", r"\bstraps?\b", frozenset({FC.TOTE})),
     # ENG-HOMEDECOR: outlines, objects and stitch textures a title can name.
-    ("outline_round", HD._ROUND_RE, frozenset({HD.ROUND_VESSEL, HD.BOWL})),
+    # ENG-AMIGURUMI-BREADTH: the ball-body toy IS round (its route allows the word).
+    ("outline_round", HD._ROUND_RE, frozenset({HD.ROUND_VESSEL, HD.BOWL, FC.AMIGURUMI})),
     ("outline_oval", r"\boval\b|\boblong\b", frozenset()),
     ("bowl", HD._BOWL_RE, frozenset({HD.BOWL})),
     ("planter", HD._PLANTER_RE, frozenset()),
@@ -333,14 +346,16 @@ NAMED_FEATURES: tuple[tuple[str, str, frozenset], ...] = (
                        r"\bspike stitch\b|\bthermal stitch\b", frozenset()),
     ("amigurumi_features", r"\bamigurumi\b|\bears?\b|\btails?\b|\bwhiskers?\b|\bfaces?\b|"
                            r"\bsnouts?\b|\beyes?\b|\bpaws?\b|\bhorns?\b|\bwings?\b|"
-                           r"\bplush\b|\bstuffed\b", frozenset({FC.AMIGURUMI, FC.LOVEY})),
+                           r"\bplush\b|\bstuffed\b",
+     frozenset({FC.AMIGURUMI, FC.LOVEY, FC.AMIGURUMI_ANIMAL})),
     ("trim", r"\bfring(?:e|ed)\b|\btassels?\b|\bpom[- ]?poms?\b|\bruffles?\b|\bfrills?\b|"
              r"\bscallop(?:s|ed)?\b|\bpicots?\b|\blace\b|\blacy\b|\bfilet\b|"
              r"\bapplique\b|\bappliqu\u00e9d?\b|\bbeaded\b|"
              r"\bsequin(?:s|ned)?\b", frozenset()),
     # ENG-PLUSH: an embroidered face is what the amigurumi engine builds (yarn features only);
     # on any other family embroidery is still a feature its engine does not make.
-    ("embroidery", r"\bembroider(?:y|ed)\b", frozenset({FC.AMIGURUMI, FC.APPLIQUE, FC.LOVEY})),
+    ("embroidery", r"\bembroider(?:y|ed)\b",
+     frozenset({FC.AMIGURUMI, FC.APPLIQUE, FC.LOVEY, FC.AMIGURUMI_ANIMAL})),
     ("lining_pocket", r"\blin(?:ed|ing)\b|\bpockets?\b|\bpadded\b|\bquilted\b|"
                       r"\bfelted\b|\bstiffened\b|\bwired\b|\breinforced\b", frozenset()),
     ("motif_assembly", r"\bhexie\b|\bhexagon (?:motifs?|squares?|tiles?)\b|\bflowers?\b|"
@@ -443,6 +458,8 @@ PAIR_PROOFS: dict[tuple[str, str], str] = {
     (CW_TAPESTRY, "basket"): f"{CW_PROOF}::test_a_research_tapestry_basket_wall_certifies_with_its_chart",
     (CW_TAPESTRY, "pillow"): f"{CW_PROOF}::test_a_research_tapestry_cushion_is_physical_gated_with_its_chart",
     **{(FC.AMIGURUMI, c): FAMILIES[FC.AMIGURUMI].proof for c in FC.AMIGURUMI_CATEGORIES},
+    **{(FC.AMIGURUMI_ANIMAL, c): FAMILIES[FC.AMIGURUMI_ANIMAL].proof
+       for c in FC.AMIGURUMI_CATEGORIES},
     (FC.ENVELOPE, "pillow"): FAMILIES[FC.ENVELOPE].proof,
     (FC.APPLIQUE, "pillow"): FAMILIES[FC.APPLIQUE].proof,
     **{(FC.LOVEY, c): FAMILIES[FC.LOVEY].proof for c in ("baby", "amigurumi", "toy")},
@@ -553,6 +570,9 @@ def route(*, category: str, title: str, form: str, construction: str, slug: str 
     # amigurumi construction names it honestly.
     if declared == FC.AMIGURUMI and family == FC.LOVEY:
         declared = FC.LOVEY
+    # ENG-AMIGURUMI-BREADTH: a shaped animal is the amigurumi construction, honestly.
+    if declared == FC.AMIGURUMI and family == FC.AMIGURUMI_ANIMAL:
+        declared = FC.AMIGURUMI_ANIMAL
     # ENG-HOMEDECOR: a vessel concept drafted by a vessel variant is the vessel, honestly.
     if declared is not None and family != declared and not (
             {family, declared} <= {FC.TAPESTRY, CW_TAPESTRY} and category == "basket") \
@@ -577,7 +597,19 @@ def route(*, category: str, title: str, form: str, construction: str, slug: str 
         return _hold(label, why)
     # H1: the title and the premise must not name what the drafted engine does not build.
     # (Each is read on its own so a word cannot straddle the join.)
+    if family == FC.AMIGURUMI_ANIMAL:
+        from . import animals as _animals
+
+        word = _animals.premise_refusal(premise)
+        if word is not None:
+            return _hold(FC.AMIGURUMI_ANIMAL,
+                         f"the premise names {word!r}, which the shaped-animal engine does not "
+                         f"build; drafting it would sell a {word} the pattern does not make")
     for source, text in (("title", title), ("premise", premise)):
+        if family == FC.AMIGURUMI_ANIMAL:
+            # Its own technique words: a part "joined" into the body is the low-sew join.
+            text = re.sub(r"\bjoined (?=(?:legs?|paws?|arms?|bill|wings?|fins?|tail|ears?|"
+                          r"limbs?)\b)", "", FC.fold_title(text))
         named = named_feature(text, family)
         if named is not None:
             feature, word = named

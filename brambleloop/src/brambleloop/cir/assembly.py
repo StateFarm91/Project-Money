@@ -287,7 +287,15 @@ def _counted_round(cir, comp, twin) -> bool:
     if comp.construction == "flat_rows" or not twin.row_widths:
         return False
     joins = [s for s in cir.assembly if comp.name in (s.piece_a, s.piece_b)]
-    return bool(joins)
+    if joins:
+        return True
+    # ENG-AMIGURUMI-BREADTH: a piece crocheted into another (or one with crocheted-in pieces)
+    # is measured by its stitch counts at the joined round (`cir.low_sew`).
+    from . import low_sew
+
+    joined = low_sew.joined_pieces(cir)
+    return comp.name in joined or any(
+        getattr(op, "joins", None) for r in comp.rows for op in low_sew._ops(r.ops))
 
 
 def _round_count(twin, edge: str | None, at_round: int | None = None) -> int | None:
@@ -424,6 +432,7 @@ def assemble(cir, twins: dict) -> ObjectGeometry:
                                 f"{drift:.1%} difference: these do not sew together")
         geo.joins.append(join)
 
+    _low_sew_joins(cir, geo, twins)
     _silhouette(cir, geo)
     if geo.mismatched_joins:
         geo.verdict = "does_not_assemble"
@@ -442,6 +451,38 @@ def assemble(cir, twins: dict) -> ObjectGeometry:
         geo.verdict = "assembles"
         geo.why = "every join names its edges and every pair of edges agrees in length"
     return geo
+
+
+def _low_sew_joins(cir, geo: ObjectGeometry, twins: dict) -> None:
+    """ENG-AMIGURUMI-BREADTH: every crocheted-in piece is a join of the object, measured from
+    the host twin's cells against the piece's own flattened last round (`cir.low_sew`)."""
+    from . import low_sew
+
+    if not low_sew.joined_pieces(cir):
+        return
+    comps = {c.name: c for c in cir.components}
+    st_cm = (10.0 / cir.gauge.stitches_per_10cm) if cir.gauge else None
+    for host, twin in twins.items():
+        for site in low_sew.sites(twin, host):
+            comp = comps.get(site.piece)
+            edge = low_sew.edge_of(comp) if comp is not None else None
+            join = Join(method=low_sew.METHOD, piece_a=site.piece, piece_b=host,
+                        edge_a="top", edge_b=f"round {site.round}")
+            if edge is None or st_cm is None:
+                join.why = "the crocheted-in edge has no stitch count or no gauge to measure"
+            else:
+                join.length_a_cm = round(edge * st_cm, 2)
+                join.length_b_cm = round(site.width * st_cm, 2)
+                if edge == site.width:
+                    join.verdict = "sound"
+                    join.why = (f"{site.width} sts of round {site.round} worked through the "
+                                f"{site.piece}'s {edge}-st flattened edge, stitch for stitch")
+                else:
+                    join.verdict = "mismatched"
+                    join.why = (f"round {site.round} of the {host} works {site.width} sts "
+                                f"through the {site.piece}, whose flattened edge is {edge} "
+                                f"sts: these do not join")
+            geo.joins.append(join)
 
 
 def _measure(cir, seam, join: Join, la: float | None, lb: float | None) -> None:

@@ -429,6 +429,7 @@ def test_router_admits_only_verified_or_physical_gated_families():
     assert admitted == {FC.FLAT_PANEL, FC.VESSEL, FC.TAPESTRY, FC.PANEL_PAIR,
                         FC.COLOURWORK_TAPESTRY,
                         FC.AMIGURUMI, FC.ENVELOPE, FC.APPLIQUE, FC.LOVEY,
+                        FC.AMIGURUMI_ANIMAL,                                # ENG-AMIGURUMI-BREADTH
                         CF.GARMENT_RAGLAN, CF.GARMENT_ONE_PIECE,           # ENG-GARMENT
                         *CF.WEARABLE_FAMILIES,                              # ENG-GARMENT-2
                         *HD.VARIANTS}, admitted                             # ENG-HOMEDECOR
@@ -488,6 +489,9 @@ ADMITTED_PLAIN = {
     FC.PANEL_PAIR: ("pillow", "pillow", "flat_rows", "Hollow Fern Cushion Cover"),
     FC.COLOURWORK_TAPESTRY: ("blanket", "rectangle_throw", "tapestry",
                              "Modern Step Tapestry Throw"),
+    # ENG-AMIGURUMI-BREADTH: the shaped low-sew animal.
+    FC.AMIGURUMI_ANIMAL: ("amigurumi", "toy", "amigurumi_shaping",
+                          "Low-Sew Puddle Frog Amigurumi"),
 }
 
 
@@ -568,6 +572,41 @@ def test_mutant_without_the_feature_vocabulary_admits_a_granny_basket():
         CF.NAMED_FEATURES = real
     assert not CF.route(category="basket", title="Granny Stripe Basket", form="basket",
                         construction="in_the_round")["admitted"]
+
+
+def test_shaped_animals_are_admitted_only_for_toy_categories_and_hold_unbuilt_shapes():
+    """ENG-AMIGURUMI-BREADTH routing admission: the shaped-animal family is admitted for the
+    toy categories its proof covers, never mislabelled from another category, and every
+    unbuilt animal or feature is a named hold (engine demand), never an admission."""
+    for cat in FC.AMIGURUMI_CATEGORIES:
+        got = CF.route(category=cat, title="Riverbank Capybara Amigurumi", form="toy",
+                       construction="amigurumi_shaping")
+        assert got["admitted"] and got["family"] == FC.AMIGURUMI_ANIMAL, (cat, got)
+        assert CF.PAIR_PROOFS[(FC.AMIGURUMI_ANIMAL, cat)] == CF.FAMILIES[
+            FC.AMIGURUMI_ANIMAL].proof
+    # Declared as a cushion or flat rows, an animal title is not drafted as a toy.
+    for cat, form, constr in (("pillow", "pillow", "flat_rows"),
+                              ("blanket", "rectangle_throw", "flat_rows"),
+                              ("basket", "basket", "in_the_round")):
+        got = CF.route(category=cat, title="Riverbank Capybara Amigurumi", form=form,
+                       construction=constr)
+        assert not (got["admitted"] and got["family"] == FC.AMIGURUMI_ANIMAL), (cat, got)
+    for title in ("Low-Sew Pond Axolotl Amigurumi", "Hedgerow Hedgehog Amigurumi",
+                  "Shaggy Lamb Amigurumi", "Tiny Frog Amigurumi", "Frog Keychain"):
+        got = CF.route(category="amigurumi", title=title, form="toy",
+                       construction="amigurumi_shaping")
+        assert not got["admitted"] and got["reason"].startswith(CF.HOLD_PREFIX), (title, got)
+    # The status gate still applies: demoted, the family is held, not admitted.
+    old = CF.FAMILIES[FC.AMIGURUMI_ANIMAL]
+    CF.FAMILIES[FC.AMIGURUMI_ANIMAL] = CF.Family(old.key, old.engine, CF.PARTIAL, "",
+                                                 old.sizes, old.size_source, old.gaps)
+    try:
+        got = CF.route(category="amigurumi", title="Riverbank Capybara Amigurumi", form="toy",
+                       construction="amigurumi_shaping")
+        assert not got["admitted"] and got["reason"].startswith(
+            f"{CF.HOLD_PREFIX}{FC.AMIGURUMI_ANIMAL}"), got
+    finally:
+        CF.FAMILIES[FC.AMIGURUMI_ANIMAL] = old
 
 
 def test_a_pet_bed_is_held_until_it_certifies():
@@ -656,6 +695,13 @@ def test_every_admitted_family_category_pair_names_an_existing_certifying_proof(
                ("baby", "toy", "amigurumi_shaping", "Bear Lovey"),
                ("toy", "toy", "amigurumi_shaping", "Bunny Lovey"),
                ("amigurumi", "toy", "in_the_round", "Cosy Rabbit Lovey"),
+               # ENG-AMIGURUMI-BREADTH: shaped low-sew animals and the lamb lovey head.
+               ("amigurumi", "toy", "amigurumi_shaping", "Low-Sew Puddle Frog Amigurumi"),
+               ("toy", "toy", "amigurumi_shaping", "Chunky Harbour Whale Plush"),
+               ("amigurumi", "toy", "amigurumi_shaping", "Chunky Tidepool Octopus Plush"),
+               ("amigurumi", "sphere", "in_the_round", "Cosy Round Bear Amigurumi"),
+               ("baby", "toy", "amigurumi_shaping", "Sleepy Lamb Lovey"),
+               ("baby", "toy", "amigurumi_shaping", "Low-Sew Meadow Lamb Amigurumi"),
                # ENG-GARMENT: graded garments (each pair pinned in tests/test_eng_garment.py)
                ("cardigan", "fitted_garment", "top_down_yoke", "Fernway Raglan Cardigan"),
                ("baby", "fitted_garment", "top_down_yoke", "Hush Baby Cardigan"),

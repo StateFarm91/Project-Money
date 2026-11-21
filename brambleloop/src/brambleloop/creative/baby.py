@@ -48,14 +48,37 @@ def lovey_route(title: str | None) -> dict:
                 "why": "the title names no lovey head, and a lovey square on its own has no "
                        "size band"}
     animal_title = re.sub(_LOVEY_AUDIENCE, "", animal_title).strip()
+    # ENG-AMIGURUMI-BREADTH: a sleepy face is an embroidered variant (closed eyes), and a lamb
+    # head is the same closed head with its own ears (LOVEY_HEADS); both are read here and the
+    # rest of the title is held to the ball-body head's own vocabulary.
+    sleepy = bool(re.search(r"\bsleepy\b", animal_title))
+    animal_title = re.sub(r"\bsleepy\b", "", animal_title).strip()
+    lamb = re.search(r"\b(?:lamb|sheep)\b", animal_title)
+    if lamb:
+        animal_title = re.sub(r"\b(?:lamb|sheep)\b", "bear", animal_title)
     if not re.search(r"\b(?:bear|bunny|rabbit|teddy)\b", animal_title):
         animal_title = f"{animal_title} bear".strip()
     head = FC.amigurumi_route(animal_title.title())
     if head["family"] != FC.AMIGURUMI:
         return {"family": FC.REFUSED, "needs": head.get("needs", ""),
                 "why": f"the lovey's head: {head['why']}"}
-    return {"family": "lovey", "kind": head["kind"], "needs": "",
+    if lamb and head["kind"] != "bear":
+        return {"family": FC.REFUSED, "needs": "one head per lovey",
+                "why": "the lovey's head: the title names a lamb and another animal"}
+    return {"family": "lovey", "kind": "lamb" if lamb else head["kind"], "needs": "",
+            "sleepy": sleepy,
             "why": "a closed amigurumi head sewn to the centre of a flat square"}
+
+
+# ENG-AMIGURUMI-BREADTH: lovey heads beyond the ball-body bear and bunny. Each is the same
+# closed 36-st head (so every closure, stuffing and small-parts reading is the slice 1 head's)
+# with its own ears: (plain rounds after the ear's increases, its shaping note). House design.
+LOVEY_HEADS: dict[str, dict] = {
+    "lamb": {"base": "bear", "plain": 4,
+             "note": "a soft drooping ear: flatten the cup so its opening closes into a "
+                     "straight edge, and sew it on pointing outwards and down"},
+}
+SLEEPY_EYES = ("two closed, sleepy eyes, each a curved line of 3 backstitches over 1 st each")
 
 
 def lovey(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
@@ -70,8 +93,28 @@ def lovey(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
         type("C", (), {})()
     for attr in ("slug", "category", "colors", "yarn_weight"):
         setattr(head_concept, attr, getattr(concept, attr))
-    head_concept.title = "Ball " + kind.title()
+    spec = LOVEY_HEADS.get(kind)
+    head_concept.title = "Ball " + (spec["base"] if spec else kind).title()
     head = FC.amigurumi(head_concept)
+    if spec is not None:
+        # The base head's ear with this head's own plain rounds and note.
+        ear0 = head.components[1]
+        widest = ear0.rows[-1 - FC.AMI_ANIMALS[spec["base"]]["plain"]].declared_count
+        incs = ear0.rows[:len(ear0.rows) - FC.AMI_ANIMALS[spec["base"]]["plain"]]
+        rows = [dataclasses.replace(r) for r in incs]
+        for i in range(spec["plain"]):
+            rows.append(Row(index=len(rows) + 1, ops=[Op("sc", widest)], declared_count=widest,
+                            color=incs[-1].color))
+        rows[-1].note = ear0.rows[-1].note
+        head.components[1] = dataclasses.replace(
+            ear0, rows=rows, note=f"Make 2. Unstuffed: {spec['note']}.")
+    if route.get("sleepy"):
+        body0 = head.components[0]
+        head.components[0] = dataclasses.replace(body0, note=body0.note.replace(
+            "two eyes of 4 or 5 straight stitches over 1 st each", SLEEPY_EYES))
+        head.assembly[0] = dataclasses.replace(head.assembly[0], note=head.assembly[0].note
+                                               .replace("two eyes of 4 or 5 straight stitches "
+                                                        "over 1 st each", SLEEPY_EYES))
     palette = list(dict.fromkeys(concept.colors))
     gauge = gauge_for(concept.yarn_weight)
     sts = int(round(LOVEY_SQUARE_CM * gauge.stitches_per_10cm / 10.0))

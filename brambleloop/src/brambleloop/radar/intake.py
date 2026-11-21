@@ -755,7 +755,7 @@ def validate(db, proposal: dict, evidence: dict, *, source_ref: str) -> dict:
     from ..creative import fallback_constructions as _FC
 
     engine_sized = _FC.plan(category=str(p["category"]), title=str(p["title"]))[
-        "family"] in (_FC.LOVEY, _FC.AMIGURUMI)
+        "family"] in (_FC.LOVEY, _FC.AMIGURUMI, _FC.AMIGURUMI_ANIMAL)
     # ENG-GARMENT: a garment is sized by its sourced body table, one release of the whole
     # run; the flat bands do not apply, and a title naming any one size is refused.
     garment = str(c.get("form")) == "fitted_garment"

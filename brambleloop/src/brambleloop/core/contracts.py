@@ -76,7 +76,7 @@ def _evidence_shape():
 
 #: name -> (current version, shape function, what it is)
 CONTRACTS: dict[str, tuple[int, object, str]] = {
-    "cir": (3, _cir_shape, "the CIR dataclasses every department builds, checks and renders"),
+    "cir": (4, _cir_shape, "the CIR dataclasses every department builds, checks and renders"),
     "etsy_write_schemas": (1, _etsy_write_shape,
                            "what may be sent to Etsy (draft payload, updateListing, updateShop)"),
     "shop_policy_sections": (1, _policy_shape, "the shop's policy sections and text fields"),
@@ -99,7 +99,12 @@ CHANGELOG: dict[str, dict[int, str]] = {
                "ENG-COLOURWORK 78d6299 without a bump; declared by CERTFIX-1. Additive and "
                "optional: to_dict omits chart/stuff_at_round when None and closes when False, "
                "so every existing CIR serialises byte-identically; consumers quality_ops and "
-               "engineering_ops read none of these fields and are re-pinned to v3"},
+               "engineering_ops read none of these fields and are re-pinned to v3",
+            4: "2026-11-21: Op.joins (str | None, default None) added by ENG-AMIGURUMI-BREADTH: "
+               "a low-sew join, the piece an op's stitches are worked through (cir.low_sew). "
+               "Additive and optional: to_dict omits it when None, so every existing CIR "
+               "serialises byte-identically; consumers quality_ops and engineering_ops read no "
+               "Op fields and are re-pinned to v4"},
     "etsy_write_schemas": {1: "2026-10-26: first pinned version, incl. updateShop + sections"},
     "shop_policy_sections": {1: "2026-10-26: first pinned version"},
     "storefront_proposal": {1: "2026-10-26: first pinned version"},

@@ -63,6 +63,14 @@ class Op:
     # per-stitch mosaic are expressed. Count-neutral: the compiler's arithmetic never reads
     # it. None (the default) is omitted from `to_dict`, so no existing CIR's digest moves.
     color: str | None = None
+    # ENG-AMIGURUMI-BREADTH: a low-sew ("join-as-you-go") join. The op's stitches are worked
+    # through this round's stitches AND both layers of the named piece's flattened open edge
+    # at once, so a limb, ear or tail is crocheted into the piece rather than sewn on.
+    # Count-neutral for this round (one stitch made per stitch consumed); the joined piece's
+    # flattened edge (its last round / 2) must equal `count`, which `cir.low_sew` checks
+    # against the compiled rounds and the twin. None (the default) is omitted from `to_dict`,
+    # so no existing CIR's digest moves.
+    joins: str | None = None
 
     def __post_init__(self) -> None:
         if self.count < 1:
@@ -128,6 +136,8 @@ def _drop_null_op_colour(nodes: list) -> None:
         if "stitch" in node:
             if node.get("color") is None:
                 node.pop("color", None)
+            if node.get("joins") is None:
+                node.pop("joins", None)
         else:
             _drop_null_op_colour(node.get("ops", []))
 
@@ -822,7 +832,7 @@ class CIR:
             if "stitch" in x:
                 return Op(stitch=x["stitch"], count=x.get("count", 1), note=x.get("note"),
                           loop=x.get("loop", "both"), spans=x.get("spans", 0),
-                          color=x.get("color"))
+                          color=x.get("color"), joins=x.get("joins"))
             return Repeat(
                 ops=[node(o) for o in x["ops"]], times=x.get("times"), note=x.get("note")
             )

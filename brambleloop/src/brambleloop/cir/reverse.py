@@ -152,6 +152,8 @@ _LOOP_RE = re.compile(
 
 
 _OP_COLOUR_RE = re.compile(r"^(.+?)\s+with\s+([a-z0-9][a-z0-9_-]*)$", re.I)
+_OP_JOINS_RE = re.compile(r"^(.+?)\s+through\s+both\s+layers\s+of\s+the\s+([a-z0-9 _-]+)$",
+                          re.I)
 
 
 def _parse_op(text: str, terminology: str) -> Op:
@@ -161,6 +163,15 @@ def _parse_op(text: str, terminology: str) -> Op:
     if m:
         op = _parse_op(m.group(1), terminology)
         op.color = m.group(2)
+        return op
+    # ENG-AMIGURUMI-BREADTH: "sc in next 5 sts through both layers of the leg" is a low-sew
+    # join; the piece it names is structure, compared like the stitch itself.
+    m = _OP_JOINS_RE.fullmatch(t)
+    if m:
+        op = _parse_op(m.group(1), terminology)
+        if op.stitch in ("ch", "sk"):
+            raise ParseProblem(f"a {op.stitch} cannot be worked through another piece: {t!r}")
+        op.joins = m.group(2).strip()
         return op
 
     m = _LOOP_RE.fullmatch(t)
@@ -547,7 +558,8 @@ def _shape(node: OpNode) -> tuple:
     # The loop is part of the instruction: a back-loop row and a both-loops row have the
     # same counts and different fabric, and a comparison blind to it passes the wrong one.
     if isinstance(node, Op):
-        return ("op", node.stitch, node.count, node.loop, getattr(node, "color", None))
+        return ("op", node.stitch, node.count, node.loop, getattr(node, "color", None),
+                getattr(node, "joins", None))
     return ("rep", node.times, tuple(_shape(o) for o in node.ops))
 
 

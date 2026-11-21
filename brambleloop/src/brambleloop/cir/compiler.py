@@ -75,6 +75,7 @@ class ResolvedOp:
     loop: str = "both"
     spans: int = 0
     color: str | None = None   # P0-CIR-COLOURWORK: the op's own yarn, None = the row's
+    joins: str | None = None   # ENG-AMIGURUMI-BREADTH: the piece crocheted in (cir.low_sew)
 
 
 @dataclass
@@ -152,7 +153,8 @@ def _flatten(nodes: Iterable[OpNode], available: int, group: list[int]) -> tuple
     for i, n in enumerate(nodes):
         if isinstance(n, Op):
             out.append(ResolvedOp(n.stitch, n.count, n.consumes, n.produces, loop=n.loop,
-                                  spans=n.spans, color=getattr(n, "color", None)))
+                                  spans=n.spans, color=getattr(n, "color", None),
+                                  joins=getattr(n, "joins", None)))
             continue
 
         assert isinstance(n, Repeat)
@@ -193,7 +195,8 @@ def _flatten(nodes: Iterable[OpNode], available: int, group: list[int]) -> tuple
                     ResolvedOp(r.stitch, r.count, r.consumes, r.produces, repeat_group=gid,
                                loop=getattr(r, "loop", "both"),
                                spans=getattr(r, "spans", 0),
-                               color=getattr(r, "color", None))
+                               color=getattr(r, "color", None),
+                               joins=getattr(r, "joins", None))
                 )
 
     return out, problems
@@ -604,4 +607,10 @@ def compile_cir(cir: CIR) -> CompileResult:
         from . import closed_forms
 
         closed_forms.check(cir, result, result.findings)
+    # ENG-AMIGURUMI-BREADTH: every low-sew join is checked against the joined piece's own
+    # compiled flattened edge and the host round's twin positions (`cir.low_sew`).
+    from . import low_sew
+
+    if low_sew.joined_pieces(cir):
+        low_sew.check(cir, result, result.findings)
     return result

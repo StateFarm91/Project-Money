@@ -1405,6 +1405,21 @@ def handle_cir_draft(ctx: JobContext) -> dict:
                     concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
                     concept.source_brief, primitives)
             cir = FC.amigurumi(concept, provenance=provenance)
+        elif route["family"] == FC.AMIGURUMI_ANIMAL:
+            # ENG-AMIGURUMI-BREADTH: a shaped low-sew animal (creative.animals).
+            from ..creative import animals as _animals
+
+            provenance = None
+            if lineage["known"]:
+                concept.source_provenance = lineage["source"]
+                concept.source_brief = lineage["brief"]
+                primitives = (_animals.PRIMITIVES
+                              + tuple(p for p in lineage["primitives"]
+                                      if p != "runtime.pipeline.concept_to_cir"))
+                provenance = source_provenance(
+                    concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
+                    concept.source_brief, primitives)
+            cir = _animals.build(concept, provenance=provenance)
         elif route["family"] in (FC.ENVELOPE, FC.APPLIQUE, FC.LOVEY):
             # ENG-PLUSH slices 2-3: cushion covers (creative.cushions) and loveys
             # (creative.baby), drafted from modelled pieces only.
