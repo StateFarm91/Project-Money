@@ -1847,6 +1847,31 @@ def factory_visibility(db, *, now: datetime) -> dict:
         out["image_runs_by_state"] = dict(sorted(states.items()))
     except Exception as exc:  # noqa: BLE001
         out["image_runs_by_state"] = _unreadable(exc)
+    try:  # why each parked run is not admitted: blocker sources and leading codes only
+        import re as _re
+
+        from ..visual import image_production as IP
+        from ..visual.image_records import ImageProductionRun
+
+        with db.session() as s:
+            parked = [(r.slug, r.version, r.release) for r in s.scalars(
+                select(ImageProductionRun).where(ImageProductionRun.status == IP.SALE_WAITING))]
+        why = []
+        for slug, version, release in parked[:12]:
+            adm = IP.sale_admission(db, slug, version, release)
+            codes = []
+            for b in adm.get("non_image_blockers") or []:
+                if not isinstance(b, dict):
+                    continue
+                m = _re.match(r"\s*([A-Za-z_][A-Za-z0-9_.]{0,40})", str(b.get("why") or ""))
+                codes.append(f"{b.get('source')}:{m.group(1) if m else '?'}")
+            why.append({"run": f"{slug}@{version}", "admitted": bool(adm.get("admitted")),
+                        "blockers": codes[:8] or ([] if adm.get("admitted") else
+                                                  [_re.sub(r"[^a-z_ ]", "", str(
+                                                      adm.get("why") or "")[:60].lower())])})
+        out["parked_admission"] = why
+    except Exception as exc:  # noqa: BLE001
+        out["parked_admission"] = _unreadable(exc)
     try:
         from ..gateway import paid_provider_gate as G
 

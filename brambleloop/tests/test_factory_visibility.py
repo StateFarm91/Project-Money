@@ -29,6 +29,7 @@ def test_visibility_reports_jobs_activations_and_no_text():
                                             "openai-vision:vision": True}, v
     assert v["image_runs_by_state"] == {}, v   # readable and empty, never an error dict
     assert v["owner_etsy_exercise"] == [], v
+    assert v["parked_admission"] == [], v
     text = json.dumps(v)
     assert "inputs" not in text and "last_error" not in text
     ev = pe.evidence(db, now=NOW)
