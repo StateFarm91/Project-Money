@@ -3948,3 +3948,18 @@ Batch 19d (code 43609a8de) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the own
 ## D-OWNER-DEPLOY-19d1 — 2026-11-21T03:27:55Z
 
 Batch 19d1 (code 80ce7211b) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 15d03a0a17002990d1c06085c10fc98bdaf48aa9 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-HALT-380 — 2026-11-21
+
+Systemic halt #380 (production 7b250d61: 12 products stale and rebuild-incomplete, a fresh pending
+rebuild every hour, no verified rebuild since the chain moved to 9). Hypothesis "every deploy
+re-stales" rejected: freshness keys only on `chain:release` = fingerprint(CHAIN_VERSION), a manual
+constant. Cause: the sentinel keyed each product's rebuild on the estate-wide change set, so any
+other product's ref moving stacked a new attempt (bypassing in-flight, RETRY_AFTER and the hold),
+and that attempt's stage token equalled the first attempt's, so it deduplicated onto a finished or
+dead stage and rebuilt nothing; its no-op verify failures then held the product. Decided: (1) an
+existing attempt at the product's own change owns the key; (2) the stage token is per attempt;
+(3) a hold whose counted attempts did not each run a stage of their own is released once, onto a
+recorded fresh budget, with one targeted rebuild; the row stays open until verified evidence closes
+it. No gate, binding rule, attempt cap or halt rule changed. Branch `eng/halt-380`; report
+`w6/review_requests/HALT-380.md`. Not deployed.
