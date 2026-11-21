@@ -104,7 +104,7 @@ The two failing suites are **pre-existing**. They fail identically, before this 
 
 These are fixture and expectation drift from batch19's own rules, not from this change. They
 are not fixed here, because fixing them means rewriting those tests' fixtures, which is
-outside this task; they are recorded in BUILD_STATE. (Production 7b250d61 comparison pending at commit time.)
+outside this task; they are recorded in BUILD_STATE. On production 7b250d61, `test_w4_launchfix` fails the same two tests (so it is also failing in production code), while `test_w6_listing_chain_e2e` passes: its C/D drift arrived with batch19d's sale pipeline (the `pdf_standard` blocker), before this change.
 
 ## 6. Owner actions
 

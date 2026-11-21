@@ -8,7 +8,7 @@
 > 7a (publication refused without the photo) and 7b (the mutant without the photo gate is killed). Run
 > 20261121T041814Z-2448 @ ec20dcb: 309 passing, 2 suites failing. Both failures are **pre-existing** and identical on
 > 76d0525: `test_w4_launchfix` (two IMG tests whose 2/3-frame fixtures predate the seven-photo gallery rule) and
-> `test_w6_listing_chain_e2e` C/D (expected blocker sets predate the `pdf_standard` blocker). They are not fixed yet.
+> `test_w6_listing_chain_e2e` C/D (expected blocker sets predate the `pdf_standard` blocker, so this came in with batch19d; it passes on production 7b250d61, where test_w4_launchfix fails the same way). They are not fixed yet.
 > No listing is published: publication still needs a real unedited sample photo, which is an owner action. Report:
 > `w6/review_requests/SALE2.md`.
 > **2026-11-21 — BATCH19D on `claude/batch19d` (batch19c d8751850 + `claude/batch19-sale` 61b508b4; NOT merged to
