@@ -113,7 +113,7 @@ PROOF_MARKER = "TEXT-ONLY PROOF  ·  NOT CUSTOMER-READY  ·  AWAITING CERTIFIED 
 TEST_DOUBLE_MARKER = "PROOF WITH TEST-DOUBLE IMAGES  ·  NOT CUSTOMER-READY"
 
 # The template's section sequence: (key, number, kicker, title). Keys are the names a checker
-# reads (`SECTIONS`), aligned with publish.pdf_standard where a counterpart exists
+# reads (`SECTIONS`), aligned with publish.premium_standard where a counterpart exists
 # (`CHECKER_SECTION_ALIASES`).
 SECTIONS: tuple[tuple[str, str, str, str], ...] = (
     ("cover", "", "", ""),

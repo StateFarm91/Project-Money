@@ -246,6 +246,26 @@ def assemble(db, slug: str, version: str) -> dict | None:
     if files is None or not files.get("pdf_sha256_by_terminology"):
         blockers.append({"source": "assets.build",
                          "why": "no assets.build certifies PDFs for exactly this release"})
+    # D-OWNER-PDF-STANDARD / D-OWNER-SALE-PIPELINE: the package BLOCKS unless both premium
+    # illustrated editions (US and UK) PASS the PDF standard for exactly this release; the
+    # premium files are what the package carries.
+    from . import sale_pipeline as SPL
+
+    certs, err = _try(SPL.pdf_certificates, db, slug, version, release)
+    if err is not None:
+        blockers.append({"source": "pdf_standard", "why": err})
+    else:
+        if not certs["both_pass"]:
+            blockers.append({"source": "pdf_standard", "why": (
+                "premium PDFs are not certified against the PDF standard for this release: "
+                + ", ".join(f"{t} {e['verdict']}" + ("" if e["bound_to_release_pdfs"]
+                                                     else " (unbound)")
+                            for t, e in sorted(certs["editions"].items()))
+                + " (D-OWNER-PDF-STANDARD)")})
+        files = {**(files or {}), "premium_pdfs": {
+            t: {"pdf_sha256": e["pdf_sha256"], "verdict": e["verdict"],
+                "certificate_id": e["certificate_id"]}
+            for t, e in sorted(certs["editions"].items())}}
     # Review OPUS2F A-4: the copy must belong to this release. (One row per slug@version is
     # already a database constraint, `listings (product_slug, version)` unique, so the row this
     # reads is the row `certified_payload` reads.)

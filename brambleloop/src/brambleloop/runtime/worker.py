@@ -765,6 +765,11 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # OPUS2 (INTEG-LISTING-JOB): the owner-review listing package of every certified release,
     # from the chain's stored outputs. Six-hourly, CA$0, never publishes.
     ("listing_package", "listing", "listing.package", 6 * 60 * 60),
+    # ENG-SALE-PIPELINE (D-OWNER-SALE-PIPELINE, HARD RULE): admits newly eligible for-sale
+    # releases in value order within the caps, re-drives a stalled stage (bounded) and keeps a
+    # named incident per stalled release. Hourly, so the chain advances with the PC off.
+    # CA$0 itself: the only spend it can start is admitted image production.
+    ("sale_pipeline", "listing", "sale.pipeline_sweep", 60 * 60),
     # Daily, because what blocks a launch changes as the company builds: a requirement that
     # was ours yesterday can be the owner's today, and the owner queue should say so without
     # anyone asking.

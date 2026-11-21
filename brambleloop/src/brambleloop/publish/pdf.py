@@ -35,7 +35,7 @@ from ..cir.twin import TwinModel, build_twin
 from ..cir.writer import write_pattern
 from ..intel import childrens as ch
 from . import abbreviations, substitution, value_stack
-from . import pdf_standard as _std
+from . import premium_standard as _std
 from . import charts as chart_mod
 from .charts import (
     COLOUR_CUE_NOTE_FLAT, COLOUR_CUE_NOTE_ROUND, ChartSpec, RoundBlock, cell_size,
@@ -148,7 +148,7 @@ class PatternDocument:
     # Every picture the document places, in order: what it is and where it came from. A
     # reviewer checks the provenance of each image from here rather than by guessing.
     figures: list[dict] = field(default_factory=list)
-    # ENG-PDF-PREMIUM: this document's family audit (`publish.pdf_standard.Audit.to_dict`).
+    # ENG-PDF-PREMIUM: this document's family audit (`publish.premium_standard.Audit.to_dict`).
     standard: dict = field(default_factory=dict)
 
     def size_label(self) -> str:
@@ -994,12 +994,13 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
                       childrens: tuple[str, str] | None = None,
                       lesson_links: list[dict] | None = None,
                       sample_photo_placeholders: bool = False,
+                      campaign_photos: dict | None = None,
                       enforce_standard: bool = True) -> PatternDocument:
     """Render the full pattern document.
 
     Turning `enforce_standard` off is for tests that build a deliberately defective document to
     inspect one property of it; the audit still runs and is returned in `standard`. No
-    production caller passes it (`tests/test_pdf_standard.py` asserts so).
+    production caller passes it (`tests/test_premium_standard.py` asserts so).
 
     Refuses outright if the CIR does not compile. A PDF built on failed arithmetic is a
     defect we would be charging money for, and the release chain is supposed to make that
@@ -1025,6 +1026,14 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
     is run on the extracted bytes rather than on the template on purpose -- see
     `licence_paragraphs` for the last time a check compared a decision with itself and
     reported three surfaces consistent while the customer's document said something else.
+
+    `campaign_photos` (ENG-SALE-PIPELINE embedding hook, for ENG-PDF-PREMIUM to restyle):
+    `publish.pdf_photos.plan(...)["slots"]`, the listing's certified campaign gallery assigned
+    to the standard's photo slots. When given, the cover hero is the certified hero, full
+    bleed; the overview carries the lifestyle image; the construction page the progress
+    image; and the gallery page 5-6 certified images, each embedded as its deterministic JPEG
+    rendition so `publish.pdf_standard` can prove it from the built bytes. Omitted, the
+    document is exactly the one it was before the hook existed.
 
     `childrens` names the sub-category and age band, and defaults to whatever
     `childrens_assignment` says about this CIR's slug. Passing it explicitly is for tests and
@@ -1085,7 +1094,8 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
                                         released_on=released_on, total_pages=total,
                                         childrens=childrens, lesson_links=lesson_links,
                                         views=views, stages=stages,
-                                        sample_photo_placeholders=sample_photo_placeholders)
+                                        sample_photo_placeholders=sample_photo_placeholders,
+                                        campaign_photos=campaign_photos)
         if doc.pages == total:
             break
         total = doc.pages
@@ -1811,6 +1821,43 @@ def _rounded_image(doc: "_Doc", img, x: float, top: float, w: float, h: float, *
     return dw, dh
 
 
+def _campaign_photo(doc: "_Doc", photo: dict, x: float, top: float, w: float, h: float, *,
+                    slot: str, fill: bool = False) -> None:
+    """ENG-SALE-PIPELINE embedding hook: one certified campaign image, embedded as its
+    deterministic JPEG rendition (`publish.pdf_photos.rendition`; reportlab passes a JPEG
+    through unchanged, so the checker can match the embedded stream to the certified frame).
+    `fill` covers the box (cropped, for the full-bleed cover); otherwise it is fitted."""
+    from reportlab.lib.utils import ImageReader
+
+    reader = ImageReader(io.BytesIO(photo["jpeg"]))
+    iw, ih = reader.getSize()
+    scale = (max if fill else min)(w / iw, h / ih)
+    dw, dh = iw * scale, ih * scale
+    x0, y0 = x + (w - dw) / 2, top - (h - dh) / 2 - dh
+    c = doc.c
+    c.saveState()
+    p = c.beginPath()
+    p.rect(x, top - h, w, h)
+    c.clipPath(p, stroke=0, fill=0)
+    c.drawImage(reader, x0, y0, width=dw, height=dh)
+    c.restoreState()
+    doc.figures.append({"kind": "campaign_photo", "slot": slot, "page": doc.pages,
+                        "role": photo.get("role"), "frame_sha256": photo.get("frame_sha256"),
+                        "rendition_sha256": photo.get("rendition_sha256"),
+                        "label": photo.get("caption")})
+
+
+def _campaign_block(doc: "_Doc", photo: dict, head: str, *, slot: str, height: float) -> None:
+    """A fitted campaign image across the column with its caption beneath."""
+    usable = PAGE_W - 2 * MARGIN
+    doc.need(height + 12 * mm, head)
+    top = doc.y
+    _campaign_photo(doc, photo, MARGIN, top, usable, height, slot=slot)
+    doc.y = top - height - 3 * mm
+    doc.para(photo.get("caption") or "", size=9, color=MUTED, font=FONT_BODY_ITALIC)
+    doc.space(2 * mm)
+
+
 def _png_sha(img) -> str:
     buf = io.BytesIO()
     img.save(buf, format="PNG")
@@ -2015,7 +2062,8 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             childrens: tuple[str, str] | None = None,
             lesson_links: list[dict] | None = None,
             views: dict | None = None, stages: list | None = None,
-            sample_photo_placeholders: bool = False) -> tuple["_Doc", list[str], list[str]]:
+            sample_photo_placeholders: bool = False,
+            campaign_photos: dict | None = None) -> tuple["_Doc", list[str], list[str]]:
     """Lay the document out. Called until the page count it prints is the count it has."""
     from ..cir.twin import size_statement
     from ..visual import render_contract as K
@@ -2023,6 +2071,7 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
 
     views = views or {}
     stages = stages or []
+    photos = {k: list(v or []) for k, v in (campaign_photos or {}).items()}
     year = released_on.year
     doc = _Doc(f"{cir.title} - {designer}", total_pages=total_pages, author=designer,
                proof_banner=("PROOF COPY WITH PHOTO PLACEHOLDERS · NOT FOR SALE"
@@ -2091,6 +2140,17 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         title_y -= 7 * mm
     cover_view = "angle" if "angle" in views else ("hero" if "hero" in views else None)
     caption_y = band_h + 7 * mm
+    if photos.get("cover_hero"):
+        # ENG-SALE-PIPELINE hook: the certified hero, full bleed across the page.
+        from . import pdf_photos as _pp
+
+        box_top = title_y - 15 * mm
+        _campaign_photo(doc, photos["cover_hero"][0], 0, box_top, PAGE_W,
+                        box_top - (band_h + 12 * mm), slot="cover_hero", fill=True)
+        doc.prose.append(_pp.CAPTION)
+        doc.text(PAGE_W / 2, band_h + 5 * mm, _pp.CAPTION, FONT_BODY_ITALIC, 9, MUTED,
+                 align="centre")
+        cover_view = None
     if cover_view:
         img, sha = views[cover_view]
         box_top = title_y - 15 * mm
@@ -2159,6 +2219,10 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     for p in overview_paragraphs(cir, result, twin, text, terminology):
         doc.para(p, size=10.5)
     doc.space(3 * mm)
+    if photos.get("overview_lifestyle"):
+        # ENG-SALE-PIPELINE hook: the overview's lifestyle image (certified gallery).
+        _campaign_block(doc, photos["overview_lifestyle"][0], head, slot="overview_lifestyle",
+                        height=82 * mm)
 
     # At a glance: the project-details panel.
     rows: list[tuple[str, str, str, dict]] = []
@@ -2296,9 +2360,14 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     schematic = schematic_for(cir, result)
     overview = construction_overview(cir)
     scale_view = views.get("scale")
-    if schematic is not None or scale_view is not None or overview:
+    progress = photos.get("progress") or []
+    if schematic is not None or scale_view is not None or overview or progress:
         doc.new_page(head)
         doc.heading("How it is made", kicker="Construction and schematic")
+        for photo in progress:
+            # ENG-SALE-PIPELINE hook: the construction-progress image (certified gallery).
+            doc.label("Progress")
+            _campaign_block(doc, photo, head, slot="progress", height=70 * mm)
         # F-765: how the pieces become the object, before any row-level instruction.
         if overview:
             doc.heading("How it goes together", size=12)
@@ -2990,6 +3059,28 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
 
     # ---------------------------------------------------------------- 10. gallery ----------
     gallery = [(v, views[v]) for v in ("hero", "angle", "detail") if v in views]
+    if photos.get("gallery"):
+        # ENG-SALE-PIPELINE hook: the gallery page is the certified campaign gallery, 5-6
+        # images, in place of the render gallery.
+        from . import pdf_photos as _pp
+
+        doc.new_page(head)
+        doc.heading("Gallery", kicker="The finished design")
+        doc.para(_pp.DISCLOSURE, size=9.5, color=MUTED)
+        doc.space(1 * mm)
+        cw = (usable - 5 * mm) / 2
+        ch_ = min(cw * 0.75, 56 * mm)
+        cells = photos["gallery"]
+        for i in range(0, len(cells), 2):
+            doc.need(ch_ + 12 * mm, head)
+            top = doc.y
+            for j, photo in enumerate(cells[i:i + 2]):
+                x = MARGIN + j * (cw + 5 * mm)
+                _campaign_photo(doc, photo, x, top, cw, ch_, slot="gallery")
+            doc.y = top - ch_ - 4 * mm
+            doc.para(_pp.CAPTION, size=9, color=MUTED, font=FONT_BODY_ITALIC)
+            doc.space(2 * mm)
+        gallery = []
     if gallery or sample_photo_placeholders:
         doc.new_page(head)
         doc.heading("Gallery", kicker="The finished design")

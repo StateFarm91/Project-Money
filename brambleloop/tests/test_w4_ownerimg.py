@@ -483,12 +483,26 @@ def admitted_for_sale():
         IP.sale_admission = real
 
 
+def _admit_for_sale(db):
+    """D-OWNER-SPEND-ORDER (ENG-SALE-PIPELINE): a paid generator runs only for a release the
+    sale pipeline admitted; this fixture is that admitted release, so it reaches the gate."""
+    from brambleloop.publish import sale_pipeline as SPL
+
+    SPL.ensure_tables(db)
+    with db.session() as s:
+        s.add(SPL.SalePipelineRun(
+            run_key=SPL.run_key("cloudline-baby-blanket", "1.2.0", RELEASE),
+            slug="cloudline-baby-blanket", version="1.2.0", release=RELEASE,
+            state=SPL.GALLERY, reservation="held", reserved_cad=2.0, evidence={}))
+
+
 def test_default_generator_is_flux3_and_refused_while_the_gate_is_closed():
     from brambleloop.visual import image_production as IP
 
     db = make_db()
     gen = IP.resolve_generator(db)
     assert gen is not None and gen.name == "flux3-image-stages" and gen.paid
+    _admit_for_sale(db)
     follow, _ = drain(db, generator=None, judges=StubJudges())
     IP.trigger(follow, slug="cloudline-baby-blanket", version="1.2.0", release=RELEASE)
     drain(db, generator=None, judges=StubJudges())
@@ -616,6 +630,7 @@ def test_paid_generator_needs_the_image_generation_gate():
         paid = True
 
     db = make_db()
+    _admit_for_sale(db)
     follow, _ = drain(db, generator=Paid(), judges=StubJudges())
     IP.trigger(follow, slug="cloudline-baby-blanket", version="1.2.0", release=RELEASE)
     gen = Paid()
