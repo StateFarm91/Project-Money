@@ -96,6 +96,23 @@ def test_boot_runs_the_sentinel_and_the_health_sweep_once_per_commit():
     assert '"ops.sentinel"' in text and '"ops.health"' in text and "boot-{_name}-" in text
 
 
+def test_second_directive_recovers_then_exercises_bounded():
+    db = _db()
+    at = E.GIVEN_AT_2 + timedelta(hours=1)
+    order = []
+    rec = lambda: order.append("recover") or {"ok": True, "cleaned": 1}  # noqa: E731
+    bad = lambda: order.append("run") or {"ok": False, "status": "not clean"}  # noqa: E731
+    for _ in range(5):
+        E.maybe_run_2(db, now=at, recoverer=rec, runner=bad)
+    assert order == ["recover", "run"] * E.MAX_ATTEMPTS_2, order
+    db2 = _db()
+    good = lambda: {"ok": True, "status": "clean", "shop_is_clean": True}  # noqa: E731
+    assert E.maybe_run_2(db2, now=at, recoverer=rec, runner=good)["ok"] is True
+    assert E.maybe_run_2(db2, now=at, recoverer=rec, runner=good)["ran"] is False
+    assert E.maybe_run_2(_db(), now=E.SUNSET_2 + timedelta(minutes=1),
+                         recoverer=rec, runner=good)["ran"] is False
+
+
 if __name__ == "__main__":
     import traceback
     fails = 0

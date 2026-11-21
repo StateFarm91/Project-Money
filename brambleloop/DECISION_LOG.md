@@ -4107,3 +4107,16 @@ Reversible: closed rows can be reopened (lifecycle), and grants are revocable un
 ## D-OWNER-DEPLOY-19h5 — 2026-11-21T13:06:32Z
 
 Batch 19h5 (code 29a426996) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 17f17c200593d0f044f257af9dd9bec668d48184 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-ETSY-EXERCISE-2 — 2026-11-21T12:20Z (owner)
+
+The owner said, verbatim: "I can't do it. You do it" and "full autonomous". The first directive's two attempts reported the shop not clean, and the owner will not use Shop Manager.
+
+Under this second directive, the deployed service (RAILWAY_DEPLOYMENT_ID only) does the following at boot:
+1. Runs `etsy_exercise.recover`. It deletes ONLY listings provably our own, never-active exercise drafts, each delete read back.
+2. Runs the unchanged full CA$0 exercise. Its client is owner_authorised=False, so it cannot activate or publish.
+
+Limits:
+- Window: [12:20Z, +24 h].
+- At most 3 attempts; it stops after the first clean run.
+- Every attempt is audited.

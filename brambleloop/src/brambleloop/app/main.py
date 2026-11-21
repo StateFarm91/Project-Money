@@ -295,6 +295,13 @@ def _startup() -> None:
 
             _threading.Thread(target=_run_owner_etsy_exercise, daemon=True,
                               name="owner-etsy-exercise").start()
+        if _os.environ.get("RAILWAY_DEPLOYMENT_ID") and _oee.due_2(db)["due"]:
+            def _run_owner_etsy_exercise_2():
+                _time.sleep(BOOT_JOB_DELAY_SECONDS)
+                _oee.maybe_run_2(db, verify=_verify_snapshot)
+
+            _threading.Thread(target=_run_owner_etsy_exercise_2, daemon=True,
+                              name="owner-etsy-exercise-2").start()
     except Exception:  # noqa: BLE001 - never prevents a boot
         pass
     if schema_changes:
