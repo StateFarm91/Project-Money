@@ -744,6 +744,18 @@ def _retired_slugs() -> set[str]:
 _VISUAL_KEY = re.compile(r"^(?P<slug>[^@:#]+)@(?P<version>[^#]+)#(?P<id>\d+)$")
 _MARKETING_KEY = re.compile(r"^(?P<slug>[^@:#]+):(?P<channel>[a-z_]+):(?P<digest>[0-9a-f]{16})$")
 CONTENT_SUPERSEDED = "superseded"
+# eng/halt-380-marketing: content that has reached an audience. It is never superseded or
+# retired by a plan change: retiring it would hide public copy that may describe an old
+# release. Read broadly on purpose -- any state naming publication, or a recorded
+# publication on the piece's detail, counts.
+CONTENT_PUBLISHED_STATES = frozenset({"published", "live", "sent", "posted", "scheduled_live"})
+
+
+def content_published(state, detail=None) -> bool:
+    """Has this content piece been published? Fails toward True for any recorded sign."""
+    d = detail or {}
+    return (str(state or "").strip().lower() in CONTENT_PUBLISHED_STATES
+            or bool(d.get("published_at") or d.get("published_url") or d.get("published")))
 
 
 def _vanished_lookup(db):
@@ -757,11 +769,13 @@ def _vanished_lookup(db):
         frames = {(s, v, int(i)) for i, s, v in db.execute(
             select(ListingAsset.id, ListingAsset.product_slug, ListingAsset.version))}
         live, superseded = set(), set()
-        for s, ch, title, state in db.execute(select(
+        for s, ch, title, state, detail in db.execute(select(
                 ContentPiece.product_slug, ContentPiece.channel, ContentPiece.title,
-                ContentPiece.state)):
-            (superseded if state == CONTENT_SUPERSEDED else live).add(
-                marketing_key(s, ch, title))
+                ContentPiece.state, ContentPiece.detail)):
+            # eng/halt-380-marketing: a superseded piece with any sign of publication on it
+            # is live content, never retired
+            (superseded if state == CONTENT_SUPERSEDED and not content_published(None, detail)
+             else live).add(marketing_key(s, ch, title))
     except Exception:  # noqa: BLE001 - unreadable is never evidence of absence
         return lambda *_a: None
 

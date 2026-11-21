@@ -298,3 +298,4 @@ tests/test_clothing_e2e.py
 tests/test_eng_animals.py
 tests/test_evidence_perf.py
 tests/test_supply_lane.py
+tests/test_halt_380_marketing.py

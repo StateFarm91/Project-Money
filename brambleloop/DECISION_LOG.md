@@ -4156,3 +4156,27 @@ tested), pre-engineering, engine-demand, family diversity, cost ceilings, every 
 ## D-OWNER-DEPLOY-19h8 — 2026-11-21T13:44:35Z
 
 Batch 19h8 (code 54cdae21d) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to a93635cebc8737fdc3cfd3a51cf3a08f98ba7789 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+## D-HALT-380-MARKETING — 2026-11-21
+Production dc10a48d readback 10:35Z: 102 of the 111 halting stale rows are `marketing_asset`, and
+94 of those were written from an older release; the other 9 are 2 products' current-release core
+rows. The readback was taken 14 minutes after HALT-380-VERIFY went live (10:21Z). The chain moved
+8 -> 9 at 19b (02:06Z), and RETRY_AFTER is 12 h, so no attempt can yet have run on that code.
+"Changed nothing" is not evidence about it. Reproduced on the real chain in production's shape (12
+products, about 9 marketing rows each, under the old chain, cir and release):
+(a) the rebuild order is already core first: one stage (`pricing.position`) writes every core row
+before `launch.plan` enqueues `marketing.schedule`. Asserted from the rows' job ids. Not changed.
+(b) an earlier plan's piece in any unpublished state other than `drafted` was never superseded, so it
+read STALE for good. Fixed: every out-of-plan piece that was never published is superseded, with
+its prior state and reason. Published content is never superseded or retired: it is listed, stays
+STALE and keeps the product halted.
+(c) a just-retired piece's open sentinel row refused the product's next marketing rebuild "halted
+(#173)" until the hourly sweep. Fixed for the marketing-rebuild flag only: a RETIRED row is waived as
+FRESH was, and with nothing outstanding the rebuild may proceed when every halting row is
+sweep-pending. Publication still reads every row.
+(d) a superseded piece back in the plan is restored to `drafted`, so later staleness is never read as
+retired.
+Rejected:
+- retiring a marketing row that no piece carries (absence proves nothing; unchanged);
+- reordering the rebuild into two phases (the real chain already orders it);
+- any change to binding, RETRY_AFTER, attempts, systemic thresholds or parking.
+Report: `w6/review_requests/HALT-380-MARKETING.md`.
