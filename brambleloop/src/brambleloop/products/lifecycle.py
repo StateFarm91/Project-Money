@@ -78,6 +78,15 @@ def _ready_for_sale(db, slug: str, version: str | None) -> dict:
 
 
 def derive(db, slug: str) -> dict:
+    """The product's lifecycle stage. eng/evidence-perf: inside a request memo
+    (`core.request_memo.scope`, the readback evidence) each slug is derived once; everywhere
+    else this reads live rows on every call, as before."""
+    from ..core import request_memo
+
+    return request_memo.memo(("lifecycle.derive", id(db), slug), lambda: _derive(db, slug))
+
+
+def _derive(db, slug: str) -> dict:
     from sqlalchemy import func, select
 
     from ..autonomy import memory
@@ -89,7 +98,9 @@ def derive(db, slug: str) -> dict:
                 "why": rec["body"].get("why")}
     with db.session() as s:
         product = s.scalar(select(Product).where(Product.slug == slug))
-        versions = list(s.scalars(select(PatternVersion).where(
+        # eng/evidence-perf: only the `certified` flag is read here; loading whole rows
+        # pulled every release's CIR and certificate JSON for a yes/no.
+        versions = list(s.execute(select(PatternVersion.certified).where(
             PatternVersion.product_id == product.id))) if product else []
         listings = list(s.scalars(select(Listing).where(Listing.product_slug == slug)))
         assets = s.scalar(select(func.count()).select_from(ListingAsset).where(

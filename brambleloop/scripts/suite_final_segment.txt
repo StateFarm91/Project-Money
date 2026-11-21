@@ -300,3 +300,5 @@ tests/test_clothing_e2e.py
 tests/test_eng_animals.py
 tests/test_image_ad.py
 tests/test_image_e2e_worker.py
+tests/test_evidence_perf.py
+tests/test_supply_lane.py

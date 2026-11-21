@@ -30,6 +30,10 @@ sys.path.insert(0, str(ROOT))
 
 _TMP = tempfile.mkdtemp(prefix="w4_listready_")
 os.environ["BRAMBLELOOP_ARTIFACT_DIR"] = os.path.join(_TMP, "artifacts")
+# ENG-SUPPLY-LANE: this suite pins the historical one-worker admission (WIP 2, one admission
+# per run) through the existing env override and the per-run constant; the capacity-based
+# defaults are proven in tests/test_supply_lane.py.
+os.environ["BRAMBLELOOP_SUPPLY_MAX_WIP"] = "2"
 
 from sqlalchemy import select  # noqa: E402
 
@@ -1018,6 +1022,10 @@ def test_f8_every_etsy_write_call_site_is_classified_and_release_writes_pass_for
         ("integrations/etsy.py", "publish"): "the client's composite; grant verified first",
         ("integrations/etsy_exercise.py", "create_draft"):
             "write-path exercise draft: shadow lane only, never a release, deleted",
+        ("integrations/etsy_exercise.py", "recover_with"):
+            "ENG-ETSY-RECOVERY: deletes ONLY listings provably this system's own exercise "
+            "drafts (marker AND own ledger), in state draft, never active; each delete is "
+            "read back; deny-direction, never a release write",
         ("integrations/etsy_probe.py", "*"):
             "write-path probe's exercise listing: shadow lane only, activation asserted refused",
         ("commerce/listing_rollback.py", "execute"):

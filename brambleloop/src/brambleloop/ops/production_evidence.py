@@ -186,15 +186,22 @@ def _unreadable(exc: Exception) -> dict:
 
 
 def dead_letters(db, *, now: datetime, hours: int = PASS_WINDOW_HOURS) -> dict:
-    from sqlalchemy import select
+    from sqlalchemy import and_, or_, select
 
     from ..core.models import Job, JobStatus
     from ..queue.durable import deliberate_refusal
 
     since = now - timedelta(hours=hours)
     with db.session() as s:
+        # eng/evidence-perf: bounded to the window in SQL (every dead letter ever, with its
+        # error text, was loaded and filtered here). The same rule as the loop below -- the
+        # row's time is finished_at, else created_at -- which still re-checks every row.
         rows = list(s.execute(select(Job.id, Job.job_type, Job.last_error, Job.finished_at,
-                                     Job.created_at).where(Job.status == JobStatus.DEAD)))
+                                     Job.created_at).where(
+            Job.status == JobStatus.DEAD,
+            or_(Job.finished_at >= since,
+                and_(Job.finished_at.is_(None),
+                     or_(Job.created_at.is_(None), Job.created_at >= since))))))
     groups: dict[tuple, dict] = {}
     recent_unexpected = 0
     for r in rows:
@@ -1702,6 +1709,13 @@ def judge_weekly(ev: dict) -> bool:
 
 def checks(db, *, now: datetime | None = None) -> list[dict]:
     """The `/api/verify` `evidence_checks`. False without evidence, never true by default."""
+    from ..core import request_memo
+
+    with request_memo.scope():
+        return _checks(db, now=now)
+
+
+def _checks(db, *, now: datetime | None = None) -> list[dict]:
     now = _aware(now) or datetime.now(timezone.utc)
     halt = _section("publishing_halt", db, now)
     stale = _section("stale_artefact_rebuilds", db, now)
@@ -1793,7 +1807,19 @@ def deploy_readback(handlers: dict) -> dict:
 
 
 def evidence(db, *, now: datetime | None = None, deploy_handlers: dict | None = None) -> dict:
-    """The body of GET /api/readback/evidence (read-only token)."""
+    """The body of GET /api/readback/evidence (read-only token).
+
+    eng/evidence-perf: every section reads inside ONE request memo (`core.request_memo`), so
+    a read several sections share (each product's lifecycle stage, the halted releases, the
+    listing packages, the provenance check) is made once per request, never across requests.
+    """
+    from ..core import request_memo
+
+    with request_memo.scope():
+        return _evidence(db, now=now, deploy_handlers=deploy_handlers)
+
+
+def _evidence(db, *, now: datetime | None = None, deploy_handlers: dict | None = None) -> dict:
     import time as _time
 
     now = _aware(now) or datetime.now(timezone.utc)
@@ -1845,6 +1871,25 @@ def evidence(db, *, now: datetime | None = None, deploy_handlers: dict | None = 
 
 # ---- factory visibility (read-only; counts and fixed vocabulary only) --------------------
 
+
+def shared_provenance(db):
+    """(current fingerprints, {"class:key": Verdict}) -- `artefacts.current_from_db` and ONE
+    `artefacts.check` per request (eng/evidence-perf). Inside `request_memo.scope` (every
+    evidence read) each later reader shares the first one's result; outside it this is a
+    fresh read. Read-only: callers must not mutate what they are given."""
+    from ..core import request_memo
+    from . import artefacts as provenance
+
+    def read():
+        with db.session() as s:
+            current = provenance.current_from_db(s)
+            verdicts = {f"{v.artefact_class}:{v.artefact_key}": v
+                        for v in provenance.check(s, current=current)}
+        return current, verdicts
+
+    return request_memo.memo(("provenance.check", id(db)), read, copy_result=False)
+
+
 _VIS_JOB_TYPES = ("listing.package", "visual.image_production", "ops.owner_queue_consolidate",
                   "assets.generated_gallery", "visual.gallery_certify")
 
@@ -1856,7 +1901,7 @@ def factory_visibility(db, *, now: datetime) -> dict:
     attempts (outcome class only)."""
     from collections import Counter
 
-    from sqlalchemy import select
+    from sqlalchemy import or_, select
 
     from ..core.models import Job
 
@@ -1864,8 +1909,12 @@ def factory_visibility(db, *, now: datetime) -> dict:
     since = now - timedelta(hours=24)
     try:
         with db.session() as s:
+            # eng/evidence-perf: bounded to the window in SQL; a row with no time still
+            # counts, exactly as the loop below has always counted it.
             rows = s.execute(select(Job.job_type, Job.status, Job.created_at)
-                             .where(Job.job_type.in_(_VIS_JOB_TYPES))).all()
+                             .where(Job.job_type.in_(_VIS_JOB_TYPES),
+                                    or_(Job.created_at.is_(None),
+                                        Job.created_at >= since))).all()
         jobs: Counter = Counter()
         for jt, st, at in rows:
             at = _aware(at)
@@ -1886,7 +1935,7 @@ def factory_visibility(db, *, now: datetime) -> dict:
     try:  # what the open stale-artefact incidents are: class, release relation, moved upstreams
         import re as _re
 
-        from ..core.models import Incident, Product
+        from ..core.models import Incident
         from . import artefacts as provenance
 
         _re_vocab = _re.compile(r"[a-z][a-z0-9_]{0,30}")
@@ -1895,14 +1944,12 @@ def factory_visibility(db, *, now: datetime) -> dict:
             sigs = [r for (r,) in s.execute(select(Incident.signature).where(
                 Incident.resolved.is_(False),
                 Incident.signature.like(f"{provenance.SENTINEL_SIGNATURE}:%")))]
-            newest = {}
-            for p in s.scalars(select(Product)):
-                pv = provenance.newest_release(s, p.id)
-                if pv is not None:
-                    newest[p.slug] = pv.version
-            current = provenance.current_from_db(s)
-            verdicts = {f"{v.artefact_class}:{v.artefact_key}": v
-                        for v in provenance.check(s, current=current)}
+        # eng/evidence-perf: ONE provenance read per request, shared by every reader. The
+        # newest certified release per slug is `current.latest_version` -- the same rule
+        # (`newest_version` over the certified versions, None when unorderable) that
+        # `newest_release` applied with a whole-row query per product.
+        current, verdicts = shared_provenance(db)
+        newest = dict(current.latest_version)
         by_class, by_release, by_state, moved = Counter(), Counter(), Counter(), Counter()
         for sig in sigs:
             node = sig.split(":", 1)[1] if ":" in sig else sig
@@ -1969,6 +2016,10 @@ def factory_visibility(db, *, now: datetime) -> dict:
     except Exception as exc:  # noqa: BLE001
         out["parked_admission"] = _unreadable(exc)
     try:
+        out["supply"] = supply_visibility(db, now=now)
+    except Exception as exc:  # noqa: BLE001
+        out["supply"] = _unreadable(exc)
+    try:
         from ..gateway import paid_provider_gate as G
 
         G.ensure_tables(db)
@@ -1987,3 +2038,77 @@ def factory_visibility(db, *, now: datetime) -> dict:
     except Exception as exc:  # noqa: BLE001
         out["owner_etsy_exercise"] = _unreadable(exc)
     return out
+
+
+def supply_visibility(db, *, now: datetime) -> dict:
+    """ENG-SUPPLY-LANE: the supply side of the factory, counts and fixed vocabulary only.
+
+    * `pool_by_state`: concept-pool entries by state (`radar.concept_pool.STATES`); a state
+      outside that vocabulary is counted as `unrecognised`, never echoed. UNKNOWN (None, with
+      `pool_generated` False) when no pool row exists -- never 0.
+    * `in_flight_by_stage`: products with live chain work, each counted once at its earliest
+      live stage (`release_recovery.CHAIN_STAGE_JOBS`).
+    * `engineering`: the admission reading -- WIP limit, products holding an engineering
+      slot, products whose publishing-lane work is held by a publication hold, open slots.
+    * `offers_waiting`: supply offers recorded and not yet admitted.
+    * `certified_24h`: releases certified (`gate.certified`) in the last 24 h, and the
+      distinct products they belong to.
+    No slug, title, reason text or job payload is returned."""
+    from collections import Counter
+
+    from sqlalchemy import inspect, select
+
+    from ..core.models import LIVE_JOB_STATUSES, AuditLog, Job
+    from ..products import supply
+    from ..radar import concept_pool as CP
+    from ..runtime.release_recovery import CHAIN_STAGE_JOBS, _job_slug
+
+    out: dict = {}
+    states: Counter = Counter()
+    if inspect(db.engine).has_table(CP.ConceptPoolEntry.__tablename__):
+        with db.session() as s:
+            states = Counter(str(st) for st in s.scalars(select(CP.ConceptPoolEntry.state)))
+    out["pool_generated"] = bool(states)
+    if states:
+        pool = {k: 0 for k in CP.STATES}
+        for st, n in states.items():
+            key = st if st in CP.STATES else "unrecognised"
+            pool[key] = pool.get(key, 0) + n
+        out["pool_by_state"] = pool
+        out["pool_total"] = sum(states.values())
+    else:
+        out["pool_by_state"], out["pool_total"] = None, None
+    order = {jt: i for i, jt in enumerate(CHAIN_STAGE_JOBS)}
+    earliest: dict[str, str] = {}
+    with db.session() as s:
+        for jt, inputs in s.execute(select(Job.job_type, Job.inputs).where(
+                Job.job_type.in_(CHAIN_STAGE_JOBS), Job.status.in_(LIVE_JOB_STATUSES))):
+            slug = _job_slug(inputs) or "(unnamed)"
+            if slug not in earliest or order[jt] < order[earliest[slug]]:
+                earliest[slug] = jt
+    stages = {jt: 0 for jt in CHAIN_STAGE_JOBS}
+    for jt in earliest.values():
+        stages[jt] += 1
+    out["in_flight_by_stage"] = stages
+    out["products_in_flight"] = len(earliest)
+    try:
+        cap = supply.assess(db, now=now)
+        out["engineering"] = {"wip_limit": int(cap["limit"]),
+                              "holding_a_slot": len(cap["in_flight"]),
+                              "held_for_publication": len(cap["held_for_publication"]),
+                              "parked_on_sample_or_owner": len(cap["waiting"]),
+                              "open_slots": int(cap["slots"]),
+                              "admission_refused": bool(cap["refusals"])}
+    except Exception as exc:  # noqa: BLE001
+        out["engineering"] = _unreadable(exc)
+    try:
+        out["offers_waiting"] = len(supply.offers(db))
+    except Exception as exc:  # noqa: BLE001
+        out["offers_waiting"] = _unreadable(exc)
+    with db.session() as s:
+        arts = [a for (a,) in s.execute(select(AuditLog.artifact).where(
+            AuditLog.action == "gate.certified", AuditLog.at >= now - timedelta(hours=24)))]
+    out["certified_24h"] = {"releases": len(set(arts)),
+                            "products": len({str(a or "").split("@", 1)[0] for a in arts})}
+    return out
+

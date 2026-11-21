@@ -19,6 +19,8 @@ from ..core.models import Incident, utcnow
 
 # How many independent reports of the same signature before it stops being a coincidence.
 DEFECT_THRESHOLD = 3
+# The company-wide escalation row (`ops.incident_lifecycle.SYSTEMIC_SIGNATURE` family).
+SYSTEMIC_PREFIX = "systemic-halt:"
 
 
 class SupportCannotPatchPatterns(PermissionError):
@@ -113,6 +115,37 @@ class IncidentTracker:
         of the same object that moved the digest and so escaped the halt. A size halt is
         lifted only by the owner (`runtime.release.lift_size_halt`)."""
         return any(i.halts_publication for i in self.open_incidents(product_slug))
+
+    def certification_halts(self, product_slug: str) -> list[Incident]:
+        """The open incidents that stop `gate.certify` for this product.
+
+        ENG-SUPPLY-LANE (owner P0: "Publication holds MUST NOT stop permitted research, QA,
+        PDFs or internal listings"). Certification is QA: it publishes nothing, and every
+        publication gate still reads `publication_halted`, the company-wide row included.
+        So every halt naming this product stops its certification exactly as before. The
+        company-wide `systemic-halt:publication` row is waived here only on the rule the
+        publication gates already use for rebuilds (`release_gates._staleness_only`): its
+        live evidence is widespread artefact STALENESS and no integrity failure. A tampered
+        authority chain, any other widespread family, or evidence that cannot be read keeps
+        it halting (fail closed). Evidence and rows are read in one session."""
+        from ..ops.incident_lifecycle import SYSTEMIC_SIGNATURE, systemic_evidence
+        from ..publish.release_gates import _staleness_only
+
+        with self.db.session() as s:
+            try:
+                staleness_only = _staleness_only(systemic_evidence(s))
+            except Exception:  # noqa: BLE001 - unreadable evidence never waives a halt
+                staleness_only = False
+            rows = list(s.scalars(select(Incident).where(
+                Incident.resolved == False,  # noqa: E712
+                Incident.halts_publication.is_(True),
+                (Incident.product_slug == product_slug) | (
+                    Incident.signature.like(f"{SYSTEMIC_PREFIX}%")))))
+            for r in rows:
+                s.expunge(r)
+        return [r for r in rows
+                if not (staleness_only and r.product_slug is None
+                        and r.signature == SYSTEMIC_SIGNATURE)]
 
     def resolve(self, incident_id: int, resolution: str, new_version: str | None = None) -> None:
         with self.db.session() as s:
