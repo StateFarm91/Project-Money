@@ -94,7 +94,8 @@ GOLDEN = {
     "core": {"cover", "overview_table", "supply_yarn", "supply_hook_notions",
              "gauge_every_fabric", "construction_narrative", "abbreviations",
              "row_counts", "rs_ws", "finishing", "tips", "licence",
-             "about_brand", "rendering_disclosure", "substitution", "schematic"},
+             "about_brand", "rendering_disclosure", "substitution", "schematic",
+             "techniques_appendix"},
     S.SMALL_HOME: {"colourwork_chart"},
     S.BLANKET: {"colourwork_chart", "safety"},
     S.BASKET: {"inline_diagrams", "colourwork_chart"},
@@ -266,11 +267,18 @@ MUTATIONS = {
     "rendering_disclosure": ("hexagon_coasters",
                              _drop("not a photograph", "digital rendering", "Photograph")),
     "safety": ("nordic_forest_baby", _drop(pdf.CHILDRENS_HEADING)),
+    "techniques_appendix": ("hexagon_coasters", _drop("Starting in a magic ring")),
 }
 
 
 def test_every_rule_has_a_mutation():
-    assert set(MUTATIONS) | {"running_header_footer", "special_stitches"} == set(S.RULE_IDS)
+    # The amigurumi-only rules (no engine document is amigurumi) are mutated on the template's
+    # amigurumi document in tests/test_pdf_diagrams.py (AMI_MUTATIONS), each by id.
+    from tests.test_pdf_diagrams import AMI_MUTATIONS
+
+    assert set(MUTATIONS) | set(AMI_MUTATIONS) | {"running_header_footer",
+                                                  "special_stitches"} == set(S.RULE_IDS)
+
 
 
 def test_a_special_stitch_without_its_definition_fails():

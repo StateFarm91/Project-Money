@@ -129,6 +129,9 @@ SECTIONS: tuple[tuple[str, str, str, str], ...] = (
     ("gallery_continued", "09", "CONTINUED GALLERY", "The details that matter"),
     ("about", "10", "THE STUDIO", "A little about Brambleloop"),
     ("copyright", "11", "COPYRIGHT + USE", "The small print, clearly"),
+    # ENG-PDF-DIAGRAMS: the techniques appendix, generated from the CIR's own stitch set
+    # (publish.technique_appendix). It follows the owner's eleven sections, as an appendix.
+    ("appendix", "A", "APPENDIX", "Techniques used in this pattern"),
 )
 SECTION_ORDER = tuple(s[0] for s in SECTIONS)
 _SECTION = {s[0]: s for s in SECTIONS}
@@ -402,48 +405,136 @@ def profile_scale(cir: CIR) -> float:
     """Pixels per cm, one scale for every piece of the pattern so they compare truly."""
     g = cir.gauge
     st, rw = 10.0 / g.stitches_per_10cm, 10.0 / g.rows_per_10cm
-    w = max(max(r.declared_count for r in _round_rows(c)) * st / math.pi
+    w = max(max(r.declared_count for r in _round_rows(c)) * st
+            / (1.0 if c.construction == "flat_rows" else math.pi)
             for c in cir.components if _round_rows(c))
     h = max(len(_round_rows(c)) * rw for c in cir.components if _round_rows(c))
-    return 0.88 * PROFILE_PX / max(w, h)
+    return 0.74 * PROFILE_PX / max(w, h)   # room for the round markers and dimension line
+
+
+UNIT_WORD = {"joined_rounds": "round", "spiral_rounds": "round", "flat_rows": "row"}
+
+
+def component_geometry(cir: CIR, comp) -> dict:
+    """The finished dimensions of one piece's silhouette at the stated gauge, from its stitch
+    counts alone (the facts a component diagram draws and its caption states).
+
+    A piece worked in rounds is a stack of rings: `across_cm` is its widest round's diameter
+    (stitches x stitch width / pi) and `around_cm` that round's circumference. A flat piece is
+    a stack of rows: `across_cm` is its widest row's width. `length_cm` is the fabric from
+    the first row or round to the last (rows x row height), before stuffing or blocking.
+    `markers` are the rows/rounds the diagram labels: the first, the start of the widest
+    span, the stuffing round and the last."""
+    g = cir.gauge
+    st, rw = 10.0 / g.stitches_per_10cm, 10.0 / g.rows_per_10cm
+    rows = _round_rows(comp)
+    unit = UNIT_WORD.get(comp.construction, "row")
+    widest = max(r.declared_count for r in rows)
+    at = [r.index for r in rows if r.declared_count == widest]
+    flat = unit == "row"
+    stuffed = stuff_round(comp)
+    marks = sorted({rows[0].index, at[0], rows[-1].index}
+                   | ({stuffed} if stuffed is not None else set()))
+    return {"unit": unit, "flat": flat, "widest": widest, "widest_at": at,
+            "across_cm": round(widest * st / (1.0 if flat else math.pi), 1),
+            "around_cm": None if flat else round(widest * st, 1),
+            "length_cm": round(len(rows) * rw, 1),
+            "first": rows[0].index, "last": rows[-1].index, "stuffed": stuffed,
+            "markers": marks}
+
+
+def component_caption(cir: CIR, comp) -> str:
+    """The diagram's caption: what it is (a DIAGRAM, never a photograph), the piece's
+    finished silhouette dimensions at gauge, and its round markers."""
+    geo = component_geometry(cir, comp)
+    u = geo["unit"]
+    at = geo["widest_at"]
+    span = f"{u} {at[0]}" if len(at) == 1 else f"{u}s {at[0]} to {at[-1]}"
+    name = comp.name.replace("_", " ")
+    if geo["flat"]:
+        size = f"{geo['across_cm']:.1f} cm wide at its widest {u}"
+    else:
+        size = (f"{geo['across_cm']:.1f} cm across its widest {u} "
+                f"({geo['around_cm']:.1f} cm around)")
+    cap = (f"DIAGRAM of the {name}, to scale at gauge, one band per {u}: {size}, and "
+           f"{geo['length_cm']:.1f} cm of fabric from {u} {geo['first']} to {u} "
+           f"{geo['last']}, before stuffing. {u.capitalize()} markers: "
+           + ", ".join(f"R{m}" for m in geo["markers"])
+           + f". Widest at {span} ({geo['widest']} sts).")
+    if geo["stuffed"] is not None:
+        cap += f" The arrow marks {u} {geo['stuffed']}: stuff here."
+    return cap + " Drawn from the stitch data, not a photograph."
+
+
+def _profile_font(px: int):
+    from PIL import ImageFont
+
+    return ImageFont.truetype(str(pdf_fonts.verified_path("Lato-Bold.ttf")), px)
 
 
 def component_profile(cir: CIR, comp, *, highlight: tuple[int, int] | None = None):
-    """A side profile of a piece worked in rounds, drawn from its stitch counts.
+    """A to-scale silhouette of one piece, drawn from its stitch counts.
 
-    Each band is one round, `rows_per_10cm` tall, as wide as the round's diameter at gauge
-    (stitches x stitch width / pi), in the round's yarn colour, on one scale shared by every
-    piece of the pattern. `highlight` outlines rounds a..b in rose (a placement). It is a
-    diagram of the stitch data; it is never presented as a photograph."""
+    Each band is one row or round, `rows_per_10cm` tall, as wide as that round's diameter (or
+    that row's width) at gauge, in its yarn colour, on one scale shared by every piece of the
+    pattern, so the pieces compare truly. Round markers (R1, the widest round, the stuffing
+    round, the last) are ticked and labelled down the left; a dimension line under the
+    silhouette spans its widest band. `highlight` outlines rounds a..b in rose (a
+    placement). The image is labelled DIAGRAM: it is a diagram of the stitch data and is
+    never presented as a photograph."""
     from PIL import Image, ImageDraw
 
     g = cir.gauge
     st, rw = 10.0 / g.stitches_per_10cm, 10.0 / g.rows_per_10cm
     px = profile_scale(cir)
+    geo = component_geometry(cir, comp)
     rows = _round_rows(comp)
     img = Image.new("RGB", (PROFILE_PX, PROFILE_PX), (243, 238, 231))
     d = ImageDraw.Draw(img)
+    ink, rose = (47, 62, 51), (142, 90, 89)
     band = rw * px
     top = (PROFILE_PX - band * len(rows)) / 2
-    cx = PROFILE_PX / 2
+    cx = PROFILE_PX / 2 + 24          # room on the left for the round markers
+    div = 1.0 if geo["flat"] else math.pi
     for i, r in enumerate(rows):
-        half = r.declared_count * st / math.pi * px / 2
+        half = r.declared_count * st / div * px / 2
         hexv = (cir.colors or {}).get(r.color or "", "#B9AE9C")
         fill = tuple(int(hexv.lstrip("#")[k:k + 2], 16) for k in (0, 2, 4))
         y0, y1 = top + i * band, top + (i + 1) * band
-        d.rectangle([cx - half, y0, cx + half, y1], fill=fill, outline=(47, 62, 51), width=1)
+        d.rectangle([cx - half, y0, cx + half, y1], fill=fill, outline=ink, width=1)
     if highlight is not None:
         a, b = highlight
         sel = [i for i, r in enumerate(rows) if a <= r.index <= b]
         if sel:
-            half = max(rows[i].declared_count for i in sel) * st / math.pi * px / 2
+            half = max(rows[i].declared_count for i in sel) * st / div * px / 2
             d.rectangle([cx - half - 6, top + sel[0] * band - 3, cx + half + 6,
-                         top + (sel[-1] + 1) * band + 3], outline=(142, 90, 89), width=5)
-    stuffed = stuff_round(comp)
+                         top + (sel[-1] + 1) * band + 3], outline=rose, width=5)
+    font = _profile_font(26)
+    last_y = -100.0
+    marks = sorted(set(geo["markers"]) | ({m for m in highlight
+                                             if any(r.index == m for r in rows)}
+                                            if highlight is not None else set()))
+    for mark in marks:
+        i = next(k for k, r in enumerate(rows) if r.index == mark)
+        y = top + (i + 0.5) * band
+        d.line([(58, y), (cx - rows[i].declared_count * st / div * px / 2 - 4, y)],
+               fill=ink, width=2)
+        if y - last_y >= 26:
+            d.text((4, y - 14), f"R{mark}", fill=ink, font=font)
+            last_y = y
+    stuffed = geo["stuffed"]
     if stuffed is not None:
         i = next(k for k, r in enumerate(rows) if r.index == stuffed)
         y = top + (i + 0.5) * band
-        d.polygon([(18, y - 9), (34, y), (18, y + 9)], fill=(142, 90, 89))
+        right = cx + rows[i].declared_count * st / div * px / 2
+        d.polygon([(right + 22, y - 9), (right + 6, y), (right + 22, y + 9)], fill=rose)
+    # the dimension line under the widest band
+    half = geo["widest"] * st / div * px / 2
+    yb = min(PROFILE_PX - 40, top + band * len(rows) + 14)
+    d.line([(cx - half, yb), (cx + half, yb)], fill=ink, width=2)
+    for xe in (cx - half, cx + half):
+        d.line([(xe, yb - 8), (xe, yb + 8)], fill=ink, width=2)
+    d.text((PROFILE_PX - 140, 6), "DIAGRAM", fill=rose, font=_profile_font(24))
     return img
 
 
@@ -832,6 +923,7 @@ def build_template_pdf(cir: CIR, *, terminology: str = "US", twin: TwinModel | N
         gallery_out = _gallery(t, facts, slots)
         _about(t, facts)
         _copyright(t, facts, designer)
+        _appendix(t, facts)
         if t.pages == total:
             break
         total = t.pages
@@ -1159,6 +1251,9 @@ class _Facts:
         if out is None:
             self.block("an amigurumi pattern needs a head (or single piece) to place eyes on",
                        "notes")
+        else:
+            # PDF-DIAGRAMS: the age-guidance line the PremiumStandard eye-options panel checks.
+            out = list(out) + ([EYE_AGE_GUIDANCE] if EYE_AGE_GUIDANCE not in out else [])
         return out
 
     def assembly_lines(self) -> list[str]:
@@ -1171,21 +1266,12 @@ class _Facts:
     def component_for(self, block_key: str):
         for c in self.cir.components:
             if c.name.replace("_", " ").lower() == block_key and _round_rows(c) and \
-                    c.construction in ("joined_rounds", "spiral_rounds"):
+                    c.construction in UNIT_WORD:
                 return c
         return None
 
     def component_caption(self, comp) -> str:
-        rows = _round_rows(comp)
-        widest = max(r.declared_count for r in rows)
-        at = [r.index for r in rows if r.declared_count == widest]
-        span = f"round {at[0]}" if len(at) == 1 else f"rounds {at[0]} to {at[-1]}"
-        cap = (f"Diagram of the {comp.name.replace('_', ' ')}: one band per round, as wide as "
-               f"that round at gauge. Widest at {span} ({widest} sts).")
-        stuffed = stuff_round(comp)
-        if stuffed is not None:
-            cap += f" The arrow marks round {stuffed}: stuff here."
-        return cap + " Drawn from the stitch data, not a photograph."
+        return component_caption(self.cir, comp)
 
     def finishing_lines(self) -> list[str]:
         for title, lines in self.parsed["blocks"]:
@@ -1225,6 +1311,13 @@ class _Facts:
 
 
 # ---- pages -----------------------------------------------------------------------------------
+
+EYE_AGE_GUIDANCE = (
+    "Age guidance: embroidered eyes are the only eyes for a toy for a child under 3, or for "
+    "any child who still puts toys in their mouth. Safety eyes are only ever for a toy for a "
+    "child aged 3 or over, fitted with their washers. The age band this toy is designed for, "
+    "and how to check it, are in the safety notes below.")
+
 
 def _cover(t: _T, f: _Facts, slots: list[dict]) -> None:
     cir = f.cir
@@ -1766,16 +1859,22 @@ def _pattern(t: _T, f: _Facts, slots: list[dict]) -> int:
         y += 29 + 12
         comp = f.component_for(block_key) if f.family == AMIGURUMI else None
         if comp is not None:
-            ih = 118
+            # A per-component image slot (PDF_STRUCTURE_STANDARD amigurumi addendum): a real
+            # progress photo when a physical sample exists; until then this CIR-drawn
+            # diagram, labelled DIAGRAM, never presented as a photograph.
+            im = 150
+            cap = f.component_caption(comp)
+            clines = t.wrap(cap, SANS, MIN_PT, COL_W - 14)
+            ih = im + 10 + len(clines) * 11.5 + 8
             next_col(ih + 10)
             t.card(x, y, COL_W, ih, fill=CREAM, radius=6)
-            t.image(component_profile(f.cir, comp), x + 6, y + 6, ih - 12, ih - 12,
+            t.image(component_profile(f.cir, comp), x + (COL_W - im) / 2, y + 6, im, im,
                     figure={"kind": "component_diagram", "component": comp.name,
+                            "label": "DIAGRAM", **component_geometry(f.cir, comp),
                             "source": "publish.pdf_template.component_profile"})
-            cap = f.component_caption(comp)
-            yy = y + 16
-            for b in t.wrap(cap, SANS, MIN_PT, COL_W - ih - 8):
-                t.text(x + ih + 2, yy, b, SANS, MIN_PT, INK, record=False)
+            yy = y + im + 16
+            for b in clines:
+                t.text(x + 7, yy, b, SANS, MIN_PT, INK, record=False)
                 yy += 11.5
             t.prose.append(cap)
             y += ih + 10
@@ -1940,8 +2039,11 @@ def _assembly_steps(t: _T, f: _Facts, y: float) -> float:
         if seam.at_round is None or host is None:
             f.block(f"join {i} ({seam.piece_a} to {seam.piece_b}) has no round placement",
                     "finishing")
+        last = seam.at_round + max(1, seam.spans_rounds) - 1
+        callout = placement_callout(seam, host)
         lines = t.wrap(line, SANS, 10, 520 - 60 - ih - 12)
-        h = max(ih + 12, 20 + len(lines) * 14)
+        clines = t.wrap(callout, SANS_BOLD, 10, 520 - 60 - ih - 12)
+        h = max(ih + 12, 20 + (len(lines) + len(clines)) * 14 + 6)
         if y + h > CONTENT_BOTTOM:
             t.section_page("finishing", continued=True)
             y = 200
@@ -1951,7 +2053,11 @@ def _assembly_steps(t: _T, f: _Facts, y: float) -> float:
         for ln in lines:
             t.text(108, yy, ln, SANS, 10, INK, record=False)
             yy += 14
-        last = seam.at_round + max(1, seam.spans_rounds) - 1
+        yy += 6
+        for ln in clines:
+            t.text(108, yy, ln, SANS_BOLD, 10, ROSE, record=False)
+            yy += 14
+        t.prose.append(callout)
         t.image(component_profile(f.cir, host, highlight=(seam.at_round, last)),
                 567 - ih - 6, y + 6, ih, ih,
                 figure={"kind": "placement_diagram", "join": i, "host": host.name,
@@ -1964,6 +2070,19 @@ def _assembly_steps(t: _T, f: _Facts, y: float) -> float:
     t.para(47, y, 520, cap, size=MIN_PT, color=BROWN, leading=12)
     t.prose.append(cap)
     return y + 34
+
+
+def placement_callout(seam, host) -> str:
+    """The step's placement cue tied to round numbers on the host piece, from the seam's own
+    certified fields (`at_round`, `spans_rounds`, `stitches_from_centre`)."""
+    unit = UNIT_WORD.get(host.construction, "row")
+    last = seam.at_round + max(1, seam.spans_rounds) - 1
+    span = (f"{unit} {seam.at_round}" if last == seam.at_round
+            else f"{unit}s {seam.at_round} to {last}")
+    out = f"Placement: {span} of the {host.name.replace('_', ' ')}"
+    if seam.stitches_from_centre:
+        out += f", {seam.stitches_from_centre} sts either side of centre"
+    return out + "."
 
 
 def _finishing(t: _T, f: _Facts) -> None:
@@ -2172,6 +2291,29 @@ def _copyright(t: _T, f: _Facts, designer: str) -> None:
     t.top += h + 14
 
 
+def _appendix(t: _T, f: _Facts) -> None:
+    """Appendix A: every technique the CIR's own stitch set and construction ask for, in
+    Brambleloop's own words (publish.technique_appendix). Refuses rather than print a partial
+    list."""
+    from . import technique_appendix as TA
+
+    try:
+        entries = TA.entries(f.cir, f.terminology)
+    except TA.AppendixIncomplete as e:
+        f.block(str(e), "appendix")
+    t.section_page("appendix")
+    t.prose.append(TA.HEADING)
+    t.top = t.para(47, 200, 520, TA.INTRO, size=MIN_PT + 0.5, color=BROWN) + 12
+    for i, e in enumerate(entries):
+        h = 22 + t.para_h(e.how, 500, size=MIN_PT + 0.5) + 12
+        t.need(h)
+        t.card(47, t.top, 520, h, fill=SAGE if i % 2 else CREAM, radius=6)
+        t.text(59, t.top + 15, e.name, SANS_BOLD, 10, INK, record=False)
+        t.prose.append(e.name)
+        t.para(59, t.top + 22, 500, e.how, size=MIN_PT + 0.5)
+        t.top += h + 6
+
+
 # ---- the deterministic audit of a built template PDF --------------------------------------
 
 _ROW_LABEL = re.compile(r"(?m)^\s*(?:Rnds?|Rows?|Rounds?)\s+\d+[^:\n]{0,60}:")
@@ -2266,7 +2408,10 @@ def audit(pdf_bytes: bytes, *, expected_gallery: list[dict] | None = None) -> di
                if not any(im["sha256"] == fp["header"] for im in p["images"])]
     check("logo_headers", not missing and len(pages) > 1,
           f"pages without the header logo: {missing}", pages=len(pages) - 1)
-    thanks = any(im["sha256"] == fp["thanks"] for im in pages[-1]["images"]) if pages else False
+    # the thank-you block closes the copyright section (the appendix follows it)
+    closing = [p for p, k in zip(pages[1:], seq) if k == "copyright"]
+    thanks = any(im["sha256"] == fp["thanks"] for im in closing[-1]["images"]) if closing \
+        else False
     check("logo_thank_you", thanks, "the thank-you block does not embed the logo")
     # gallery
     gal_pages = [p for p, k in zip(pages[1:], seq) if k in ("gallery", "gallery_continued")]

@@ -254,6 +254,7 @@ TEMPLATE_EQUIVALENTS: dict[str, tuple[str, ...]] = {
     "About Brambleloop Studio": ("A little about Brambleloop",),
     "Safety notes for a children's item": ("SAFETY / AGE / USE NOTES",),
     "EYE OPTIONS": ("Eye options",),
+    "Eye options": ("EYE OPTIONS",),
 }
 
 
@@ -532,6 +533,143 @@ def _rendering(text, ctx):
     return out
 
 
+# ---- ENG-PDF-DIAGRAMS: per-component diagrams, placed assembly, eye options, techniques ----
+#
+# Progress imagery at every component is the strongest trust driver in the amigurumi
+# benchmarks (TEARDOWN_HIGHLAND_COW_AMIGURUMI W1/L3/L4, TEARDOWN_MADELINEMAECO_CAPYBARA
+# M2/L4). Without a physical sample the slot holds a CIR-drawn DIAGRAM, never a photo. These
+# rules recompute what each diagram and callout must state from the CIR and the gauge alone
+# (not from the renderer's helpers), so a renderer that drifts from the stitch data fails.
+# Anything they cannot establish is a failure: UNKNOWN is never PASS.
+
+DIAGRAM_LABEL = "DIAGRAM of the"
+DIAGRAM_NOT_PHOTO = "not a photograph."
+DIAGRAM_CAPTION_MAX = 600       # characters; the longest caption the template writes is ~420
+_PHOTO_CLAIM = re.compile(r"photograph of|progress photo|sample photo", re.I)
+
+
+def _counted(comp) -> list:
+    return [r for r in comp.rows if r.declared_count]
+
+
+def _component_diagrams(text, ctx):
+    g = ctx.cir.gauge
+    if g is None or not g.stitches_per_10cm or not g.rows_per_10cm:
+        return ["the CIR states no gauge, so no diagram can be checked at finished size"]
+    st, rw = 10.0 / g.stitches_per_10cm, 10.0 / g.rows_per_10cm
+    out = []
+    for comp in ctx.cir.components:
+        name = comp.name.replace("_", " ")
+        rows = _counted(comp)
+        if not rows:
+            out.append(f"the {name} has no counted rows, so its diagram cannot be checked")
+            continue
+        flat = comp.construction == "flat_rows"
+        unit = "row" if flat else "round"
+        i = text.find(f"{DIAGRAM_LABEL} {name},")
+        if i < 0:
+            out.append(f"no component diagram labelled 'DIAGRAM' for the {name}")
+            continue
+        j = text.find(DIAGRAM_NOT_PHOTO, i)
+        k = text.find(DIAGRAM_LABEL, i + len(DIAGRAM_LABEL))
+        # each caption carries its own label, within the caption itself
+        if j < 0 or 0 <= k < j or j - i > DIAGRAM_CAPTION_MAX:
+            out.append(f"the {name} diagram is not labelled as not a photograph")
+            continue
+        cap = text[i:j + len(DIAGRAM_NOT_PHOTO)]
+        widest = max(r.declared_count for r in rows)
+        first, last = rows[0].index, rows[-1].index
+        want = [f"{len(rows) * rw:.1f} cm of fabric from {unit} {first} to {unit} {last}",
+                f"{unit.capitalize()} markers: R{first}", f"R{last}."]
+        if flat:
+            want.append(f"{widest * st:.1f} cm wide at its widest {unit}")
+        else:
+            want += [f"{widest * st / math.pi:.1f} cm across its widest {unit}",
+                     f"({widest * st:.1f} cm around)"]
+        out += [f"the {name} diagram does not state {w!r} (its finished silhouette at "
+                f"gauge, from the CIR)" for w in want if w not in cap]
+        if _PHOTO_CLAIM.search(cap):
+            out.append(f"the {name} diagram is presented as a photograph")
+    return out
+
+
+def _assembly_steps(text, ctx):
+    comps = {c.name: c for c in ctx.cir.components}
+    start = _find(text, "ASSEMBLY AND FINISHING")
+    if start < 0:
+        return ["missing 'ASSEMBLY AND FINISHING'"]
+    out, pos = [], start
+    n = len(ctx.cir.assembly)
+    for i, seam in enumerate(ctx.cir.assembly, start=1):
+        host = comps.get(seam.piece_b)
+        if seam.at_round is None or host is None or not _counted(host):
+            out.append(f"join {i} ({seam.piece_a} to {seam.piece_b}) has no round placement "
+                       f"the document could state")
+            continue
+        unit = "row" if host.construction == "flat_rows" else "round"
+        end = seam.at_round + max(1, seam.spans_rounds) - 1
+        span = (f"{unit} {seam.at_round}" if end == seam.at_round
+                else f"{unit}s {seam.at_round} to {end}")
+        want = f"Placement: {span} of the {host.name.replace('_', ' ')}"
+        m = re.compile(rf"(?<![\w#])A{i}(?!\w)").search(text, pos)
+        if m is None:
+            out.append(f"no numbered assembly step A{i}")
+            continue
+        nxt = re.compile(rf"(?<![\w#])A{i + 1}(?!\w)").search(text, m.end()) if i < n else None
+        k = text.find(want, m.end())
+        if k < 0 or (nxt is not None and k > nxt.start()):
+            out.append(f"step A{i} has no placement callout {want!r}")
+        pos = m.end()
+    if "diagrams, not photographs" not in text[start:]:
+        out.append("the placement diagrams are not labelled as diagrams, not photographs")
+    return out
+
+
+EYE_HEADING = "Eye options"     # the engine's heading (child_safety's statement)
+EYE_PANEL_MAX = 1500            # characters read after the heading
+# Each layout's way of saying safety eyes are not this pattern's option.
+_NO_SAFETY_EYES = re.compile(r"Safety eyes are not part of this pattern|does not give a "
+                             r"safety-eye option|Do not fit safety eyes")
+
+
+def _eye_options(text, ctx):
+    i = _find(text, EYE_HEADING)
+    if i < 0:
+        return [f"missing {EYE_HEADING!r}"]
+    sec = _section(text[i:], EYE_HEADING, ("Safety notes for a children's item",
+                                            "Gallery & visual references"))[:EYE_PANEL_MAX]
+    out = [f"the eye-options panel does not give {w!r}" for w in
+           ("Embroider", "Age guidance:", "under 3") if w not in sec]
+    if not re.search(r"safety[- ]eye", sec, re.I):
+        out.append("the eye-options panel does not address safety eyes")
+    safety = any("safety eye" in m.name.lower() for m in ctx.cir.materials)
+    if safety and "never use them on a toy for a child under 3" not in sec:
+        out.append("safety eyes are offered without the under-3 small-parts warning")
+    if not safety and not _NO_SAFETY_EYES.search(sec):
+        out.append("the panel does not say safety eyes are outside this pattern's materials")
+    return out
+
+
+def _techniques_appendix(text, ctx):
+    from . import technique_appendix as TA
+
+    try:
+        entries = TA.entries(ctx.cir, ctx.terminology)
+    except TA.AppendixIncomplete as e:
+        return [f"the techniques appendix cannot be generated from the CIR: {e}"]
+    i = _find(text, TA.HEADING)
+    if i < 0:
+        return [f"missing {TA.HEADING!r}"]
+    sec = text[i:]
+    out = []
+    for e in entries:
+        if e.name not in sec:
+            out.append(f"the appendix does not cover {e.name!r} ({e.why})")
+        elif " ".join(e.how.split())[:60] not in sec:
+            out.append(f"the appendix does not explain how to work {e.name!r}")
+    return out
+
+
 def _safety(text, ctx):
     from .pdf import CHILDRENS_HEADING
     return _has(text, CHILDRENS_HEADING)
@@ -569,6 +707,15 @@ RULES: tuple[Rule, ...] = (
     Rule("rendering_disclosure", "Generated images labelled as renderings", (), _rendering),
     Rule("safety", "Safety section for baby and child items", (), _safety,
          lambda ctx: ctx.childrens or ctx.family == AMIGURUMI),
+    Rule("component_diagrams", "A labelled DIAGRAM per component: its silhouette at finished "
+         "size at gauge, with round markers, never presented as a photo", (AMIGURUMI,),
+         _component_diagrams),
+    Rule("assembly_steps", "Numbered assembly steps, each with a placement callout tied to "
+         "round numbers", (AMIGURUMI,), _assembly_steps, lambda ctx: bool(ctx.cir.assembly)),
+    Rule("eye_options", "Eye options panel: embroidered vs safety eyes, with age guidance",
+         (AMIGURUMI,), _eye_options),
+    Rule("techniques_appendix", "An appendix of every technique the CIR's stitch set and "
+         "construction use, in our own words", (), _techniques_appendix),
 )
 
 RULE_IDS: tuple[str, ...] = tuple(r.id for r in RULES) + ("running_header_footer",)

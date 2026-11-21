@@ -3834,3 +3834,39 @@ Reversible by decision.
 - **D-CLOTHING-E2E-8 — "round" is honest for the ball-body amigurumi and for a shawl worn "round the
   shoulders".** ENG-HOMEDECOR's `outline_round` word held "Cosy Round Bear Amigurumi" and the shawl
   proof by name. "Moss" stays held on a hat (no moss-stitch engine).
+## D-ENG-PDF-DIAGRAMS-1 — component diagrams, placed assembly, eye options and a CIR-generated techniques appendix in the premium PDF (ENG-PDF-DIAGRAMS, 2026-11-21; routine engineering)
+**Status:** routine engineering implementing D-OWNER-PDF-STANDARD, D-OWNER-PDF-TEMPLATE and the
+amigurumi teardown lessons (TEARDOWN_HIGHLAND_COW_AMIGURUMI W1/L3/L4, TEARDOWN_MADELINEMAECO_CAPYBARA
+M2/L4). No existing check was relaxed; four rules were added to `publish.pdf_standard`.
+- **Per-component diagrams** (`pdf_template.component_geometry` / `component_profile`): each piece
+  of an amigurumi pattern gets a deterministic silhouette drawn from its stitch counts at gauge (one
+  band per row/round, one scale for every piece), with round markers (R1, the widest round, the
+  stuffing round, the last) and a dimension line, stamped DIAGRAM. Its caption states the
+  silhouette's finished size at gauge before stuffing (diameter and circumference of the widest
+  round, or width for a flat piece, and the fabric length from first to last round) and ends
+  "Drawn from the stitch data, not a photograph." It fills the per-component image slot until a
+  physical sample's real progress photo exists; it is never presented as a photo. Flat pieces
+  are now drawn too (width = stitches x stitch width).
+- **Assembly**: numbered steps A1, A2, … each carry a placement callout tied to round numbers on
+  the host piece, from the seam's own `at_round` / `spans_rounds` / `stitches_from_centre`
+  (`pdf_template.placement_callout`), beside the placement diagram (now marking the join rounds).
+- **Eye options** add an explicit "Age guidance:" line: embroidered eyes only under 3; safety eyes
+  only 3+, with washers; the toy's own age band is in the child-safety notes.
+- **Techniques appendix** (`publish.technique_appendix`): generated from the CIR, not from prose —
+  every stitch code the rows work, loop targets, how each piece starts and is worked, colour
+  changes, stuffing, every seam method, fastening off and weaving in. Our own words; every stitch
+  name resolved through the registry for the edition (a guard test holds that no template spells a
+  terminology-sensitive stitch name). It is the template's last page ("A / APPENDIX", after the
+  owner's eleven sections) and a page before "Terms and support" in the engine. The template audit's
+  thank-you-logo check now reads the copyright section's last page (where the block is), not the
+  document's last page; it is the same check.
+- **Checker** (`pdf_standard`): `component_diagrams`, `assembly_steps`, `eye_options` (amigurumi) and
+  `techniques_appendix` (every family). Each recomputes what must be printed from the CIR and the
+  gauge, not from the renderer's helpers. UNKNOWN is never PASS: no gauge, a piece with no counted
+  rows, a seam with no round placement or onto an unknown piece, or a technique the appendix cannot
+  explain each FAIL the rule; the template blocks (`TemplateBlocked`, section `appendix`) and the
+  engine refuses rather than print a partial appendix.
+- **Not done:** the engine still has no amigurumi layout (the amigurumi rules would fail an engine
+  amigurumi PDF, correctly). Real progress photos need a physical sample. The real amigurumi build
+  still blocks on the child-safety width x height gap (D-ENG-PDF-TEMPLATE-2); the fixture is a test
+  fixture only.
