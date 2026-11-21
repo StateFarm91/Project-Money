@@ -1,3 +1,20 @@
+> **2026-11-21 — HALT-380 on `eng/halt-380` (from `claude/w6-release-19d1` 9216d33 = deployed 7b250d61; NOT merged,
+> NOT deployed; production unchanged, no production row read).** Readback 03:29Z: systemic halt #380 open, 12 products
+> stale + rebuild-incomplete, 12 rebuilds pending with the oldest 0.13 h, no verified rebuild since 2026-11-20T13:12Z.
+> Hypothesis "every deploy re-stales" REJECTED: freshness keys only on `chain:release` = fingerprint(CHAIN_VERSION), a
+> manual constant (8 -> 9 on 2026-11-20 legitimately staled PDFs and copy once). Cause, reproduced on the real
+> sentinel/chain.rebuild handlers: (H1) the per-product rebuild key carried the estate-wide change set, so any other
+> product's ref moving stacked a new attempt hourly, bypassing in-flight/RETRY_AFTER/hold; (H2) that attempt's stage
+> token equalled the first attempt's, so it deduplicated onto a finished or dead stage and rebuilt nothing, and its
+> verify could not bind; (H3) those no-op attempts held products with an untrue "the stage ran" reason. Fix: an
+> existing attempt at the product's own change owns the key; stage token per attempt; a hold counted from attempts
+> without their own stage is released once (recorded, row stays open and halting) with one targeted rebuild. The
+> systemic halt then resolves on its own evidence via escalate_systemic. No gate/binding/cap/halt rule changed. New
+> suite `tests/test_eng_halt_380.py` 6/6 (all 6 fail on base). Targeted run 20261121T034404Z-3412 (dirty tree, 15
+> suites incl. test_publish_unhalt, test_eng_stale_rebuild_loop, test_cert_rebuild_chain, test_vacuity): 214 passing,
+> 1 suite failing: `test_w4_autonomy_idle_departments::test_a_wide_rebuild_fits_the_varchar_200_key_column`, failing
+> identically on base (expects 14 enqueued; PUBLISH-UNHALT U2 skips the 2 retired slugs; NOT fixed here). UNVERIFIED in
+> production until deployed. Decision D-HALT-380. Report: `w6/review_requests/HALT-380.md`.
 > **2026-11-21 — NEW-PRODUCT-FLOW on `eng/new-product-flow` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT
 > deployed; production unchanged, no production row read).** Readback prod 2f7da291: 0 certified in 7 d (only the 9
 > Launch-0 at LISTING_READY), loop 11/12 with no `original_product`. Cause, reproduced on the real handlers: with
