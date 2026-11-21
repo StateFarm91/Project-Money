@@ -95,4 +95,19 @@ unreadable store. See "Suite run" below.
 
 ## Suite run
 
-See the commit message and BUILD_STATE for the run id and totals.
+Run `20261121T003727Z-2203` (`JOBS=4 SUITE_REGISTRY=0`) on code commit 9ba71b1, py3.11 lockfile venv plus
+`requirements-test.lock`. 20 suites: `test_vacuity`, `test_learn_proof`, `test_pdf_standard`, `test_pdf_premium`,
+`test_pdf_template`, `test_eng_plush`, `test_mine`, `test_eng_learn`, `test_eng_learn_patterns`,
+`test_eng_learn_wiring`, `test_learning`, `test_v11_seo_truth`, `test_w4_learn_loops`, `test_w4_learn_presale`,
+`test_w4_readback_evidence`, `test_cert_learning`, `test_cert_preengineering`, `test_w3_seo_strategy`,
+`test_r2_product_seo_unicode`, `test_w4_fmbatch1_readings_bus`.
+
+**Result: 345 passing, 1 suite failing.**
+
+- The failing suite is `test_w4_readback_evidence`: 22/23, in
+  `test_readback_evidence_cli_never_prints_the_token_and_keeps_unknown_apart`.
+- The test reads an `improve.weekly:TypeError` dead letter.
+- **It is pre-existing.** The same test fails the same way on the base commit 8204c93, which has none of this
+  branch, run alone in a worktree. Not fixed here; out of scope.
+- `test_learn_proof` passes 18/18.
+- The full suite was not run.

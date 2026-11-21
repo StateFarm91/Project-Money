@@ -7,7 +7,8 @@
 > print them); SEO refuses "no sew"/"low sew" unless the certified seams support it; failure mining tags tension and
 > missing-gauge defects as `missing_gauge->tension_complaints`. Readback (`learning.benchmark_lessons`) reports lessons
 > applied per department, UNKNOWN (never 0) when not measured. No lesson has been applied in production.
-> Decision D-LEARN-PROOF. Report: `research/final_build/w6/review_requests/LEARN-PROOF.md`.
+> Targeted run 20261121T003727Z-2203: 20 suites, 345 passing; 1 failing (test_w4_readback_evidence
+> `improve.weekly:TypeError`), which fails identically on the base 8204c93. Full suite not run. Decision D-LEARN-PROOF. Report: `research/final_build/w6/review_requests/LEARN-PROOF.md`.
 > **2026-11-20 — CERTFIX-3 on `certfix/3` (cut from `claude/w6-INTEG8-wip` 511a8c6; NOT merged, NOT deployed;
 > production unchanged).** Real fixes for nine Batch 18 certification failures; no gate, assertion or child-safety
 > rule weakened. Teen garments grade at CYC 14/16 only (a teen drop-shoulder was drafted at size 2 and held by the
