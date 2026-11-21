@@ -256,12 +256,7 @@ def assemble(db, slug: str, version: str) -> dict | None:
         blockers.append({"source": "pdf_standard", "why": err})
     else:
         if not certs["both_pass"]:
-            blockers.append({"source": "pdf_standard", "why": (
-                "premium PDFs are not certified against the PDF standard for this release: "
-                + ", ".join(f"{t} {e['verdict']}" + ("" if e["bound_to_release_pdfs"]
-                                                     else " (unbound)")
-                            for t, e in sorted(certs["editions"].items()))
-                + " (D-OWNER-PDF-STANDARD)")})
+            blockers.append(pdf_standard_blocker(certs))
         files = {**(files or {}), "premium_pdfs": {
             t: {"pdf_sha256": e["pdf_sha256"], "verdict": e["verdict"],
                 "certificate_id": e["certificate_id"]}
@@ -735,3 +730,22 @@ def latest(db, slug: str, version: str) -> dict | None:
                                                       OperatingReading.period_key ==
                                                       f"{slug}@{version}"))
         return dict(row.payload or {}) if row is not None else None
+
+
+def pdf_standard_blocker(certs: dict) -> dict:
+    """The package blocker for premium PDFs that are not both certified (D-OWNER-PDF-STANDARD).
+
+    The premium editions embed the certified gallery, so they cannot certify before the
+    images exist. A certificate that is missing, UNKNOWN or unbound is waiting on the images
+    and is tagged `image: True`, so image admission is not deadlocked on it (the sale
+    pipeline's own pre-image PDF text and structure gates still apply before any spend). Any
+    FAIL is a real defect and is never tagged as an image blocker; no editions is not either.
+    """
+    eds = certs.get("editions") or {}
+    awaiting = bool(eds) and all(str(e.get("verdict")) != "FAIL" for e in eds.values())
+    why = ("premium PDFs are not certified against the PDF standard for this release: "
+           + ", ".join(f"{t} {e['verdict']}" + ("" if e.get("bound_to_release_pdfs")
+                                                else " (unbound)")
+                       for t, e in sorted(eds.items()))
+           + " (D-OWNER-PDF-STANDARD)")
+    return {"source": "pdf_standard", **({"image": True} if awaiting else {}), "why": why}

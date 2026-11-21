@@ -85,9 +85,12 @@ def test_an_admitted_release_still_meets_every_image_gate():
     _row(db, SLUG, O.RELEASE, state=SPL.GALLERY, reservation="held", reserved_cad=2.0)
     assert SPL.spend_admitted(db, SLUG, VERSION, O.RELEASE)
     gen = PaidDouble()
-    f, _ = O.drain(db, generator=gen, judges=O.StubJudges())
-    IP.trigger(f, slug=SLUG, version=VERSION, release=O.RELEASE)
-    O.drain(db, generator=gen, judges=O.StubJudges())
+    # Batch 19: the vis-gallery admission must hold too (test_w4_ownerimg proves it alone);
+    # it is doubled here, labelled, so this test reaches the image_generation gate behind both.
+    with O.admitted_for_sale():
+        f, _ = O.drain(db, generator=gen, judges=O.StubJudges())
+        IP.trigger(f, slug=SLUG, version=VERSION, release=O.RELEASE)
+        O.drain(db, generator=gen, judges=O.StubJudges())
     run = IP.get_run(db, IP.run_key(SLUG, VERSION, O.RELEASE))
     # admission never opens the image_generation gate: the paid call is still refused
     assert run["state"] == "blocked" and "image_generation gate closed" in run["blocked_reason"]

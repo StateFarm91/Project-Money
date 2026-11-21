@@ -1101,6 +1101,17 @@ def _spend_admitted(db, gen, exp, controlled, slug, version, release) -> bool:
         return False
 
 
+def _sale_owned(db, slug: str, version: str, release: str) -> bool:
+    """Whether `publish.sale_pipeline` holds a run for exactly this release. Unreadable is
+    treated as owned, so its (stricter) spend gate is read first."""
+    try:
+        from ..publish import sale_pipeline
+
+        return sale_pipeline.get(db, slug, version, release) is not None
+    except Exception:  # noqa: BLE001
+        return True
+
+
 def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
     """Run one stage and enqueue the next. `follow(inputs, idempotency_key)` enqueues."""
     slug, version, release = inputs["slug"], inputs["version"], str(inputs.get("release") or "")
@@ -1157,6 +1168,13 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
         # b17-c A3 (D-OWNER-SPEND-ORDER): every stage of a paid gallery -- the FLUX route
         # always, the campaign route whenever its generator is paid -- re-checks for-sale
         # admission before it does anything. Not admitted parks it without spend.
+        # Batch 19: both spend admissions must hold (vis-gallery `sale_admission` and the
+        # sale pipeline's `spend_admitted`). Where the sale pipeline owns the release, or the
+        # stage itself spends, its gate is read first and the run waits in its state.
+        if (stage in SPENDING_STAGES or _sale_owned(db, slug, version, release)) and \
+                not _spend_admitted(db, gen, exp, controlled, slug, version, release):
+            return {"run_key": key, **_update(db, key, stage=stage, status=AWAITING_PRE_IMAGE,
+                                               record={"outputs": {"waiting": _ADMISSION_WHY}})}
         adm = sale_admission(db, slug, version, release)
         if not adm["admitted"]:
             return _park_for_sale(db, key, stage, adm)

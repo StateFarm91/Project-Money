@@ -244,10 +244,14 @@ def _non_campaign(images, renditions) -> list[dict]:
     return [im for im in images if im.get("sha256") not in renditions]
 
 
+# ENG-ESTIMATE-CLAIMS: the heading says the measurements are calculated, not measured.
+_SCHEMATIC_HEADING = re.compile(r"SCHEMATIC WITH (?:CALCULATED )?FINISHED")
+
+
 def _schematic_and_diagrams(doc: dict, renditions: set) -> list[dict]:
     out = []
     sch_pages = [p for p in doc["pages"] if any(ln == "Schematic" or ln.startswith(
-        "Schematic with") for ln in p["lines"]) or "SCHEMATIC WITH FINISHED" in p["text"]]
+        "Schematic with") for ln in p["lines"]) or _SCHEMATIC_HEADING.search(p["text"])]
     drawn = [p for p in sch_pages if _non_campaign(p["images"], renditions)]
     out.append(_check("schematic", PASS if drawn else FAIL,
                       "" if drawn else ("no schematic section" if not sch_pages else
