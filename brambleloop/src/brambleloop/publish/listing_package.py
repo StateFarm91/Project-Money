@@ -170,8 +170,13 @@ def pdf_illustration_blockers(db, slug: str, version: str, release: str,
     layouts = detail.get("pdf_layout") or {}
     interim = sorted(t for t, v in layouts.items() if (v or {}).get("layout") != "template")
     if not layouts or interim:
-        whys = "; ".join(f"{t}: {(layouts.get(t) or {}).get('why') or 'engine layout'}"
-                         for t in interim) or "the build records no layout"
+        gallery_now = bool(framed and not framed.get("problems") and framed.get("record_id"))
+        # once a gallery is certified, the build-time reason ("awaiting gallery: ...") is
+        # stale; the illustrated rebuild's own outcome is `assets.illustration_refused`
+        whys = ("a certified gallery exists; its illustrated rebuild is not certified (see "
+                "assets.illustration_refused)" if gallery_now and layouts else
+                "; ".join(f"{t}: {(layouts.get(t) or {}).get('why') or 'engine layout'}"
+                          for t in interim) or "the build records no layout")
         return [f"PDF_NOT_ILLUSTRATED: the certified PDFs are the interim engine documents, "
                 f"not the premium template with the certified gallery embedded ({whys})"]
     binding = detail.get("illustrated") or {}

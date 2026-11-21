@@ -47,7 +47,9 @@ never left that status, so `_SALE_WAITS.count` was not incremented. Every later 
 then reused the taken `#admitted<n>` key, and the release waited forever. That is exactly
 the silent stall D-OWNER-SALE-PIPELINE forbids.
 - Fix: `_readmit` records which wait it re-entered.
-- A park from that readmission is a new wait (count + 1).
+- A park from that readmission is a new wait (count + 1). This applies to the FLUX gallery
+  route only: re-entering the campaign route too bought a second gallery (found by
+  test_image_e2e_worker test_4).
 - Two packages during one wait still enqueue only one readmission.
 
 ## D. The template is the production PDF layout
@@ -186,9 +188,21 @@ The `test_image_e2e_worker` helper gains `seed=False`, used by the basket sweep.
     test_pdf_template (31 OK) ran on the final code. The a tests ran before the CONTENTS
     change, which does not touch the anchor path.
   - test_w3_decision_index: OK after regenerating the index for D-IMAGE-AD.
-- **test_image_e2e_worker:** 7/7 OK directly before the readmit fix. It was re-run through
-  the runner and directly on the final code; those results are added below if they finish
-  before the push.
+- **test_image_e2e_worker:**
+  - 7/7 OK directly, before the readmit fix.
+  - Re-run on d0a1594: runner run `20261121T031625Z-5479` (on the code just before
+    d0a1594) and a direct run. Both gave **5 passing, 2 failing**, and both failures came
+    from this branch.
+  - *test_2.* The `PDF_NOT_ILLUSTRATED` text quoted the stale build-time reason ("awaiting
+    gallery: gallery incomplete …"), which the test forbids. Fixed in the last commit: once
+    a gallery is certified, the blocker points to `assets.illustration_refused` instead.
+  - *test_4.* Six gallery submits under a cap of 3. The readmit fix also re-entered the
+    **campaign-route** run, which then bought renders under its own gallery cap: a second
+    gallery per product, against D-OWNER-SPEND-ORDER. Fixed in the last commit: the
+    "new wait" rule applies to the FLUX route only, and the campaign route behaves as before.
+  - **Both fixes are pushed but NOT re-run through test_image_e2e_worker** (about 25
+    minutes; deadline 03:45Z). Next action: re-run test_image_e2e_worker and test_image_ad
+    a3 on the head commit.
 - **Not run:** the full suite. A single runner invocation covering test_image_e2e_worker and
   test_image_ad was not completed by the deadline: they take about 25 and about 45 minutes.
 - **Mutation check:** not run as separate mutants. Each fix was found by a test failing

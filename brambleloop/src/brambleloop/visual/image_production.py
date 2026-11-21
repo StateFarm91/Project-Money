@@ -338,8 +338,11 @@ def _park_for_sale(db, key: str, stage: str, adm: dict) -> dict:
         # count stayed put, the next readmission reused the taken "#admitted<n>" key, and an
         # admitted release waited forever (found on the bread basket, whose listing is
         # re-drafted once after its first package).
+        # Only the FLUX gallery route (D-OWNER-SPEND-ORDER's one gallery per for-sale
+        # product): re-entering the campaign route as well would buy a second gallery.
         if r.status != SALE_WAITING or (
-                waits.get("readmitted") is not None
+                route_of_key(key) == SP.FLUX_ROUTE
+                and waits.get("readmitted") is not None
                 and int(waits.get("readmitted") or 0) == int(waits.get("count") or 0)):
             waits["count"] = int(waits.get("count") or 0) + 1
         waits.update(at=_now().isoformat(), why=str(adm.get("why"))[:500], stage=stage)
