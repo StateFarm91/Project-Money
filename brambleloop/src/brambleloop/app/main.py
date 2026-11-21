@@ -265,6 +265,16 @@ def _startup() -> None:
         _voice_selection.seed_owner_action(db)
     except Exception:  # noqa: BLE001 - seeding the queue must never prevent a boot
         pass
+    # D-OWNER-APPROVE-ALL: apply the owner's recorded directive at boot as well as on the hourly
+    # owner-queue job. The scheduler backs that job off when it closes nothing, so a deploy
+    # could otherwise wait hours for it. `apply` is idempotent, writes each listed activation
+    # once, never renews one, and never raises.
+    try:
+        from ..ops import owner_directives as _owner_directives
+
+        _owner_directives.apply(db)
+    except Exception:  # noqa: BLE001 - applying a directive must never prevent a boot
+        pass
     if schema_changes:
         # A schema change nobody can see is how a deploy breaks quietly.
         Registry(db).audit("orchestrator", "schema.migrated",

@@ -87,6 +87,18 @@ def test_the_hourly_job_applies_it_and_the_sweep_itself_signs_nothing():
     assert calls, "the hourly job must apply the directive"
 
 
+def test_boot_applies_the_directive_without_waiting_for_the_backed_off_hourly_job():
+    import ast
+    src = (Path(__file__).resolve().parents[1] / "src/brambleloop/app/main.py").read_text()
+    tree = ast.parse(src)
+    start = next(n for n in ast.walk(tree)
+                 if isinstance(n, ast.FunctionDef) and n.name == "_startup")
+    calls = [n for n in ast.walk(start) if isinstance(n, ast.Call)
+             and isinstance(n.func, ast.Attribute) and n.func.attr == "apply"
+             and getattr(n.func.value, "id", "") == "_owner_directives"]
+    assert calls, "startup must apply the owner directive"
+
+
 if __name__ == "__main__":
     import traceback
     fails = 0
