@@ -98,7 +98,20 @@ those fail for the substantive reason, the row staying open:
   - The denominator is still 6, and the live product's own row stays open and halting.
   - Fails on base: the halt stays open.
 
-Suite results are in the commit message and the section below.
+Suite results on this branch, all green:
+
+| Suite | Result |
+|---|---|
+| `test_halt_380_h3` | 6 passed |
+| `test_publish_unhalt` | 0 failures |
+| `test_eng_stale_rebuild_loop` | 0 failures, sqlite and postgres |
+| `test_vacuity` | pass |
+| `test_eng_stale_round2` | 0 failures, sqlite and postgres |
+| `test_artefacts` | exit 0 |
+| `test_cert_publish_gates` | exit 0 |
+| `test_w3_k7_ops_truth` | 16 passed |
+| `test_w4_fmgate_rebuild_key` | exit 0 |
+| `test_w4_readback_evidence` | 23 of 23 passed |
 
 ## Post-deploy readback check (decides "inferred" vs "observed")
 
