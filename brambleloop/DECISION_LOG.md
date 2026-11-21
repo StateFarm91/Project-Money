@@ -4152,3 +4152,7 @@ suite reproduced both stalls. The systemic staleness halt refused every new cert
 16 held products' listing work filled the WIP of 2 ("capacity: 16 product chain(s) in flight").
 **Not changed.** Child safety (a toy under the hold is still withheld for physical evidence,
 tested), pre-engineering, engine-demand, family diversity, cost ceilings, every publication gate.
+
+## D-OWNER-DEPLOY-19h8 — 2026-11-21T13:44:35Z
+
+Batch 19h8 (code 54cdae21d) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to a93635cebc8737fdc3cfd3a51cf3a08f98ba7789 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
