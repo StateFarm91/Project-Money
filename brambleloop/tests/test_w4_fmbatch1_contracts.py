@@ -16,9 +16,9 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from brambleloop.core import contract_pins as C  # noqa: E402
 
-PINNED_CIR = "6c88ab1543d4c5eb"
+PINNED_CIR = "c336ab900d391017"
 PINNED = {"cir": PINNED_CIR, "listing_payload": "655954b9510590d0",
-          "api_routes": "750cd12d5d99f93d"}
+          "api_routes": "48d0a4f03ed96fca"}
 CHANGES = ROOT.parent / "ops" / "CONTRACT_CHANGES.md"
 
 

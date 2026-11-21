@@ -624,6 +624,19 @@ def after_chain_job(db, queue, job) -> int | None:
                                          Job.run_after <= datetime.now(timezone.utc))
                     .limit(1)) is not None:
             return None                               # an admission pass is already due
+    # CERTFIX-1: no refill when a slot was already open before this end. The refill saves
+    # the wait for the 15-minute pass on a slot the ending chain was holding; with two or
+    # more open now, at least one was free before it ended, and that supply belongs to the
+    # cadence (and to `offer`'s own immediate admission). Enqueuing it anyway made every
+    # chain end a Launch-0 seed, so one release's chain drained into the whole registry and
+    # a drain never emptied. Capacity that cannot be read keeps the refill (fail towards
+    # the pass, which records its own refusal).
+    try:
+        open_slots = int(assess(db).get("slots") or 0)
+    except Exception:  # noqa: BLE001
+        open_slots = 0
+    if open_slots > 1:
+        return None
     try:
         made = queue.enqueue("orchestrator", "supply.admit", {"after_job": job.id},
                              idempotency_key=f"{REFILL_PREFIX}:{job.id}")

@@ -294,7 +294,21 @@ def _ordered_tables():
     return [t for t in Base.metadata.sorted_tables if t.name not in EXCLUDED_TABLES]
 
 
+def _present(db: Database, table) -> bool:
+    """Whether `table` exists in `db`. Several handlers own a table they create on first use
+    (`radar.intake._ensure` creates radar_concepts); once such a module is imported its table
+    is in `Base.metadata`, so a database where that handler has not yet run holds a declared
+    table that does not exist. That table has no rows -- exporting it as empty is exact, and
+    the restore creates it -- whereas selecting from it raised and killed ops.continuity.
+    Read-only: the source is never written to create it."""
+    from sqlalchemy import inspect as _inspect
+
+    return _inspect(db.engine).has_table(table.name)
+
+
 def _rows_of(db: Database, table) -> Iterator[dict]:
+    if not _present(db, table):
+        return
     columns = [c.name for c in table.columns]
     with db.session() as s:
         # Ordered by primary key where there is one, so two exports of unchanged data are
@@ -566,7 +580,8 @@ def counts_by_table(db: Database) -> dict[str, int]:
     out: dict[str, int] = {}
     with db.session() as s:
         for table in _ordered_tables():
-            out[table.name] = s.scalar(select(func.count()).select_from(table)) or 0
+            out[table.name] = (s.scalar(select(func.count()).select_from(table)) or 0
+                               if _present(db, table) else 0)
     return out
 
 

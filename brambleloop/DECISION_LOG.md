@@ -3692,3 +3692,21 @@ mutants (including `|| true` and `pull_request_target`) are killed.
 **D-CERTFIX3-WALL-TAPESTRY: in wall decor a bare "tapestry" is the object, not a technique claim.** `creative.size_truth.TAPESTRY` (S1F-LOW) already reads "tapestry" not followed by crochet/stitch as a wall hanging and binds it to that size band; ENG-COLOURWORK's `CLAIM` regex read the same word as a colourwork claim, so "Large Tapestry 100 x 150 cm" was refused as unproven colourwork. Decision under the colourwork family pairs: the refusal is correct for a colourwork CLAIM (no (colourwork_tapestry, wall_decor) proof exists and none is added), so "Tapestry Crochet Wall Hanging", "Charted Tapestry", "Wave Tapestry Wall Hanging" or "Chevron Tapestry ..." stay held with the wall-decor reason; a wall-decor title whose only colourwork word is the object noun routes as S1 drafted it (`colourwork.wall_object_only`). Reversible by decision.
 **D-CERTFIX3-LOVEY-HEAD: a lovey title that names no head is refused, not drafted as a bear.** `creative.baby.lovey_route` defaulted an unnamed head to "bear" and its docstring said "a plain bear or bunny lovey; anything else held by name". "Baby Lovey" (after audience words) names no head: it is refused as the plain lovey object with no size band (D-S1-SIZE-FAMILIES). Audience words (baby, nursery, infant, newborn, toddler) are no longer read as head features, so "Baby Bunny Lovey" drafts the bunny lovey.
 **D-CERTFIX3-MODE-T-NOT-STOPPED: a deployment that is not Mode T does not stop the owner's standing policy.** `standing_policy.effective` reports an approved, activated, valid policy as NONE when the issuer/worker/web reports do not agree (Mode S), and `standing_withdrawal.stopped` counted every NONE as stopped, so a missing issuer heartbeat would have authorised automatic withdrawal of SP-activated listings. That NONE (`NOT_MODE_T_WHY`) still refuses issuance but no longer counts as stopped; revoked, absent, suspended, expired and broken policies still do. Surfaced by the clock: the test fixture's policy became valid on 2026-11-20 (before that it read NOT_YET).
+## D-CERTFIX1-SUPPLY-REFILL — the chain-end refill fills the slot the ending chain held (CERTFIX-1, 2026-11-20)
+- **Change:** `supply.after_chain_job` enqueues no `supply.admit` when two or more slots are open after the end, because at
+  least one slot was already free before it. That supply belongs to the 15-minute `supply.admit` and to `offer`'s own
+  immediate admission. A refill with capacity full or unreadable is unchanged, and the pass records its own refusal.
+  `Worker._supply_after` enqueues one only when its own handler registry runs `supply.admit`: a private-registry worker's
+  refill could only dead-letter as "no handler registered".
+- **Why:** with every end refilling, one release's chain in a scoped drain seeded every other Launch-0 release.
+  `test_w5_a9_package_event` packaged all 8 Launch-0 releases instead of the one under test, and the timeline in
+  `test_w4_close6_timeline` grew an uncaused `supply.admit` story. D-ENG-DEMAND-SUPPLY's "capacity refill is unchanged" still
+  holds for the case it was built for: a full WIP whose slot frees (tests/test_eng_supply.py, unchanged, passes).
+- Reversible by decision.
+## D-CERTFIX1-CIR-V3 — CIR contract v3 declared (CERTFIX-1, 2026-11-20)
+- ENG-PLUSH (2763340) and ENG-COLOURWORK (78d6299) added `Chart`, `Component.chart/stuff_at_round/closes` and Seam
+  `'surface'` without a contract bump. CIR goes from v2 to v3 with a CHANGELOG entry and a row in ops/CONTRACT_CHANGES.md,
+  and consumers re-pin to v3. The change is additive and optional, and existing CIRs serialise byte-identically.
+- `child_safety` joins `certificate.CANONICAL_STAGES` as a conditional stage, because the chain runs it.
+  `commerce.lanes.applicable_gates` owes it when `child_safety.applies`, and an unread profile with a closed form owes it
+  (fail closed).

@@ -76,7 +76,7 @@ def _evidence_shape():
 
 #: name -> (current version, shape function, what it is)
 CONTRACTS: dict[str, tuple[int, object, str]] = {
-    "cir": (2, _cir_shape, "the CIR dataclasses every department builds, checks and renders"),
+    "cir": (3, _cir_shape, "the CIR dataclasses every department builds, checks and renders"),
     "etsy_write_schemas": (1, _etsy_write_shape,
                            "what may be sent to Etsy (draft payload, updateListing, updateShop)"),
     "shop_policy_sections": (1, _policy_shape, "the shop's policy sections and text fields"),
@@ -92,7 +92,14 @@ CHANGELOG: dict[str, dict[int, str]] = {
             2: "2026-11-02: Op.color (str | None, default None) added by P0-CIR-COLOURWORK "
                "(opus2 fa02cb49, reviews OPUS2H/J/K); additive; to_dict omits it when None so "
                "every existing CIR serialises byte-identically; consumers quality_ops and "
-               "engineering_ops read no Op fields and are re-pinned (W5-INTEG1)"},
+               "engineering_ops read no Op fields and are re-pinned (W5-INTEG1)",
+            3: "2026-11-20: Component.chart (Chart | None), Component.stuff_at_round "
+               "(int | None), Component.closes (bool, default False), new Chart dataclass, "
+               "and Seam.edge_a/edge_b gain 'surface' -- added by ENG-PLUSH 2763340 and "
+               "ENG-COLOURWORK 78d6299 without a bump; declared by CERTFIX-1. Additive and "
+               "optional: to_dict omits chart/stuff_at_round when None and closes when False, "
+               "so every existing CIR serialises byte-identically; consumers quality_ops and "
+               "engineering_ops read none of these fields and are re-pinned to v3"},
     "etsy_write_schemas": {1: "2026-10-26: first pinned version, incl. updateShop + sections"},
     "shop_policy_sections": {1: "2026-10-26: first pinned version"},
     "storefront_proposal": {1: "2026-10-26: first pinned version"},

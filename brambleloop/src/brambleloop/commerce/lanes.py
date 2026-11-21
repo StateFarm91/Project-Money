@@ -168,6 +168,10 @@ class Profile:
     pattern_count: int = 1
     closed_form: bool = False
     has_listing: bool = False
+    # Whether `gates.child_safety.applies` puts this release inside the child_safety stage (a
+    # stuffed/closing piece, a children's assignment, a child's garment). None means it was not
+    # read, and then a closed form owes the stage: UNKNOWN fails closed, never open.
+    child_safety: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -404,6 +408,16 @@ def assign(profile: Profile, *, qa: dict) -> dict:
     }
 
 
+def _child_safety_applies(cir) -> bool | None:
+    """The certificate's own predicate; None (fail closed) when it cannot be read."""
+    try:
+        from ..gates import child_safety
+
+        return bool(child_safety.applies(cir))
+    except Exception:  # noqa: BLE001 - unread is None, which applicable_gates fails closed
+        return None
+
+
 def applicable_gates(profile: Profile) -> tuple[str, ...]:
     """Every gate this product is owed, in chain order.
 
@@ -415,6 +429,8 @@ def applicable_gates(profile: Profile) -> tuple[str, ...]:
     owed = set()
     if profile.closed_form:
         owed.add("geometry")
+    if profile.child_safety or (profile.child_safety is None and profile.closed_form):
+        owed.add("child_safety")
     if profile.has_listing:
         owed.update(("asset_truth", "policy"))
     return tuple(stage for stage in CANONICAL_STAGES
@@ -668,6 +684,7 @@ def route_certified(db, *, today=None) -> dict:
             sizes=_sizes_of(latest_json.get(slug) or {}, latest_json),
             pattern_count=max(1, family_members.get(seed.family or "", 0)),
             closed_form=cir.makes_a_closed_form,
+            child_safety=_child_safety_applies(cir),
             # Every product in this chain is certified for a listing: gate.certify always
             # checks the listing draft and the hero asset, so both gates are owed.
             has_listing=True)

@@ -1025,9 +1025,30 @@ def autonomy(db) -> dict:
 
 
 def _learning(db) -> dict:
+    """ENG-LEARN proof of improvement, in the section envelope every tab section carries.
+
+    `progress.summary` is the readback body (pure reads); the envelope states whether any
+    loop has a measured window. None measured is UNKNOWN with the reason, never an OK zero.
+    """
     from ...learning import progress
 
-    return progress.summary(db)
+    body = progress.summary(db)
+    measured = [loop for loop, sec in (
+        ("image", any(w.get("status") == "MEASURED"
+                      for w in (body.get("image") or {}).get("series") or [])),
+        ("pattern", ((body.get("pattern") or {}).get("all_time") or {}).get("status")
+         == "MEASURED"),
+        ("commerce", (body.get("commerce") or {}).get("status") == "MEASURED")) if sec]
+    env = {"status": "OK" if measured else "UNKNOWN", "as_of": body.get("as_of"),
+           "sources": ["learning_image_observations", "learning_pattern_observations",
+                       "learning_decisions", "learning_derived_lessons"],
+           "basis": "learning.progress.summary: first-pass rate per rolling window, lessons "
+                    "acted on and before/after per promotion",
+           "measured_loops": measured}
+    if not measured:
+        env["reason"] = ("no learning loop has a measured window yet: the samples are too "
+                         "small to state a rate or a trend")
+    return {**body, **env}
 
 
 def insights(db) -> dict:
@@ -1067,8 +1088,11 @@ def benchmark_shopping(db) -> dict:
                        "consequence_of_delay": card.consequence_of_delay}
                       if card is not None else None)
     sources = ["benchmark_listings", "benchmark_products", "operating_readings"]
+    basis = (f"the latest `{ps.SHOPPING_KIND}` operating reading written by "
+             "intel.benchmark_shopping; read only, never rebuilt on a page view")
     if payload is None:
-        return {"status": "UNKNOWN", "as_of": now_iso(), "sources": sources, "groups": [],
+        return {"status": "UNKNOWN", "as_of": now_iso(), "sources": sources, "basis": basis,
+                "groups": [],
                 "reason": "the daily benchmark shopping list has not been built yet "
                           "(intel.benchmark_shopping runs after the shop scans)"}
     groups = []
@@ -1081,7 +1105,7 @@ def benchmark_shopping(db) -> dict:
                 "title", "url", "price_cad", "price_with_contingency_cad", "teaches",
                 "answers", "status", "listing_ref")} for p in shop.get("picks") or []]})
     return {"status": payload.get("status", "UNKNOWN"), "as_of": payload.get("as_of"),
-            "reason": payload.get("reason") or None, "sources": sources,
+            "reason": payload.get("reason") or None, "sources": sources, "basis": basis,
             "owner_card": owner_card, "groups": groups,
             "to_buy_count": payload.get("to_buy_count"),
             "total_with_contingency_cad": payload.get("total_with_contingency_cad"),

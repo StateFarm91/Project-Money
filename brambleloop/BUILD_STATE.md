@@ -23,6 +23,19 @@
 > visible in `by_family`). sw.js -> v45 (p0_board.js changed on both sides). `test_research_flow` M1 test pinned to
 > the scan's clock (it failed after ~18:00 UTC by wall-clock staleness). A2/A3 (b17-a C3/C4) remain open.
 > Report: `research/final_build/w6/review_requests/FIX-B19C.md`.
+> **2026-11-20 — CERTFIX-1 on `certfix/1` (from `claude/w6-INTEG8-wip`; NOT deployed; production unchanged).**
+> Fixed 13 of the Batch 18 cert failures with real fixes; 22 suites, 266 passing, 0 failing (run 20261120T230421Z-5923,
+> py3.11 lockfile venv).
+> - `improve.self_tune` declares its work keys and band.
+> - `child_safety` is a canonical conditional stage.
+> - `ops.continuity` no longer dies on a declared table that has not been created yet (`radar_concepts`).
+> - CIR v3 and the `/api/readback/ecrs` route are declared.
+> - The CC `learning` and `benchmark_shopping` sections carry their envelopes.
+> - The supply refill is narrowed (D-CERTFIX1-SUPPLY-REFILL).
+> - PDFium interpreter-exit race fixed. This was the test_deploy `bad_variant_access` abort: a real race, not
+>   environment-only.
+> - Open risk: the test_cert_wiring drain is about 1240 s of its 1525 s limit on a 4-core host.
+> - Report: `research/final_build/w6/review_requests/CERTFIX-1.md`.
 
 > **2026-11-20 — FIX-DEMAND-STALL on `claude/w6-INTEG8-wip` (Batch 18 integration; NOT deployed; production
 > unchanged).** A promoted concept waiting in the supply queue for an uncertified engine (on the production pool:

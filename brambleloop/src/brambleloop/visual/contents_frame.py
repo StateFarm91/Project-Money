@@ -48,6 +48,49 @@ PAGE_BORDER = (88, 70, 44)    # K.GAP: the page edge reads as a sheet on the sag
 #: the lock is held so no finalizer runs PDFium later on another thread.
 PDFIUM_LOCK = threading.RLock()
 
+# CERTFIX-1: PDFium at interpreter exit. pypdfium2 registers `atexit(destroy_lib)` on first
+# import; it force-closes every PDFium object still open (document before page) and then
+# destroys the library. The Command Center's refresh threads are daemons, so one can still be
+# inside a render when the process exits: destroy_lib then closed its document under it and
+# the process aborted natively (`bad_variant_access was thrown in -fno-exceptions mode`, seen
+# at the end of tests/test_deploy.py in cert run dde3ea62 and not in b098fcce -- a race, not
+# the interpreter). This hook is registered right after pypdfium2's own, so it runs first
+# (atexit is LIFO): it takes PDFIUM_LOCK, which waits for an in-flight render to close its
+# objects, and never releases it, so no thread enters PDFium while the library is destroyed.
+# It must also precede `weakref.finalize`'s own exit function, which pypdfium2's objects use
+# to close themselves: that one is registered lazily, on the first finalizer created (the
+# first PdfDocument), and when it ran first it closed a daemon thread's live pages under its
+# render (reproduced: SIGSEGV in FPDF_RenderPageBitmap). So a finalizer is created first.
+_EXIT_HOOK = {"registered": False}
+
+
+class _FinalizeAnchor:
+    """Lives for the process; its no-op finalizer only fixes the atexit order."""
+
+
+_FINALIZE_ANCHOR = _FinalizeAnchor()
+EXIT_WAIT_SECONDS = 60.0
+
+
+def _quiesce_pdfium_at_exit() -> None:
+    PDFIUM_LOCK.acquire(timeout=EXIT_WAIT_SECONDS)
+
+
+def _pdfium():
+    """pypdfium2, with the exit hook registered after the library's own (see above)."""
+    import atexit
+    import weakref
+
+    import pypdfium2 as pdfium
+
+    with PDFIUM_LOCK:
+        if not _EXIT_HOOK["registered"]:
+            anchor = weakref.finalize(_FINALIZE_ANCHOR, lambda: None)
+            anchor.atexit = False
+            atexit.register(_quiesce_pdfium_at_exit)
+            _EXIT_HOOK["registered"] = True
+    return pdfium
+
 
 class ContentsRefused(ValueError):
     """No certified PDF, or one that is not this release's document; nothing is drawn."""
@@ -107,7 +150,7 @@ def released_pdf(db, slug: str, version: str, *, store=None, release: str = "") 
 
 
 def _pages_pdfium(pdf: bytes) -> int:
-    import pypdfium2 as pdfium
+    pdfium = _pdfium()
 
     with PDFIUM_LOCK:
         doc = pdfium.PdfDocument(pdf)
@@ -193,7 +236,7 @@ def _paste_pages(d, img, doc, f: dict, x0, y, x1, y1) -> None:
 def draw(f: dict, pdf: bytes, layout: list | None = None) -> bytes:
     """Pixels from facts and the PDF's own pages. Producer and verifier both call this.
     `layout`, when given, receives every lettered line; the bytes do not depend on it."""
-    import pypdfium2 as pdfium
+    pdfium = _pdfium()
 
     img = Image.new("RGB", (K.CANVAS_PX, K.CANVAS_PX), K.BACKGROUND)
     d = ImageDraw.Draw(img)

@@ -103,6 +103,59 @@ def test_every_pdfium_use_is_under_the_lock():
         assert text.count("pdfium.PdfDocument(") <= text.count("doc.close()"), p
 
 
+# CERTFIX-1: PDFium at interpreter exit. A daemon thread (the Command Center's refresh
+# threads are daemons) is inside a render, holding PDFIUM_LOCK with a document and a page
+# open, when the process exits. Before the fix, `weakref.finalize`'s exit function and then
+# pypdfium2's `destroy_lib` closed those objects under the render and destroyed the library:
+# a native abort (`bad_variant_access was thrown in -fno-exceptions mode`, cert run
+# dde3ea62, end of tests/test_deploy.py) or SIGSEGV. The crash needs the exit to land inside
+# a native PDFium call (a daemon sleeping in Python never resumes once the interpreter is
+# finalizing), so three threads render the real pattern PDF continuously at a large scale,
+# and the child is run several times: against the unfixed module it failed most runs.
+_EXIT_CHILD = r"""
+import sys, threading
+sys.path.insert(0, sys.argv[1])
+from brambleloop.visual import contents_frame as CF
+pdf = open(sys.argv[2], "rb").read()
+started = threading.Barrier(4)
+def render_forever():
+    import pypdfium2 as pdfium
+    started.wait()
+    while True:
+        with CF.PDFIUM_LOCK:
+            doc = pdfium.PdfDocument(pdf)
+            try:
+                for i in range(len(doc)):
+                    page = doc[i]
+                    bitmap = page.render(scale=4)
+                    bitmap.close()
+                    page.close()
+            finally:
+                doc.close()
+CF._pages_pdfium(pdf)                        # the module's own first use of PDFium
+for _ in range(3):
+    threading.Thread(target=render_forever, daemon=True).start()
+started.wait()
+import time; time.sleep(0.3)
+print("EXITING", flush=True)
+"""
+
+
+def test_a_render_in_flight_at_interpreter_exit_finishes_before_pdfium_is_destroyed():
+    pdf = _pdf_path()
+    child = os.path.join(_TMP, "exit_child.py")
+    Path(child).write_text(_EXIT_CHILD)
+    for _ in range(6):
+        p = subprocess.run([sys.executable, "-I", "-X", "faulthandler", child, str(SRC), pdf],
+                           capture_output=True, text=True, timeout=600, cwd=_TMP)
+        assert p.returncode == 0, (p.returncode, p.stdout[-400:], p.stderr[-1200:])
+        assert "EXITING" in p.stdout, p.stdout
+        # nothing was left open for the library's exit handler to force-close, and no thread
+        # saw its objects closed under it
+        assert "still open" not in p.stderr, p.stderr[-1200:]
+        assert "Traceback" not in p.stderr, p.stderr[-1200:]
+
+
 if __name__ == "__main__":
     import time
 

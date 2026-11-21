@@ -3939,6 +3939,10 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "improve.nightly": ("total_found",),
     "improve.retrospective": ("promotions_assessed", "returned", "regressed_promotions"),
     "improve.role_work": ("proposed", "kept"),
+    # ENG-IMPROVE: `work_done` is the cycle's own count of real decisions (trial promote /
+    # rollback, a newly filed change request, a verified or reopened one). `trials_judged` and
+    # `loops_closed` are standing counts that include "wait" verdicts, so they are not work.
+    "improve.self_tune": ("work_done",),
     "improve.sandbox": ("sandboxed", "tested", "approved", "promoted", "executed",
                         "rejected"),
     "improve.weekly": ("executed", "queued_for_authority", "added"),
