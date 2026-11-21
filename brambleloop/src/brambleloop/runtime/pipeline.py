@@ -1729,11 +1729,24 @@ def handle_certify(ctx: JobContext) -> dict:
     # halt included -- is product-wide. No design digest decides whether this release may
     # certify past a halt; a size halt is lifted only by the owner, on qualifying evidence
     # (`runtime.release.lift_size_halt`). Certifying lifts nothing.
-    if tracker.publication_halted(cir.slug):
+    # ENG-SUPPLY-LANE: certification is QA and publishes nothing, so a company-wide
+    # publication hold raised for artefact staleness does not stop it (owner P0: publication
+    # holds must not stop permitted research, QA, PDFs or internal listings). Every halt that
+    # names this product, and a systemic row carrying integrity evidence, still stops it
+    # (`IncidentTracker.certification_halts`); every publication gate still reads the
+    # systemic row, so nothing certified here can be published while it is open.
+    halts = tracker.certification_halts(cir.slug)
+    if halts:
         ctx.audit("gate.halted", artifact=f"{cir.slug}@{cir.version}",
-                  detail={"reason": "open P0/P1 incident"})
+                  detail={"reason": "open P0/P1 incident",
+                          "incidents": [i.signature for i in halts][:10]})
         return {"artifact": f"{cir.slug}@{cir.version}", "granted": False,
                 "halted_by_incident": True}
+    if tracker.publication_halted(cir.slug):
+        ctx.audit("gate.certify_under_publication_hold", artifact=f"{cir.slug}@{cir.version}",
+                  detail={"why": "a company-wide publication hold (no integrity evidence) is "
+                                 "open; certification is QA and proceeds, publication stays "
+                                 "held by every publication gate"})
 
     # W4-LISTREADY (review F5): a halted certification's retry and the normal chain can each
     # queue a certify for the same slug@version. Whichever runs second finds the identical

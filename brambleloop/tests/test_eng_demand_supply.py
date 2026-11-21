@@ -22,6 +22,10 @@ sys.path.insert(0, str(ROOT / "tests"))
 
 _TMP = tempfile.mkdtemp(prefix="eng_demand_")
 os.environ["BRAMBLELOOP_ARTIFACT_DIR"] = os.path.join(_TMP, "artifacts")
+# ENG-SUPPLY-LANE: this suite pins the historical one-worker admission (WIP 2, one admission
+# per run) through the existing env override and the per-run constant; the capacity-based
+# defaults are proven in tests/test_supply_lane.py.
+os.environ["BRAMBLELOOP_SUPPLY_MAX_WIP"] = "2"
 
 from sqlalchemy import select  # noqa: E402
 
@@ -30,6 +34,7 @@ from brambleloop.core.db import Database  # noqa: E402
 from brambleloop.core.models import AuditLog, BenchmarkListing, Job, JobStatus, Phase  # noqa: E402
 from brambleloop.products import demand as D  # noqa: E402
 from brambleloop.products import supply  # noqa: E402
+supply.MAX_ADMIT_PER_RUN = 1  # ENG-SUPPLY-LANE: the historical trickle, pinned
 from brambleloop.queue.durable import JobQueue  # noqa: E402
 from brambleloop.runtime import pipeline  # noqa: E402,F401 - registers handlers
 from brambleloop.runtime import release  # noqa: E402,F401 - registers handlers
