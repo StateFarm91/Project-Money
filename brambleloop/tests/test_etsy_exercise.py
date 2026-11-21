@@ -75,6 +75,8 @@ from brambleloop.integrations.http import UrllibTransport  # noqa: E402
 
 from tests.fake_etsy import FakeEtsy  # noqa: E402
 
+from brambleloop.queue import effects as _effects  # noqa: E402,F401 - its table, for recovery
+
 DB = app_main.db
 DB.create_all()
 
@@ -136,7 +138,8 @@ def reset(*, credential: str | None = FIRST_REFRESH_TOKEN) -> None:
         s.execute(delete(OwnerAction))
         s.execute(delete(AuditLog).where(AuditLog.action.in_(
             [etsy_exercise.DRAFT_CREATED, etsy_exercise.DRAFT_REMOVED,
-             etsy_exercise.RUN_STARTED, etsy_exercise.RUN_FINISHED, "etsy.exercise"])))
+             etsy_exercise.RUN_STARTED, etsy_exercise.RUN_FINISHED, "etsy.exercise",
+             etsy_exercise.RECOVERED])))
     if credential:
         oauth_store.save_refresh_token(DB, credential, scopes=" ".join(SCOPES),
                                        source="test", new_grant=True)
@@ -480,11 +483,14 @@ def test_a_draft_left_by_a_previous_attempt_is_swept_before_this_one_starts():
         # The same shop, with the delete working again.
         fake.delete_failure = None
         recovered = run_full(fake)
-        assert fake.listings == {}, "the sweep did not remove the stale draft"
+        assert fake.listings == {}, "recovery did not remove the stale draft"
 
+    # ENG-ETSY-RECOVERY: the ledger-bound recovery removes it before the title-only sweep runs,
+    # and verifies the delete by read-back; the sweep then finds nothing.
+    assert recovered["recovery"]["counts"]["removed_verified"] == 1, recovered["recovery"]
+    assert [r["listing_id"] for r in recovered["recovery"]["listings"]] == [listing_id]
     sweep = [s for s in recovered["exercise"]["steps"] if s["step"] == "sweep"][0]
-    assert sweep["observed"]["stale_drafts_found"] == 1, sweep
-    assert [row["listing_id"] for row in sweep["observed"]["removed"]] == [listing_id]
+    assert sweep["observed"]["stale_drafts_found"] == 0, sweep
     assert recovered["shop_is_clean"] is True
     assert etsy_exercise.outstanding_drafts(DB) == []
 
@@ -1048,6 +1054,177 @@ def test_ws5_e2_the_diagnosis_reads_the_node_that_was_sent():
         report = run_full(fake)
     diag = _step(report, "verify_contract")["observed"]["taxonomy"]
     assert diag["taxonomy_id_sent"] == etsy_probe.TAXONOMY_PATTERNS, diag
+
+
+# ---------------------------------------------------------------------------
+# ENG-ETSY-RECOVERY: leftover and duplicate recovery
+
+
+def _own_draft(fake: FakeEtsy, *, marker: str = "leftover01", state: str = "draft",
+               in_ledger: bool = True, ledger_title: str | None = None) -> str:
+    title = f"{etsy_probe.TEST_TITLE_PREFIX} {marker}"
+    record = fake._new_listing({"title": title, "price": "5.00", "quantity": "1"})
+    record["state"] = state
+    lid = str(record["listing_id"])
+    if in_ledger:
+        etsy_exercise._audit(DB, etsy_exercise.DRAFT_CREATED, {
+            "listing_id": lid, "title": ledger_title or title, "shop_id": fake.shop_id})
+    return lid
+
+
+def _recover(fake: FakeEtsy) -> dict:
+    with pointed_at(fake):
+        client = etsy_exercise._client(DB, dict(os.environ), Recording(), breadcrumbs=False)
+        return etsy_exercise.recover_with(client, DB)
+
+
+def _deletes(fake: FakeEtsy) -> list[str]:
+    return [r["path"] for r in fake.requests if r["operation"] == "deleteListing"]
+
+
+def test_recovery_cleans_an_own_leftover_draft_and_its_duplicate():
+    reset()
+    with FakeEtsy() as fake:
+        first = _own_draft(fake, marker="leftover01")
+        dup = _own_draft(fake, marker="leftover02")
+        out = _recover(fake)
+        assert fake.listings == {}, fake.listings
+    assert out["ok"] is True, out
+    assert out["counts"]["removed_verified"] == 2 and out["cleaned"] == 2, out
+    assert {r["listing_id"] for r in out["listings"]} == {first, dup}
+    assert etsy_exercise.outstanding_drafts(DB) == []
+
+
+def test_recovery_settles_a_ledger_draft_etsy_no_longer_holds_without_deleting():
+    reset()
+    with FakeEtsy() as fake:
+        lid = _own_draft(fake)
+        fake.listings.pop(lid)
+        out = _recover(fake)
+        assert _deletes(fake) == []
+    assert out["counts"]["already_gone"] == 1 and out["ok"] is True, out
+    assert etsy_exercise.outstanding_drafts(DB) == []
+
+
+def test_recovery_never_touches_a_foreign_or_active_or_unprovable_listing():
+    from brambleloop.queue.effects import EffectIntent
+
+    reset()
+    with DB.session() as s:
+        s.execute(delete(EffectIntent))
+    with FakeEtsy() as fake:
+        foreign = _own_draft(fake, marker="foreign001", in_ledger=False)
+        active = _own_draft(fake, marker="active0001", state="active")
+        renamed = _own_draft(fake, marker="renamed001",
+                             ledger_title=f"{etsy_probe.TEST_TITLE_PREFIX} other00001")
+        product = fake._new_listing({"title": "Cosy Mushroom Amigurumi Pattern"})
+        activated = _own_draft(fake, marker="activ00002")
+        with DB.session() as s:
+            s.add(EffectIntent(key="k-recovery-test", effect="etsy.activate",
+                               idem=f"{activated}:grant", token="t"))
+        viewed = _own_draft(fake, marker="viewed0001")
+        fake.listings[viewed]["views"] = 3
+        before = sorted(fake.listings)
+        out = _recover(fake)
+        assert sorted(fake.listings) == before, "recovery deleted something it must not"
+        assert _deletes(fake) == [], _deletes(fake)
+        assert fake.listings[active]["state"] == "active"
+        assert str(product["listing_id"]) in fake.listings
+    c = out["counts"]
+    assert c["left_foreign"] == 1 and c["left_not_draft"] == 1, c
+    assert c["left_not_provable"] == 3 and c["removed_verified"] == 0, c
+    assert out["ok"] is False and out["cleaned"] == 0
+    by = {r["listing_id"]: r for r in out["listings"]}
+    assert by[foreign]["outcome"] == "left_foreign"
+    assert by[active]["outcome"] == "left_not_draft"
+    assert by[renamed]["failed_checks"] == ["etsy_title_matches_ledger"]
+    assert by[activated]["failed_checks"] == ["no_activation_recorded"]
+    assert by[viewed]["failed_checks"] == ["no_views_or_favourites"]
+    with DB.session() as s:
+        s.execute(delete(EffectIntent))
+
+
+def test_a_failed_recovery_delete_is_reported_not_hidden():
+    reset()
+    with FakeEtsy(delete_failure=(403, "no permission to delete")) as fake:
+        lid = _own_draft(fake)
+        with pointed_at(fake):
+            out = etsy_exercise.recover(DB, transport=Recording())
+        assert lid in fake.listings
+    assert out["ok"] is False and out["counts"]["delete_failed"] == 1, out
+    assert out["status_classes"] == {"http_403": 1}, out
+    assert [a["requirement_key"] for a in out["owner_actions"]] == [
+        f"{etsy_exercise.STRANDED_KEY}.{lid}"]
+    assert [r["listing_id"] for r in etsy_exercise.outstanding_drafts(DB)] == [lid]
+
+
+def test_a_soft_delete_is_unverified_not_counted_as_cleaned():
+    reset()
+    with FakeEtsy(delete_is_soft=True) as fake:
+        lid = _own_draft(fake)
+        out = _recover(fake)
+        assert fake.listings[lid]["state"] == "removed"
+    assert out["counts"]["delete_unverified"] == 1 and out["cleaned"] == 0, out
+    assert out["ok"] is False
+    assert [r["listing_id"] for r in etsy_exercise.outstanding_drafts(DB)] == [lid]
+
+
+def test_a_full_run_makes_no_new_draft_while_an_own_draft_cannot_be_removed():
+    reset()
+    with FakeEtsy(delete_failure=(403, "no")) as fake:
+        lid = _own_draft(fake)
+        report = run_full(fake)
+        assert list(fake.listings) == [lid], "a second draft was created"
+        assert not [r for r in fake.requests if r["operation"] == "createDraftListing"]
+    assert report["ok"] is False and report["shop_is_clean"] is False
+    assert report["exercise"].get("skipped"), report["exercise"]
+    with DB.session() as s:
+        row = s.scalar(select(AuditLog).where(AuditLog.action == etsy_exercise.RUN_FINISHED)
+                       .order_by(AuditLog.id.desc()))
+    cause = row.detail["cause"]
+    assert cause["recovery_counts"]["delete_failed"] == 1 and cause["exercise_skipped"], cause
+    # Against the fake the class is "not_against_etsy"; it is never "clean".
+    assert etsy_exercise.status_class(row.detail["status"]) in ("shop_not_clean",
+                                                                "not_against_etsy")
+
+
+def test_visibility_reports_fixed_vocabulary_and_never_an_id_or_title():
+    import json
+
+    from brambleloop.ops import owner_etsy_exercise as OEE
+
+    reset()
+    with FakeEtsy(delete_failure=(403, "no")) as fake:
+        lid = _own_draft(fake)
+        run_full(fake)
+    v = OEE.visibility(DB)
+    text = json.dumps(v)
+    assert lid not in text and "DO NOT BUY" not in text and "no permission" not in text, text
+    assert v["last_recovery"]["counts"]["delete_failed"] == 1, v
+    assert v["last_runs"][0]["status_class"] in ("shop_not_clean", "not_against_etsy"), v
+    assert v["last_runs"][0]["shop_is_clean"] is False, v
+    assert v["last_runs"][0]["cause"]["recovery_counts"]["delete_failed"] == 1, v
+
+
+def test_the_operator_endpoint_offers_recovery_and_still_needs_the_credential():
+    reset()
+    with FakeEtsy() as fake:
+        _own_draft(fake)
+        with pointed_at(fake), TestClient(app_main.app) as client:
+            assert client.post("/api/etsy/exercise?mode=recover").status_code == 401
+            response = client.post("/api/etsy/exercise?mode=recover",
+                                   headers={"Authorization": f"Bearer {OPS_TOKEN}"})
+        assert response.status_code == 200, response.text
+        assert fake.listings == {}
+    body = response.json()
+    assert body["mode"] == "recover" and body["counts"]["removed_verified"] == 1, body
+
+
+def test_recovery_cannot_activate_or_publish():
+    src = inspect.getsource(etsy_exercise.recover_with) + inspect.getsource(etsy_exercise.recover)
+    assert "activate(" not in src and "publish(" not in src and "owner_authorised" not in src
+    assert "_client(db, env, transport, breadcrumbs=False)" in src
+
 
 
 if __name__ == "__main__":

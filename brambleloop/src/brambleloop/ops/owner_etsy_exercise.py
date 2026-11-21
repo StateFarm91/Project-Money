@@ -83,3 +83,60 @@ def maybe_run(db, *, verify=None, now: datetime | None = None, runner=None) -> d
         log.warning("could not audit %s attempt %s", DIRECTIVE_ID, d["attempt"])
     log.warning("%s attempt %s: ok=%s", DIRECTIVE_ID, d["attempt"], detail.get("ok"))
     return {"ran": True, **detail}
+
+
+def visibility(db) -> dict:
+    """`factory_visibility.owner_etsy_exercise` (ENG-ETSY-RECOVERY). Fixed vocabulary only.
+
+    Counts, status classes, step names and taxonomy outcome names -- never a listing id, a
+    title or an Etsy message. The directive's own rows (D-OWNER-ETSY-EXERCISE) predate the
+    cause field, so their cause is read from the matching `etsy.exercise_finished` rows.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+    from ..integrations import etsy_exercise as X
+
+    attempts = _attempts(db)
+    with db.session() as s:
+        finished = [dict(r.detail or {}) for r in s.scalars(
+            select(AuditLog).where(AuditLog.action == X.RUN_FINISHED)
+            .order_by(AuditLog.id.desc()).limit(5))]
+        rec = s.scalar(select(AuditLog).where(AuditLog.action == X.RECOVERED)
+                       .order_by(AuditLog.id.desc()).limit(1))
+        rec = dict(rec.detail or {}) if rec is not None else None
+
+    def _ints(d) -> dict:
+        return {k: int(v) for k, v in (d or {}).items()
+                if isinstance(k, str) and all(X._word(p) for p in k.split(":", 1))
+                and isinstance(v, int) and not isinstance(v, bool)}
+
+    def _cause(c) -> dict | None:
+        if not isinstance(c, dict):
+            return None
+        return {"failed_steps": [w for w in (X._word(x) for x in c.get("failed_steps") or [])
+                                 if w][:12],
+                "cleanup_outcomes": _ints(c.get("cleanup_outcomes")),
+                "exercise_skipped": c.get("exercise_skipped") is True,
+                "read_back_ok": c.get("read_back_ok") is True,
+                "recovery_counts": _ints(c.get("recovery_counts")),
+                "recovery_cleaned": int(c.get("recovery_cleaned") or 0),
+                **{k: int(c.get(k) or 0) for k in (
+                    "marked_drafts_in_shop", "ledger_confirmed_gone", "ledger_still_on_etsy",
+                    "ledger_could_not_ask", "owner_actions")}}
+
+    return {
+        "directive": DIRECTIVE_ID,
+        "attempts": len(attempts), "max_attempts": MAX_ATTEMPTS,
+        "ok": any(a.get("ok") is True for a in attempts),
+        "attempt_classes": ["refused" if a.get("refused") else X.status_class(a.get("status"))
+                            for a in attempts],
+        "last_runs": [{"mode": X._word(f.get("mode")) or "unknown", "ok": f.get("ok") is True,
+                       "status_class": X.status_class(f.get("status")),
+                       "shop_is_clean": f.get("shop_is_clean") is True,
+                       "cause": _cause(f.get("cause"))} for f in finished],
+        "last_recovery": None if rec is None else {
+            "ok": rec.get("ok") is True, "counts": _ints(rec.get("counts")),
+            "cleaned": int(rec.get("cleaned") or 0),
+            "status_classes": _ints(rec.get("status_classes"))},
+    }
