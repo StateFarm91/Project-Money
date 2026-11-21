@@ -195,10 +195,10 @@
   "outcomes": "PASS binds; PARTIAL (not flat, shape not held, a problem recorded) goes to the owner and binds nothing; FAIL binds nothing; a size outside 12% halts this release"
  },
  "files": {
-  "hexagon-coaster-set-1.2.1-TEST.pdf": "26924b4088717b315c1e663daca6b02218816243da980054542390ed31e115cc",
+  "hexagon-coaster-set-1.2.1-TEST.pdf": "fe3f4b501d70981a297ce3db852d6f4732b273dae1de44d1fa7af356076365fa",
   "hexagon-coaster-set-1.2.1-RECORD-SHEET.pdf": "13451d201e6085296041a16909a8e4f1631ac6567126e375d2ff10e985666bc5",
   "OUTREACH_hexagon-coaster-set.md": "71cd7a323b08f4c2216507416ee4591aee98a81524c12ce42fb9f0e3f9a2c737"
  },
- "pattern_pages": 14,
+ "pattern_pages": 15,
  "built_by": "quality.tester_kit.build(key='hexagon_coasters')"
 }
