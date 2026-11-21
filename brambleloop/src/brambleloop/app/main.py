@@ -275,6 +275,28 @@ def _startup() -> None:
         _owner_directives.apply(db)
     except Exception:  # noqa: BLE001 - applying a directive must never prevent a boot
         pass
+    # D-OWNER-ETSY-EXERCISE: the owner's one-time instruction to run the controlled Etsy
+    # exercise (one marked draft, deleted and verified; CA$0; never publishes). It runs in a
+    # background thread after the boot settles, at most twice, only inside the directive's
+    # window, and every attempt is audited.
+    try:
+        import threading as _threading
+        import time as _time
+
+        from ..ops import owner_etsy_exercise as _oee
+
+        import os as _os
+
+        # Only the deployed service (Railway sets RAILWAY_DEPLOYMENT_ID), never a test or a laptop.
+        if _os.environ.get("RAILWAY_DEPLOYMENT_ID") and _oee.due(db)["due"]:
+            def _run_owner_etsy_exercise():
+                _time.sleep(BOOT_JOB_DELAY_SECONDS)
+                _oee.maybe_run(db, verify=_verify_snapshot)
+
+            _threading.Thread(target=_run_owner_etsy_exercise, daemon=True,
+                              name="owner-etsy-exercise").start()
+    except Exception:  # noqa: BLE001 - never prevents a boot
+        pass
     if schema_changes:
         # A schema change nobody can see is how a deploy breaks quietly.
         Registry(db).audit("orchestrator", "schema.migrated",

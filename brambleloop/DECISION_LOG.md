@@ -3891,3 +3891,15 @@ Three shapes of row could never close. Each is fixed here, with no gate relaxed.
 activation gates.
 **Owner items.** These are owner items, not code: the controlled Etsy exercise (`etsy_remote_state`) and fresh readings
 of the five etsy.com/legal pages (the packet's `policy` section). Both are in OWNER_ACTIONS_P0.md.
+
+## D-OWNER-ETSY-EXERCISE — 2026-11-21T02:20Z (owner)
+
+**Owner, about OWNER_ACTIONS_P0 P0-1:** "Im not on my pc. I can't do it. You do it". This came after the owner chose "Railway runs it inside" in AskUserQuestion, a route that proved impossible: Railway's agent cannot run commands in the container.
+
+**Decision.** `ops.owner_etsy_exercise` runs the unchanged `integrations.etsy_exercise.run(mode="full")` from the deployed service itself. The exercise makes one marked DRAFT, then deletes it and verifies the delete. Its client is built with `owner_authorised=False`, so it cannot publish. Cost: CA$0. Limits:
+- It starts in a boot thread only when `RAILWAY_DEPLOYMENT_ID` is set.
+- It runs only inside [02:20Z 2026-11-21, +24 h].
+- It makes at most 2 attempts, and stops after the first clean run.
+- Every attempt is audited. A refusal, such as an expired Etsy grant, is recorded and never worked around.
+
+The operator token is never read by any session.
