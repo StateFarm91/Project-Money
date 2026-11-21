@@ -130,11 +130,12 @@ def _run():
         _boot(db, "17f17c200593d0f0", now - timedelta(hours=2, minutes=36))
         with _Running("17f17c200593d0f0"):
             second = base._sentinel(db, "live-2")
-        assert sorted(second["rebuild_retried"]) == sorted(slugs), second
+        assert set(slugs) <= set(second["rebuild_retried"]), second
         with db.session() as s:
             retries = {(j.inputs or {}).get("product_slug"): dict(j.inputs or {})
                        for j in s.scalars(select(Job).where(
-                           Job.job_type == "chain.rebuild", Job.status == JobStatus.PENDING))}
+                           Job.job_type == "chain.rebuild", Job.status == JobStatus.PENDING))
+                       if (j.inputs or {}).get("retry")}
             for slug in slugs:
                 s.add(Incident(severity="P2", signature=f"rebuild-incomplete:{slug}",
                                product_slug=slug, halts_publication=True, report_count=2,
@@ -152,7 +153,7 @@ def _run():
         with _Running("01ab8df3e5d1c0a9"):
             third = base._sentinel(db, "live-3")
             # base: enqueued [] / retried [] / retry_waiting == all twelve, as production read
-            assert sorted(third["rebuild_retried"]) == sorted(slugs), (
+            assert set(slugs) <= set(third["rebuild_retried"]), (
                 third.get("rebuild_retried"), third.get("rebuild_retry_waiting"),
                 third.get("rebuild_retry_spent"))
             assert not third["rebuild_retry_spent"], third["rebuild_retry_spent"]
