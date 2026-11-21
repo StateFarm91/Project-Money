@@ -430,6 +430,18 @@ def _startup() -> None:
         BOOT_ENQUEUES.append({"name": "listing_package", "outcome": "error",
                               "detail": f"{type(e).__name__}: {e}"[:300]})
 
+    # Halt 380: the stale-artefact sentinel (hourly) closes rows whose rebuild verified, and
+    # the health sweep's truth pass re-evaluates the systemic halt. Run each once per deployed
+    # commit, so a fix to either does not wait an hour; both are read-and-record, no spend.
+    for _name, _agent, _jt in (("stale_artefact_sentinel", "orchestrator", "ops.sentinel"),
+                               ("health_sweep", "orchestrator", "ops.health")):
+        try:
+            _boot_enqueue(_name, when=True, agent=_agent, job_type=_jt,
+                          key=f"boot-{_name}-{build_identity().get('commit', '') or 'dev'}")
+        except Exception as e:  # noqa: BLE001 - never block a boot
+            BOOT_ENQUEUES.append({"name": _name, "outcome": "error",
+                                  "detail": f"{type(e).__name__}: {e}"[:300]})
+
     # And re-ask #300's chain while its assets link is still open. The cadence is weekly,
     # which is right unattended and wrong immediately after the thing that was blocking it
     # changes -- the canonical identity was frozen minutes after this week's run had
