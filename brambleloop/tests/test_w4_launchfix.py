@@ -610,7 +610,12 @@ def _photo_fixture(db, *, bind=True, version_of_photo=None, unedited=True, first
         s.add(test)
         s.flush()
         test_id = test.id
-        for pos, role in enumerate(("hero", "chart"), start=1):     # the render gallery
+        # D-OWNER-GALLERY-COMPLETE: a listing-set certificate names the whole campaign
+        # (`shot_plans.CAMPAIGN_MIN_FRAMES`, seven), so the render gallery is seven frames;
+        # the photo, when it qualifies, is upgraded in ahead of them.
+        for pos, role in enumerate(("hero", "chart", "whats_included", "size", "materials",
+                                    "pattern_preview", "collection"),
+                                   start=1):                            # the render gallery
             rsha = store.put(f"r-{uuid.uuid4().hex}.png", f"render {role} {pos}".encode(),
                              "image/png").sha256
             s.add(ListingAsset(product_slug=cir.slug, version=cir.version, position=pos,
