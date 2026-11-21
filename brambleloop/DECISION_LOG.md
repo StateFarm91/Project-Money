@@ -3971,3 +3971,27 @@ Batch 19h (code 384399c64) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the own
 ## D-OWNER-DEPLOY-19h1 — 2026-11-21T04:25:50Z
 
 Batch 19h1 (code c391386fd) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to b17649901845b9a20fcfe596d108a18c75578b1a was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-HALT-380-VERIFY — 2026-11-21
+
+Production 1bb7c4f5: chain.rebuild done 199 and unfinished 0, but no artefact completed since
+2026-11-20T13:12Z. Reproduced on the real chain: a provenance row whose artefact no longer exists
+reads STALE for good. This covers a `visual_truth` row of a gallery frame `_persist_frames` deleted,
+and a `marketing_asset` row of a draft the current content plan dropped. No stage can rewrite such a
+row. A non-marketing orphan also made `marketing.schedule` refuse the product's real marketing
+rebuild on "#172 rebuild outstanding". So the first attempt verified 15 artefacts and every later
+attempt verified 0. Decided:
+(1) `artefacts.check` reads such a row RETIRED. This applies only to the exact key shapes, only when
+the frame row is gone or the draft is `superseded`, and only for a row that would otherwise read
+STALE. Everything else fails closed: a missing content piece proves nothing, because pieces are
+never deleted.
+(2) `marketing.schedule` supersedes drafts its plan no longer contains (drafts only, nothing deleted).
+(3) The verify pass, the sentinel's rebuild-incomplete judgement and `publication_gate` set retired
+names aside. Retired names alone close nothing.
+(4) A rebuild refused by a real gate of its own chain parks the product with the gate's reason. The
+product stays halted, but is not counted toward the systemic staleness families. Its own
+#173/#172 staleness is never a gate.
+Rejected: closing rows on absence alone; waiving gate.certify's incident halt (left open, a gate).
+GET /api/readback/evidence: parked_admission measured at about 40 ms locally, so it is not shown to be
+the 45 s. It was made cheaper anyway (one admission read per release, column selects), and the body
+now carries `timing_ms` per section. Report: `w6/review_requests/HALT-380-VERIFY.md`.

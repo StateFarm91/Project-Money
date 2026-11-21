@@ -36,6 +36,41 @@ def test_visibility_reports_jobs_activations_and_no_text():
     assert "factory_visibility" in json.dumps(ev)
 
 
+def test_parked_admission_reads_each_release_once_and_the_evidence_is_timed():
+    """eng/halt-380-verify: one admission read per distinct release, however many parked runs
+    share it; still one entry per run (same fields), and every section's wall time is named."""
+    from brambleloop.visual import image_production as IP
+    from brambleloop.visual.image_records import ImageProductionRun, ensure_tables
+
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/v.db")
+    db.create_all()
+    ensure_tables(db)
+    with db.session() as s:
+        for k in range(5):
+            s.add(ImageProductionRun(run_key=f"r{k}", slug="a" if k < 4 else "b",
+                                     version="1.0.0", release="ab" * 8,
+                                     status=IP.SALE_WAITING))
+    calls = []
+    real = IP.sale_admission
+    IP.sale_admission = lambda db_, *a: (calls.append(a), real(db_, *a))[1]
+    try:
+        v = pe.factory_visibility(db, now=NOW)
+    finally:
+        IP.sale_admission = real
+    assert sorted(calls) == [("a", "1.0.0", "ab" * 8), ("b", "1.0.0", "ab" * 8)], calls
+    assert [r["run"] for r in v["parked_admission"]] == ["a@1.0.0"] * 4 + ["b@1.0.0"], v
+    assert all(set(r) == {"run", "admitted", "blockers"} and r["admitted"] is False
+               for r in v["parked_admission"]), v
+    assert v["parked_runs"] == 5 and isinstance(v["parked_admission_ms"], int), v
+    assert v["image_runs_by_state"] == {IP.SALE_WAITING: 5}, v
+    ev = pe.evidence(db, now=NOW)
+    t = ev["timing_ms"]
+    assert set(pe.SECTIONS) | {"factory_visibility"} <= set(t), sorted(t)
+    assert all(isinstance(x, int) and x >= 0 for x in t.values()), t
+
+
 if __name__ == "__main__":
     test_visibility_reports_jobs_activations_and_no_text()
     print("OK   test_visibility_reports_jobs_activations_and_no_text")
+    test_parked_admission_reads_each_release_once_and_the_evidence_is_timed()
+    print("OK   test_parked_admission_reads_each_release_once_and_the_evidence_is_timed")

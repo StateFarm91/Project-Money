@@ -815,8 +815,15 @@ def publication_gate(db, *, slug: str, current: dict[str, str] | None = None) ->
     verdict = (blocks_publication(db, changed=changed, rebuilt=rebuilt) if changed
                else {"may_publish": True, "outstanding": [], "why": "nothing upstream moved"})
     nodes = load_graph(db)["nodes"]
+    # eng/halt-380-verify: a node the check reads RETIRED (its frame row dropped, its draft
+    # superseded, its slug retired) is no descendant to remake: nothing exists to ship stale.
+    # Counted, it kept `may_publish` false for good and -- being non-marketing -- refused the
+    # product's marketing rebuild on every attempt.
+    from .artefacts import retired as _retired
+
+    gone = {_node_key(v.artefact_class, v.artefact_key) for v in verdicts if _retired(v)}
     outstanding = [k for k in verdict["outstanding"]
-                   if k in nodes and nodes[k].product_slug == slug]
+                   if k in nodes and nodes[k].product_slug == slug and k not in gone]
     evidence = [{"key": _node_key(c, k), "built_at": str(built)}
                 for (c, k), (_, built) in sorted(recorded.items())
                 if _node_key(c, k) in rebuilt]
@@ -834,7 +841,9 @@ def publication_gate(db, *, slug: str, current: dict[str, str] | None = None) ->
         # sentinel's to raise (it halts through the incident flag the publish path reads).
         "unprovable": unprovable,
         "why": (f"{len(outstanding)} descendant(s) of this product still carry the old "
-                f"input: {outstanding[:5]}" if outstanding else verdict["why"]),
+                f"input: {outstanding[:5]}" if outstanding
+                else "every descendant has been rebuilt or no longer exists"
+                if verdict["outstanding"] else verdict["why"]),
     }
 
 

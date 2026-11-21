@@ -1776,15 +1776,32 @@ def deploy_readback(handlers: dict) -> dict:
 
 def evidence(db, *, now: datetime | None = None, deploy_handlers: dict | None = None) -> dict:
     """The body of GET /api/readback/evidence (read-only token)."""
+    import time as _time
+
     now = _aware(now) or datetime.now(timezone.utc)
-    sections = {name: _section(name, db, now) for name in SECTIONS}
+    # eng/halt-380-verify: the endpoint took ~45 s in production with nothing saying where.
+    # Each section's wall time (whole milliseconds, a number per fixed section name -- no
+    # text) is returned beside it, so the next readback names the slow part instead of
+    # leaving it to a guess.
+    timing: dict[str, int] = {}
+
+    def _timed(name, fn):
+        t0 = _time.perf_counter()
+        try:
+            return fn()
+        finally:
+            timing[name] = int((_time.perf_counter() - t0) * 1000)
+
+    sections = {name: _timed(name, lambda n=name: _section(n, db, now)) for name in SECTIONS}
     try:  # not a judged section: visibility only (no readback row, no verdict)
-        sections["factory_visibility"] = factory_visibility(db, now=now)
+        sections["factory_visibility"] = _timed(
+            "factory_visibility", lambda: factory_visibility(db, now=now))
     except Exception as exc:  # noqa: BLE001
         sections["factory_visibility"] = _unreadable(exc)
     if deploy_handlers is not None:
         try:
-            sections["deploy_readback"] = deploy_readback(deploy_handlers)
+            sections["deploy_readback"] = _timed(
+                "deploy_readback", lambda: deploy_readback(deploy_handlers))
         except Exception as exc:  # noqa: BLE001
             sections["deploy_readback"] = _unreadable(exc)
     judged = {
@@ -1804,7 +1821,8 @@ def evidence(db, *, now: datetime | None = None, deploy_handlers: dict | None = 
             "never_included": ["job inputs/outputs", "error text", "incident text",
                                "paid-call payloads", "conversations", "owner data",
                                "customer data", "secrets"],
-            "server_judgement": judged, **sections}
+            "server_judgement": judged, **sections,
+            "timing_ms": dict(sorted(timing.items(), key=lambda kv: -kv[1]))}
 
 
 # ---- factory visibility (read-only; counts and fixed vocabulary only) --------------------
@@ -1843,7 +1861,7 @@ def factory_visibility(db, *, now: datetime) -> dict:
 
         ensure_tables(db)
         with db.session() as s:
-            states = Counter(str(r.status) for r in s.scalars(select(ImageProductionRun)))
+            states = Counter(str(st) for st in s.scalars(select(ImageProductionRun.status)))
         out["image_runs_by_state"] = dict(sorted(states.items()))
     except Exception as exc:  # noqa: BLE001
         out["image_runs_by_state"] = _unreadable(exc)
@@ -1853,12 +1871,26 @@ def factory_visibility(db, *, now: datetime) -> dict:
         from ..visual import image_production as IP
         from ..visual.image_records import ImageProductionRun
 
+        import time as _time
+
+        t0 = _time.perf_counter()
+        # eng/halt-380-verify: three columns, not whole rows (their stage, card and decision
+        # JSON was loaded and dropped), and each release's admission read ONCE however many
+        # parked runs share it. The report is unchanged: one entry per parked run, the same
+        # first 12, the same fields.
         with db.session() as s:
-            parked = [(r.slug, r.version, r.release) for r in s.scalars(
-                select(ImageProductionRun).where(ImageProductionRun.status == IP.SALE_WAITING))]
+            parked = [tuple(r) for r in s.execute(
+                select(ImageProductionRun.slug, ImageProductionRun.version,
+                       ImageProductionRun.release)
+                .where(ImageProductionRun.status == IP.SALE_WAITING)
+                .order_by(ImageProductionRun.id))]
         why = []
+        admissions: dict[tuple, dict] = {}
         for slug, version, release in parked[:12]:
-            adm = IP.sale_admission(db, slug, version, release)
+            key = (slug, version, release)
+            if key not in admissions:
+                admissions[key] = IP.sale_admission(db, slug, version, release)
+            adm = admissions[key]
             codes = []
             for b in adm.get("non_image_blockers") or []:
                 if not isinstance(b, dict):
@@ -1870,6 +1902,8 @@ def factory_visibility(db, *, now: datetime) -> dict:
                                                   [_re.sub(r"[^a-z_ ]", "", str(
                                                       adm.get("why") or "")[:60].lower())])})
         out["parked_admission"] = why
+        out["parked_runs"] = len(parked)
+        out["parked_admission_ms"] = int((_time.perf_counter() - t0) * 1000)
     except Exception as exc:  # noqa: BLE001
         out["parked_admission"] = _unreadable(exc)
     try:

@@ -264,6 +264,7 @@ tests/test_s2_fix_routing.py
 tests/test_s2_openai_provider.py
 tests/test_eng_stale_rebuild_loop.py
 tests/test_halt380_h4_rebuild_drain.py
+tests/test_halt_380_verify.py
 tests/test_eng_stale_round2.py
 tests/test_ws4_7_issuer.py
 tests/test_ws4_7_postgres.py

@@ -2701,11 +2701,29 @@ def handle_marketing_schedule(ctx: JobContext) -> dict:
                 product_slug=slug, inputs=design, chain_version=CHAIN_VERSION,
                 lineage=lineage.for_file(_content_hash(piece.title, piece.body))
                                .under(listing_ref))
+        # eng/halt-380-verify: a DRAFT this product's current plan no longer contains (an
+        # earlier title, estimate, collection or positioning) is superseded here, with the
+        # plan that replaced it, so its provenance row reads retired rather than stale for
+        # good (`artefacts._vanished_lookup`). Only drafts: content in any other state was
+        # handed on and stays judged as it is. Nothing is deleted.
+        from datetime import datetime as _dt, timezone as _tz
+
+        planned = {(p.channel, p.title) for p in pieces}
+        superseded = []
+        for old in s.scalars(select(ContentPiece).where(ContentPiece.product_slug == slug,
+                                                        ContentPiece.state == "drafted")):
+            if (old.channel, old.title) not in planned:
+                old.state = provenance.CONTENT_SUPERSEDED
+                old.detail = dict(old.detail or {}, superseded_by={
+                    "job": ctx.job.id, "version": version,
+                    "at": _dt.now(_tz.utc).isoformat()})
+                superseded.append(provenance.marketing_key(slug, old.channel, old.title))
 
     ctx.audit("marketing.scheduled" if not problems else "marketing.blocked",
               artifact=f"{slug}@{version}",
               detail={"pieces": len(pieces), "channels": sorted({p.channel for p in pieces}),
                       "problems": problems[:5], "published": False,
+                      "superseded_drafts": superseded[:50],
                       "cultural_timing": [n["lesson"] for n in cultural_timing]})
     return {"slug": slug, "version": version, "pieces": len(pieces),
             "problems": problems, "published": False}
@@ -5654,6 +5672,49 @@ REBUILD_VERIFY_DELAY_MINUTES = 20
 from ..ops.rebuild_graph import REBUILD_INCOMPLETE_SIGNATURE  # noqa: E402  (one definition)
 
 
+# eng/halt-380-verify: the release chain's own refusals -- a real gate saying no, with its
+# reason -- that end a targeted rebuild before the outstanding artefacts are rewritten.
+# `marketing.blocked` counts only when a reason is not the product's own staleness (#173
+# halt, #172 outstanding rebuild): that one is the deadlock the rebuild exists to cure, not a
+# gate's verdict. A held launch that queued its evergreen pivot did not end the chain.
+GATE_REFUSALS = ("gate.blocked", "gate.release_withheld", "chain.rebuild_refused",
+                 "assets.listing_images_blocked", "pricing.refused", "listing.seo_blocked",
+                 "launch.held", "marketing.blocked", "childrens.decision_required")
+_STALENESS_REASONS = ("halted (#173)", "rebuild outstanding (#172)")
+
+
+def _attempt_gate_refusal(s, slug: str, version: str, since_job) -> dict | None:
+    """The newest real-gate refusal of THIS attempt's chain (audits written by its own first
+    pass or any job enqueued after it), or None. No attempt identity, no park."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    try:
+        since = int(since_job)
+    except (TypeError, ValueError):
+        return None
+    rows = list(s.scalars(select(AuditLog).where(
+        AuditLog.action.in_(GATE_REFUSALS + ("launch.pivot_queued",)),
+        AuditLog.artifact.in_((f"{slug}@{version}", slug)),
+        AuditLog.job_id >= since).order_by(desc(AuditLog.id)).limit(50)))
+    pivoted = any(a.action == "launch.pivot_queued" for a in rows)
+    for a in rows:
+        d = a.detail or {}
+        if a.action == "launch.pivot_queued" or (a.action == "launch.held" and pivoted):
+            continue
+        reasons = [str(x) for x in (d.get("reasons") or d.get("blocking")
+                                    or d.get("blocking_image_problems") or [])]
+        if a.action == "marketing.blocked":
+            reasons = [r for r in reasons if not r.startswith(_STALENESS_REASONS)]
+            if not reasons and not d.get("problems"):
+                continue
+        why = (reasons or [str(d.get("why") or d.get("reason") or d.get("action") or "")])
+        return {"gate": a.action, "reasons": [w[:200] for w in why if w][:3] or [a.action],
+                "job": a.job_id, "audit_id": a.id}
+    return None
+
+
 def _rebuild_incomplete(ctx: JobContext, slug: str, version: str, *, stale: list,
                         reason: str, fingerprints: dict, checks: int) -> dict:
     """Open or restate `rebuild-incomplete:<slug>` after an attempt's verify checks ran out.
@@ -5664,7 +5725,7 @@ def _rebuild_incomplete(ctx: JobContext, slug: str, version: str, *, stale: list
     the daily retry -- a rebuild that cannot succeed is held, not looped."""
     from sqlalchemy import desc, select
 
-    from ..core.models import AuditLog, Incident
+    from ..core.models import AuditLog, Incident, utcnow
     from ..ops.rebuild_graph import REBUILD_MAX_ATTEMPTS, reset_legacy_budget
 
     with ctx.db.session() as s:
@@ -5702,13 +5763,25 @@ def _rebuild_incomplete(ctx: JobContext, slug: str, version: str, *, stale: list
         detail = {"stale": stale[:50], "reason": reason, "fingerprints": fingerprints,
                   "version": version, "attempts": attempts,
                   "max_attempts": REBUILD_MAX_ATTEMPTS, "refused_by": refused}
+        # eng/halt-380-verify: when a real gate of this attempt's own chain refused, the
+        # product is PARKED on that gate with its reason. It stays halted (the row keeps
+        # `halts_publication`; nothing closes), but a gate's verdict is not corruption, so
+        # `incident_lifecycle.systemic_evidence` does not count a parked product toward the
+        # company-wide staleness halt. A later attempt with no such refusal un-parks it.
+        parked = _attempt_gate_refusal(s, slug, version,
+                                       dict(ctx.job.inputs or {}).get("requested_by"))
+        if parked is not None:
+            parked["at"] = utcnow().isoformat()
+            detail["parked"] = parked
         if reset is not None:
             detail["budget_reset"] = reset
         if attempts >= REBUILD_MAX_ATTEMPTS:
             detail["held"] = (
                 f"{attempts} rebuild attempts at this change left {len(stale)} artefact(s) "
                 f"stale ({', '.join(sorted({k.split(':', 1)[0] for k in stale}))})"
-                + (f"; refused by: {'; '.join(refused)}" if refused else
+                + (f"; parked on {parked['gate']}: {'; '.join(parked['reasons'])}"
+                   if parked is not None else
+                   f"; refused by: {'; '.join(refused)}" if refused else
                    # eng/halt-380: say so when this attempt had no stage job of its own
                    "; no refusal was recorded -- this attempt ran no stage job of its own"
                    if not dict(ctx.job.inputs or {}).get("stage_job") else
@@ -5718,6 +5791,8 @@ def _rebuild_incomplete(ctx: JobContext, slug: str, version: str, *, stale: list
         merged = dict(inc.detail or {}, **detail)
         if "held" not in detail:
             merged.pop("held", None)          # a fresh budget (new change) is not held
+        if "parked" not in detail:
+            merged.pop("parked", None)        # this attempt was refused by no gate
         inc.detail = merged
         return detail
 
@@ -5832,7 +5907,16 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
     bindings = {k: binding(k) for k in fresh_now}
     fresh = [k for k in fresh_now if bindings[k]["bound"]]
     unbound = [k for k in fresh_now if not bindings[k]["bound"]]
-    stale = [k for k in keys if k not in fresh]
+    # eng/halt-380-verify: a named artefact the provenance check now reads RETIRED (its frame
+    # row was dropped by a gallery rebuild, its draft superseded by the current plan, its
+    # product a retired slug) is not outstanding: no stage rewrites an artefact that is not
+    # there. Counted as outstanding, it failed every verify pass of every attempt, opened
+    # `rebuild-incomplete` with "the stage ran and did not rewrite them", and held the
+    # product's real marketing rebuild on a non-marketing name. It is set aside, recorded
+    # with the check's reason, never counted as completed, and closes nothing by itself.
+    retired_now = {k: verdicts[k].retired for k in keys
+                   if k in verdicts and provenance.retired(verdicts[k])}
+    stale = [k for k in keys if k not in fresh and k not in retired_now]
 
     if verify:
         for k in fresh:
@@ -5860,12 +5944,22 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
         # the sentinel row of each artefact this attempt remade, and once nothing is
         # outstanding, the product's rebuild-incomplete row. Nothing is closed on a row that
         # merely reads fresh (unbound) or on a job's say-so.
-        closed = _close_on_verified_rebuild(ctx, slug, completed=fresh, outstanding=stale)
+        # eng/halt-380-verify: retired names alone are no evidence of a delivered rebuild, so
+        # a pass that completed nothing and set only retired names aside leaves the product's
+        # row to the sentinel's positive-evidence rule rather than closing it here.
+        closed = _close_on_verified_rebuild(
+            ctx, slug, completed=fresh,
+            outstanding=stale if (stale or fresh or not retired_now) else sorted(retired_now))
         ctx.audit("chain.rebuild_verified", artifact=f"{slug}@{version}", detail={
             "completed": fresh, "outstanding": stale, "unbound": unbound, "check": verify,
-            "closed": closed})
+            "closed": closed, "retired": dict(list(retired_now.items())[:50]),
+            # eng/halt-380-verify: why each outstanding name is still outstanding, as the
+            # check reads it now, so a readback can tell "not rewritten" from "refused".
+            "outstanding_read": {k: (verdicts[k].state + ": " + verdicts[k].why[:160]
+                                     if k in verdicts else "no provenance row")
+                                 for k in stale[:20]}})
         return {"targeted": True, "verify": verify, "slug": slug, "completed": fresh,
-                "outstanding": stale, "unbound": unbound}
+                "outstanding": stale, "unbound": unbound, "retired": sorted(retired_now)}
 
     classes = {k.split(":", 1)[0] for k in stale}
     unknown = sorted(c for c in classes if c not in REBUILD_STAGE)
@@ -5940,6 +6034,7 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
                     run_after=utcnow() + _td(minutes=REBUILD_VERIFY_DELAY_MINUTES))
     return {"targeted": True, "slug": slug, "version": version, "reason": reason,
             "requested": stale, "already_fresh": fresh, "stage": stage,
+            "retired": sorted(retired_now),
             "fresh_but_unbound": unbound,
             "stage_job": getattr(stage_job, "id", None), "unknown_classes": unknown}
 
@@ -8178,6 +8273,14 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
             # genuinely stale current release still reads STALE and keeps the row open.
             obsolete = {k: why for k in named
                         if (why := provenance.obsolete_release_key(k, slug_, latest_))}
+            # eng/halt-380-verify: likewise a name the check reads RETIRED -- its frame row
+            # was dropped, its draft superseded -- is no outstanding rebuild: nothing rewrites
+            # an artefact that is not there. Set aside with the check's own reason; the row
+            # is then judged on the rest exactly as above (positive evidence, nothing STALE).
+            vanished_names = {k: str(by_key[k]["retired"]) for k in named
+                              if k not in obsolete and k in by_key
+                              and by_key[k].get("retired")}
+            obsolete.update(vanished_names)
             named = [k for k in named if k not in obsolete]
             own = [v for v in by_slug.get(slug_, []) if not v.get("retired")]
             keys = named or [f"{v['artefact_class']}:{v['artefact_key']}" for v in own]
@@ -8220,10 +8323,11 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         incomplete_cleared += _life.resolve_signatures(
             session, obsolete_close,
             resolution=("the artefacts this row named belong to a release the product has "
-                        "moved past (eng/halt-380-h3: nothing rebuilds a superseded release), "
-                        "and every non-obsolete artefact it is judged on reads fresh (or "
-                        "superseded) with none of the product's reads stale: no rebuild of "
-                        "the current release is outstanding"))
+                        "moved past (eng/halt-380-h3: nothing rebuilds a superseded release) "
+                        "or no longer exist (eng/halt-380-verify: a dropped frame, a "
+                        "superseded draft), and every other artefact it is judged on reads "
+                        "fresh (or superseded) with none of the product's reads stale: no "
+                        "rebuild of the current release is outstanding"))
         incomplete_cleared += _life.resolve_signatures(
             session, retired_close,
             resolution=("the product is a retired legacy-duplicate concept slug "
