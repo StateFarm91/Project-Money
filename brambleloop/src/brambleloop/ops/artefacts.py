@@ -688,6 +688,29 @@ def check(db, *, current: dict[str, str],
     return verdicts
 
 
+def obsolete_release_key(key: str, slug: str, latest_version: dict) -> str | None:
+    """eng/halt-380-h3: why `key` ("<class>:<artefact_key>") names an artefact of a release
+    `slug` has moved past -- or of a release that no longer exists -- else None.
+
+    A `rebuild-incomplete:<slug>` row is keyed per product, but the artefacts it names are
+    per release. When the product is re-engineered, the old release's artefacts read
+    SUPERSEDED, retired (never recorded) or are gone, and nothing will ever rebuild them, so
+    a row naming them could never close and held the product's halt (and the systemic halt)
+    for good. Only a versioned key of this product whose version is not the newest certified
+    one is obsolete; an unversioned key, a "collection" key, or a product whose newest
+    release cannot be told is never obsolete (fail closed)."""
+    _cls, _sep, art = str(key or "").partition(":")
+    m = _VERSIONED_KEY.match(art) if _sep else None
+    newest = (latest_version or {}).get(slug)
+    if m is None or newest is None or m.group("slug") != slug:
+        return None
+    version = m.group("version")
+    if version in (newest, "collection"):
+        return None
+    return (f"names {slug}@{version}, a release the product has moved past (newest certified "
+            f"release: {slug}@{newest}); nothing rebuilds a superseded release")
+
+
 def _retired_slugs() -> set[str]:
     """The retired legacy-duplicate concept slugs (`products.launch0.LEGACY_DUPLICATES`)."""
     try:
