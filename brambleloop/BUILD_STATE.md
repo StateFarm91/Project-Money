@@ -1,3 +1,12 @@
+> **2026-11-21 — HALT-380 H4 on `eng/halt-380-h4` (from `claude/w6-release-19d1`; NOT merged, NOT deployed; production
+> unchanged, no production row read).** Readback 7b250d61: 12 pending chain.rebuild, none verified for ~15 h. New suite
+> `tests/test_halt380_h4_rebuild_drain.py` drains the real worker on 12 stale products. It refutes the four named
+> candidates: no re-create/run_after push, no supersession by the hourly cadence or sentinel, no exhaustion by lease-killing
+> restarts, no verify-key collision. All 12 reach verify on one worker. With two workers, one other distribution job running
+> and one ordinary job waiting, `share_decision` handed every protected (truth_defect) chain.rebuild back for ordinary work:
+> 32 holds, 0 verified. Fix: `share_decision` yields a job only to waiting work of its own or a higher claim tier. The mix
+> still binds ordinary work and work within one protected tier; the agent-lane limit and every gate are unchanged. **UNVERIFIED:** that this hold caused the
+> production gap (oldest unfinished 0.13 h argues against chronic holding). Report: `w6/review_requests/HALT-380-H4.md`.
 > **2026-11-21 — NEW-PRODUCT-FLOW on `eng/new-product-flow` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT
 > deployed; production unchanged, no production row read).** Readback prod 2f7da291: 0 certified in 7 d (only the 9
 > Launch-0 at LISTING_READY), loop 11/12 with no `original_product`. Cause, reproduced on the real handlers: with
