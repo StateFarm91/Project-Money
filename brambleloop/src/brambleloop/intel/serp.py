@@ -158,9 +158,21 @@ def capture(db, reader, query: str, *, taxonomy_id: int | None = None,
 
     from . import deliverable, pods
 
+    # LEARN-PROOF-2 (benchmark HC-L1): the effective price is the signal, a strike price noise.
+    from ..learning import benchmark_lessons as _bench
+
+    try:
+        bench_effects = _bench.refresh(db)
+    except Exception:  # noqa: BLE001 - an unreadable store applies no lesson
+        bench_effects = {}
+    struck = 0
     ranks: list[dict] = []
     for position, listing in enumerate(results, start=1):
         price, currency = _price(listing)
+        eff = _bench.effective_price(listing, price, bench_effects)
+        if eff["applied"]:
+            price = eff["price"]
+            struck += 1
         favourites = listing.get("num_favorers")
         title = str(listing.get("title") or "")
         pod = pods.route(title, str(listing.get("taxonomy_id") or "")) if title else None
@@ -171,6 +183,7 @@ def capture(db, reader, query: str, *, taxonomy_id: int | None = None,
         entry = {"rank": position, "listing_id": listing.get("listing_id"),
                  "shop_id": listing.get("shop_id"),
                  "price": price, "currency": currency,
+                 **({"strike_price": eff["strike_price"]} if eff["applied"] else {}),
                  "has_sale": _has_sale(listing),
                  "image_count": None, "thumbnail_url": "",
                  "favourites": int(favourites) if favourites is not None else None,
@@ -209,6 +222,13 @@ def capture(db, reader, query: str, *, taxonomy_id: int | None = None,
                     entry["has_video"] = None
         ranks.append(entry)
 
+    if _bench.PRICE_EFFECTIVE in bench_effects:
+        try:
+            _bench.record(db, _bench.PRICE_EFFECTIVE, applied=bool(struck),
+                          subject=f"serp:{query}", lessons=bench_effects[_bench.PRICE_EFFECTIVE],
+                          detail={"listings_struck": struck})
+        except Exception:  # noqa: BLE001 - a lost count under-counts; it never fails a capture
+            pass
     at = _now(now)
     with db.session() as s:
         row = SerpSnapshot(query=query, taxonomy_id=taxonomy_id, captured_at=at,

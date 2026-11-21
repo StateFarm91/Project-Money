@@ -654,7 +654,7 @@ def _techniques_appendix(text, ctx):
     from . import technique_appendix as TA
 
     try:
-        entries = TA.entries(ctx.cir, ctx.terminology)
+        entries = TA.entries(ctx.cir, ctx.terminology, lessons=ctx.lessons)
     except TA.AppendixIncomplete as e:
         return [f"the techniques appendix cannot be generated from the CIR: {e}"]
     i = _find(text, TA.HEADING)
@@ -763,9 +763,39 @@ def chunky_hook_range_text(cir) -> str | None:
     lo, hi = hook_range_for(cir)
     span = (f"{hook_words(hi)} only" if lo == hi else f"{hook_words(lo)} to {hook_words(hi)}")
     yarn = "Chenille" if kind == "chenille" else "Chunky yarn"
-    return (f"{span}. {yarn} makes a soft, stretchy fabric that is easily worked too loose: "
+    text = (f"{span}. {yarn} makes a soft, stretchy fabric that is easily worked too loose: "
             f"work tighter than feels natural, and if your swatch is larger than the gauge, go "
             f"down within this range and swatch again.")
+    if kind == "chenille":
+        text += " " + CHENILLE_CARE_NOTE
+    return text
+
+
+# LEARN-PROOF-2 (benchmark MM-L3): chenille as a first-class yarn class. Its gauge is the
+# CIR's own; its hook range is `chunky_hook_range` (never above the stated hook); its tension
+# guidance is the sentence above; and it carries a shedding and care note, printed by both
+# layouts through `chunky_hook_range_text`.
+CHENILLE_CARE_NOTE = (
+    "Chenille sheds a little at cut ends and its loops can pull out (worm) if a stitch is "
+    "stretched: leave tails of at least 10 cm, weave each one back through 3 stitches and "
+    "knot it inside. Care: hand wash cold, do not wring, dry flat, and never tumble dry.")
+CHENILLE_CARE_NEEDLES = ("Chenille sheds", "Care: hand wash cold")
+
+
+def yarn_class(cir) -> dict | None:
+    """The yarn-model record for a chunky or chenille CIR: its class, the CIR's gauge, the
+    hook range, the tension guidance and (chenille) the shedding and care note."""
+    kind = chunky_yarn(cir)
+    if kind is None:
+        return None
+    g = cir.gauge
+    rng = hook_range_for(cir) if g is not None and g.hook_mm else None
+    return {"class": kind, "cyc": getattr(cyc_weight(cir), "number", None),
+            "gauge": ({"stitches_per_10cm": g.stitches_per_10cm,
+                       "rows_per_10cm": g.rows_per_10cm, "hook_mm": g.hook_mm}
+                      if g is not None else None),
+            "hook_range_mm": rng, "tension": "work tighter than feels natural",
+            "care": CHENILLE_CARE_NOTE if kind == "chenille" else None}
 
 
 EYE_AGE_GUIDANCE = (
@@ -841,8 +871,80 @@ LESSON_RULES: tuple[Rule, ...] = (
          lambda ctx: "pdf_hook_range_chunky" in ctx.lessons and chunky_yarn(ctx.cir) is not None
          and ctx.cir.gauge is not None and bool(ctx.cir.gauge.hook_mm)),
 )
+
+
+def _chenille_care(text, ctx):
+    return [f"the chenille yarn carries no shedding and care note ({w!r})"
+            for w in CHENILLE_CARE_NEEDLES if w not in text]
+
+
+TENSION_NEEDLES = ("larger hook", "smaller hook", "Swatch again")
+
+
+def _tension(text, ctx):
+    return [f"the gauge section gives no tension guidance ({w!r}): a maker whose stitches are "
+            f"too tight with the stated hook is not told what to change" for w in
+            TENSION_NEEDLES if w not in text]
+
+
+def _component_grouped(text, ctx):
+    """Each component's instructions are grouped under its own name, in the CIR's order."""
+    sec = _instructions(text, ctx) or text
+    pos, out = 0, []
+    for comp in ctx.cir.components:
+        name = comp.name.replace("_", " ")
+        m = re.compile(rf"\b{re.escape(name)}\b", re.I).search(sec, pos)
+        if m is None:
+            out.append(f"the instructions are not grouped by component: no {name!r} group "
+                       f"after the previous component's")
+            continue
+        pos = m.end()
+    return out
+
+
+def _join_as_you_go(text, ctx):
+    from . import technique_appendix as TA
+
+    i = _find(text, TA.HEADING)
+    if i < 0:
+        return [f"missing {TA.HEADING!r}"]
+    sec = text[i:]
+    name, how = TA.JOIN_AS_YOU_GO_HOW
+    out = []
+    if name not in sec:
+        out.append(f"the appendix does not explain {name!r}, which this construction uses")
+    elif " ".join(how.split())[:60] not in sec:
+        out.append(f"the appendix does not explain how to work {name!r}")
+    return out
+
+
+def _has_join_as_you_go(ctx) -> bool:
+    from ..learning.benchmark_lessons import join_as_you_go_seams
+
+    return bool(join_as_you_go_seams(ctx.cir))
+
+
+LESSON_RULES = LESSON_RULES + (
+    Rule("chenille_care", "A shedding and care note for chenille yarn [benchmark MM-L3]", (),
+         _chenille_care,
+         lambda ctx: "yarn_chenille_class" in ctx.lessons and chunky_yarn(ctx.cir) == "chenille"
+         and ctx.cir.gauge is not None and bool(ctx.cir.gauge.hook_mm)),
+    Rule("tension_guidance", "Tension guidance in the gauge section: too tight means a larger "
+         "hook [benchmark MM-L7]", (), _tension,
+         lambda ctx: "pdf_tension_guidance" in ctx.lessons and ctx.cir.gauge is not None),
+    Rule("component_grouped", "Instructions grouped by component, in order [benchmark HC-L4]",
+         (AMIGURUMI,), _component_grouped,
+         lambda ctx: "pdf_component_grouped" in ctx.lessons and len(ctx.cir.components) > 1),
+    Rule("join_as_you_go", "The techniques appendix explains joining as you go when a piece is "
+         "crocheted into a stated round [benchmark MM-L2]", (), _join_as_you_go,
+         lambda ctx: "pdf_join_as_you_go" in ctx.lessons and _has_join_as_you_go(ctx)),
+)
 LESSON_RULE_EFFECT = {"eye_options_age": "pdf_eye_options_age",
-                      "hook_range_chunky": "pdf_hook_range_chunky"}
+                      "hook_range_chunky": "pdf_hook_range_chunky",
+                      "chenille_care": "yarn_chenille_class",
+                      "tension_guidance": "pdf_tension_guidance",
+                      "component_grouped": "pdf_component_grouped",
+                      "join_as_you_go": "pdf_join_as_you_go"}
 
 
 def colourwork(twin) -> bool:

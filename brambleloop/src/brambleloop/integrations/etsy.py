@@ -1396,6 +1396,11 @@ class EtsyClient:
         under the grant verified immediately before the draft was created."""
         creds = self._require(Authority.DRAFT_WRITE)
         refused = digital_file_refusals(filename, len(data))
+        # LEARN-PROOF-2 (benchmark HC-L6): the file is the certified PDF itself, never a
+        # link page; read off the bytes before they leave.
+        from ..learning import benchmark_lessons
+
+        refused += benchmark_lessons.delivery_refusals(filename, data)
         if refused:
             raise EtsyRejected("; ".join(refused))
         if not data:

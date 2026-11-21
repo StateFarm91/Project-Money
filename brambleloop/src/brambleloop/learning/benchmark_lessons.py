@@ -67,8 +67,26 @@ PDF_EYE_OPTIONS = "pdf_eye_options_age"
 PDF_HOOK_RANGE = "pdf_hook_range_chunky"
 SEO_LOW_SEW = "seo_low_sew_truth"
 QA_DEFECT_CLASS = "qa_defect_class"
+# LEARN-PROOF-2: the hooks for the eight lessons LEARN-PROOF stored unhooked, and two second
+# effects (MM-L3's chenille yarn class, MM-L7's tension guidance).
+PRICE_EFFECTIVE = "price_effective_not_strike"      # HC-L1  pricing
+CONCEPT_CLUSTER = "concept_cluster_rank"            # HC-L2  product_creativity
+ASSET_NO_FAKE_PHOTO = "asset_no_fake_photo_claims"  # HC-L3  creative_assets
+PDF_COMPONENT_GROUPED = "pdf_component_grouped"     # HC-L4  pattern_engineering
+DELIVERY_PDF = "delivery_pdf_not_link"              # HC-L6  customer_experience
+SEO_FRONT_LOAD = "seo_front_load_object"            # HC-L7  seo_search
+PDF_JOIN_AS_YOU_GO = "pdf_join_as_you_go"           # MM-L2  pattern_engineering
+YARN_CHENILLE = "yarn_chenille_class"               # MM-L3  pattern_engineering (second)
+HERO_HAND_SCALE = "hero_hand_scale"                 # MM-L5  creative_assets
+PDF_TENSION = "pdf_tension_guidance"                # MM-L7  quality (second)
 EFFECTS: tuple[str, ...] = (CONCEPT_RANK, PDF_EYE_OPTIONS, PDF_HOOK_RANGE, SEO_LOW_SEW,
-                            QA_DEFECT_CLASS)
+                            QA_DEFECT_CLASS, PRICE_EFFECTIVE, CONCEPT_CLUSTER,
+                            ASSET_NO_FAKE_PHOTO, PDF_COMPONENT_GROUPED, DELIVERY_PDF,
+                            SEO_FRONT_LOAD, PDF_JOIN_AS_YOU_GO, YARN_CHENILLE,
+                            HERO_HAND_SCALE, PDF_TENSION)
+# The effects the PDF standard (and the techniques appendix) read from the snapshot.
+PDF_EFFECTS: tuple[str, ...] = (PDF_EYE_OPTIONS, PDF_HOOK_RANGE, PDF_COMPONENT_GROUPED,
+                                PDF_JOIN_AS_YOU_GO, YARN_CHENILLE, PDF_TENSION)
 
 MISSING_GAUGE_CLASS = "missing_gauge->tension_complaints"
 
@@ -81,48 +99,56 @@ class BenchmarkLesson:
     lesson_class: str
     effect: str | None
     statement: str
+    also: tuple[str, ...] = ()   # further hooks the same lesson switches on
 
     @property
     def key(self) -> str:
         return f"{self.source}-L{self.number}"
 
+    @property
+    def effects(self) -> tuple[str, ...]:
+        return ((self.effect,) if self.effect else ()) + tuple(self.also)
+
 
 L = BenchmarkLesson
 LESSONS: tuple[BenchmarkLesson, ...] = (
-    L("HC", 1, "pricing", "effective_price_is_the_signal", None,
+    L("HC", 1, "pricing", "effective_price_is_the_signal", PRICE_EFFECTIVE,
       "A bestselling amigurumi animal clears at a low impulse price; price research reads "
       "the effective price, never the strike price, and clear instructions drive reviews."),
-    L("HC", 2, "product_creativity", "cosy_farm_animal_cluster", None,
+    L("HC", 2, "product_creativity", "cosy_farm_animal_cluster", CONCEPT_CLUSTER,
       "Shaggy and cosy farm animals are a proven amigurumi demand cluster; a fur effect is a "
       "differentiator only when our own construction makes it."),
-    L("HC", 3, "creative_assets", "component_diagrams_never_fake_photos", None,
+    L("HC", 3, "creative_assets", "component_diagrams_never_fake_photos",
+      ASSET_NO_FAKE_PHOTO,
       "Per-component progress imagery earns trust; without a sample we draw CIR component "
       "diagrams labelled as diagrams, never presented as photographs."),
-    L("HC", 4, "pattern_engineering", "component_grouped_pattern_pages", None,
+    L("HC", 4, "pattern_engineering", "component_grouped_pattern_pages",
+      PDF_COMPONENT_GROUPED,
       "Amigurumi pattern pages group by component, with numbered assembly steps whose "
       "placement cues name round numbers."),
     L("HC", 5, "quality", "age_guidance_every_amigurumi", PDF_EYE_OPTIONS,
       "Every amigurumi release states age guidance and offers an embroidered face where "
       "safety requires it; the benchmark's absence of this is the gap we fill."),
-    L("HC", 6, "customer_experience", "deliver_the_pdf_not_a_link", None,
+    L("HC", 6, "customer_experience", "deliver_the_pdf_not_a_link", DELIVERY_PDF,
       "Delivered files are the certified PDFs themselves, read back as downloadable and "
       "hash-matched, never a link page."),
-    L("HC", 7, "seo_search", "front_load_object_and_true_badges", None,
+    L("HC", 7, "seo_search", "front_load_object_and_true_badges", SEO_FRONT_LOAD,
       "Titles front-load the object and the words crochet pattern PDF; a badge such as "
       "beginner friendly appears only when the certified difficulty supports it."),
     L("MM", 1, "market_radar", "low_sew_character_amigurumi_demand", CONCEPT_RANK,
       "Low-sew amigurumi animals with a lovable character name and a small piece count are "
       "the concepts to rank first; every animal, character and construction is our own."),
-    L("MM", 2, "pattern_engineering", "join_as_you_go_capability", None,
+    L("MM", 2, "pattern_engineering", "join_as_you_go_capability", PDF_JOIN_AS_YOU_GO,
       "A join-as-you-go construction, limbs closed flat and crocheted into a named body "
       "round, is a technique class the compiler, twin and reverse must validate."),
     L("MM", 3, "pattern_engineering", "chunky_chenille_needs_hook_range", PDF_HOOK_RANGE,
       "Chunky and chenille yarn is a first-class yarn class: its pattern states a hook-size "
-      "range and tension guidance because the fabric is easily worked too loose."),
+      "range and tension guidance because the fabric is easily worked too loose.",
+      also=(YARN_CHENILLE,)),
     L("MM", 4, "pattern_engineering", "eye_options_with_age_guidance", PDF_EYE_OPTIONS,
       "An amigurumi PDF offers an eye-options panel, embroidered versus safety eyes, with "
       "the age guidance each option carries."),
-    L("MM", 5, "creative_assets", "hero_in_hand_for_scale", None,
+    L("MM", 5, "creative_assets", "hero_in_hand_for_scale", HERO_HAND_SCALE,
       "The hero shows the finished toy at a scale the buyer can read, matching the PDF "
       "cover, with variants filling the gallery."),
     L("MM", 6, "seo_search", "low_sew_modifier_only_when_true", SEO_LOW_SEW,
@@ -131,14 +157,14 @@ LESSONS: tuple[BenchmarkLesson, ...] = (
     L("MM", 7, "quality", MISSING_GAUGE_CLASS, QA_DEFECT_CLASS,
       "A complaint that stitches are too tight with the stated hook is a missing-gauge "
       "defect; QA records it under the lesson class missing gauge leads to tension "
-      "complaints."),
+      "complaints.", also=(PDF_TENSION,)),
 )
 del L
 BY_KEY: dict[str, BenchmarkLesson] = {x.key: x for x in LESSONS}
 DEPARTMENTS: tuple[str, ...] = tuple(sorted({x.department for x in LESSONS}))
 # The department each hook's applications are counted under.
 EFFECT_DEPARTMENTS: dict[str, tuple[str, ...]] = {
-    e: tuple(sorted({x.department for x in LESSONS if x.effect == e})) for e in EFFECTS}
+    e: tuple(sorted({x.department for x in LESSONS if e in x.effects})) for e in EFFECTS}
 
 
 class IngestRefused(ValueError):
@@ -203,7 +229,8 @@ def ingest(db, *, root: Path | None = None) -> dict:
             key = KEY_PREFIX + lesson.key
             evidence = {"source": SOURCES[lesson.source], "lesson": f"L{lesson.number}",
                         "department": lesson.department, "lesson_class": lesson.lesson_class,
-                        "effect": lesson.effect, "source_sha256": digests[lesson.source]}
+                        "effect": lesson.effect, "effects": list(lesson.effects),
+                        "source_sha256": digests[lesson.source]}
             row = have.get(key)
             if row is None:
                 s.add(DerivedLesson(loop=LOOP, key=key, scope=lesson.department,
@@ -243,8 +270,7 @@ def effects_of(lessons: dict[str, dict]) -> dict[str, tuple[str, ...]]:
     """effect -> the active lesson keys that switch it on."""
     out: dict[str, list[str]] = {}
     for k in sorted(lessons):
-        e = BY_KEY[k].effect
-        if e:
+        for e in BY_KEY[k].effects:
             out.setdefault(e, []).append(k)
     return {e: tuple(v) for e, v in out.items()}
 
@@ -322,7 +348,7 @@ def record(db, effect: str, *, applied: bool, subject: str, lessons=(),
         if applied:
             for lk in lessons:
                 lesson = BY_KEY.get(lk)
-                if lesson is None or lesson.effect != effect:
+                if lesson is None or effect not in lesson.effects:
                     continue
                 ak = f"applied:{lk}:{lesson.department}:{subject}"[:300]
                 row = s.scalar(select(LessonEffect).where(LessonEffect.key == ak))
@@ -373,29 +399,72 @@ def concept_traits(seed) -> list[str]:
         traits.append("low_sew")
     if CHARACTER_NAME.search(str(getattr(seed, "title", "") or "")):
         traits.append("character_named")
+    if CHUNKY_CHENILLE_TEXT.search(text.replace("-", " ")):
+        traits.append("chunky_chenille")
     return traits
 
 
+# MM-L1 names chunky chenille alongside low-sew and a character name (LEARN-PROOF-2).
+CHUNKY_CHENILLE_TEXT = re.compile(r"\b(?:chenille|chunky|jumbo|blanket yarn|plush yarn)\b",
+                                  re.I)
+# HC-L2: the cosy / shaggy farm-animal cluster. The animal is read from the concept's own
+# words; the fur effect, if any, is our own construction (the concept pipeline scores that).
+FARM_ANIMAL_TEXT = re.compile(r"\b(?:cow|calf|highland|sheep|lamb|goat|alpaca|llama|pig|"
+                              r"piglet|donkey|pony|horse|hen|chicken|chick|duck|duckling|"
+                              r"goose|bunny|rabbit|yak)s?\b", re.I)
+CLUSTER_STEP = 0.02
+CONCEPT_TOTAL_CAP = CONCEPT_CAP + CLUSTER_STEP   # +0.06: every trait of both lessons
+
+
+def cluster_traits(seed) -> list[str]:
+    """Which HC-L2 traits a radar concept has. Amigurumi only."""
+    if (getattr(seed, "category", "") or "").lower() != "amigurumi":
+        return []
+    text = " ".join(str(getattr(seed, a, "") or "") for a in ("slug", "title", "rationale"))
+    return ["cosy_farm_animal"] if FARM_ANIMAL_TEXT.search(text.replace("-", " ")) else []
+
+
 def concept_rank_delta(seed, effects: dict[str, tuple[str, ...]]) -> tuple[float, list[str]]:
-    if CONCEPT_RANK not in effects:
-        return 0.0, []
-    traits = concept_traits(seed)
-    return min(CONCEPT_CAP, CONCEPT_STEP * len(traits)), traits
+    """MM-L1 (+0.02 per trait, cap +0.04) and HC-L2 (+0.02), together at most +0.06."""
+    traits: list[str] = []
+    delta = 0.0
+    if CONCEPT_RANK in effects:
+        mm = concept_traits(seed)
+        traits += mm
+        delta += min(CONCEPT_CAP, CONCEPT_STEP * len(mm))
+    if CONCEPT_CLUSTER in effects:
+        hc = cluster_traits(seed)
+        traits += hc
+        delta += CLUSTER_STEP * len(hc)
+    return round(min(CONCEPT_TOTAL_CAP, delta), 4), traits
+
+
+_CLUSTER_TRAITS = frozenset({"cosy_farm_animal"})
 
 
 def concept_rank_adjustments(db, seeds) -> dict[str, float]:
-    """The MM-L1 nudge for each seed, recorded as applied for every seed it moved."""
+    """The MM-L1 / HC-L2 nudge for each seed, recorded as applied, per lesson, for every
+    seed it moved."""
     effects = refresh(db)
     out: dict[str, float] = {}
     for seed in seeds:
         delta, traits = concept_rank_delta(seed, effects)
         if delta:
             out[seed.slug] = delta
-            record(db, CONCEPT_RANK, applied=True, subject=f"concept:{seed.slug}",
-                   lessons=effects[CONCEPT_RANK], detail={"traits": traits, "delta": delta},
-                   evaluations=0)
-    if CONCEPT_RANK in effects:
-        record(db, CONCEPT_RANK, applied=False, subject="", evaluations=1)
+            mm = [t for t in traits if t not in _CLUSTER_TRAITS]
+            hc = [t for t in traits if t in _CLUSTER_TRAITS]
+            if mm:
+                record(db, CONCEPT_RANK, applied=True, subject=f"concept:{seed.slug}",
+                       lessons=effects[CONCEPT_RANK], detail={"traits": mm, "delta": delta},
+                       evaluations=0)
+            if hc:
+                record(db, CONCEPT_CLUSTER, applied=True, subject=f"concept:{seed.slug}",
+                       lessons=effects[CONCEPT_CLUSTER], detail={"traits": hc,
+                                                                 "delta": delta},
+                       evaluations=0)
+    for e in (CONCEPT_RANK, CONCEPT_CLUSTER):
+        if e in effects:
+            record(db, e, applied=False, subject="", evaluations=1)
     return out
 
 
@@ -456,16 +525,16 @@ def seo_check(cir, slug: str, terms: list[str],
 
 def pdf_lessons(effects: dict[str, tuple[str, ...]] | None = None) -> frozenset[str]:
     effects = active_effects() if effects is None else effects
-    return frozenset(e for e in (PDF_EYE_OPTIONS, PDF_HOOK_RANGE) if e in effects)
+    return frozenset(e for e in PDF_EFFECTS if e in effects)
 
 
 def note_pdf(effects_required: list[str], subject: str, switched_on) -> None:
     """The PDF standard ran with these lesson effects on; `effects_required` are the ones
     whose rule applied to this document (and so changed what it must contain)."""
     eff = active_effects()
-    for e in (PDF_EYE_OPTIONS, PDF_HOOK_RANGE):
+    for e in PDF_EFFECTS:
         if e in switched_on:
-            keys = eff.get(e) or tuple(x.key for x in LESSONS if x.effect == e)
+            keys = eff.get(e) or tuple(x.key for x in LESSONS if e in x.effects)
             note(e, applied=e in effects_required, subject=subject, lessons=keys)
 
 
@@ -531,6 +600,153 @@ def defect_classes(db) -> dict[str, int]:
     return out
 
 
+# ---- LEARN-PROOF-2 hooks -------------------------------------------------------------------
+
+# HC-L1 (pricing): the effective price is the signal, the strike price is noise. A listing
+# payload that carries a sale / effective price beside its listed price is read at the
+# effective price, and the listed one is kept apart as `strike_price`, which no band reads.
+EFFECTIVE_KEYS = ("effective_price", "sale_price", "price_after_discount", "discounted_price")
+
+
+def _money(v) -> float | None:
+    if isinstance(v, dict):
+        try:
+            div = float(v.get("divisor") or 1) or 1.0
+            return round(float(v.get("amount")) / div, 2)
+        except (TypeError, ValueError):
+            return None
+    if isinstance(v, bool) or v is None or v == "":
+        return None
+    try:
+        return round(float(v), 2)
+    except (TypeError, ValueError):
+        return None
+
+
+def effective_price(listing: dict, listed: float | None,
+                    effects: dict[str, tuple[str, ...]] | None = None) -> dict:
+    """{"price", "strike_price", "applied"}: the price research reads. Without the lesson,
+    the listed price as before. With it, an effective price below the listed one replaces
+    it and the listed price becomes `strike_price` (noise, never banded). A payload with no
+    effective price is unchanged: absent is not "no discount"."""
+    effects = active_effects() if effects is None else effects
+    out = {"price": listed, "strike_price": None, "applied": False}
+    if PRICE_EFFECTIVE not in effects or listed is None:
+        return out
+    for k in EFFECTIVE_KEYS:
+        eff = _money(listing.get(k))
+        if eff is not None and 0 < eff < listed:
+            return {"price": eff, "strike_price": listed, "applied": True, "basis": k}
+    return out
+
+
+# HC-L3 (creative assets): without a physical sample there is no progress photo, so listing
+# copy may not promise photos of the making. Our diagrams are labelled diagrams.
+PHOTO_CLAIM = re.compile(r"\b(?:photo|picture)\s+tutorial\b|\bstep[- ]by[- ]step\s+"
+                         r"(?:photos?|pictures?|pics)\b|\bprogress\s+(?:photos?|pictures?|"
+                         r"pics)\b|\b(?:with|includes?|real)\s+(?:photos?|pictures?)\b|"
+                         r"\bphoto\s+(?:pattern|guide|instructions)\b", re.I)
+
+
+def photo_claim_findings(terms: list[str], *, slug: str = "",
+                         effects: dict[str, tuple[str, ...]] | None = None) -> list[str]:
+    effects = active_effects() if effects is None else effects
+    if ASSET_NO_FAKE_PHOTO not in effects:
+        return []
+    found = [f"TERM_MISLEADING: {t!r} promises photos of the making; without a physical "
+             f"sample our progress imagery is CIR diagrams labelled as diagrams (benchmark "
+             f"lesson HC-L3)" for t in terms if PHOTO_CLAIM.search(t or "")]
+    note(ASSET_NO_FAKE_PHOTO, applied=bool(found), subject=f"listing:{slug}",
+         lessons=effects[ASSET_NO_FAKE_PHOTO], detail={"refused": len(found)})
+    return found
+
+
+# HC-L7 (SEO): front-load the object and "crochet pattern PDF". (The badge half of HC-L7,
+# "beginner friendly" only on a certified beginner pattern, is already a base rule:
+# `commerce.search.tag_truth`.)
+FRONT_LOAD_CHARS = 60
+_PATTERN_WORD = re.compile(r"\bpattern\b", re.I)
+
+
+def front_load_findings(title: str, *, slug: str = "",
+                        effects: dict[str, tuple[str, ...]] | None = None) -> list[str]:
+    """Soft findings: the title does not say "pattern" within its first FRONT_LOAD_CHARS
+    characters, or opens with something other than the object."""
+    effects = active_effects() if effects is None else effects
+    if SEO_FRONT_LOAD not in effects:
+        return []
+    title = title or ""
+    found = []
+    if not _PATTERN_WORD.search(title[:FRONT_LOAD_CHARS]):
+        found.append(f"TITLE_NOT_FRONT_LOADED: 'pattern' is not within the first "
+                     f"{FRONT_LOAD_CHARS} characters (benchmark lesson HC-L7)")
+    first = re.split(r"[|,\-–—]", title, maxsplit=1)[0].strip().lower()
+    if re.match(r"(?:easy|beginner|cute|gift|new|best|sale)\b", first):
+        found.append(f"TITLE_NOT_FRONT_LOADED: the title opens with {first.split()[0]!r}, "
+                     f"not the object (benchmark lesson HC-L7)")
+    note(SEO_FRONT_LOAD, applied=bool(found), subject=f"listing:{slug}",
+         lessons=effects[SEO_FRONT_LOAD], detail={"findings": len(found)})
+    return found
+
+
+# HC-L6 (customer experience): the delivered file is the certified PDF itself, never a link
+# page. Checked on the bytes about to be uploaded.
+_HTML = re.compile(rb"<\s*(?:!doctype\s+html|html|head|body|a\s+href|meta\s+http-equiv)", re.I)
+
+
+def delivery_refusals(filename: str, data: bytes, *, certified_sha256: str | None = None,
+                      effects: dict[str, tuple[str, ...]] | None = None) -> list[str]:
+    effects = active_effects() if effects is None else effects
+    if DELIVERY_PDF not in effects or not data:
+        return []
+    out = []
+    head = data[:1024]
+    if not data.startswith(b"%PDF-"):
+        out.append(f"{filename} is not a PDF (it does not begin with %PDF-): the delivered "
+                   f"file must be the certified PDF itself, never a link page (benchmark "
+                   f"lesson HC-L6)")
+    if _HTML.search(head):
+        out.append(f"{filename} reads as a web page: a link page is not a deliverable "
+                   f"(benchmark lesson HC-L6)")
+    if data.startswith(b"%PDF-") and b"%%EOF" not in data[-2048:]:
+        out.append(f"{filename} is a truncated PDF (no %%EOF trailer) (benchmark lesson HC-L6)")
+    if certified_sha256 and hashlib.sha256(data).hexdigest() != certified_sha256:
+        out.append(f"{filename} does not match the certified hash (benchmark lesson HC-L6)")
+    note(DELIVERY_PDF, applied=bool(out), subject=f"file:{filename}",
+         lessons=effects[DELIVERY_PDF], detail={"refusals": len(out)})
+    return out
+
+
+# MM-L5 (creative assets): the scale frame of a toy is the finished toy held in a hand.
+HAND_SCALE_CATEGORIES = frozenset({"amigurumi", "toy", "stuffed_animal"})
+HAND_SCALE_BRIEF = ("scale: the finished toy held in one open hand, showing its size against "
+                    "the hand, on a real textured background, the same toy and colourway as "
+                    "the PDF cover")
+
+
+def scale_brief(category: str, brief: str, *, subject: str = "",
+                effects: dict[str, tuple[str, ...]] | None = None) -> str:
+    effects = active_effects() if effects is None else effects
+    if HERO_HAND_SCALE not in effects:
+        return brief
+    applies = (category or "").lower() in HAND_SCALE_CATEGORIES
+    note(HERO_HAND_SCALE, applied=applies, subject=f"campaign:{subject or category}",
+         lessons=effects[HERO_HAND_SCALE])
+    return HAND_SCALE_BRIEF if applies else brief
+
+
+# MM-L2 (pattern engineering): a piece crocheted into a named round of another (a slip-stitch
+# or picked-up join at a stated round) is a join-as-you-go construction, and the techniques
+# appendix explains it.
+JOIN_AS_YOU_GO_METHODS = frozenset({"slst", "pick_up"})
+
+
+def join_as_you_go_seams(cir) -> list:
+    return [s for s in (getattr(cir, "assembly", None) or [])
+            if getattr(s, "method", None) in JOIN_AS_YOU_GO_METHODS
+            and getattr(s, "at_round", None) is not None]
+
+
 # ---- readback ------------------------------------------------------------------------------
 
 def readback(db) -> dict:
@@ -558,7 +774,7 @@ def readback(db) -> dict:
     for d in DEPARTMENTS:
         ours = [x for x in LESSONS if x.department == d]
         ingested = [x for x in ours if x.key in stored]
-        wired = [x for x in ingested if x.effect]
+        wired = [x for x in ingested if x.effects]
         runs = sum(c for kind, _lk, dept, _h, c in effects if kind == "evaluated" and dept == d)
         applied_keys = sorted({lk for kind, lk, dept, _h, _c in effects
                                if kind == "applied" and dept == d})

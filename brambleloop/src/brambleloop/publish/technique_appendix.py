@@ -169,7 +169,17 @@ def _ops(nodes):
             yield from _ops(node.ops)
 
 
-def required(cir) -> list[tuple[str, str]]:
+# LEARN-PROOF-2 (benchmark MM-L2): joining as you go, in our own words. Added to the
+# appendix only when the stored lesson is on and the CIR crochets a piece into a stated round.
+JOIN_AS_YOU_GO_HOW = (
+    "Joining as you go",
+    "Where a piece is joined as you go, it is not sewn on: with the piece held closed against "
+    "the round and stitches the assembly step names, work each joining stitch through both "
+    "pieces at once, so the join is crocheted. The joining stitches count in that round's "
+    "stated stitch count, so count them as you would any other.")
+
+
+def required(cir, lessons=None) -> list[tuple[str, str]]:
     """(technique key, what in the CIR asks for it), in the order a maker meets them."""
     out: list[tuple[str, str]] = []
     seen: set[str] = set()
@@ -211,6 +221,16 @@ def required(cir) -> list[tuple[str, str]]:
             need("stuffing", f"the {seam.piece_a} is stuffed before it is closed")
         need(f"seam:{seam.method}", f"the {seam.piece_a} is joined to the {seam.piece_b} "
              f"by {seam.method}")
+    if lessons is None:
+        from ..learning import benchmark_lessons as _bench
+
+        lessons = _bench.pdf_lessons()
+    if "pdf_join_as_you_go" in lessons:
+        from ..learning.benchmark_lessons import join_as_you_go_seams
+
+        for seam in join_as_you_go_seams(cir):
+            need("join_as_you_go", f"the {seam.piece_a} is crocheted into round "
+                 f"{seam.at_round} of the {seam.piece_b}")
     need("finish:fasten_off", "every piece ends by fastening off")
     need("finish:weave_in", "every piece leaves tails to weave in")
     return out
@@ -243,12 +263,13 @@ def _stitch_entry(code: str, terminology: str, why: str) -> Technique:
     return Technique(key=f"stitch:{code}", name=title, how=how, why=why)
 
 
-def entries(cir, terminology: str = "US") -> list[Technique]:
+def entries(cir, terminology: str = "US", *, lessons=None) -> list[Technique]:
     """The appendix for this CIR in this terminology. Raises AppendixIncomplete when any
-    technique the CIR needs cannot be explained; it never returns a partial appendix."""
+    technique the CIR needs cannot be explained; it never returns a partial appendix.
+    `lessons`: benchmark-lesson effects (None = those this process loaded)."""
     term = terminology.upper()
     out: list[Technique] = []
-    for key, why in required(cir):
+    for key, why in required(cir, lessons):
         kind, _, arg = key.partition(":")
         if kind == "stitch":
             out.append(_stitch_entry(arg, term, why))
@@ -268,6 +289,8 @@ def entries(cir, terminology: str = "US") -> list[Technique]:
             name, how = FASTEN_HOW
         elif key == "finish:weave_in":
             name, how = WEAVE_HOW
+        elif key == "join_as_you_go":
+            name, how = JOIN_AS_YOU_GO_HOW
         else:  # pragma: no cover - `required` emits only the kinds above
             raise AppendixIncomplete(f"unknown technique {key!r}")
         out.append(Technique(key=key, name=_resolve(name, term), how=_resolve(how, term),
