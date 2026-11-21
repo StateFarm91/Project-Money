@@ -69,6 +69,14 @@ from brambleloop.runtime import listing_package_ops, pipeline, release  # noqa: 
 from brambleloop.runtime.lineage import JobLink  # noqa: E402
 from brambleloop.runtime.worker import CADENCES, Worker  # noqa: E402
 
+# These tests pin the SAMPLE_PHOTO_REQUIRED gate's own mechanics, so they run as if
+# D-OWNER-PUBLISH-WITH-RENDERS were not recorded; its waiver is covered by
+# test_publish_with_renders and test_vis_gallery_e2e::test_7a.
+from brambleloop.publish import sample_photo as _SPH  # noqa: E402
+
+_SPH.publish_with_renders = lambda: False
+
+
 SLUG = "hexagon-coaster-set"
 FIXTURE = "FIXTURE — not physical evidence"
 FIXTURE_TESTER = "fixture-tester-w6e2e"
@@ -141,7 +149,9 @@ def _blocker_key(b: dict) -> tuple[str, str]:
                     r"^(listing-set certificate \(#70\))", r"^(search certificate \(F-004\))",
                     r"^(ValueError: listing search profile not certified PASS)",
                     r"^(no valid listing-set certificate for [\w.@-]+?):",
-                    r"^(gallery incomplete):"):
+                    r"^(gallery incomplete):",
+                    r"^(premium PDFs are not certified against the PDF standard)",
+                    r"^(PDF_NOT_ILLUSTRATED)"):
         m = re.match(pattern, why)
         if m:
             return b["source"], m.group(1)
@@ -283,7 +293,14 @@ BLOCKERS_C = {
     ("release_gates.for_publish", "FIRST_CUSTOMER_BLOCKING: etsy_remote_state"),
     ("release_gates.for_publish", "SAMPLE_PHOTO_REQUIRED"),
     ("certified_frames", "gallery incomplete"),
+    # D-OWNER-PDF-STANDARD / D-OWNER-SALE-PIPELINE: with no certified gallery the premium
+    # illustrated PDFs cannot be certified, and the interim engine PDF is not illustrated.
+    ("pdf_standard", "premium PDFs are not certified against the PDF standard"),
+    ("pdf_illustration", "PDF_NOT_ILLUSTRATED"),
 }
+# The two PDF blockers are image-caused (the gallery is what they embed), so they never stop
+# for-sale admission; test_c asserts that tag on the illustration blocker.
+PDF_IMAGE_BLOCKERS = {("pdf_illustration", "PDF_NOT_ILLUSTRATED")}
 
 
 def test_c_the_package_is_blocked_on_exactly_the_observed_set():
@@ -293,6 +310,8 @@ def test_c_the_package_is_blocked_on_exactly_the_observed_set():
     assert pkg["state"] == LP.BLOCKED, pkg["state"]
     keys = [_blocker_key(b) for b in pkg["blockers"]]
     assert len(keys) == len(set(keys)) and set(keys) == BLOCKERS_C, keys
+    assert all(b.get("image") is True for b in pkg["blockers"]
+               if _blocker_key(b) in PDF_IMAGE_BLOCKERS), pkg["blockers"]
     photo = next(b["why"] for b in pkg["blockers"] if b["why"].startswith(SP.CODE))
     assert "no unedited photograph of a sample made from this release is on file" in photo
     # The rest of the package is complete: copy, US and UK files, a certified (but partial) gallery.
@@ -338,6 +357,8 @@ BLOCKERS_D = {
     ("release_gates.for_publish", "SAMPLE_PHOTO_REQUIRED"),
     ("certified_payload", "ValueError: listing search profile not certified PASS"),
     ("certified_frames", "no valid listing-set certificate for hexagon-coaster-set@1.2.1"),
+    ("pdf_standard", "premium PDFs are not certified against the PDF standard"),
+    ("pdf_illustration", "PDF_NOT_ILLUSTRATED"),
 }
 
 

@@ -115,6 +115,11 @@ NEVER_PRUNED_TABLES = ("oauth_credentials",)
 KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     # D-OWNER-ETSY-EXERCISE: the attempt cap and the "already ran clean" check count every
     # row of the action over the directive's 24 h window; pruning one would allow a retry.
+    # IMAGE-BF: the Laura per-gallery approval card is read back by requirement key
+    # (`visual.laura_approval.card`) for as long as the card can be decided; pruning it
+    # would leave an open card with nothing for the owner to look at.
+    "laura_gallery.card_raised": ("lifetime_total",
+        "visual.laura_approval.card: the raised card (run, digest, frames) by requirement key"),
     "owner_directive.etsy_exercise": ("lifetime_total",
         "ops.owner_etsy_exercise.due counts every attempt (cap and clean-run check)"),
     "owner_directive.etsy_exercise_2": ("lifetime_total",

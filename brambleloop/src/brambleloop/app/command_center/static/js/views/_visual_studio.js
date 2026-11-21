@@ -1,5 +1,5 @@
 // WIRE1 (F-748, F-680): Visual Studio. Read-only owner panel over GET /api/cc/visual/studio and
-// GET /api/cc/visual/evidence/{slug}. It shows the canonical model version, the best demonstrated
+// GET /api/cc/visual/evidence/{slug}: the canonical model version, the best demonstrated
 // provider, recent identity/realism yield, rejected drift examples, active improvement work and
 // whether each listing image passed BOTH Model Identity and Product Truth. Nothing here writes.
 import { h } from "../dom.js";

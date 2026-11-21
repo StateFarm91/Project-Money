@@ -5,7 +5,7 @@ import { api } from "../api.js";
 import { statTile } from "../components.js";
 import { sectionsOf, pageMeta, renderAll, renderSection } from "./_shared.js";
 
-const ORDER = [["tiers", "Readiness by tier"], ["stalls_loops", "Stalls & loops"], ["products", "Products"],
+const ORDER = [["tiers", "Readiness by tier"], ["sale_readiness", "Ready for sale"], ["stalls_loops", "Stalls & loops"], ["products", "Products"],
   ["agents_working", "Agents working now"], ["recent_outputs", "Recent useful outputs"],
   ["costs_failures", "Costs & failures by department"], ["next_work", "Next scheduled work"]];
 

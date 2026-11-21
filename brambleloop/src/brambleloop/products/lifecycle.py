@@ -65,6 +65,18 @@ def _complete_gallery(s, slug: str) -> bool:
         return False
 
 
+def _ready_for_sale(db, slug: str, version: str | None) -> dict:
+    """The sale pipeline's ready-for-sale reading. Unreadable is never ready."""
+    if not version:
+        return {"ready": False, "reasons": ["no certified version with a listing"]}
+    try:
+        from ..publish import sale_pipeline
+
+        return sale_pipeline.ready_for_sale(db, slug, version)
+    except Exception as exc:  # noqa: BLE001
+        return {"ready": False, "reasons": [f"unreadable ({type(exc).__name__})"]}
+
+
 def derive(db, slug: str) -> dict:
     """The product's lifecycle stage. eng/evidence-perf: inside a request memo
     (`core.request_memo.scope`, the readback evidence) each slug is derived once; everywhere
@@ -86,9 +98,11 @@ def _derive(db, slug: str) -> dict:
                 "why": rec["body"].get("why")}
     with db.session() as s:
         product = s.scalar(select(Product).where(Product.slug == slug))
-        # eng/evidence-perf: only the `certified` flag is read here; loading whole rows
-        # pulled every release's CIR and certificate JSON for a yes/no.
-        versions = list(s.execute(select(PatternVersion.certified).where(
+        # eng/evidence-perf: only the columns read here; loading whole rows pulled every
+        # release's CIR and certificate JSON. BATCH19F: the sale pipeline's version choice
+        # also reads id and version.
+        versions = list(s.execute(select(PatternVersion.id, PatternVersion.version,
+                                         PatternVersion.certified).where(
             PatternVersion.product_id == product.id))) if product else []
         listings = list(s.scalars(select(Listing).where(Listing.product_slug == slug)))
         assets = s.scalar(select(func.count()).select_from(ListingAsset).where(
@@ -96,6 +110,9 @@ def _derive(db, slug: str) -> dict:
         orders = s.scalar(select(func.count()).select_from(Order).where(
             Order.product_slug == slug)) or 0
         gallery = _complete_gallery(s, slug)
+        certified = sorted(((v.id, v.version) for v in versions if v.certified), reverse=True)
+        listed = {x.version for x in listings}
+        sale_version = next((ver for _id, ver in certified if ver in listed), None)
     from ..core.listing_state import LIVE_ON_ETSY
 
     states = {x.state for x in listings}
@@ -107,8 +124,18 @@ def _derive(db, slug: str) -> dict:
             ("LIVE", "a listing is published")
     elif listings:
         # D-OWNER-GALLERY-COMPLETE: a listing is not ready until every listing photo is.
-        if assets and gallery:
-            stage, why = "LISTING_READY", "a draft listing with its complete certified gallery"
+        # D-OWNER-SALE-PIPELINE: and not until both premium PDFs are certified for the release
+        # and every listing gate passes (`publish.sale_pipeline.ready_for_sale`).
+        sale = _ready_for_sale(db, slug, sale_version) if (assets and gallery) else None
+        if sale and sale["ready"]:
+            waits = sale.get("publication_blockers") or []
+            stage, why = ("LISTING_READY", "ready for sale: certified pattern, complete "
+                          "certified gallery, both premium PDFs certified, every gate PASS"
+                          + (f"; publication waits on {', '.join(waits)} (private draft "
+                             f"only, D-OWNER-PRIVATE-DRAFT-BEFORE-SAMPLE)" if waits else ""))
+        elif assets and gallery:
+            stage, why = "VISUAL", ("a draft listing with its gallery, not yet ready for sale: "
+                                    + "; ".join((sale or {}).get("reasons") or ["unreadable"]))
         elif assets:
             stage, why = "VISUAL", "a draft listing whose certified gallery is incomplete"
         else:

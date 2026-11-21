@@ -2700,6 +2700,40 @@ def handle_store_publish(ctx: JobContext) -> dict:
         return {"slug": slug, "version": version, "published": False, "blocked": True,
                 "reasons": reasons}
 
+    # ENG-SALE-PIPELINE (D-OWNER-SALE-PIPELINE, HARD RULE): nothing is published unless it is
+    # ready for sale -- certified pattern, complete certified gallery, both premium PDFs
+    # certified for this release, every listing gate PASS -- and the file uploaded is the
+    # certified premium edition (the pattern above, verified against `assets.build`, with
+    # the certified gallery in the standard's slots), re-hashed against its certificate.
+    from ..publish import sale_pipeline as _sale
+
+    sale = _sale.ready_for_sale(ctx.db, slug, version, release)
+    premium = (_sale.certified_premium_pdfs(ctx.db, slug, version, release,
+                                            store_root=ctx.job.inputs.get("artifact_dir"))
+               if sale["ready"] else None)
+    if not sale["ready"] or premium is None or set(premium) != set(docs):
+        reasons = [f"not ready for sale (D-OWNER-SALE-PIPELINE): {r}"
+                   for r in (sale["reasons"] or ["premium PDF bytes unavailable"])[:5]]
+        ctx.audit("store.publish_blocked", artifact=f"{slug}@{version}",
+                  detail={"reasons": reasons, "code": "NOT_READY_FOR_SALE"})
+        return {"slug": slug, "version": version, "published": False, "blocked": True,
+                "reasons": reasons}
+    from dataclasses import replace as _replace
+
+    base_docs = docs
+    docs = {t: _replace(d, pdf_bytes=premium[t]) for t, d in base_docs.items()}
+    doc = docs["US"]
+    # BATCH19D: the file sent is the certified premium edition, so the read-back compares the
+    # bytes Etsy holds with THAT certificate's hash (re-hashed on read by
+    # `certified_premium_pdfs`, whose certificates are bound to the `assets.build` hashes
+    # checked above). Comparing them with the base `assets.build` hashes would refuse every
+    # READY release's draft. The base check is kept beside it, never dropped.
+    import hashlib as _hashlib
+
+    hash_check = {**hash_check, "base_certified": hash_check.get("certified"),
+                  "certified": {t: _hashlib.sha256(premium[t]).hexdigest() for t in docs},
+                  "certified_by": "sale_pipeline.certified_premium_pdfs"}
+
     store = ArtifactStore(ctx.job.inputs.get("artifact_dir"))
     stored_by_terminology = {
         t: store.put(f"{slug}/{version}/{pattern_filename(t)}", d.pdf_bytes,
@@ -2807,8 +2841,15 @@ def _revalidate_publish_effect(ctx, *, slug, version, release, payload, docs, li
             raise ValueError("actual payload differs from current certified listing")
         if set(docs) != set(TERMINOLOGIES):
             raise ValueError("actual document set differs from certified terminology set")
-        check_pdf_hashes(ctx.db, slug=slug, version=version, release=release,
-                         rendered={t: docs[t].pdf_bytes for t in TERMINOLOGIES})
+        # ENG-SALE-PIPELINE: `docs` are the certified premium editions. They are re-read
+        # against their current certificates, which PASS only while bound to the
+        # `assets.build` hashes of this release (`sale_pipeline.pdf_certificates`).
+        from ..publish import sale_pipeline as _sale
+
+        if _sale.certified_premium_pdfs(ctx.db, slug, version, release,
+                                        store_root=ctx.job.inputs.get("artifact_dir")) != {
+                t: docs[t].pdf_bytes for t in TERMINOLOGIES}:
+            raise ValueError("actual premium PDFs differ from the current certified editions")
         current = etsy_ops.certified_images(ctx.db, slug, version, release=release,
                                           store_root=inputs.get("artifact_dir"))
         def image_binding(value):
@@ -3850,6 +3891,11 @@ def _release_gates(ctx: JobContext, stage: str = "draft") -> dict:
         return {"slug": slug, "version": version, "blocks_release": True,
                 "reasons": [f"release gates could not be evaluated: "
                             f"{type(e).__name__}: {str(e)[:300]}"]}
+    for w in verdict.get("waivers") or []:
+        # D-OWNER-PUBLISH-WITH-RENDERS: the waiver is on the publish audit, never a claim
+        # that a sample photo exists.
+        ctx.audit("publish.gate_waived", artifact=f"{slug}@{version}",
+                  detail={"stage": stage, "code": w.get("code"), "waiver": w.get("waiver")})
     return verdict
 
 
@@ -3939,7 +3985,7 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "storefront.review": ("work_done",),
     "visual.model_ledger": ("work_done",),
     "ads.adjust": ("enqueued", "escalations"),
-    "assets.build": ("pdf_sha256",),
+    "assets.build": ("pdf_sha256", "illustrated"),   # IMAGE-AD: the gallery rebuild
     "autonomy.department_review": ("new_finding", "lessons_routed"),
     "autonomy.morning_handoff": ("new_brief",),
     "autonomy.orchestrate": ("enqueued",),
@@ -4014,6 +4060,7 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "intel.benchmark_refresh": ("triggers", "raised"),
     # OPUS2 (INTEG-LISTING-JOB): a listing package assembled or changed.
     "listing.package": ("work_done",),
+    "sale.pipeline_sweep": ("work_done",),
     "intel.panel_discovery": ("joined", "scanned"),
     "intel.pod_learning": ("records", "judgements", "measured"),
     "laura.executive_tick": ("work_done",),  # W3-D (wired by W3-WIRE4)
@@ -4594,6 +4641,7 @@ from . import engineering_ops  # noqa: E402,F401  (W4-AGENTS: cir.revise)
 from . import intel_ops  # noqa: E402,F401  (W4-AGENTS: radar.competitor_snapshot)
 from . import photo_review_ops  # noqa: E402,F401  (OPUS2: assets.photo_review)
 from . import listing_package_ops  # noqa: E402,F401  (OPUS2: listing.package)
+from . import sale_pipeline_ops  # noqa: E402,F401  (ENG-SALE-PIPELINE: sale.pipeline)
 from . import motif_backlog_ops  # noqa: E402,F401  (ENG-MOTIF-BACKLOG: assets.motif_backlog)
 from . import c12_ops  # noqa: E402,F401  (W4-C12 wiring: SV aging, window captures, harvest)
 from . import commercial_ops  # noqa: E402,F401  (OPUS2-P0: improve.commercial_lessons)

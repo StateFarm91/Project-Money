@@ -299,6 +299,13 @@ def preview(db, *, now: datetime | None = None, include_cards: bool = True) -> d
             if r["bucket"] == ROUTINE:
                 item["to"], item["why"] = AA._target(row, AA.judge(row.requirement_key)
                                                      ["verdict"], now=now)
+                if r["class"] == AA.LAURA_GALLERY_CLASS:
+                    # BATCH19F (IMAGE-BF): the owner sees the frames they approve.
+                    from ...visual import laura_approval
+
+                    raised = laura_approval.card(db, row.requirement_key) or {}
+                    item["frames"] = raised.get("frames") or []
+                    item["run_key"] = raised.get("run_key")
             elif r["bucket"] == SPEND:
                 left = round(left - r["amount_cad"], 2)
                 item["to"] = "satisfied"
@@ -387,6 +394,7 @@ def execute(db, *, actor: str, expected_digest: str, confirm: bool,
     from . import approvals
 
     now = _now(now)
+    laura_runs: list[str] = []
     if not actor.startswith("owner:"):
         raise Refused("only an owner session may approve the owner queue")
     if confirm is not True:
@@ -489,7 +497,23 @@ def execute(db, *, actor: str, expected_digest: str, confirm: bool,
                                "sample_exists": False, "owner_directive": DIRECTIVE_RENDERS})
             else:  # pragma: no cover - ACTED is exhaustive
                 raise Refused(f"unknown bucket {b}")
-            moved = owner_queue.transition(s, row, state, reason, actor=actor, now=now)
+            if b == ROUTINE and again["class"] == AA.LAURA_GALLERY_CLASS:
+                # BATCH19F (IMAGE-BF): a Laura gallery is approved per frame hash through
+                # `laura_approval`, never by a bare close; it is re-judged after the commit.
+                from ...visual import laura_approval
+
+                try:
+                    with s.begin_nested():
+                        got = laura_approval._decide_in(
+                            s, db, row, decision=laura_approval.APPROVED, actor=actor,
+                            step_up=True, via="approve_everything",
+                            session_public_id=session_public_id, now=now)
+                except laura_approval.Refused as exc:
+                    raise Refused(f"Laura gallery {row.requirement_key}: {exc}"[:300]) from None
+                laura_runs.append(got["run_key"])
+                moved = {"from": owner_queue.OPEN, "changed": True}
+            else:
+                moved = owner_queue.transition(s, row, state, reason, actor=actor, now=now)
             s.add(AuditLog(actor=actor[:64], action=ROW_AUDIT_ACTION, at=now,
                            artifact=f"owner_action:{row.id}",
                            detail={**detail, "from": moved.get("from"), "to": state,
@@ -505,5 +529,16 @@ def execute(db, *, actor: str, expected_digest: str, confirm: bool,
                                "ids": [d.get("id") or d.get("card_id") for d in done][:500],
                                "spend_approved_cad": current["spend"]["approved_in_press_cad"],
                                "company_cap_cad": cap}))
+    laura = {}
+    if laura_runs:
+        from ...visual import laura_approval
+
+        for run_key in laura_runs:      # after the approvals committed: re-judge each gallery
+            try:
+                laura[run_key] = laura_approval.after_decision(db, run_key)
+            except Exception as exc:  # noqa: BLE001 - recorded; the approval stands
+                laura[run_key] = {"certified": False,
+                                  "error": f"{type(exc).__name__}: {str(exc)[:200]}"}
     return {"batch": batch, "acted_count": len(done), "acted": done, "by_bucket": tally,
+            "laura_galleries": laura,
             "kept_count": current["kept_count"], "at": now.isoformat()}

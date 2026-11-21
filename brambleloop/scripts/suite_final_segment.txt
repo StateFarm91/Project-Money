@@ -289,6 +289,8 @@ tests/test_vis_gallery_e2e.py
 tests/test_product_run.py
 tests/test_first_listing_doors.py
 tests/test_eng_improve.py
+tests/test_sale_pipeline.py
+tests/test_sale_pipeline_e2e.py
 tests/test_eng_plush.py
 tests/test_eng_vis_identity.py
 tests/test_eng_demand_supply.py
@@ -296,6 +298,8 @@ tests/test_eng_autocoder.py
 tests/test_autopromote.py
 tests/test_clothing_e2e.py
 tests/test_eng_animals.py
+tests/test_image_ad.py
+tests/test_image_e2e_worker.py
 tests/test_evidence_perf.py
 tests/test_supply_lane.py
 tests/test_halt_380_marketing.py

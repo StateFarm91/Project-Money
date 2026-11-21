@@ -365,6 +365,10 @@ EVIDENCE_ITEMS = (
     # ENG-LEARN: image + pattern learning loops. Advisory: a loop without enough evidence
     # reads UNKNOWN in its own section and WARNs here; it never fails a deploy.
     ("learning loops (image + pattern) progress", "learning", None),
+    # ENG-SALE-PIPELINE: the automatic sale chain (D-OWNER-SALE-PIPELINE). Advisory: before
+    # launch nothing is READY, so it WARNs with the counts and never fails a deploy.
+    ("sale pipeline (eligible, gallery, PDFs certified, READY, blocked)", "sale_pipeline",
+     None),
     # ENG-DAILY: the daily production ledger. Advisory: a zero-output stage or an UNKNOWN
     # stage WARNs and never fails a deploy; an unreadable section is UNKNOWN, never a PASS.
     ("daily production ledger (14 UTC days)", "daily_ledger", None),
@@ -458,6 +462,8 @@ def _judge_section(name: str, section, judged) -> tuple[str, str]:
         return (WARN if sum(waiting) else PASS), summary
     if name == "visual_pipeline":
         return _judge_visual(section)
+    if name == "sale_pipeline":
+        return _judge_sale(section)
     if name == "learning":
         if not isinstance(section, dict) or section.get("readable") is not True:
             return WARN, ("section missing" if not isinstance(section, dict) else
@@ -611,6 +617,22 @@ def _vp_n(part, key):
         return "UNKNOWN"
     v = part.get(key)
     return v if isinstance(v, int) and not isinstance(v, bool) else "UNKNOWN"
+
+
+def _judge_sale(section) -> tuple[str, str]:
+    """ENG-SALE-PIPELINE: advisory. PASS only when at least one release is READY for sale and
+    no eligible release is stalled; anything less WARNs with the exact counts."""
+    if not isinstance(section, dict) or section.get("readable") is not True:
+        return WARN, ("section missing" if not isinstance(section, dict) else
+                      f"unreadable ({section.get('error_class') or 'no reason given'})")
+    n = lambda k: _vp_n(section, k)  # noqa: E731
+    why = (f"eligible {n('eligible')}; gallery done {n('gallery_done')}; PDFs certified "
+           f"{n('pdfs_certified')}; READY {n('ready')}; stalled {n('stalled')}; blocked "
+           f"{section.get('blocked_by_reason') or {}}; waiting before images "
+           f"{n('awaiting_pre_image_readiness')} {section.get('awaiting_pre_image_by_reason') or {}}")
+    ready, stalled = n("ready"), n("stalled")
+    ok = isinstance(ready, int) and ready > 0 and stalled == 0
+    return (PASS if ok else WARN), why
 
 
 def _judge_visual(section) -> tuple[str, str]:

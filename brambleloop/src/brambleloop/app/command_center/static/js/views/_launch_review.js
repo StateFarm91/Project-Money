@@ -1,6 +1,6 @@
 // W4-LISTREADY (D-W4-LAUNCH-VISION-BATCH): the owner's Launch-0 image-review batch.
 // Shows the batch from GET /api/cc/launch-review and activates it with the same
-// POST /api/cc/launch-review/activate, through the shared CSRF + step-up flow (api.js, components.js).
+// POST /api/cc/launch-review/activate via the shared CSRF + step-up flow.
 // The server decides; the button is disabled, with the reason, whenever the server would refuse.
 import { h } from "../dom.js";
 import { api, stepUp, stepUpValid, authState } from "../api.js";

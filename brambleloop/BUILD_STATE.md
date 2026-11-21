@@ -1,3 +1,88 @@
+> **2026-11-21 — BATCH19D-SALE2 on `claude/batch19d-sale2` (batch19d 76d0525 + `w6-release-19d1` 7b250d61 +
+> `w6-release-19h1`, production 1bb7c4f5, merged at 80bc28b with halt-380/H3/H4 and every boot step kept. Run
+> 20261121T082202Z-785 @ 80bc28b, clean tree, 27 suites: 326 passing, 2 suites failing, the same pre-existing two
+> named below; test_vis_gallery_e2e 15/15; NOT merged to the main branch, NOT deployed; production unchanged).** Owner decision
+> D-OWNER-PRIVATE-DRAFT-BEFORE-SAMPLE ("yes, private drafts before sample photo are fine") is implemented.
+> `SAMPLE_PHOTO_REQUIRED` still refuses activation exactly as before. It no longer stops the sale pipeline's READY
+> state or the private draft (`release_gates.ACTIVATION_ONLY_CODES`, the package's `activation_only` tag, and
+> `sale_pipeline.publication_blockers`). The listing package stays BLOCKED, and READY records `publication_waits_on`.
+> `test_vis_gallery_e2e` is fully green: 15 of 15, including tests 3 and 7 (draft upload and byte-for-byte read-back),
+> 7a (publication refused without the photo) and 7b (the mutant without the photo gate is killed). Run
+> 20261121T041814Z-2448 @ ec20dcb: 309 passing, 2 suites failing. Both failures are **pre-existing** and identical on
+> 76d0525: `test_w4_launchfix` (two IMG tests whose 2/3-frame fixtures predate the seven-photo gallery rule) and
+> `test_w6_listing_chain_e2e` C/D (expected blocker sets predate the `pdf_standard` blocker, so this came in with batch19d; it passes on production 7b250d61, where test_w4_launchfix fails the same way). They are not fixed yet.
+> No listing is published: publication still needs a real unedited sample photo, which is an owner action. Report:
+> `w6/review_requests/SALE2.md`.
+> **2026-11-21 — BATCH19D on `claude/batch19d` (batch19c d8751850 + `claude/batch19-sale` 61b508b4; NOT merged to
+> the main branch, NOT deployed; production unchanged).** The sale pipeline is merged onto the Batch 19 fixers. The
+> premium standard now lives in `publish/premium_standard.py`, and `publish/pdf_standard.py` is the sale checker;
+> eng/pdf-diagrams was merged into the former. The defect fixed: flat row-worked pieces FAILed the sale checker's
+> `diagrams` check, so no flat product could become READY. `construction_diagrams.stages` now draws row-progress
+> construction diagrams for flat pieces: width × rows at finished size, from the twin, with row markers and the
+> DIAGRAM label. The template keeps its mini-grids, and amigurumi keeps its component diagrams, so nothing is drawn
+> twice. On the real sale chain the blanket's premium US/UK PDFs now certify PASS. Also found and fixed: the
+> `store.publish` read-back compared the uploaded premium PDF with the base `assets.build` hash, so a READY
+> release's draft could never verify. `test_search_hero_publish` has its byte-for-byte draft-upload assertion
+> back. **Still red, honestly:** `test_vis_gallery_e2e` tests 3 and 7 stop at `SAMPLE_PHOTO_REQUIRED`. No physical
+> sample photo exists, and READY needs every listing gate to PASS; this needs an owner action, not code. Run
+> 20261121T020920Z-4751 @ 5151529: 288 passing, 1 suite failing. Decision D-BATCH19D-FLAT-DIAGRAMS. Report:
+> `research/final_build/w6/review_requests/BATCH19D.md`.
+> **2026-11-21 — PRODUCT-RUN-PERF on `eng/product-run-perf` (from `claude/batch19c-etsy`; NOT merged, NOT deployed;
+> test-only, no `src/` change).** `tests/test_product_run.py` now completes: **36 passed / 0 failed, 1544 s** on a
+> 4-CPU host (with other processes using the CPU). cProfile of the shared cycle (1336 s profiled, 957 s plain):
+> `build_pattern_pdf` 59% (68 calls, 40 from `first_customer` re-rendering identical documents), `disclosed_render.render`
+> 24% (335 calls, 43 unique). Two tests also re-ran the whole cycle from empty (the upgrade test alone took 1609 s on
+> the original code). No real sleeps or lease waits were involved. Fix: `tests/render_memo.py`, a content-addressed
+> memo installed only by this file, covering render, PDF, title-safe ink and the CONTENTS/gallery draws. Every input
+> is in the key; side effects are replayed; the determinism test bypasses it. The cycle is built once and shared as
+> a SQLite backup copy (`_cycle_copy`). No assertion, budget or production file changed. Decision D-PRODUCT-RUN-PERF.
+> Report: `w6/review_requests/PRODUCT-RUN-PERF.md`. The DECISION_LOG entry the brief cited
+> (D-MAIN-19B-PRODUCT-RUN-INCOMPLETE) does not exist in this branch.
+> **2026-11-21 — IMAGE-BF on `eng/image-bf` (from `claude/batch19c` 9757c1d + `eng/image-e2e` 45a012be; NOT merged,
+> NOT deployed; production unchanged, still 0 images).** IMAGE-E2E findings B and F fixed. **B:** Laura publication
+> approval now has a production path (`visual.laura_approval`, D-IMAGE-BF-LAURA). A generated gallery verified in every
+> respect but Laura raises ONE OwnerAction card per gallery (run + Laura frame-set digest) showing the frames; the owner
+> decides via `POST /api/cc/laura-gallery/decide` (existing passphrase + TOTP step-up) or "Approve all eligible" (frames
+> shown as thumbnails; eligible by explicit rule). Decisions are stored per gallery and frame hash
+> (`laura_gallery_approvals`); `laura_publication` reads PASS for exactly those hashes, UNMEASURED otherwise; every
+> decision audited; never inferred. `canonical.PUBLICATION_APPROVED` stays empty; Laura untouched. **F:** first-customer
+> `imagery` judges a certified generated certificate as that gallery (>= CAMPAIGN_MIN_FRAMES, release-bound, each frame
+> selected, on file, re-judged exportable with its AI-concept disclosure; CONTENTS re-verified) (D-IMAGE-BF-IMAGERY).
+> New suite `tests/test_image_bf.py` (9, incl. a step-up mutation). OPEN: no real Laura gallery exists yet, so no real
+> card; OWNER ACTION when one appears (review + approve/reject in Mission Control, CA$0, ~3 min). CC static bundle
+> 399,984 / 400,000 B. Findings A, C, D, E of IMAGE-E2E not addressed. Report:
+> `research/final_build/w6/review_requests/IMAGE-BF.md`.
+> **2026-11-21 — IMAGE-E2E on `eng/image-e2e` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT deployed;
+> production unchanged, still 0 images).** New `tests/test_image_e2e_worker.py`: from a production-like DB (certified
+> Launch-0 blanket, certified PDFs, D-OWNER-APPROVE-ALL applied) the real Worker, unaided, with a stub BFL transport
+> and the labelled judge doubles, reaches a valid 7-frame listing-set certificate and a refreshed listing package.
+> Three broken handoffs fixed, each pinned: (1) `owner_card` dead-lettered on the worker's provenance check because
+> `write_frames` wrote `backfilled` lineage with no job id, so no gallery could ever certify unaided; (2) nothing
+> refreshed `listing.package` after certification (stale "gallery incomplete" for up to 6 h); (3) a paid-gate cap
+> refusal left the pending-call hold and blocked the run as "unresolved cost". Ceilings (per-gallery, daily) and
+> no-repeat-on-redrive are asserted. OPEN, not fixed: vessels (both Launch-0 baskets) can never pass the FLUX anchor
+> (no side view is ever generated; `side_data` is read, never written); Laura's per-image publication approval has no
+> production path (`canonical.PUBLICATION_APPROVED` is an empty constant), so no Laura gallery can certify in
+> production -- OWNER decision; the first-customer `imagery` area FAILs a generated 7-frame certificate (judges it
+> as the 3-frame disclosed set), blocking publish; PDFs do not embed the gallery while `PDF_LAYOUT="engine"`. Report:
+> `research/final_build/w6/review_requests/IMAGE-E2E.md`.
+> **2026-11-21 — IMAGE-AD on `eng/image-ad` (from `claude/batch19c` 9757c1d + `eng/image-e2e` 45a012be; NOT merged,
+> NOT deployed; production unchanged, still 0 images; Laura untouched).** IMAGE-E2E findings A and D closed.
+> A: a vessel's FLUX anchor is now a pair: a side view (`product_only(view="side")`, its own paid call inside the
+> run, per-gallery and daily caps, own replay key) judged with the top view by `verify_anchor(side=...)`, kept
+> through recovery and reverify. Proof: the Hexagonal Bread Basket reaches a PASS `vessel_anchor` under the real
+> Worker with stub BFL pixels and labelled judge doubles; caps and no-repeat-on-redrive asserted. Also fixed: a
+> readmitted run that parked again could never be readmitted (taken `#admitted<n>` key) -- a silent for-sale stall.
+> D: `PDF_LAYOUT="template"`; the template document is used only with a certified gallery and a PASS from
+> PremiumStandard + the sale checker, else the engine PDF is `engine_interim`. A certified gallery enqueues
+> `assets.build{illustrate}` (PDFs only), bound to the certificate's frames. READY now requires the illustrated
+> PDFs (`PDF_NOT_ILLUSTRATED` / `PDF_GALLERY_STALE`, image-tagged); before, any certified PDF counted.
+> **OPEN (finding G): the rebuild is built, bound and checked but REFUSED before storing** -- the gallery's
+> CONTENTS frame previews the interim PDF, so storing the illustrated PDF would break the gallery's export and
+> the publish re-render (hash drift). Until CONTENTS is re-made from the illustrated PDF and the gallery
+> re-certified, no release reaches READY and D-OWNER-SALE-PIPELINE step 2 is still unmet end to end. Also open:
+> inventory `premium_pdf_completed` still counts an interim PDF; findings B, C, F unchanged. Decision D-IMAGE-AD.
+> Report: `research/final_build/w6/review_requests/IMAGE-AD.md` (results there).
 > **2026-11-21 — SUPPLY-FEED on `eng/supply-feed` (from `claude/w6-release-19h8` 94daf05; NOT merged, NOT deployed;
 > production unchanged, no production row read).** Production admitted 0 of 32 READY pool concepts. Cause:
 > `watchlist.compare` dropped every pod we already sell in (`_our_pods`), so those pods never got a watchlist gap or a
@@ -226,6 +311,20 @@
 > crashed assets.build; the kids tank (neck cannot pass a child's head) was certified then refused at the PDF (now held).
 > Status of the last stages (pricing -> listing package) is in the review request; read it before claiming the chain.
 > Decisions D-CLOTHING-E2E-1..8. Report: `w6/review_requests/CLOTHING-E2E.md` (repo root).
+> **2026-11-21 — IMAGE-E2E on `eng/image-e2e` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT deployed;
+> production unchanged, still 0 images).** New `tests/test_image_e2e_worker.py`: from a production-like DB (certified
+> Launch-0 blanket, certified PDFs, D-OWNER-APPROVE-ALL applied) the real Worker, unaided, with a stub BFL transport
+> and the labelled judge doubles, reaches a valid 7-frame listing-set certificate and a refreshed listing package.
+> Three broken handoffs fixed, each pinned: (1) `owner_card` dead-lettered on the worker's provenance check because
+> `write_frames` wrote `backfilled` lineage with no job id, so no gallery could ever certify unaided; (2) nothing
+> refreshed `listing.package` after certification (stale "gallery incomplete" for up to 6 h); (3) a paid-gate cap
+> refusal left the pending-call hold and blocked the run as "unresolved cost". Ceilings (per-gallery, daily) and
+> no-repeat-on-redrive are asserted. OPEN, not fixed: vessels (both Launch-0 baskets) can never pass the FLUX anchor
+> (no side view is ever generated; `side_data` is read, never written); Laura's per-image publication approval has no
+> production path (`canonical.PUBLICATION_APPROVED` is an empty constant), so no Laura gallery can certify in
+> production -- OWNER decision; the first-customer `imagery` area FAILs a generated 7-frame certificate (judges it
+> as the 3-frame disclosed set), blocking publish; PDFs do not embed the gallery while `PDF_LAYOUT="engine"`. Report:
+> `research/final_build/w6/review_requests/IMAGE-E2E.md`.
 > **2026-11-20 — CERTFIX-3 on `certfix/3` (cut from `claude/w6-INTEG8-wip` 511a8c6; NOT merged, NOT deployed;
 > production unchanged).** Real fixes for nine Batch 18 certification failures; no gate, assertion or child-safety
 > rule weakened. Teen garments grade at CYC 14/16 only (a teen drop-shoulder was drafted at size 2 and held by the
@@ -285,6 +384,16 @@
 >   - Nothing ran against production.
 > - Review request: `research/final_build/w6/review_requests/homedecor_slice1.md`.
 
+> **2026-11-20 — ENG-SALE-PIPELINE fix round for review b19-a Unit A (`eng/sale-pipeline`; NOT reviewed, NOT integrated, NOT deployed).**
+> - All 5 findings are fixed. Certificates are bound to the current checker, standard and gallery record, and any mismatch is UNKNOWN. The stall clock advances only on a forward move. There is a test where everything is PASS except one UNKNOWN. `test_search_hero_publish` runs its merits on the real 8-frame basket, and a separate test keeps the 6-frame blanket blocked. All 6 mutants are killed.
+> - `claude/batch19-approve-all` (13585c4f) is merged. There are 22 readback items, sw v44, and the map is 150/183/95.
+> - **New HIGH finding, open:** the gallery rule accepts >=7 frames but `slot:gallery7` requires exactly 7, so the disclosed 8-frame basket's premium PDFs FAIL and the release can never be READY. A product decision is needed. Details are in `research/final_build/w6/review_requests/FIX-SALE-PIPELINE.md`.
+> **2026-11-20 — ENG-SALE-PIPELINE slices 1-3 (`eng/sale-pipeline`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
+> D-OWNER-SALE-PIPELINE (hard rule), D-OWNER-SPEND-ORDER, D-OWNER-PDF-STANDARD, D-OWNER-PDF-LOGO, D-OWNER-PDF-TEMPLATE, D-OWNER-GALLERY-COMPLETE.
+> - **Chain (`publish/sale_pipeline.py`, job `sale.pipeline`):** admission (value order, per-listing cap, CA$100/month ceiling, reservation) -> certified 7-photo gallery -> US+UK premium PDFs built in the owner template (`publish/pdf_template.py`) with the same seven certified frames -> `publish/pdf_standard.py` certifies the bytes (layout, canonical logo on the cover, 7 gallery slots in order, template audit, licence, stitch counts) -> listing images attached -> READY. A stall is a named-blocker incident (board, Mission Control, readback row).
+> - **Merged here:** `claude/w6-INTEG6` (dde3ea62), `eng/gallery-complete` (20e81839), `eng/pdf-template` (309522a3; its family module renamed `publish.premium_standard`, D-ENG-SALE-PIPELINE-1).
+> - **Proven only with test doubles** (stub generator and judges, labelled `test_double`): the e2e reaches READY with no owner step. No real gallery, PDF, listing or spend exists from this branch. Production counts are UNKNOWN until deployed and read.
+> - **Known gap:** the engine layout (the release chain's `PDF_LAYOUT`, still "engine") has no logo on the cover; only template builds can certify.
 > **2026-11-20 — FIX-DEMAND-STALL on `claude/w6-INTEG8-wip` (Batch 18 integration; NOT deployed; production
 > unchanged).** A promoted concept waiting in the supply queue for an uncertified engine (on the production pool:
 > `cottage-wall-hanging`, flat_panel refusal) was counted as `promotable_undrafted`/`supply_selected` on every scan
@@ -711,6 +820,7 @@
 > - Measured: all 13 catalogue documents (11 Launch-0/proposed + a garment size + a pillow) pass in US and UK.
 > - NOT built: one multi-size garment edition with sizes in parentheses (each size is still its own PDF); garment
 >   inline diagrams; amigurumi (no engine exists). Review request: `research/final_build/w6/review_requests/pdf_premium_slice1.md`.
+
 > **2026-11-20 — ENG-WARDROBE-SCENES slice 1 (`eng/wardrobe-scenes`, NOT reviewed, NOT merged, NOT deployed; no provider called).**
 > - **Built, new files only:**
 >   - `visual/outfit_library.py`: 63 outfits, pairwise distinct (max 0.598 < 0.60), with harmony, family compatibility and a durable claim through `outfits.reserve`;

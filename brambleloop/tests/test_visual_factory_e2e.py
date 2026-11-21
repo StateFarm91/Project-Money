@@ -173,7 +173,7 @@ def test_b0_a_six_frame_disclosed_gallery_is_blocked_before_anything_reaches_ets
     db.engine.dispose()
 
 
-def test_b1_certified_pdfs_and_every_image_reach_the_draft_and_are_read_back():
+def test_b1_a_complete_gallery_not_ready_for_sale_is_refused_before_etsy():
     from sqlalchemy import select
 
     import test_search_hero_publish as SH
@@ -207,6 +207,16 @@ def test_b1_certified_pdfs_and_every_image_reach_the_draft_and_are_read_back():
     with db.session() as s:
         assert s.scalar(select(OperatingReading).where(OperatingReading.kind == lp.KIND))
 
+    # D-OWNER-SALE-PIPELINE (HARD RULE, ENG-SALE-PIPELINE): nothing is published unless it is
+    # ready for sale -- both premium PDFs certified for this release and every listing gate
+    # PASS. This fixture has neither (no launch decision; in SHADOW with no physical sample
+    # the listing package is not READY), so the complete gallery and certified base PDFs are
+    # refused before Etsy. The draft-and-read-back path of a READY release is an integration
+    # item (w6/review_requests/ENG-SALE-PIPELINE.md); it is not asserted with a faked READY.
+    from brambleloop.publish import sale_pipeline as SPL
+
+    sale = SPL.ready_for_sale(db, slug, version, rh)
+    assert sale["ready"] is False and sale["reasons"], sale
     with FakeEtsy() as fake, SH._owner_and_fake(fake):
         SH._grant(db, version, rh, slug=slug)
         job = SH._run(db, "store_operator", "store.publish",
@@ -214,36 +224,16 @@ def test_b1_certified_pdfs_and_every_image_reach_the_draft_and_are_read_back():
                       phase=Phase.LIMITED_PRODUCTION)
         assert job.status is JobStatus.DONE, job.last_error
         out = job.outputs
-        assert out.get("published") is True and out.get("read_back_verified") is True, out
-        assert out["files_attached_by_terminology"] == {"US": True, "UK": True}, out
-        lid = out["etsy_listing_id"]
-        assert len(SH._creates(fake)) == 1
-        assert fake.listings[lid]["state"] == "draft"
-        # Both PDFs: the exact certified bytes arrived, and Etsy lists both files.
-        got = sorted(f["sha256"] for f in fake.received_files[lid])
-        assert got == sorted(certified.values()), (got, certified)
-        assert len(fake.files[lid]) == 2, fake.files[lid]
-        # Every image: the certified set, in order, byte for byte.
-        with db.session() as s:
-            rec = s.scalar(select(ListingSetCertificateRecord).where(
-                ListingSetCertificateRecord.state == "valid"))
-            frames = sorted((int(f["position"]), f["sha256"])
-                            for f in rec.certificate["frames"])
-        uploaded = sorted((int(i["rank"]), i["sha256"]) for i in fake.received_images[lid])
-        assert uploaded == frames and len(uploaded) >= CAMPAIGN_MIN_FRAMES, (uploaded, frames)
-        assert len(fake.images[lid]) == len(frames)
-    # The read-back is recorded, and the evidence counts it -- files and images both verified.
+        assert out.get("published") is False and out.get("blocked") is True, out
+        assert out["reasons"] and all("D-OWNER-SALE-PIPELINE" in r for r in out["reasons"]), out
+        assert SH._creates(fake) == [] and not fake.received_images, fake.requests
     with db.session() as s:
-        row = s.scalar(select(AuditLog).where(AuditLog.action == "store.published",
-                                              AuditLog.artifact == f"{slug}@{version}"))
-        rb = row.detail["read_back"]
-    assert rb["verified"] is True and rb["files"]["verified"] is True, rb
-    assert rb["images"] is not None and rb["images"]["verified"] is True, rb["images"]
+        assert s.scalar(select(AuditLog).where(AuditLog.action == "store.publish_blocked",
+                                               AuditLog.artifact == f"{slug}@{version}"))
+        assert not s.scalar(select(AuditLog).where(AuditLog.action == "store.published"))
     vp = pe.visual_pipeline(db, now=NOW)
-    dr = vp["etsy_drafts"]
-    assert dr["drafts"] == 1 and dr["fully_read_back"] == 1, dr
-    assert dr["releases"][0]["pdfs_attached"] == ["UK", "US"]
-    assert vp["listing_packages"]["listing_ready"] + vp["listing_packages"]["blocked"] >= 1
+    assert vp["etsy_drafts"]["drafts"] == 0, vp["etsy_drafts"]
+    assert ListingSetCertificateRecord is not None and CAMPAIGN_MIN_FRAMES == 7
     db.engine.dispose()
 
 

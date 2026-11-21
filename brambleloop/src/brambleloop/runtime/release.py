@@ -46,10 +46,16 @@ from .worker import JobContext, handlers
 # Which renderer builds the customer pattern PDFs: "engine" (publish.pdf.build_pattern_pdf) or
 # "template" (publish.pdf_template.build_template_pdf, the owner's master layout). Read by
 # `publish.pdf_template.build_customer_pdf`, which every build/re-render site calls, so the
-# certified file and every re-render come from the same layout. It defaults to the template
-# only once the template renderer passes every existing PDF suite (test_deliverable_qa, the
-# pdf, edition and manifest suites, layout_qa, deterministic bytes); until then: "engine".
-PDF_LAYOUT = "engine"
+# certified file and every re-render come from the same layout.
+#
+# IMAGE-AD: the template is the production layout. A release whose gallery is certified gets
+# the template document (the certified gallery and the canonical logo embedded), accepted
+# only when it is customer-ready and passes PremiumStandard and the sale checker
+# (`pdf_template.audit`); `assets.illustrate` rebuilds and re-certifies both editions as
+# soon as the gallery is certified. Until then the engine PDF is the INTERIM deliverable
+# (`pdf_template.INTERIM`), and it never makes a listing package READY
+# (D-OWNER-PDF-STANDARD: "The PDFs have images").
+PDF_LAYOUT = "template"
 # ==============================================================================================
 
 # The release chain's own version, stamped into every downstream idempotency key.
@@ -326,6 +332,195 @@ def _product_record(slug: str, inputs: dict | None = None, db=None) -> dict | No
     return None
 
 
+ILLUSTRATE_INPUT = "illustrate"     # assets.build input: rebuild the PDFs with this gallery
+
+
+def illustration_binding(db, slug: str, version: str, pdf_layout: dict,
+                         release: str = "") -> dict | None:
+    """IMAGE-AD: what an illustrated build is bound to -- the valid listing-set certificate
+    record and its frames, in order -- or None when any edition is not the template
+    document (the interim engine PDF binds no gallery)."""
+    if not pdf_layout or any((v or {}).get("layout") != "template"
+                             for v in pdf_layout.values()):
+        return None
+    from . import etsy_ops
+
+    framed = etsy_ops.certified_frames(db, slug, version, release=release)
+    if framed.get("problems") or not framed.get("record_id"):
+        return None
+    galleries = {t: [g.get("frame_sha256") for g in (v or {}).get("gallery") or []]
+                 for t, v in pdf_layout.items()}
+    return {"certificate_record": int(framed["record_id"]),
+            "frames": [f.get("sha256") for f in framed.get("frames") or []],
+            "embedded_frames": galleries,
+            "renditions": {t: [g.get("rendition_sha256") for g in (v or {}).get("gallery") or []]
+                           for t, v in pdf_layout.items()}}
+
+
+def _illustrate(ctx: JobContext, slug: str, version: str) -> dict:
+    """IMAGE-AD: rebuild both premium PDFs in the template layout with the release's
+    certified gallery embedded, and re-certify them (PremiumStandard and the sale checker,
+    both run on the built bytes inside `build_customer_pdf_with_layout`).
+
+    Only the two PDFs: the listing frames, the disclosed set and the price chain are not
+    touched (a rebuild of those could disturb the certificate the PDFs embed). The new
+    `assets.built` row makes these the release's certified files, so `store.publish` and
+    `commerce.deliverables` (same switch, same certified gallery) re-render the same bytes.
+    A refusal records why and leaves the interim engine PDF in place; the listing package
+    stays not READY (`listing_package.pdf_illustration_blockers`)."""
+    from ..commerce import deliverables as deliverables_mod
+    from ..learn.service import pdf_help_links
+    from ..ops import artefacts as provenance
+    from ..publish.pdf_template import build_customer_pdf_with_layout
+    from . import etsy_ops
+
+    release = ctx.job.inputs.get("release", "")
+    record = int(ctx.job.inputs.get(ILLUSTRATE_INPUT) or 0)
+    framed = etsy_ops.certified_frames(ctx.db, slug, version, release=release)
+    if framed.get("problems") or int(framed.get("record_id") or 0) != record:
+        why = ("the gallery certificate this rebuild was asked for is no longer the valid "
+               f"one (asked {record}, valid {framed.get('record_id')}): "
+               + "; ".join(str(p) for p in framed.get("problems") or [])[:300])
+        ctx.audit("assets.illustration_refused", artifact=f"{slug}@{version}",
+                  detail={"release": release, "certificate_record": record, "why": why})
+        return {"slug": slug, "version": version, "release": release,
+                "illustrated": False, "why": why}
+    cir = _load_cir(ctx, slug, version)
+    result = compile_cir(cir)
+    twin = build_twin(cir, result, calibration=calibration_from_db(ctx.db, cir))
+    released_on = _released_on(ctx, slug, version)
+    lesson_links = pdf_help_links(ctx.db, cir.to_dict())
+    built = {t: build_customer_pdf_with_layout(cir, twin=twin, terminology=t,
+                                               released_on=released_on,
+                                               lesson_links=lesson_links, db=ctx.db)
+             for t in TERMINOLOGIES}
+    pdf_layout = {t: info for t, (_d, info) in built.items()}
+    interim = {t: info.get("why") for t, info in pdf_layout.items()
+               if info.get("layout") != "template"}
+    if interim:
+        ctx.audit("assets.illustration_refused", artifact=f"{slug}@{version}",
+                  detail={"release": release, "certificate_record": record,
+                          "why": interim})
+        return {"slug": slug, "version": version, "release": release,
+                "illustrated": False, "why": interim}
+    binding = illustration_binding(ctx.db, slug, version, pdf_layout, release=release)
+    if binding is None or binding["certificate_record"] != record or any(
+            e != binding["frames"] for e in binding["embedded_frames"].values()):
+        why = "the embedded frames are not the certified gallery's frames, in order"
+        ctx.audit("assets.illustration_refused", artifact=f"{slug}@{version}",
+                  detail={"release": release, "certificate_record": record, "why": why,
+                          "binding": binding})
+        return {"slug": slug, "version": version, "release": release,
+                "illustrated": False, "why": why}
+    docs = {t: d for t, (d, _i) in built.items()}
+    # The gallery's CONTENTS frame is a preview of the certified PDF, and the PDF embeds the
+    # gallery. Storing PDFs whose preview is not the certified CONTENTS frame would leave a
+    # gallery that no longer exports (`launch_imagery._check_contents`), a publish re-render
+    # that falls back to the interim PDF (PDF_HASH_DRIFT) and a listing image that shows a
+    # document the buyer does not get. So that is refused here, by name, and the interim PDF
+    # stays the certified one until the CONTENTS frame is re-made from the illustrated PDF
+    # and the gallery re-certified (open: IMAGE-AD finding G).
+    contents_why = _contents_preview_mismatch(slug, framed, docs)
+    if contents_why:
+        ctx.audit("assets.illustration_refused", artifact=f"{slug}@{version}",
+                  detail={"release": release, "certificate_record": record,
+                          "why": contents_why, "binding": binding,
+                          "built_sha256_by_terminology": {
+                              t: hashlib.sha256(d.pdf_bytes).hexdigest()
+                              for t, d in sorted(docs.items())}})
+        return {"slug": slug, "version": version, "release": release,
+                "illustrated": False, "why": contents_why}
+    with ctx.db.session() as s:
+        design = provenance.design_inputs(s, slug, version)
+    lineage = _lineage(ctx)
+    certificate_ref = f"certificate:{provenance.release_key(slug, version)}"
+    store = ArtifactStore(ctx.job.inputs.get("artifact_dir"))
+    pdfs = {t: store.put(f"{slug}/{version}/{pattern_filename(t)}", d.pdf_bytes,
+                         "application/pdf", artefact_class="pdf", lineage=lineage,
+                         db=ctx.db, keep=deliverables_mod.keep_why(slug, version, f"pdf:{t}"))
+            for t, d in docs.items()}
+    with ctx.db.session() as s:
+        for terminology, stored in sorted(pdfs.items()):
+            provenance.record_lineage(
+                s, artefact_class="pdf",
+                artefact_key=provenance.pdf_key(slug, version, terminology),
+                product_slug=slug, inputs=design, chain_version=CHAIN_VERSION,
+                lineage=lineage.for_file(stored.sha256).under(certificate_ref).validated(
+                    "problems" if docs[terminology].problems else "passed"))
+    prior = _prior_built_detail(ctx.db, slug, version)
+    doc = docs["US"]
+    ctx.audit("assets.built", artifact=f"{slug}@{version}", detail={
+        **{k: prior[k] for k in ("chart", "legend") if k in prior},
+        "pdf": pdfs["US"].to_dict(),
+        "pdfs": {t: stored.to_dict() for t, stored in sorted(pdfs.items())},
+        "pdf_sha256_by_terminology": {t: stored.sha256 for t, stored in sorted(pdfs.items())},
+        "pages": doc.pages, "size_label": doc.size_label(),
+        "storage_durable": pdfs["US"].durable, "release": release,
+        "pdf_layout": pdf_layout, "illustrated": binding})
+    # the package re-reads the files at once (READY needs the illustrated PDFs)
+    ctx.enqueue("listing", "listing.package",
+                {"slug": slug, "version": version, "release": release},
+                idempotency_key=f"listing.package:illustrated:{slug}:{version}:{release}"
+                                f":{record}")
+    return {"slug": slug, "version": version, "release": release, "illustrated": True,
+            "certificate_record": record, "pages": doc.pages, "size_label": doc.size_label(),
+            "finished_size_cm": list(doc.finished_size_cm) if doc.finished_size_cm else None,
+            "calibrated": doc.calibrated,
+            "illustrated_pdf_sha256_by_terminology": {t: stored.sha256
+                                                      for t, stored in sorted(pdfs.items())}}
+
+
+def _contents_preview_mismatch(slug: str, framed: dict, docs: dict) -> str | None:
+    """Why the certified CONTENTS frame is not the preview of these PDFs, or None."""
+    from ..visual import contents_frame as CF
+
+    return contents_preview_mismatch(slug, framed, docs[CF.TERMINOLOGY].pdf_bytes,
+                                     sorted(docs))
+
+
+def contents_preview_mismatch(slug: str, framed: dict | None, pdf_bytes: bytes,
+                              editions) -> str | None:
+    """Why the certified CONTENTS frame is not the preview of `pdf_bytes` (the previewed
+    edition), or None. Used by the layout decision itself
+    (`pdf_template.build_customer_pdf_with_layout`), so every build and re-render site makes
+    the same choice."""
+    from ..visual import contents_frame as CF
+    from ..visual import launch_imagery
+
+    contents = [f for f in (framed or {}).get("frames") or []
+                if f.get("job") == "CONTENTS" or f.get("role") == "whats_included"]
+    if not contents:
+        return None
+    found = launch_imagery._primary_for(slug)
+    if found is None:
+        return "CONTENTS frame cannot be re-checked: no primary CIR for this listing"
+    primary = found[2]
+    try:
+        fr = CF.render(pdf_bytes, slug=primary.slug,
+                       version=primary.version, title=primary.title or primary.slug,
+                       editions=list(editions))
+    except Exception as exc:  # noqa: BLE001 - an unrenderable preview is a refusal
+        return f"CONTENTS preview of the illustrated PDF failed: {type(exc).__name__}"
+    if fr.manifest["image_sha256"] != contents[0].get("sha256"):
+        return ("CONTENTS_PREVIEW_STALE: the certified gallery's CONTENTS frame "
+                f"({str(contents[0].get('sha256'))[:12]}) previews the interim PDF, not the "
+                f"illustrated one ({fr.manifest['image_sha256'][:12]}); the CONTENTS frame "
+                "must be re-made from the illustrated PDF and the gallery re-certified first")
+    return None
+
+
+def _prior_built_detail(db, slug: str, version: str) -> dict:
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(
+            AuditLog.action == "assets.built", AuditLog.artifact == f"{slug}@{version}")
+            .order_by(desc(AuditLog.id)).limit(1))
+        return dict(row.detail or {}) if row is not None else {}
+
+
 @handlers.register("assets.build")
 def handle_assets_build(ctx: JobContext) -> dict:
     """Render the customer PDF and charts from the certified CIR, and record their hashes.
@@ -333,9 +528,14 @@ def handle_assets_build(ctx: JobContext) -> dict:
     The hash is the point. A PDF is the only artefact the customer ever sees, so the system
     has to be able to prove that the file it is about to ship is the one that was certified
     and not a re-render that drifted.
+
+    With the `illustrate` input (IMAGE-AD) only the two PDFs are rebuilt, with the release's
+    certified gallery embedded (`_illustrate`).
     """
     slug = ctx.job.inputs["slug"]
     version = ctx.job.inputs["version"]
+    if ctx.job.inputs.get(ILLUSTRATE_INPUT):
+        return _illustrate(ctx, slug, version)
     cir = _load_cir(ctx, slug, version)
     result = compile_cir(cir)
     twin = build_twin(cir, result, calibration=calibration_from_db(ctx.db, cir))
@@ -357,10 +557,14 @@ def handle_assets_build(ctx: JobContext) -> dict:
     released_on = _released_on(ctx, slug, version)
     from ..learn.service import pdf_help_links
     lesson_links = pdf_help_links(ctx.db, cir.to_dict())
-    from ..publish.pdf_template import build_customer_pdf
-    docs = {t: build_customer_pdf(cir, twin=twin, terminology=t, released_on=released_on,
-                                  lesson_links=lesson_links, db=ctx.db)
-            for t in TERMINOLOGIES}
+    from ..publish.pdf_template import build_customer_pdf_with_layout
+    built_docs = {t: build_customer_pdf_with_layout(
+        cir, twin=twin, terminology=t, released_on=released_on, lesson_links=lesson_links,
+        db=ctx.db) for t in TERMINOLOGIES}
+    docs = {t: d for t, (d, _info) in built_docs.items()}
+    # IMAGE-AD: which layout each edition is (template = illustrated, engine_interim = the
+    # stand-in until the gallery is certified), bound into the build record below.
+    pdf_layout = {t: info for t, (_d, info) in built_docs.items()}
     doc = docs["US"]
     # Every file this handler stores is a derived artefact the provenance sentinel watches,
     # so the store is told which class each one is and refuses the write without lineage
@@ -439,6 +643,8 @@ def handle_assets_build(ctx: JobContext) -> dict:
         "pdfs": {t: stored.to_dict() for t, stored in sorted(pdfs.items())},
         "pages": doc.pages, "size_label": doc.size_label(),
         "storage_durable": pdf.durable,
+        "pdf_layout": pdf_layout,
+        "illustrated": illustration_binding(ctx.db, slug, version, pdf_layout),
     })
     # INTEG4: since W4-FIRSTSALE the customer PDFs are kept in Postgres (durable), but the
     # chart and legend files still live only on the ephemeral disk. The announcement names
@@ -2405,6 +2611,19 @@ def _enqueue_listing_package(ctx: JobContext, i: dict, slug: str) -> None:
     except Exception as exc:  # noqa: BLE001 - the sweep remains the safety net
         ctx.audit("listing.package_event_failed", artifact=f"{slug}@{i['version']}",
                   detail={"error": f"{type(exc).__name__}: {str(exc)[:300]}"})
+    # ENG-SALE-PIPELINE (D-OWNER-SALE-PIPELINE): the launch decision is what selects a
+    # release for sale, so its exit starts the sale chain's admission (a few minutes later,
+    # once this launch.plan job is DONE and readable). Idempotent per release.
+    if i.get("release") and not i.get("fix_only"):
+        try:
+            from ..publish import sale_pipeline as SPL
+            from .sale_pipeline_ops import admission_follow
+
+            SPL.start(admission_follow(ctx), slug=slug, version=i["version"],
+                      release=i["release"])
+        except Exception as exc:  # noqa: BLE001 - the hourly sweep is the safety net
+            ctx.audit("sale.pipeline_event_failed", artifact=f"{slug}@{i['version']}",
+                      detail={"error": f"{type(exc).__name__}: {str(exc)[:300]}"})
 
 
 @handlers.register("launch.plan")
@@ -4060,6 +4279,30 @@ def handle_physical_upgrade(ctx: JobContext) -> dict:
     return out
 
 
+def _hand_on_to_sale_pipeline(ctx: JobContext, out: dict) -> None:
+    """ENG-SALE-PIPELINE: an ordinary (not experiment, not controlled) image run that has
+    reached an end state enqueues the sale chain's gallery stage -- the image stage's
+    successor. Best effort: the hourly sweep re-drives a stalled gallery stage."""
+    i = dict(ctx.job.inputs or {})
+    if i.get("experiment") or i.get("ns") or i.get("controlled_run_id") or not out.get("run_key"):
+        return
+    try:
+        from ..publish import sale_pipeline as SPL
+        from ..visual import image_production
+
+        run = image_production.get_run(ctx.db, out["run_key"])
+        if run is None or run["state"] not in SPL.IMAGE_END_STATES:
+            return
+        SPL.image_run_ended(
+            lambda inputs, key: ctx.enqueue(SPL.AGENT, SPL.JOB_TYPE, inputs,
+                                            idempotency_key=key),
+            slug=run["slug"], version=run["version"], release=run["release"],
+            state=run["state"], epoch=int(run.get("restarts") or 0))
+    except Exception as exc:  # noqa: BLE001 - the sweep is the safety net
+        ctx.audit("sale.pipeline_handoff_failed", artifact=out.get("run_key"),
+                  detail={"error": f"{type(exc).__name__}: {str(exc)[:300]}"})
+
+
 @handlers.register("visual.image_production")
 def handle_image_production(ctx: JobContext) -> dict:
     """One stage of the autonomous listing-image workflow (`visual.image_production`).
@@ -4095,6 +4338,9 @@ def handle_image_production(ctx: JobContext) -> dict:
                                 (status == image_production.STAGE_STATE.get(inputs["stage"])
                                  or (inputs["stage"] == "retrieve_release"
                                      and status == "awaiting_certified_pattern")
+                                 # D-OWNER-SPEND-ORDER: a non-spending wait is a valid
+                                 # end of any stage that could have spent
+                                 or status == image_production.AWAITING_PRE_IMAGE
                                  or status.startswith("blocked(")))
                 next_stage = done_output.get("next")
                 expected_stage = inputs["stage"]
@@ -4126,6 +4372,32 @@ def handle_image_production(ctx: JobContext) -> dict:
         return None
 
     out = image_production.run_stage(ctx.db, dict(ctx.job.inputs), follow=follow)
+    _hand_on_to_sale_pipeline(ctx, out)
+    if out.get("gallery_certified") is True:
+        # IMAGE-E2E: the certified gallery changes the listing package (its image blockers
+        # are gone), so the package for this release is re-assembled now, not at the next
+        # six-hourly sweep. Before this the recorded package kept saying "gallery
+        # incomplete" for up to six hours after the certificate was issued. Internal only.
+        i = ctx.job.inputs
+        ctx.enqueue("listing", "listing.package",
+                    {"slug": i["slug"], "version": i["version"], "release": i["release"]},
+                    idempotency_key=f"listing.package:gallery:{out.get('run_key')}"
+                                    f":{int(i.get('epoch') or 0)}")
+        # IMAGE-AD (D-OWNER-SALE-PIPELINE step 2, D-OWNER-PDF-TEMPLATE): the certified
+        # gallery is what the premium PDFs embed, so both editions are rebuilt in the template
+        # layout with those frames and re-certified now. One job per certificate record: a
+        # redrive or a second certification of the same record enqueues nothing new.
+        from . import etsy_ops
+
+        framed = etsy_ops.certified_frames(ctx.db, i["slug"], i["version"],
+                                           release=i["release"])
+        if framed.get("record_id") and not framed.get("problems"):
+            ctx.enqueue("publishing", "assets.build",
+                        {"slug": i["slug"], "version": i["version"], "release": i["release"],
+                         ILLUSTRATE_INPUT: int(framed["record_id"])},
+                        idempotency_key=chain_key("assets", i["slug"], i["version"],
+                                                  i["release"],
+                                                  f"illustrate:{framed['record_id']}"))
     ctx.audit("visual.image_production", artifact=out.get("run_key"),
               detail={k: out.get(k) for k in ("stage", "status", "next", "skipped", "why")})
     return out
