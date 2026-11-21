@@ -80,8 +80,10 @@ def test_the_template_is_the_owners_14_page_letter_master():
     assert len(reader.pages) == 14
     box = reader.pages[0].mediabox
     assert (float(box.width), float(box.height)) == (612.0, 792.0)
-    # 13 sections, cover first, the gallery split over two pages, as the template draws them
-    assert T.SECTION_ORDER[0] == "cover" and len(T.SECTION_ORDER) == 13
+    # 13 sections, cover first, the gallery split over two pages, as the template draws them,
+    # then the CIR-generated techniques appendix after them (ENG-PDF-DIAGRAMS)
+    assert T.SECTION_ORDER[0] == "cover" and len(T.SECTION_ORDER) == 14
+    assert T.SECTION_ORDER[12] == "copyright" and T.SECTION_ORDER[13] == "appendix"
     assert [label for _s, label in T.GALLERY_SLOTS] == [
         "FULL PRODUCT / HERO", "STITCH DETAIL", "LIFESTYLE", "BACK / ALTERNATE VIEW",
         "SCALE / FIT", "CONSTRUCTION / MATERIALS", "DOWNLOAD FACTS"]

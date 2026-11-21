@@ -1136,6 +1136,46 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
     )
 
 
+def _amigurumi_piece(cir: CIR, block_title: str):
+    """The component an instruction block of an amigurumi pattern is about, when it has
+    counted rows to draw (ENG-PDF-DIAGRAMS); None otherwise."""
+    if _std.family_of(cir) != _std.AMIGURUMI:
+        return None
+    key = block_title.lower().split(" (")[0].replace("_", " ").strip()
+    for c in cir.components:
+        if c.name.replace("_", " ").lower() == key and any(r.declared_count for r in c.rows):
+            return c
+    return None
+
+
+def _assembly_steps(doc, cir: CIR, head) -> None:
+    """Numbered assembly steps (A1, A2, ...), one per CIR seam, each with its placement
+    callout tied to round numbers and the host piece's placement diagram (ENG-PDF-DIAGRAMS,
+    TEARDOWN_HIGHLAND_COW_AMIGURUMI L4). A seam with no round placement refuses."""
+    from . import pdf_template as _tpl
+
+    for i, seam in enumerate(cir.assembly, start=1):
+        host = next((c for c in cir.components if c.name == seam.piece_b), None)
+        if seam.at_round is None or host is None:
+            raise ValueError(f"refusing to render {cir.slug}: join {i} ({seam.piece_a} to "
+                             f"{seam.piece_b}) has no round placement")
+        last = seam.at_round + max(1, seam.spans_rounds) - 1
+        doc.need(60 * mm, head)
+        doc.heading(f"A{i}. Join the {seam.piece_a.replace('_', ' ')} to the "
+                    f"{seam.piece_b.replace('_', ' ')}", size=11)
+        # the seam's full sentence is the pattern's own Assembly step, printed above
+        doc.para(_tpl.placement_callout(seam, host), size=10, color=ROSE,
+                 font=FONT_BODY_BOLD, running_head=head)
+        doc.image(_tpl.component_profile(cir, host, highlight=(seam.at_round, last)), head,
+                  max_height=45 * mm,
+                  figure={"kind": "placement_diagram", "join": i, "host": host.name,
+                          "rounds": [seam.at_round, last],
+                          "source": "publish.pdf_template.component_profile"})
+    doc.para("Placement diagrams show the piece each join is sewn onto, drawn from its stitch "
+             "counts, with the rounds of the join outlined. They are diagrams, not "
+             "photographs.", size=9, color=MUTED, running_head=head)
+
+
 def premium_audit(pdf_bytes: bytes, cir: CIR, *, twin: TwinModel, result, terminology: str,
                   childrens: bool) -> "_std.Audit":
     """The premium standard's audit of finished bytes, reading each page once.
@@ -2813,6 +2853,18 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             continue
         shown = title[:1].upper() + title[1:]
         doc.heading(shown, size=12)
+        # ENG-PDF-DIAGRAMS: the per-component image slot of an amigurumi pattern. Until a
+        # physical sample's progress photo exists, a CIR-drawn DIAGRAM (never a photo).
+        drawn_piece = _amigurumi_piece(cir, title)
+        if drawn_piece is not None:
+            from . import pdf_template as _tpl
+
+            doc.image(_tpl.component_profile(cir, drawn_piece), head, max_height=55 * mm,
+                      figure={"kind": "component_diagram", "component": drawn_piece.name,
+                              "label": "DIAGRAM", **_tpl.component_geometry(cir, drawn_piece),
+                              "source": "publish.pdf_template.component_profile"})
+            doc.para(_tpl.component_caption(cir, drawn_piece), size=9, color=MUTED,
+                     running_head=head)
         # ENG-PLUSH: a stuffing point and a closure are steps in their place among the
         # rounds, not notes lifted to the top of the piece. ENG-PDF-PREMIUM: RS/WS sides.
         sided = _sides_for(cir, title)
@@ -2862,6 +2914,8 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         # exist, and the teardown reader (rightly) reads the label as an assembly section.
         doc.heading("Finishing", kicker=("Assembly and finishing" if cir.assembly
                                          else "Final steps"))
+        if cir.assembly and _std.family_of(cir) == _std.AMIGURUMI:
+            _assembly_steps(doc, cir, head)
         for ln in finishing:
             if not ln.strip():
                 continue

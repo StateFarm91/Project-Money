@@ -250,6 +250,7 @@ TEMPLATE_EQUIVALENTS: dict[str, tuple[str, ...]] = {
     "BRAMBLELOOP ·": ("BRAMBLELOOP CROCHET PATTERNS",),
     "About Brambleloop Studio": ("A little about Brambleloop",),
     "Safety notes for a children's item": ("SAFETY / AGE / USE NOTES",),
+    "Eye options": ("EYE OPTIONS",),
 }
 
 
@@ -606,20 +607,27 @@ def _assembly_steps(text, ctx):
     return out
 
 
-EYE_HEADING = "EYE OPTIONS"
+EYE_HEADING = "Eye options"     # the engine's heading (child_safety's statement)
+EYE_PANEL_MAX = 1500            # characters read after the heading
+# Each layout's way of saying safety eyes are not this pattern's option.
+_NO_SAFETY_EYES = re.compile(r"Safety eyes are not part of this pattern|does not give a "
+                             r"safety-eye option|Do not fit safety eyes")
 
 
 def _eye_options(text, ctx):
-    sec = _section(text, EYE_HEADING, ("Safety notes for a children's item",
-                                       "Gallery & visual references"))
-    if not sec:
+    i = _find(text, EYE_HEADING)
+    if i < 0:
         return [f"missing {EYE_HEADING!r}"]
+    sec = _section(text[i:], EYE_HEADING, ("Safety notes for a children's item",
+                                            "Gallery & visual references"))[:EYE_PANEL_MAX]
     out = [f"the eye-options panel does not give {w!r}" for w in
-           ("Embroidered eyes", "Safety eyes", "Age guidance:", "under 3") if w not in sec]
+           ("Embroider", "Age guidance:", "under 3") if w not in sec]
+    if not re.search(r"safety[- ]eye", sec, re.I):
+        out.append("the eye-options panel does not address safety eyes")
     safety = any("safety eye" in m.name.lower() for m in ctx.cir.materials)
     if safety and "never use them on a toy for a child under 3" not in sec:
         out.append("safety eyes are offered without the under-3 small-parts warning")
-    if not safety and "Safety eyes are not part of this pattern" not in sec:
+    if not safety and not _NO_SAFETY_EYES.search(sec):
         out.append("the panel does not say safety eyes are outside this pattern's materials")
     return out
 

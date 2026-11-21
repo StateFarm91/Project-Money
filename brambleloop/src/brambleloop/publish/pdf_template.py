@@ -443,6 +443,29 @@ def component_geometry(cir: CIR, comp) -> dict:
             "markers": marks}
 
 
+def component_caption(cir: CIR, comp) -> str:
+    """The diagram's caption: what it is (a DIAGRAM, never a photograph), the piece's
+    finished silhouette dimensions at gauge, and its round markers."""
+    geo = component_geometry(cir, comp)
+    u = geo["unit"]
+    at = geo["widest_at"]
+    span = f"{u} {at[0]}" if len(at) == 1 else f"{u}s {at[0]} to {at[-1]}"
+    name = comp.name.replace("_", " ")
+    if geo["flat"]:
+        size = f"{geo['across_cm']:.1f} cm wide at its widest {u}"
+    else:
+        size = (f"{geo['across_cm']:.1f} cm across its widest {u} "
+                f"({geo['around_cm']:.1f} cm around)")
+    cap = (f"DIAGRAM of the {name}, to scale at gauge, one band per {u}: {size}, and "
+           f"{geo['length_cm']:.1f} cm of fabric from {u} {geo['first']} to {u} "
+           f"{geo['last']}, before stuffing. {u.capitalize()} markers: "
+           + ", ".join(f"R{m}" for m in geo["markers"])
+           + f". Widest at {span} ({geo['widest']} sts).")
+    if geo["stuffed"] is not None:
+        cap += f" The arrow marks {u} {geo['stuffed']}: stuff here."
+    return cap + " Drawn from the stitch data, not a photograph."
+
+
 def _profile_font(px: int):
     from PIL import ImageFont
 
@@ -1270,26 +1293,7 @@ class _Facts:
         return None
 
     def component_caption(self, comp) -> str:
-        """The diagram's caption: what it is (a DIAGRAM, never a photograph), the piece's
-        finished silhouette dimensions at gauge, and its round markers."""
-        geo = component_geometry(self.cir, comp)
-        u = geo["unit"]
-        at = geo["widest_at"]
-        span = f"{u} {at[0]}" if len(at) == 1 else f"{u}s {at[0]} to {at[-1]}"
-        name = comp.name.replace("_", " ")
-        if geo["flat"]:
-            size = f"{geo['across_cm']:.1f} cm wide at its widest {u}"
-        else:
-            size = (f"{geo['across_cm']:.1f} cm across its widest {u} "
-                    f"({geo['around_cm']:.1f} cm around)")
-        cap = (f"DIAGRAM of the {name}, to scale at gauge, one band per {u}: {size}, and "
-               f"{geo['length_cm']:.1f} cm of fabric from {u} {geo['first']} to {u} "
-               f"{geo['last']}, before stuffing. {u.capitalize()} markers: "
-               + ", ".join(f"R{m}" for m in geo["markers"])
-               + f". Widest at {span} ({geo['widest']} sts).")
-        if geo["stuffed"] is not None:
-            cap += f" The arrow marks {u} {geo['stuffed']}: stuff here."
-        return cap + " Drawn from the stitch data, not a photograph."
+        return component_caption(self.cir, comp)
 
     def finishing_lines(self) -> list[str]:
         for title, lines in self.parsed["blocks"]:

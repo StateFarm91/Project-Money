@@ -128,7 +128,9 @@ def test_every_component_has_a_diagram_at_its_finished_silhouette_with_round_mar
     assert "8.6 cm of fabric from round 1 to round 17" in text
     assert "Round markers: R1, R6, R15, R17." in text
     # labelled a diagram, never a photo: no diagram caption claims a photograph
-    for m in re.finditer(r"DIAGRAM of the .*?not a photograph\.", text):
+    captions = list(re.finditer(r"DIAGRAM of the .*?not a photograph\.", text))
+    assert len(captions) == len(cir.components)
+    for m in captions:
         assert not re.search(r"photograph of|progress photo", m.group(0), re.I), m.group(0)
 
 
@@ -143,7 +145,7 @@ def test_assembly_is_numbered_with_placement_callouts_tied_to_round_numbers():
 
 
 def test_the_eye_options_panel_gives_both_options_and_age_guidance():
-    sec = S._section(_text(), S.EYE_HEADING, ("Safety notes for a children's item",))
+    sec = S._section(_text(), "EYE OPTIONS", ("Safety notes for a children's item",))
     assert "Embroidered eyes (as written)" in sec
     assert "Safety eyes are not part of this pattern" in sec     # none in the materials
     assert "Age guidance:" in sec and "under 3" in sec
@@ -200,6 +202,22 @@ def test_the_engine_layout_prints_the_appendix_too():
     assert TA.HEADING in text and "Starting in a magic ring" in sec and "Changing colour" in sec
 
 
+def test_the_engine_layout_gives_an_amigurumi_the_same_parts():
+    """The engine renders plush toys (ENG-PLUSH): diagrams under each piece, A-numbered
+    assembly with placement callouts, and the child-safety gate's eye options panel."""
+    import test_eng_plush as TP
+
+    cir = TP._toy()
+    doc = P.build_pattern_pdf(cir, childrens=TP.TOY, released_on=RELEASED)
+    assert doc.standard["ok"] and set(NEW_RULES) <= set(doc.standard["required"]), \
+        doc.standard["failures"]
+    drawn = {f["component"] for f in doc.figures if f["kind"] == "component_diagram"}
+    assert drawn == {c.name for c in cir.components}
+    assert [f["rounds"] for f in doc.figures if f["kind"] == "placement_diagram"] == [[6, 6]]
+    text = P.extracted_text(doc.pdf_bytes)
+    assert "Placement: round 6 of the body, 5 sts either side of centre." in text
+
+
 def test_a_flat_piece_gets_a_diagram_at_its_width():
     cir = _fx().pebble_friend()
     flat = Component(name="tag", construction="flat_rows", foundation=10, rows=[
@@ -249,10 +267,10 @@ AMI_MUTATIONS = {
         _drop("diagrams, not photographs"),
     ],
     "eye_options": [
-        _drop(S.EYE_HEADING),
+        _drop("EYE OPTIONS"),
         _drop("Age guidance:"),
         _drop("Safety eyes are not part of this pattern"),
-        _drop("Embroidered eyes"),
+        _drop("Embroider"),
     ],
     "techniques_appendix": [
         _drop(TA.HEADING),
@@ -270,6 +288,7 @@ def test_each_new_rule_fails_by_id_when_its_evidence_is_removed():
         for rule_id, mutations in sorted(AMI_MUTATIONS.items()):
             assert rule_id in before.required and rule_id not in before.failures, (
                 term, rule_id, before.failures.get(rule_id))
+            assert mutations, rule_id
             for n, mutate in enumerate(mutations):
                 mutated = mutate(text)
                 assert mutated != text, f"{rule_id}[{n}] changed nothing ({term})"
