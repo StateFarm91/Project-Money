@@ -104,4 +104,14 @@ still guards every statement. There is no sales data, no spend and no network.
 
 ## Suite run
 
-See below. It is filled in from the runner's own record.
+Run `20261121T023222Z-3239` (`JOBS=4 SUITE_REGISTRY=0`) on code commit 55f4e9c, tree clean, py3.11 venv from
+`requirements.lock` plus `requirements-test.lock`, 519 s. 33 suites: `test_vacuity`, `test_learn_proof`,
+`test_pdf_standard`, `test_pdf_premium`, `test_pdf_template`, `test_pdf_diagrams`, `test_eng_plush`, `test_mine`,
+`test_eng_learn`, `test_eng_learn_patterns`, `test_eng_learn_wiring`, `test_learning`, `test_v11_seo_truth`,
+`test_w3_seo_strategy`, `test_r2_product_seo_unicode`, `test_w4_learn_loops`, `test_w4_learn_presale`,
+`test_w4_readback_evidence`, `test_cert_learning`, `test_cert_preengineering`, `test_serp`, `test_w4_marketintel`,
+`test_cert_intel_wave`, `test_vis_gallery_gates`, `test_etsy_publish`, `test_etsy_transport`, `test_etsy_exercise`,
+`test_etsy_readback_observe`, `test_disclosed_certified_upload`, `test_draft_creation_durability`,
+`test_cert_commerce`, `test_cert_publish_gates`, `test_w4_fmbatch1_readings_bus`.
+
+**Result: `TOTAL PASSING: 601 ; suites failing: 0`.** `test_learn_proof` 27/27. The full suite was not run.
