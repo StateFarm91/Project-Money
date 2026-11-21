@@ -1,3 +1,17 @@
+> **2026-11-21 — IMAGE-E2E on `eng/image-e2e` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT deployed;
+> production unchanged, still 0 images).** New `tests/test_image_e2e_worker.py`: from a production-like DB (certified
+> Launch-0 blanket, certified PDFs, D-OWNER-APPROVE-ALL applied) the real Worker, unaided, with a stub BFL transport
+> and the labelled judge doubles, reaches a valid 7-frame listing-set certificate and a refreshed listing package.
+> Three broken handoffs fixed, each pinned: (1) `owner_card` dead-lettered on the worker's provenance check because
+> `write_frames` wrote `backfilled` lineage with no job id, so no gallery could ever certify unaided; (2) nothing
+> refreshed `listing.package` after certification (stale "gallery incomplete" for up to 6 h); (3) a paid-gate cap
+> refusal left the pending-call hold and blocked the run as "unresolved cost". Ceilings (per-gallery, daily) and
+> no-repeat-on-redrive are asserted. OPEN, not fixed: vessels (both Launch-0 baskets) can never pass the FLUX anchor
+> (no side view is ever generated; `side_data` is read, never written); Laura's per-image publication approval has no
+> production path (`canonical.PUBLICATION_APPROVED` is an empty constant), so no Laura gallery can certify in
+> production -- OWNER decision; the first-customer `imagery` area FAILs a generated 7-frame certificate (judges it
+> as the 3-frame disclosed set), blocking publish; PDFs do not embed the gallery while `PDF_LAYOUT="engine"`. Report:
+> `research/final_build/w6/review_requests/IMAGE-E2E.md`.
 > **2026-11-21 — NEW-PRODUCT-FLOW on `eng/new-product-flow` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT
 > deployed; production unchanged, no production row read).** Readback prod 2f7da291: 0 certified in 7 d (only the 9
 > Launch-0 at LISTING_READY), loop 11/12 with no `original_product`. Cause, reproduced on the real handlers: with

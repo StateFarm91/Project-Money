@@ -127,6 +127,15 @@ def write_frames(db, slug: str, version: str, frames: list[dict], *, run_key: st
     # A controlled-experiment image never becomes a listing asset (W-VISNEXT).
     refuse_if_experiment_image(db, [f.get("sha256") for f in frames],
                                action="listing asset write")
+    # IMAGE-E2E: inside a worker job (the generated-gallery run certifies itself at its
+    # owner_card stage) the frame is RECORDED by that job, so the worker's provenance check
+    # finds a lineage-complete row from it. Before this every row was `backfilled` with no
+    # job id, and the worker dead-lettered owner_card ("no lineage-complete provenance row
+    # from this job"): no gallery could ever be certified unaided. Outside a job (a direct
+    # call) the row stays `backfilled` from the candidate record, as before.
+    from ..gateway import paid_calls
+
+    job_id = paid_calls.current_job_id()
     written, refused, kept = [], [], []
     with db.session() as s:
         for f in frames:
@@ -177,7 +186,8 @@ def write_frames(db, slug: str, version: str, frames: list[dict], *, run_key: st
                     created_by=str(actor)[:64], model=str(facts.get("model") or "")[:80],
                     provider=str(facts.get("provider") or "")[:40],
                     cost_cad=facts.get("cost_cad"), sha256=f["sha256"],
-                    validation_status="reverified", source="backfilled",
+                    validation_status="reverified", job_id=job_id,
+                    source="recorded" if job_id is not None else "backfilled",
                     evidence={"matched_on": "image_candidates.sha256 == listing_assets.sha256",
                               "audit_id": audit.id, "candidate_id": f["candidate_id"],
                               "run_key": run_key, "kind": facts["provenance_kind"],
