@@ -1,3 +1,13 @@
+> **2026-11-21 — HALT-380 H5 on `eng/halt-380-h5` (from `claude/w6-release-19h1` 90403e5 = deployed 1bb7c4f5; NOT merged,
+> NOT deployed; production unchanged, no production row read).** H5 (rebuild and sentinel disagree about UNPROVEN keys)
+> REFUTED as stated: a stage that writes the exact key cures it, and 111 STALE + the backlog counter account for the 112
+> open incidents. `already_fresh` keys close on the next sweep (refuted). CONFIRMED in code and fixed: the gallery rebuild
+> deletes ListingAssets but keeps their `visual_truth` provenance rows, which then read STALE forever (halting incident,
+> held rebuild-incomplete, publication_gate refusal). One shared verdict `ops/artefacts.standing()` for the sentinel,
+> `_targeted_rebuild` and `publication_gate`; an orphan `visual_truth` row is retired WITH its reason; retired keys are
+> set aside (audited `chain.rebuild_retired`, `detail.retired_names`); blocking UNPROVEN keys now get one rebuild request
+> per product per day. Suite `tests/test_halt_380_h5.py` 9/9 (6 fail on base). **UNVERIFIED:** that production's 111
+> STALE rows are orphans. Report: `w6/review_requests/HALT-380-H5.md`.
 > **2026-11-21 — HALT-380 on `eng/halt-380` (from `claude/w6-release-19d1` 9216d33 = deployed 7b250d61; NOT merged,
 > NOT deployed; production unchanged, no production row read).** Readback 03:29Z: systemic halt #380 open, 12 products
 > stale + rebuild-incomplete, 12 rebuilds pending with the oldest 0.13 h, no verified rebuild since 2026-11-20T13:12Z.

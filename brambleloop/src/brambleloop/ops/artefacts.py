@@ -598,14 +598,47 @@ def built_from_version(row_key: str, slug: str, inputs: dict, current) -> str | 
     return None
 
 
+# eng/halt-380-h5: classes whose every existing artefact `expected_from_db` enumerates from a
+# table that is the artefact itself, with a key that names that row. Only for these can a
+# provenance row with no artefact behind it be told apart from an artefact nobody enumerated.
+# visual_truth: one ListingAsset row per frame, keyed `<slug>@<version>#<ListingAsset.id>` by
+# every writer (assets.build, visual.gallery_persist, publish.physical_upgrade), and the gallery
+# rebuild DELETES the frames beyond the rebuilt set while their provenance rows stay. Other
+# classes are deliberately absent: marketing_asset rows include video clips that are not
+# ContentPieces, and pdf/chart are enumerated from finished jobs, so a row written by a job
+# still running would look orphaned. Absent = never retired as an orphan (fail closed).
+ORPHAN_KEY = {
+    "visual_truth": re.compile(r"^(?P<slug>[^@:#]+)@(?P<version>[^#]+)#(?P<id>\d+)$"),
+}
+
+
+def _orphan_why(row, expected_keys: set[tuple[str, str]]) -> str:
+    pattern = ORPHAN_KEY.get(row.artefact_class)
+    if pattern is None or (row.artefact_class, row.artefact_key) in expected_keys:
+        return ""
+    m = pattern.match(row.artefact_key or "")
+    if m is None or m.group("slug") != row.product_slug:
+        return ""
+    return (f"the artefact this row describes no longer exists: no {row.artefact_class} "
+            f"{m.group('slug')}@{m.group('version')} frame #{m.group('id')} is on file "
+            f"(the gallery rebuild drops frames beyond the rebuilt set, and nothing rebuilds a "
+            f"frame that is gone). Retired, never served as current")
+
+
 def check(db, *, current: dict[str, str],
-          expected: list[tuple[str, str, str]] | None = None) -> list[Verdict]:
+          expected: list[tuple[str, str, str]] | None = None,
+          retire_orphans: bool = False) -> list[Verdict]:
     """Every artefact's standing: fresh, stale, or never proved fresh at all.
 
     `current` maps each upstream reference to the fingerprint it holds *now*. `expected`
     lists artefacts known to exist downstream as (class, key, slug); anything in it without a
     provenance row comes back `unproven`, because an artefact nobody fingerprinted has no
     mismatch to report and a sweep that only compares rows would call the estate clean.
+
+    `retire_orphans` (eng/halt-380-h5; only with the FULL estate as `expected`, which is what
+    `standing` passes): a recorded row of an `ORPHAN_KEY` class whose artefact is not among
+    those that exist is retired with the reason. It describes nothing, so it can be neither
+    stale nor rebuilt; left STALE it halted its product for good.
     """
     from sqlalchemy import select
 
@@ -619,6 +652,8 @@ def check(db, *, current: dict[str, str],
     latest_version = getattr(current, "latest_version", None) or {}
     by_version = getattr(current, "by_version", None) or {}
     retired_slugs = _retired_slugs()
+    expected_keys = ({(c, k) for c, k, _s in expected}
+                     if retire_orphans and expected is not None else None)
     for row in db.scalars(select(ArtefactProvenance)):
         seen.add((row.artefact_class, row.artefact_key))
         # eng/publish-unhalt U2: a retired legacy-duplicate concept slug is never rebuilt
@@ -630,6 +665,10 @@ def check(db, *, current: dict[str, str],
         if row.product_slug in retired_slugs:
             why = (f"{row.product_slug} is a retired legacy-duplicate concept slug; its "
                    f"recorded output is retired, never served as current or rebuilt")
+            verdicts.append(Verdict(row.artefact_class, row.artefact_key, row.product_slug,
+                                    UNPROVEN, why=why, retired=why))
+            continue
+        if expected_keys is not None and (why := _orphan_why(row, expected_keys)):
             verdicts.append(Verdict(row.artefact_class, row.artefact_key, row.product_slug,
                                     UNPROVEN, why=why, retired=why))
             continue
@@ -686,6 +725,30 @@ def check(db, *, current: dict[str, str],
                  "and would pass any sweep that only compares recorded rows. A stable slug "
                  "must never make stale output appear current")))
     return verdicts
+
+
+@dataclass(frozen=True)
+class Standing:
+    """One reading of the whole estate: the fingerprints held now, the artefacts that exist,
+    and every artefact's verdict against them."""
+
+    current: dict
+    expected: list
+    verdicts: list
+
+    def by_key(self) -> dict[str, Verdict]:
+        return {f"{v.artefact_class}:{v.artefact_key}": v for v in self.verdicts}
+
+
+def standing(db) -> Standing:
+    """eng/halt-380-h5: THE verdict the stale-artefact sentinel and the targeted rebuild both
+    act on. The rebuild used `check(current=...)` with no estate while the sentinel used the
+    full one, so the two could disagree about one key (an orphan the sentinel had cause to
+    retire, the rebuild requested and verified for ever). One function, one answer."""
+    current = current_from_db(db)
+    expected = expected_from_db(db)
+    return Standing(current, expected,
+                    check(db, current=current, expected=expected, retire_orphans=True))
 
 
 def obsolete_release_key(key: str, slug: str, latest_version: dict) -> str | None:
@@ -822,7 +885,7 @@ def declare_graduations(db, *, current: dict[str, str], expected, actor: str = "
 
 def sweep(db, *, current: dict[str, str],
           expected: list[tuple[str, str, str]] | None = None,
-          block_unproven: bool = False) -> dict:
+          block_unproven: bool = False, verdicts: list[Verdict] | None = None) -> dict:
     """The permanent sentinel: raise an incident per stale artefact and block its product.
 
     The block is the existing one rather than a new one. `halts_publication` against the
@@ -834,7 +897,10 @@ def sweep(db, *, current: dict[str, str],
 
     from ..core.models import Incident
 
-    verdicts = check(db, current=current, expected=expected)
+    # eng/halt-380-h5: the caller's `standing` verdicts when given, so the sweep and the
+    # rebuild judge every key from one reading.
+    verdicts = verdicts if verdicts is not None else check(db, current=current,
+                                                            expected=expected)
     bad = [v for v in verdicts if v.state in (STALE, UNPROVEN) and not retired(v)]
     # F-162: in a class whose graduation was declared, absence is release-blocking.
     graduated = set(graduated_classes(db))
@@ -994,7 +1060,8 @@ def sweep(db, *, current: dict[str, str],
 
 
 def graduation(db, *, current: dict[str, str],
-               expected: list[tuple[str, str, str]] | None = None) -> dict:
+               expected: list[tuple[str, str, str]] | None = None,
+               verdicts: list[Verdict] | None = None) -> dict:
     """Whether this sentinel may start blocking on absence as well as on mismatch.
 
     The SHADOW -> STAGING rule applied to this capability. Enforcement on absence is correct
@@ -1002,7 +1069,8 @@ def graduation(db, *, current: dict[str, str],
     first sweep would halt the whole catalogue over instrumentation nobody had fitted. The
     condition is a count rather than a judgement, so it can be checked rather than argued.
     """
-    verdicts = check(db, current=current, expected=expected)
+    verdicts = verdicts if verdicts is not None else check(db, current=current,
+                                                            expected=expected)
     unproven = [v for v in verdicts if v.state == UNPROVEN and not retired(v)]
     cov = coverage(verdicts)
     declared = graduated_classes(db)

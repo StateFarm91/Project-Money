@@ -5778,9 +5778,9 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
         version = pv.version if pv is not None else ""
         release = pv.release_hash or "" if pv is not None else ""
         cir_json = dict(pv.cir_json) if pv is not None else None
-        current = provenance.current_from_db(s)
-        verdicts = {f"{v.artefact_class}:{v.artefact_key}": v
-                    for v in provenance.check(s, current=current)}
+        # eng/halt-380-h5: the sentinel's own verdict (full estate, orphans retired), not a
+        # check of the recorded rows alone.
+        verdicts = provenance.standing(s).by_key()
         rows = {f"{r.artefact_class}:{r.artefact_key}": r for r in s.scalars(
             select(ArtefactProvenance).where(ArtefactProvenance.product_slug == slug))}
         row_facts = {k: {"inputs": dict(r.inputs or {}), "built_at": str(r.built_at),
@@ -5803,6 +5803,17 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
         return {"targeted": True, "slug": slug, "version": version, "withheld": True,
                 "rebuilt": []}
 
+    # eng/halt-380-h5: a key the sweep retires (an orphan row whose artefact no longer
+    # exists, a retired legacy artefact) is never rebuilt and never outstanding -- requesting
+    # it re-ran a stage that cannot write it, for ever. Set aside with the sweep's reason,
+    # audited, never silently; the sweep closes its incident with the same reason.
+    retired_keys = {k: str(verdicts[k].retired)[:300] for k in keys
+                    if k in verdicts and provenance.retired(verdicts[k])}
+    if retired_keys:
+        ctx.audit("chain.rebuild_retired", artifact=f"{slug}@{version}", detail={
+            "retired": dict(list(retired_keys.items())[:50]), "reason": reason,
+            "check": verify})
+    keys = [k for k in keys if k not in retired_keys]
     fresh_now = [k for k in keys if k in verdicts and verdicts[k].state == provenance.FRESH]
 
     # C-80 defect 12 (Codex P10): completion evidence is bound to *this* attempt. A row counts
@@ -5865,7 +5876,7 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
             "completed": fresh, "outstanding": stale, "unbound": unbound, "check": verify,
             "closed": closed})
         return {"targeted": True, "verify": verify, "slug": slug, "completed": fresh,
-                "outstanding": stale, "unbound": unbound}
+                "outstanding": stale, "unbound": unbound, "retired": sorted(retired_keys)}
 
     classes = {k.split(":", 1)[0] for k in stale}
     unknown = sorted(c for c in classes if c not in REBUILD_STAGE)
@@ -5940,7 +5951,7 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
                     run_after=utcnow() + _td(minutes=REBUILD_VERIFY_DELAY_MINUTES))
     return {"targeted": True, "slug": slug, "version": version, "reason": reason,
             "requested": stale, "already_fresh": fresh, "stage": stage,
-            "fresh_but_unbound": unbound,
+            "fresh_but_unbound": unbound, "retired": sorted(retired_keys),
             "stage_job": getattr(stage_job, "id", None), "unknown_classes": unknown}
 
 
@@ -8077,14 +8088,19 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
     from ..ops import artefacts as provenance
 
     with ctx.db.session() as session:
-        current = provenance.current_from_db(session)
-        expected = provenance.expected_from_db(session)
-        report = provenance.sweep(session, current=current, expected=expected)
+        # eng/halt-380-h5: one reading of the estate, the same one `_targeted_rebuild` acts
+        # on, so the sentinel and the rebuild never disagree about a key.
+        standing = provenance.standing(session)
+        current, expected = standing.current, standing.expected
+        report = provenance.sweep(session, current=current, expected=expected,
+                                  verdicts=standing.verdicts)
         # F-162 (K7): a class whose backlog is closed is declared graduated, once; from the
         # next sweep an absent row in that class blocks its product's release.
         graduated_now = provenance.declare_graduations(session, current=current,
-                                                       expected=expected)
-        gate = provenance.graduation(session, current=current, expected=expected)
+                                                       expected=expected,
+                                                       verdicts=standing.verdicts)
+        gate = provenance.graduation(session, current=current, expected=expected,
+                                     verdicts=standing.verdicts)
         # eng/stale-rebuild-loop: a rebuild-incomplete row closes when the deterministic
         # provenance check reads none of its product's artefacts stale -- the same evidence
         # that closes the sentinel's own rows above. (Rows written before the product slug
@@ -8178,7 +8194,13 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
             # genuinely stale current release still reads STALE and keeps the row open.
             obsolete = {k: why for k in named
                         if (why := provenance.obsolete_release_key(k, slug_, latest_))}
-            named = [k for k in named if k not in obsolete]
+            # eng/halt-380-h5: a name the sweep itself retires (an orphan row, a retired
+            # legacy artefact) is never rebuilt either, so it is set aside the same way, with
+            # the sweep's own reason, rather than read as "unproven (retired)" for good.
+            retired_names = {k: str(by_key[k].get("retired"))[:300] for k in named
+                             if k not in obsolete and k in by_key
+                             and by_key[k].get("retired")}
+            named = [k for k in named if k not in obsolete and k not in retired_names]
             own = [v for v in by_slug.get(slug_, []) if not v.get("retired")]
             keys = named or [f"{v['artefact_class']}:{v['artefact_key']}" for v in own]
             read = {k: (by_key[k]["state"] + (" (retired)" if by_key[k].get("retired") else "")
@@ -8187,10 +8209,14 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
                   and all(k in by_key and by_key[k]["state"] in settled for k in keys)
                   and not any(v["state"] == provenance.STALE
                               for v in by_slug.get(slug_, [])))
-            if ok and obsolete:
+            if retired_names:
+                r.detail = dict(r.detail or {}, retired_names=dict(
+                    list(retired_names.items())[:50]))
+            if ok and (obsolete or retired_names):
                 obsolete_close.append(r.signature)
-                r.detail = dict(r.detail or {}, obsolete_release_names=dict(
-                    list(obsolete.items())[:50]))
+                if obsolete:
+                    r.detail = dict(r.detail or {}, obsolete_release_names=dict(
+                        list(obsolete.items())[:50]))
             elif ok:
                 incomplete_close.append(r.signature)
             else:
@@ -8220,10 +8246,12 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         incomplete_cleared += _life.resolve_signatures(
             session, obsolete_close,
             resolution=("the artefacts this row named belong to a release the product has "
-                        "moved past (eng/halt-380-h3: nothing rebuilds a superseded release), "
-                        "and every non-obsolete artefact it is judged on reads fresh (or "
-                        "superseded) with none of the product's reads stale: no rebuild of "
-                        "the current release is outstanding"))
+                        "moved past (eng/halt-380-h3: nothing rebuilds a superseded release) "
+                        "or are retired by the sweep (eng/halt-380-h5: e.g. a frame that no "
+                        "longer exists; see detail.retired_names), and every remaining "
+                        "artefact it is judged on reads fresh (or superseded) with none of the "
+                        "product's reads stale: no rebuild of the current release is "
+                        "outstanding"))
         incomplete_cleared += _life.resolve_signatures(
             session, retired_close,
             resolution=("the product is a retired legacy-duplicate concept slug "
@@ -8274,6 +8302,35 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         if job is not None:
             legacy_restarted.append(slug_)
 
+    # eng/halt-380-h5: a blocking UNPROVEN artefact (an absent row in a graduated class) was
+    # never asked to be rebuilt -- the propagation below is driven only by STALE moved refs --
+    # so its incident waited for a rebuild nobody requested. One targeted rebuild per product
+    # per day, of exactly those keys, through the same hold as the daily retry. Whatever it
+    # cannot cure ends in the bounded rebuild-incomplete row; absence never passes as current.
+    unproven_requested: list[str] = []
+    graduated_ = set(report.get("graduated_classes") or [])
+    blocking_unproven: dict[str, list[str]] = {}
+    for v in report.get("verdicts", []):
+        if (v.get("state") == provenance.UNPROVEN and not v.get("retired")
+                and v.get("artefact_class") in graduated_ and v.get("product_slug")):
+            blocking_unproven.setdefault(v["product_slug"], []).append(
+                f"{v['artefact_class']}:{v['artefact_key']}")
+    if blocking_unproven:
+        from ..publish import release_gates as _rg_u
+
+        day = _utcnow().date().isoformat()
+        for slug_, keys_ in sorted(blocking_unproven.items()):
+            if _rg_u.retry_hold_reason(ctx.db, slug=slug_):
+                continue
+            job = ctx.enqueue("listing", "chain.rebuild",
+                              {"product_slug": slug_, "artefacts": sorted(keys_)[:50],
+                               "fingerprints": {},
+                               "reason": ("blocking unproven artefact(s) in a graduated "
+                                          "class: no provenance row (eng/halt-380-h5)")},
+                              idempotency_key=f"rebuild:unproven:{slug_}:{day}")
+            if job is not None:
+                unproven_requested.append(slug_)
+
     # W4-LISTREADY (delta review N3): a live listing of a superseded release is owner-visible.
     from . import release_recovery
 
@@ -8303,6 +8360,8 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         "rebuild_incomplete_retired_closed": [s_.split(":", 1)[1] for s_ in retired_close][:50],
         "rebuild_incomplete_obsolete_release_closed": [s_.split(":", 1)[1]
                                                        for s_ in obsolete_close][:50],
+        "rebuild_unproven_requested": unproven_requested[:50],
+        "retired": report["invalidated"],
     }
     ctx.audit("ops.sentinel", detail=detail)
 

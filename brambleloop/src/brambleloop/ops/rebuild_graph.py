@@ -786,10 +786,16 @@ def publication_gate(db, *, slug: str, current: dict[str, str] | None = None) ->
     upstreams all match now, which is the completion evidence -- a descendant is rebuilt
     when its provenance row says it was made from the current input, not when a job said so.
     """
-    from .artefacts import FRESH, STALE, current_from_db
+    from .artefacts import FRESH, STALE, current_from_db, expected_from_db, retired
 
     current = current if current is not None else current_from_db(db)
-    verdicts = check(db, current=current)
+    # eng/halt-380-h5: the sentinel's and the rebuild's verdict (`artefacts.standing`: the full
+    # estate, an orphan row retired with its reason), so the publish path never blocks on a row
+    # whose artefact no longer exists -- one nothing can rebuild -- while the sentinel has
+    # retired it. A stale row of an artefact that exists still blocks exactly as before.
+    verdicts = check(db, current=current, expected=expected_from_db(db), retire_orphans=True)
+    retired_nodes = {_node_key(v.artefact_class, v.artefact_key) for v in verdicts
+                     if retired(v)}
     changed: dict[str, str] = {}
     previous: dict[str, str] = {}
     from sqlalchemy import select
@@ -816,7 +822,7 @@ def publication_gate(db, *, slug: str, current: dict[str, str] | None = None) ->
                else {"may_publish": True, "outstanding": [], "why": "nothing upstream moved"})
     nodes = load_graph(db)["nodes"]
     outstanding = [k for k in verdict["outstanding"]
-                   if k in nodes and nodes[k].product_slug == slug]
+                   if k in nodes and nodes[k].product_slug == slug and k not in retired_nodes]
     evidence = [{"key": _node_key(c, k), "built_at": str(built)}
                 for (c, k), (_, built) in sorted(recorded.items())
                 if _node_key(c, k) in rebuilt]
