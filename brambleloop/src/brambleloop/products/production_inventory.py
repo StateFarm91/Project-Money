@@ -302,6 +302,24 @@ class _Job:
         self.attempts = row.attempts or 0
         self.slug, self.version, self.release = job_identity(self.inputs, self.outputs)
 
+    @classmethod
+    def from_row(cls, row):
+        """The cold-read constructor for the column rows `load_records` selects (fixed column
+        order). One tuple unpack instead of a dozen per-row attribute lookups: Row attribute
+        access was the largest single cost of building 70k of these. ORM entities go through
+        `__init__`."""
+        self = object.__new__(cls)
+        self._r = row
+        (self.id, self.agent, self.job_type, st, inputs, outputs, _c, _s, _f, _ra,
+         _cost, _err, attempts, idem) = row
+        self.idem = idem or None
+        self.status = _STATUS_TEXT.get(st) or _status(row)
+        self.inputs = _jload(inputs) or {}
+        self.outputs = _jload(outputs) or {}
+        self.attempts = attempts or 0
+        self.slug, self.version, self.release = job_identity(self.inputs, self.outputs)
+        return self
+
 
 class _Audit:
     """Detached audit row. `detail` and `at` are decoded lazily: the cold read groups 150k
@@ -358,7 +376,7 @@ def load_records(db) -> dict:
         conds = [Job.job_type.like(p + "%") for p in JOB_PREFIXES]
         # Column rows, not ORM entities: entity hydration was ~40% of the cold read at 220k
         # rows. The filters are the indexed ones (`job_type` / `action`).
-        jobs = [_Job(j) for j in s.connection().execute(
+        jobs = [_Job.from_row(j) for j in s.connection().execute(
             select(Job.id, Job.agent, Job.job_type, type_coerce(Job.status, String).label("status"),
                    type_coerce(Job.inputs, Text).label("inputs"),
                    type_coerce(Job.outputs, Text).label("outputs"),

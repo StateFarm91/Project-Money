@@ -34,6 +34,9 @@ PACKAGES: dict[str, dict] = {
     "fastapi": _pkg("MIT"), "greenlet": _pkg("MIT AND PSF-2.0"), "h11": _pkg("MIT"),
     "httptools": _pkg("MIT"), "idna": _pkg("BSD-3-Clause"), "jinja2": _pkg("BSD-3-Clause"),
     "markupsafe": _pkg("BSD-3-Clause"),
+    # ENG-VIS-IDENTITY face embedder (visual/face_embedder.py) and its locked transitive deps.
+    "onnxruntime": _pkg("MIT"), "flatbuffers": _pkg("Apache-2.0"),
+    "protobuf": _pkg("BSD-3-Clause"), "packaging": _pkg("Apache-2.0 OR BSD-2-Clause"),
     "numpy": _pkg("BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0"),
     "pillow": _pkg("MIT-CMU"),
     "psycopg2-binary": {"kind": "package", "licence": "LGPL-3.0 with exceptions",

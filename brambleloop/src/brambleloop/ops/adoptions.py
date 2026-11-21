@@ -36,6 +36,8 @@ PACKAGES: dict[str, tuple[str, str]] = {
     "pypdf": ("PDF assembly and verification", UNRECORDED),
     "pypdfium2": ("PDF page rasterising for the contents frame", "requirements.txt W4-VISUAL2"),
     "numpy": ("yarn-level geometry", "requirements.txt (visual/yarn.py)"),
+    "onnxruntime": ("CPU ONNX inference for the identity face embedder",
+                    "requirements.txt ENG-VIS-IDENTITY (visual/face_embedder.py)"),
     "scipy": ("image analysis for render verification", "requirements.txt W4-PRODREADY"),
 }
 
