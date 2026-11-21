@@ -1,3 +1,16 @@
+> **2026-11-21 — BATCH19D-SALE2 on `claude/batch19d-sale2` (batch19d 76d0525 + `w6-release-19d1`, production
+> 7b250d61; NOT merged to the main branch, NOT deployed; production unchanged).** Owner decision
+> D-OWNER-PRIVATE-DRAFT-BEFORE-SAMPLE ("yes, private drafts before sample photo are fine") is implemented.
+> `SAMPLE_PHOTO_REQUIRED` still refuses activation exactly as before. It no longer stops the sale pipeline's READY
+> state or the private draft (`release_gates.ACTIVATION_ONLY_CODES`, the package's `activation_only` tag, and
+> `sale_pipeline.publication_blockers`). The listing package stays BLOCKED, and READY records `publication_waits_on`.
+> `test_vis_gallery_e2e` is fully green: 15 of 15, including tests 3 and 7 (draft upload and byte-for-byte read-back),
+> 7a (publication refused without the photo) and 7b (the mutant without the photo gate is killed). Run
+> 20261121T041814Z-2448 @ ec20dcb: 309 passing, 2 suites failing. Both failures are **pre-existing** and identical on
+> 76d0525: `test_w4_launchfix` (two IMG tests whose 2/3-frame fixtures predate the seven-photo gallery rule) and
+> `test_w6_listing_chain_e2e` C/D (expected blocker sets predate the `pdf_standard` blocker). They are not fixed yet.
+> No listing is published: publication still needs a real unedited sample photo, which is an owner action. Report:
+> `w6/review_requests/SALE2.md`.
 > **2026-11-21 — BATCH19D on `claude/batch19d` (batch19c d8751850 + `claude/batch19-sale` 61b508b4; NOT merged to
 > the main branch, NOT deployed; production unchanged).** The sale pipeline is merged onto the Batch 19 fixers. The
 > premium standard now lives in `publish/premium_standard.py`, and `publish/pdf_standard.py` is the sale checker;
