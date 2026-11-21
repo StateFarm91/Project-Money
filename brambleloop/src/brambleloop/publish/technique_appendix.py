@@ -169,6 +169,16 @@ def _ops(nodes):
             yield from _ops(node.ops)
 
 
+# LEARN-PROOF-2 (benchmark MM-L2): joining as you go, in our own words, for a CIR that
+# crochets a piece into a stated round of another.
+JOIN_AS_YOU_GO_HOW = (
+    "Joining as you go",
+    "Where a piece is joined as you go, it is not sewn on: with the piece held closed against "
+    "the round and stitches the assembly step names, work each joining stitch through both "
+    "pieces at once, so the join is crocheted. The joining stitches count in that round's "
+    "stated stitch count, so count them as you would any other.")
+
+
 def required(cir) -> list[tuple[str, str]]:
     """(technique key, what in the CIR asks for it), in the order a maker meets them."""
     out: list[tuple[str, str]] = []
@@ -211,6 +221,14 @@ def required(cir) -> list[tuple[str, str]]:
             need("stuffing", f"the {seam.piece_a} is stuffed before it is closed")
         need(f"seam:{seam.method}", f"the {seam.piece_a} is joined to the {seam.piece_b} "
              f"by {seam.method}")
+    # Printed whatever the learning snapshot holds, so a document's bytes never depend on
+    # the process that rendered it; the stored lesson switches on the audit requirement
+    # (`pdf_standard` rule `join_as_you_go`).
+    from ..learning.benchmark_lessons import join_as_you_go_seams
+
+    for seam in join_as_you_go_seams(cir):
+        need("join_as_you_go", f"the {seam.piece_a} is crocheted into round "
+             f"{seam.at_round} of the {seam.piece_b}")
     need("finish:fasten_off", "every piece ends by fastening off")
     need("finish:weave_in", "every piece leaves tails to weave in")
     return out
@@ -268,6 +286,8 @@ def entries(cir, terminology: str = "US") -> list[Technique]:
             name, how = FASTEN_HOW
         elif key == "finish:weave_in":
             name, how = WEAVE_HOW
+        elif key == "join_as_you_go":
+            name, how = JOIN_AS_YOU_GO_HOW
         else:  # pragma: no cover - `required` emits only the kinds above
             raise AppendixIncomplete(f"unknown technique {key!r}")
         out.append(Technique(key=key, name=_resolve(name, term), how=_resolve(how, term),

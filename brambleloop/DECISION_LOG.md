@@ -3800,6 +3800,17 @@ Reversible by decision.
 - Both PDF layouts now print the eye-options panel (amigurumi) and the chunky/chenille hook range, so the learned
   standard does not refuse what production builds. The bytes of those documents change from this commit.
 - Reversible by decision.
+## D-LEARN-PROOF-2 — every benchmark lesson has a hook; content is printed unconditionally (LEARN-PROOF-2, 2026-11-21)
+- A lesson may switch on more than one hook (`BenchmarkLesson.also`); MM-L3 adds `yarn_chenille_class`, MM-L7 adds
+  `pdf_tension_guidance`.
+- Renderers print learned content (chenille care note, join-as-you-go entry) whatever the snapshot; the lesson switches on
+  only the audit requirement. Bytes of a certified CIR never depend on the process that rendered it (HC-L6 hash match).
+- HC-L1: an effective price below the listed one replaces it; the listed price is kept as `strike_price` and never banded.
+  Absent effective price = unchanged (absent is not "no discount").
+- HC-L7 front-loading is advice (soft), never a block; its badge half was already `commerce.search.tag_truth`.
+- HC-L6 runs on the bytes at upload time; an empty payload keeps the existing "no bytes" refusal.
+- Concept nudges: MM-L1 cap +0.04 unchanged; HC-L2 +0.02; total cap +0.06; amigurumi only.
+- Reversible by decision.
 ## 2026-11-21 — CLOTHING-E2E (`eng/clothing-e2e` from `claude/batch19-fixers` 8204c93)
 - **D-CLOTHING-E2E-1 — hats, socks and slippers are the garment demand family.** `products.demand`
   classified "beanie", "socks" and "slippers" as `accessory`, which is not a boosted family, so the
