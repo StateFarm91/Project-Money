@@ -1073,9 +1073,14 @@ def test_a_research_adult_market_bag_runs_concept_to_pdf():
 def test_hats_route_to_the_beanie_and_others_are_held():
     from brambleloop.creative import construction_families as CF
 
-    for title in ("Hollin Ridge Beanie", "Slouchy Moss Hat", "Baby Beanie", "Kids Toque"):
+    for title in ("Hollin Ridge Beanie", "Slouchy Hat", "Baby Beanie", "Kids Toque"):
         got = CF.route(category="hat", title=title, form="hat", construction="in_the_round")
         assert got["admitted"] and got["family"] == "hat_beanie", (title, got)
+    # ENG-HOMEDECOR's shared named-feature vocabulary: "moss" names a stitch texture the
+    # beanie engine does not work, so a "Moss Hat" is held by name rather than sold as one.
+    got = CF.route(category="hat", title="Slouchy Moss Hat", form="hat",
+                   construction="in_the_round")
+    assert not got["admitted"] and "stitch_texture" in got["reason"], got
     for title, cons in (("Pom Pom Beanie", "in_the_round"), ("Sun Hat", "in_the_round"),
                         ("Earflap Hat", "in_the_round"), ("Cabled Beanie", "in_the_round"),
                         ("Beanie", "flat_rows"), ("Bucket Hat", "in_the_round")):
