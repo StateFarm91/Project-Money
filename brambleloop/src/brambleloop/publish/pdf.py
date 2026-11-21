@@ -3137,6 +3137,27 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                           relative=0, thickness=0)
             doc.para(target, size=MIN_BODY_PT)
 
+    # ------------------------------------------------- appendix: techniques (ENG-PDF-DIAGRAMS)
+    # Every technique the CIR's own stitch set and construction ask for, in our own words
+    # (publish.technique_appendix). A technique it cannot explain refuses the document.
+    from . import technique_appendix as _ta
+
+    try:
+        appendix = _ta.entries(cir, terminology)
+    except _ta.AppendixIncomplete as e:
+        raise ValueError(f"refusing to render {cir.slug}: {e}") from e
+    doc.new_page(head)
+    doc.heading(_ta.HEADING, kicker="Appendix")
+    doc.para(_ta.INTRO, size=10)
+    doc.space(1 * mm)
+    for entry in appendix:
+        doc.need(14 * mm)
+        doc.prose.append(entry.name)
+        doc.text(MARGIN, doc.y, entry.name, FONT_BODY_BOLD, 10, FOREST)
+        doc.y -= 4.8 * mm
+        doc.para(entry.how, size=9.5, color=INK)
+        doc.space(1 * mm)
+
     # ---------------------------------------------------------------- 12. terms ------------
     doc.new_page(head)
     doc.heading("Terms and support", kicker="Support and credits")
