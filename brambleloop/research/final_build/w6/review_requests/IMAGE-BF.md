@@ -108,7 +108,32 @@ real app with a real passphrase + TOTP login.
    second card.
 
 ## Results
-RESULTS_PLACEHOLDER
+Both runs used `run_tests.sh` with `JOBS=4 SUITE_REGISTRY=0` in a py3.13 venv built from
+`requirements.lock` and `requirements-test.lock`.
+
+**Run 1: `20261121T020425Z-1855`.** Commit a4b87a1, clean tree, 22 suites. Result: **335 passing,
+2 suites failing.**
+- Passed: test_image_bf, test_image_e2e_worker, test_owner_gallery_complete,
+  test_mission_control2 (13/0), test_eng_approvals (34/0), test_first_customer_gate (12/0),
+  test_canon_manifest, test_canon_store_brand_face, test_w3_b2_canonical_assets,
+  test_w3_k12_model_photography, test_w3_wire4, test_opus2_laura_home,
+  test_w3_laura_{memory_canonical,cc_integration,core_identity,presence},
+  test_v11_pwa_static (87/0), test_compiler, test_reverse and test_twin.
+- Failed: test_vacuity. It flagged a loop in test_image_bf test 5 that could run over an empty
+  list. Fixed in daae8a2: the loop now always includes one extra record carrying unapproved
+  bytes, and asserts the list is not empty.
+- Failed: test_vis_gallery_e2e test_10, test_12 and test_13. These are **pre-existing**: they
+  fail identically on this branch's merge base (the merge commit before any IMAGE-BF change,
+  run in a separate worktree). They are the same three IMAGE-E2E recorded on 8204c93:
+  `etsy_remote_state` no longer carries `publish_time`. Not caused by this branch and not fixed.
+
+**Run 2: `20261121T023021Z-4118`.** Commit daae8a2, clean tree. Suites test_image_bf,
+test_vacuity and test_image_e2e_worker. Result: **24 passing, 0 failing.** IMAGE-E2E test 2 now
+asserts that the `imagery: FAIL` blocker is gone from the refreshed package.
+
+**Mutation testing.** test_image_bf test 4 makes `auth.require_stepup` a no-op, and the step-up
+test then fails, so the mutant is killed. Truth and disclosure tampers are covered by test 7.
+The 6-frame tamper is covered by test 6.
 
 ## Open
 - **Not on production.** No production gallery exists yet. The first real card appears only
