@@ -6071,6 +6071,10 @@ def _rebuild_incomplete(ctx: JobContext, slug: str, version: str, *, stale: list
         if reset is not None:
             detail["budget_reset"] = reset
         if attempts >= REBUILD_MAX_ATTEMPTS:
+            # eng/halt-380-redeploy: the build that reached the cap, so a later deploy can
+            # tell a hold of its own code from one filed under earlier code.
+            from ..ops.rebuild_graph import _current_deploy
+            detail["held_commit"] = str(_current_deploy(s)[0] or "")[:40]
             detail["held"] = (
                 f"{attempts} rebuild attempts at this change left {len(stale)} artefact(s) "
                 f"stale ({', '.join(sorted({k.split(':', 1)[0] for k in stale}))})"
@@ -8543,8 +8547,9 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         settled = (provenance.FRESH, provenance.SUPERSEDED)
         incomplete_close, incomplete_open = [], {}
         legacy_restart: list[tuple[str, int, list[str]]] = []
-        from ..ops.rebuild_graph import (held_policy_cause_cleared, held_without_own_stage,
-                                         legacy_incomplete, release_cleared_hold)
+        from ..ops.rebuild_graph import (held_before_deploy, held_policy_cause_cleared,
+                                         held_without_own_stage, legacy_incomplete,
+                                         release_cleared_hold)
         # eng/publish-unhalt U3: what refuses on policy now -- the cause an exhausted hold
         # recorded is re-read against this, never against the hold's own wording alone.
         try:
@@ -8565,6 +8570,8 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         holds_released: list[str] = []
         released_restart: list[tuple[str, int, list[str], str]] = []
         stageless_restart: list[tuple[str, int, list[str], str, dict]] = []
+        redeploy_restart: list[tuple[str, int, list[str], str, dict]] = []
+        redeploy_rearmed: list[str] = []
         for r in list(session.scalars(_select(_Incident).where(
                 _Incident.signature.like(f"{REBUILD_INCOMPLETE_SIGNATURE}:%"),
                 _Incident.resolved == False))):  # noqa: E712
@@ -8602,6 +8609,18 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
                 if keys_:
                     stageless_restart.append((slug_, r.id, keys_, stageless["held_digest"],
                                               fps_))
+            # eng/halt-380-redeploy: an attempt-cap hold filed under an earlier build gets one
+            # fresh budget per deploy, with one targeted rebuild at its change. The row stays
+            # OPEN and halting; only verified evidence closes it.
+            redeploy = held_before_deploy(session, r.detail)
+            if redeploy is not None:
+                fps_ = dict((r.detail or {}).get("fingerprints") or {})
+                release_cleared_hold(r, redeploy, now=_utcnow())
+                holds_released.append(slug_)
+                redeploy_rearmed.append(slug_)
+                keys_ = [str(k) for k in ((r.detail or {}).get("stale") or [])][:50]
+                if keys_:
+                    redeploy_restart.append((slug_, r.id, keys_, redeploy["held_digest"], fps_))
             named = [str(k) for k in ((r.detail or {}).get("stale") or [])]
             # eng/halt-380-h3: the row is per product, the artefacts it names are per
             # release. Names of a release the product has moved past (superseded, retired or
@@ -8717,6 +8736,20 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         if job is not None:
             legacy_restarted.append(slug_)
 
+    # eng/halt-380-redeploy: the re-armed hold's one rebuild on this build, at its own change.
+    for slug_, row_id, keys_, digest_, fps_ in redeploy_restart:
+        new_ = {ref: v.get("new") for ref, v in fps_.items()
+                if isinstance(v, dict) and v.get("new")}
+        job = ctx.enqueue("listing", "chain.rebuild",
+                          {"product_slug": slug_, "artefacts": keys_, "fingerprints": fps_,
+                           "change_id": _change_id(new_, set(new_)),
+                           "reason": ("rebuild-incomplete hold re-armed: the attempt cap was "
+                                      "reached under an earlier build (eng/halt-380-redeploy)"),
+                           "hold_released": row_id},
+                          idempotency_key=f"rebuild:hold-released:{slug_}:{row_id}:{digest_}")
+        if job is not None:
+            legacy_restarted.append(slug_)
+
     # W4-LISTREADY (delta review N3): a live listing of a superseded release is owner-visible.
     from . import release_recovery
 
@@ -8743,6 +8776,7 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         "rebuild_incomplete_open": dict(list(incomplete_open.items())[:50]),
         "rebuild_incomplete_legacy_restarted": legacy_restarted[:50],
         "rebuild_incomplete_holds_released": holds_released[:50],
+        "rebuild_incomplete_redeploy_rearmed": redeploy_rearmed[:50],
         "rebuild_incomplete_retired_closed": [s_.split(":", 1)[1] for s_ in retired_close][:50],
         "rebuild_incomplete_obsolete_release_closed": [s_.split(":", 1)[1]
                                                        for s_ in obsolete_close][:50],
