@@ -2523,6 +2523,17 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                  TAUPE)
         doc.text(MARGIN + 11 * mm, doc.y - 2.6 * mm, what, FONT_BODY, 9.5, INK)
         doc.y -= 11.5 * mm
+    # LEARN-PROOF (benchmark MM-L3, MM-L4): a hook-size range with tension guidance for chunky
+    # or chenille yarn, and the eye options with their age guidance for a toy.
+    chunky_range = _std.chunky_hook_range_text(cir)
+    if chunky_range:
+        doc.para("Hook range: " + chunky_range, size=9.5)
+    if _std.family_of(cir) == _std.AMIGURUMI:
+        eyes = _std.eye_option_lines(cir)
+        if eyes:
+            doc.heading("Eye options", size=12)
+            for line in eyes:
+                doc.para(line, size=9.5)
 
     doc.space(1 * mm)
     doc.heading("How much yarn", size=12)

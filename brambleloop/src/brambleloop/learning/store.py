@@ -13,7 +13,12 @@ These are additive tables, created on first use (checkfirst), using the same pat
   champion, a challenger, retired or demoted, and records why it exists.
 * `learning_decisions`: every seed, promotion, demotion and retirement, with its evidence.
 * `learning_derived_lessons`: lessons derived from the observations above an evidence threshold.
-  Each records the bus lesson it was published as.
+  Each records the bus lesson it was published as. Benchmark teardown lessons
+  (`learning.benchmark_lessons`) are stored here too, as `loop == "benchmark"`.
+* `learning_lesson_effects`: LEARN-PROOF. Each time a decision hook changed an output because
+  of a stored lesson (`kind == "applied"`, one row per lesson, department and subject), and how
+  often each hook ran at all (`kind == "evaluated"`). Applied without evaluated is impossible;
+  evaluated without applied is an honest zero.
 
 Nothing here is a model judgement. A row is a fact copied from a gate verdict or a job
 outcome, or a count over such rows.
@@ -115,8 +120,24 @@ class DerivedLesson(Base):
     applied: Mapped[int] = mapped_column(Integer, default=0)
 
 
+class LessonEffect(Base):
+    __tablename__ = "learning_lesson_effects"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(300), unique=True, index=True)
+    kind: Mapped[str] = mapped_column(String(20), index=True)        # applied | evaluated
+    lesson_key: Mapped[str] = mapped_column(String(80), index=True)  # "" for evaluated
+    department: Mapped[str] = mapped_column(String(40), index=True)
+    hook: Mapped[str] = mapped_column(String(60), index=True)
+    subject: Mapped[str] = mapped_column(String(200), default="")
+    count: Mapped[int] = mapped_column(Integer, default=1)
+    first_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    last_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
 _TABLES = (ImageObservation.__table__, PatternObservation.__table__, Arm.__table__,
-           Decision.__table__, DerivedLesson.__table__)
+           Decision.__table__, DerivedLesson.__table__, LessonEffect.__table__)
 _ensured: set[int] = set()
 _lock = threading.Lock()
 

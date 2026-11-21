@@ -451,9 +451,24 @@ class Worker:
                 self.current = {"job_id": job.id, "job_type": job.job_type,
                                 "started_at": utcnow()}
                 try:
+                    # LEARN-PROOF: pure hooks (PDF standard, SEO validator) read the stored
+                    # benchmark lessons from a process snapshot, refreshed here at most every
+                    # few minutes, and buffer what they applied; flushed after the handler.
+                    try:
+                        from ..learning import benchmark_lessons as _bench
+
+                        _bench.refresh(self.db)
+                    except Exception:  # noqa: BLE001 - lessons unreadable: hooks stay off
+                        pass
                     outputs = handler(ctx) or {}
                 finally:
                     self.current = None
+                    try:
+                        from ..learning import benchmark_lessons as _bench
+
+                        _bench.flush(self.db)
+                    except Exception:  # noqa: BLE001 - a lost note under-counts only
+                        pass
             renewal.stop()
             # Provenance backstop (#171). The write path records lineage as it writes; this
             # is the check that it did, after the handler and before the job is marked done.

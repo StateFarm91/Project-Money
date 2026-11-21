@@ -196,8 +196,10 @@ def check_term(term: str, facts: ProductFacts, *, competitors: list[str] | None 
 
 
 def validate_listing(title: str, tags: list[str], facts: ProductFacts, *,
-                     competitors: list[str] | None = None) -> dict:
-    """Every rule above, over a whole title + tag set. `ok` only with no blocking finding."""
+                     competitors: list[str] | None = None, lessons=None) -> dict:
+    """Every rule above, over a whole title + tag set. `ok` only with no blocking finding.
+
+    `lessons`: benchmark-lesson effects to apply (None = those this process loaded)."""
     from ..commerce.portfolio import stuffing
     from ..gates import first_customer as fc
     from ..publish import listing_schema
@@ -244,6 +246,13 @@ def validate_listing(title: str, tags: list[str], facts: ProductFacts, *,
             for f in fc.colourwork_findings(facts.cir, facts.twin, title=title or "",
                                             tags=list(tags)):
                 blocking.append(f"TERM_MISLEADING: {f}")
+
+    # LEARN-PROOF (benchmark lesson MM-L6): once the lesson is stored, "no sew" / "low sew"
+    # is allowed only when the certified construction really is (`benchmark_lessons.low_sew`).
+    from ..learning import benchmark_lessons
+
+    blocking += benchmark_lessons.seo_check(facts.cir, facts.slug,
+                                            segments + list(tags), lessons)
 
     soft: list[str] = []
     if len(tags) < seo_mod.TAG_MAX_COUNT:
