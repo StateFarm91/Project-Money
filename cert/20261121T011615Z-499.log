@@ -1,0 +1,9 @@
+RUN ID: 20261121T011615Z-499
+RUN STARTED: 2026-11-21T01:16:15Z
+GIT SHA: d8751850be060daf92215780f27c8bcf56d7d030
+TREE: clean (0 changed paths)
+SCOPE: full (1038 suites)
+RUN RECORD: artifacts/suite_runs/20261121T011615Z-499.json
+
+JOB: suite-20261121T011615Z-499 enrolled in the job registry (role work)
+EXIT 130
