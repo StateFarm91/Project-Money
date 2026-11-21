@@ -341,6 +341,8 @@ RECOVERY_OUTCOMES = (
     "left_not_draft",      # in the ledger, but Etsy holds it in a non-draft state: untouched
     "left_not_provable",   # in the ledger and a draft, but a check failed: untouched
     "left_foreign",        # a marked draft that the ledger does not name: untouched
+    "index_lag_gone",      # listed as a marked draft, but the ledger verified it gone and a
+                           # fresh getListing 404s: Etsy's listings index lagging the delete
     "could_not_ask",       # Etsy could not be read for this listing: untouched
 )
 RECOVERED = "etsy.exercise_recovery"
@@ -409,7 +411,8 @@ def _drafts_by_id(client: EtsyClient) -> dict[str, dict]:
             for row in client.get_shop_listings(state="draft")}
 
 
-def recover_with(client: EtsyClient, db) -> dict:
+def recover_with(client: EtsyClient, db, *,
+                 sleep: Callable[[float], None] = time.sleep) -> dict:
     """Remove the exercise's own leftover and duplicate drafts; leave and report the rest.
 
     Never raises for an Etsy failure: each listing's outcome is one of `RECOVERY_OUTCOMES`.
@@ -441,11 +444,17 @@ def recover_with(client: EtsyClient, db) -> dict:
     ledger = _ledger_rows(db)
     ledger_ids = {r["listing_id"] for r in ledger}
 
-    # Marked drafts the ledger does not name: never touched.
+    # Marked drafts the ledger does not name: never touched. A marked draft whose id the
+    # ledger already verified gone is Etsy's index lagging the delete, but only if Etsy
+    # also answers 404 for it now. Anything else is left_foreign.
+    gone = verified_gone_ids(db)
     for lid, row in drafts.items():
         title = str(row.get("title") or "")
         if title.startswith(etsy_probe.TEST_TITLE_PREFIX) and lid not in ledger_ids:
-            note("left_foreign", {"listing_id": lid, "title": title})
+            if lid in gone and _gone_now(client, lid) is True:
+                note("index_lag_gone", {"listing_id": lid, "title": title})
+            else:
+                note("left_foreign", {"listing_id": lid, "title": title})
 
     for row in ledger:
         lid = row["listing_id"]
@@ -500,6 +509,15 @@ def recover_with(client: EtsyClient, db) -> dict:
         try:
             exists, state = client.listing_exists(lid)
             still_draft = lid in _drafts_by_id(client)
+            # ETSY-EXERCISE-FIX: both signals are still required. When getListing already
+            # 404s but the listings index still lists the id, the index is given a bounded
+            # time to catch up (READ_BACK_WAITS) before the delete is called unverified.
+            for wait in READ_BACK_WAITS[1:]:
+                if exists or not still_draft:
+                    break
+                sleep(wait)
+                exists, state = client.listing_exists(lid)
+                still_draft = lid in _drafts_by_id(client)
         except (PermanentError, TransientError) as e:
             note("delete_unverified", row, status_class=_status_class(e, client))
             continue
@@ -514,7 +532,7 @@ def recover_with(client: EtsyClient, db) -> dict:
         note("removed_verified", row)
 
     left = sum(counts[k] for k in RECOVERY_OUTCOMES
-               if k not in ("removed_verified", "already_gone"))
+               if k not in ("removed_verified", "already_gone", "index_lag_gone"))
     report = {"ok": left == 0, "counts": counts,
               "cleaned": counts["removed_verified"] + counts["already_gone"],
               "listings": listings, "status_classes": status_classes, "shop_read": True}
@@ -874,28 +892,109 @@ def _redactor(*clients: EtsyClient) -> Redactor:
     return redactor
 
 
-def shop_read_back(client: EtsyClient) -> dict:
+#: ETSY-EXERCISE-FIX: waits (seconds) between shop read-backs while a marked draft that the
+#: ledger has verified gone is still listed. Etsy's listings index lags a delete that
+#: getListing already reports (production attempt 1: verify_cleanup deleted_and_gone and
+#: ledger_confirmed_gone 1, yet the read-back listed the draft). The total is bounded at
+#: 195 s. Retries happen only while such a lagging row exists, never for a draft that is not
+#: proven gone.
+READ_BACK_WAITS = (0, 5, 10, 20, 40, 60, 60)
+
+
+def verified_gone_ids(db) -> set[str]:
+    """Listing ids the ledger closed with a read of Etsy (`DRAFT_REMOVED` + `confirmed_by`)."""
+    from ..core.models import AuditLog
+
+    if db is None:
+        return set()
+    out: set[str] = set()
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog).where(AuditLog.action == DRAFT_REMOVED)):
+            d = row.detail or {}
+            if str(d.get("listing_id") or "") and str(d.get("confirmed_by") or "").strip():
+                out.add(str(d["listing_id"]))
+    return out
+
+
+def _gone_now(client: EtsyClient, listing_id: str) -> bool | None:
+    """True only if Etsy answers getListing 404 for this id now. None: could not ask."""
+    try:
+        exists, _state = client.listing_exists(listing_id)
+    except (PermanentError, TransientError):
+        return None
+    return not exists
+
+
+def shop_read_back(client: EtsyClient, db=None, *,
+                   waits: tuple = READ_BACK_WAITS,
+                   sleep: Callable[[float], None] = time.sleep) -> dict:
     """Ask Etsy what drafts the shop holds. The report's own opinion is not evidence.
 
     `run_exercise` reports `shop_is_clean` from the list it kept while it worked. That list is
     right about what this run did and knows nothing about what a killed run did, so the state
     that decides whether the shop is clean is read from Etsy here, after everything else.
+
+    The query is `getListingsByShop?state=draft`: drafts are the only state the exercise
+    creates, and Etsy's `state` filter is what keeps active products out of it. Each marked
+    row is judged **by id**:
+
+    - not in the ledger's verified-gone set: it remains, and the shop is not clean;
+    - in that set, and getListing answers 404 *now*: it is the listings index lagging a
+      delete that Etsy has already carried out. The read is repeated (`waits`, bounded)
+      while any such row is listed. If the index still lists it at the end, it is reported
+      as `index_lag_verified_gone`, not as remaining;
+    - in that set, but getListing finds it, or cannot be asked: it remains. The ledger
+      being wrong does not make the shop clean.
     """
-    try:
-        drafts = list(client.get_shop_listings(state="draft"))
-    except (PermanentError, TransientError) as e:
-        return {"ok": False, "error": str(e),
+    gone = verified_gone_ids(db)
+    attempts, waited = 0, 0.0
+    last_error = None
+    remaining: list[dict] = []
+    lagging: list[dict] = []
+    drafts: list[dict] = []
+    for i, wait in enumerate(waits or (0,)):
+        if i and wait:
+            sleep(wait)
+            waited += wait
+        attempts += 1
+        try:
+            drafts = list(client.get_shop_listings(state="draft"))
+        except (PermanentError, TransientError) as e:
+            last_error = e
+            continue
+        last_error = None
+        remaining, lagging = [], []
+        for row in drafts:
+            title = str(row.get("title") or "")
+            if not title.startswith(etsy_probe.TEST_TITLE_PREFIX):
+                continue
+            lid = str(row.get("listing_id") or "")
+            entry = {"listing_id": lid, "title": title,
+                     "state_class": _state_class(str(row.get("state") or ""))}
+            if lid and lid in gone:
+                now_gone = _gone_now(client, lid)
+                if now_gone is True:
+                    lagging.append(entry)
+                    continue
+                entry["ledger_says_gone_but"] = ("still_held" if now_gone is False
+                                                 else "could_not_ask")
+            remaining.append(entry)
+        if not lagging:
+            break
+    if last_error is not None:
+        return {"ok": False, "error": str(last_error), "attempts": attempts,
+                "waited_seconds": waited,
                 "note": ("Etsy could not be asked for the shop's drafts, so this run cannot "
                          "state that the shop is clean. The breadcrumb ledger is the only "
                          "remaining record")}
-    ours = [{"listing_id": str(row.get("listing_id") or ""),
-             "title": str(row.get("title") or "")}
-            for row in drafts
-            if str(row.get("title") or "").startswith(etsy_probe.TEST_TITLE_PREFIX)]
-    return {"ok": not ours, "drafts_in_shop": len(drafts),
-            "test_drafts_remaining": ours,
+    return {"ok": not remaining, "drafts_in_shop": len(drafts),
+            "test_drafts_remaining": remaining,
+            "index_lag_verified_gone": lagging,
+            "attempts": attempts, "waited_seconds": waited,
             "measured_by": ("a read of Etsy's own draft list filtered on this module's "
-                            "title marker, not by anything the run recorded about itself")}
+                            "title marker, each marked row judged by id against the "
+                            "ledger's verified-gone set and a fresh getListing, not by "
+                            "anything the run recorded about itself")}
 
 
 def chosen_test_node(db) -> dict:
@@ -943,7 +1042,8 @@ def chosen_test_node(db) -> dict:
 
 def run(db, *, env: dict[str, str] | None = None, transport: Any = None,
         mode: str = "full", verify: Callable[[], dict] | None = None,
-        sweep_first: bool = True) -> dict:
+        sweep_first: bool = True,
+        read_back_sleep: Callable[[float], None] = time.sleep) -> dict:
     """The whole operator-triggered run. Returns a report; raises only for a refusal.
 
     `sweep_first=False` (the autonomous directive path) skips `etsy_probe.sweep`, which
@@ -1001,7 +1101,7 @@ def run(db, *, env: dict[str, str] | None = None, transport: Any = None,
             # ENG-ETSY-RECOVERY: settle the exercise's own leftover/duplicate drafts first.
             # If one of its own drafts cannot be removed, no new draft is created: a delete
             # that fails now would fail again and strand one more draft per run.
-            report["recovery"] = recover_with(client, db)
+            report["recovery"] = recover_with(client, db, sleep=read_back_sleep)
             rc = report["recovery"]["counts"]
             if rc["delete_failed"] or rc["delete_unverified"]:
                 report["exercise"] = {
@@ -1017,8 +1117,10 @@ def run(db, *, env: dict[str, str] | None = None, transport: Any = None,
                     taxonomy_id=chosen.get("taxonomy_id"),
                     listing_property=chosen.get("property"))
             report["against_etsy"] = report["exercise"].get("against_etsy")
-            report["shop_read_back"] = shop_read_back(client)
+            # ETSY-EXERCISE-FIX: the ledger is settled first, so the read-back can judge a
+            # listed marked draft by id against what Etsy has already confirmed gone.
             report["breadcrumbs"] = reconcile(client, db)
+            report["shop_read_back"] = shop_read_back(client, db, sleep=read_back_sleep)
             stranded = report["breadcrumbs"]["still_on_etsy"]
         else:
             report["against_etsy"] = etsy_probe.against_etsy(client)
@@ -1026,8 +1128,8 @@ def run(db, *, env: dict[str, str] | None = None, transport: Any = None,
                 "skipped": ("mode=rotation. No draft is created, no image is uploaded and "
                             "nothing is deleted: the rotation proof is two authenticated "
                             "shop reads, which is the safest form this evidence takes.")}
-            report["shop_read_back"] = shop_read_back(client)
             report["breadcrumbs"] = reconcile(client, db)
+            report["shop_read_back"] = shop_read_back(client, db, sleep=read_back_sleep)
             stranded = report["breadcrumbs"]["still_on_etsy"]
 
         report["owner_actions"] = raise_owner_actions(db, stranded)
@@ -1110,6 +1212,21 @@ def status_class(status: Any) -> str:
     return "unknown" if s else "none"
 
 
+def status_class_of(status: Any) -> str:
+    """The fixed class of an HTTP status recorded on a step (0: never reached Etsy)."""
+    try:
+        code = int(status or 0)
+    except (TypeError, ValueError):
+        return "other"
+    if code == 0:
+        return "not_sent"
+    if code in (400, 401, 403, 404, 409, 413, 415, 429):
+        return f"http_{code}"
+    if code >= 500:
+        return "http_5xx"
+    return "http_4xx" if code >= 400 else f"http_{code // 100}xx"
+
+
 def outcome_cause(report: dict) -> dict:
     """Why a run was or was not clean: step names, taxonomy outcome names and counts only.
 
@@ -1128,13 +1245,41 @@ def outcome_cause(report: dict) -> dict:
             w = _word((f or {}).get("outcome") if isinstance(f, dict) else None)
             if w:
                 outcomes[f"{name}:{w}"] = outcomes.get(f"{name}:{w}", 0) + 1
+    # ETSY-EXERCISE-FIX: attempt 1 recorded that upload_image and verify_contract failed and
+    # not why. Every other step's taxonomy outcomes are recorded too, plus the HTTP status
+    # class of each failed step that reached Etsy.
+    step_outcomes: dict[str, int] = {}
+    failed_status: dict[str, str] = {}
+    for st in steps:
+        name = _word(st.get("step"))
+        if not name or name in ("sweep", "create_draft", "cleanup", "verify_cleanup"):
+            continue
+        for f in st.get("classified") or []:
+            w = _word((f or {}).get("outcome") if isinstance(f, dict) else None)
+            if w is None and isinstance(f, dict) and f.get("outcome") == "UNCLASSIFIED":
+                w = "unclassified"
+            if w:
+                step_outcomes[f"{name}:{w}"] = step_outcomes.get(f"{name}:{w}", 0) + 1
+        if st.get("ok") is False and "http_status" in st:
+            failed_status[name] = status_class_of(st.get("http_status"))
+    image = next((st.get("image") for st in steps
+                  if st.get("step") == "upload_image" and isinstance(st.get("image"), dict)),
+                 None) or {}
     rb = report.get("shop_read_back") or {}
     bc = report.get("breadcrumbs") or {}
     rec = report.get("recovery") or {}
     return {"failed_steps": failed[:12], "cleanup_outcomes": outcomes,
             "exercise_skipped": bool(ex.get("skipped")),
+            "step_outcomes": step_outcomes,
+            "failed_status_classes": failed_status,
+            "image_sent": {"format": _word(str(image.get("format") or "").lower()),
+                           "width": int(image.get("width") or 0),
+                           "height": int(image.get("height") or 0),
+                           "bytes": int(image.get("bytes") or 0)} if image else {},
             "read_back_ok": rb.get("ok") is True,
             "marked_drafts_in_shop": len(rb.get("test_drafts_remaining") or []),
+            "index_lag_verified_gone": len(rb.get("index_lag_verified_gone") or []),
+            "read_back_attempts": int(rb.get("attempts") or 0),
             "ledger_confirmed_gone": len(bc.get("confirmed_gone") or []),
             "ledger_still_on_etsy": len(bc.get("still_on_etsy") or []),
             "ledger_could_not_ask": len(bc.get("could_not_ask") or []),
