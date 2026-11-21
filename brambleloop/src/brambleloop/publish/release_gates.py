@@ -2050,6 +2050,36 @@ def publish_time_reasons(verdict: dict | None) -> dict[str, str]:
     return out
 
 
+# D-OWNER-PRIVATE-DRAFT-BEFORE-SAMPLE (owner, 2026-11-21T03:55Z): "yes, private drafts before
+# sample photo are fine". The gates that block only PUBLICATION -- the move of a private draft
+# to active -- and not the sale pipeline's READY state or the creation, upload and read-back of
+# a private draft. An explicit allow-list of gate CODES. Only `SAMPLE_PHOTO_REQUIRED` is on it
+# (Etsy Help 44297885802647); it still refuses at activation exactly as before
+# (`for_publish(stage=activation)` above), and nothing else is relaxed.
+ACTIVATION_ONLY_CODES = frozenset({"SAMPLE_PHOTO_REQUIRED"})
+
+
+def activation_only_reasons(verdict: dict | None) -> dict[str, str]:
+    """The reasons of an activation-stage `for_publish` verdict that block only activation,
+    mapped to their code (`ACTIVATION_ONLY_CODES`).
+
+    Read from the verdict's own `sample_photo` part, never matched over other text: a reason
+    is here only when the sample-photo requirement itself produced it, it carries that
+    requirement's code, and the code is on the allow-list. The listing copy's truthfulness
+    about the photo (`sample_photo.copy_problems`) is not here: it blocks a draft too."""
+    from . import sample_photo
+
+    v = verdict or {}
+    if v.get("stage") != STAGE_ACTIVATION:
+        return {}
+    code = sample_photo.CODE
+    if code not in ACTIVATION_ONLY_CODES:
+        return {}
+    own = (v.get("sample_photo") or {}).get("reasons") or []
+    return {str(r): code for r in own if str(r).startswith(f"{code}:")
+            and str(r) in [str(x) for x in v.get("reasons") or []]}
+
+
 def our_competitive_reading(db, *, slug: str, version: str, key: str) -> float | None:
     """This listing's own reading on one CompetitiveStandard, or None when unmeasurable."""
     from sqlalchemy import select

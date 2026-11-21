@@ -37,7 +37,10 @@ never a second gallery or a second PDF. Each stage enqueues its own successor:
    gallery certificate and the standard's hash.
 5. `attach` -- the listing package is re-assembled; it attaches the gallery, carries both
    premium PDFs, and BLOCKS unless both certificates PASS for exactly this release.
-6. `ready` -- `ready_for_sale` is re-checked and the row is marked READY.
+6. `ready` -- `ready_for_sale` is re-checked and the row is marked READY. A gate that
+   blocks only publication (the sample photograph, `release_gates.ACTIVATION_ONLY_CODES`,
+   D-OWNER-PRIVATE-DRAFT-BEFORE-SAMPLE) does not stop READY or the private draft; it is
+   recorded as `publication_waits_on`, and activation still refuses on it.
 
 **No silent stalls.** `sweep` (the hourly `sale.pipeline_sweep`, run by Railway's
 scheduler) admits newly eligible releases, re-drives a stage that has not advanced within
@@ -1074,22 +1077,73 @@ def _attach(db, key, run, *, follow, start_images, store_root):
         return {"state": run["state"], "next": None, "blocker": "listing_package_failed"}
     pkg = LP.latest(db, slug, version) or {}
     gallery = [g.get("sha256") for g in pkg.get("gallery") or []]
-    if pkg.get("state") != LP.READY or pkg.get("release_hash") != release:
-        why = "; ".join(f"{b.get('source')}: {b.get('why')}" for b in pkg.get("blockers") or [])
+    if not package_ready_for_sale(pkg, release):
+        why = "; ".join(f"{b.get('source')}: {b.get('why')}"
+                        for b in draft_blockers(pkg) or pkg.get("blockers") or [])
         _update(db, key, blocker="listing_gates", detail=why[:2000] or "package not ready",
                 evidence={"package": {"state": pkg.get("state"), "gallery": gallery,
                                       "results": out.get("ready")}})
         return {"state": run["state"], "next": None, "blocker": "listing_gates", "why": why}
     _update(db, key, state=ATTACHED, stage="ready", blocker="", detail="",
             evidence={"package": {"state": pkg.get("state"), "gallery": gallery,
-                                  "fingerprint": pkg.get("fingerprint")}})
+                                  "fingerprint": pkg.get("fingerprint"),
+                                  "publication_waits_on": publication_blockers(pkg)}})
     return {"state": ATTACHED, "next": _next(follow, slug, version, release, "ready")}
+
+
+def publication_blockers(pkg: dict | None) -> list[str]:
+    """The package's blockers that block only PUBLICATION (activation of a private draft),
+    as their codes (D-OWNER-PRIVATE-DRAFT-BEFORE-SAMPLE). Only a blocker from
+    `release_gates.for_publish` whose `activation_only` tag is on
+    `release_gates.ACTIVATION_ONLY_CODES`, re-checked here, counts; anything else is a
+    blocker of the draft too, and unknown never counts as publication-only."""
+    from . import release_gates as RG
+
+    out = []
+    for b in (pkg or {}).get("blockers") or []:
+        tag = b.get("activation_only") if isinstance(b, dict) else None
+        if (isinstance(tag, str) and tag in RG.ACTIVATION_ONLY_CODES
+                and b.get("source") == "release_gates.for_publish"
+                and str(b.get("why") or "").startswith(f"{tag}:")):
+            out.append(tag)
+    return sorted(set(out))
+
+
+def draft_blockers(pkg: dict | None) -> list[dict]:
+    """The package's blockers that also block the sale pipeline's READY state and a private
+    draft: every blocker except the publication-only ones (`publication_blockers`)."""
+    out = []
+    for b in (pkg or {}).get("blockers") or []:
+        if publication_blockers({"blockers": [b]}):
+            continue
+        out.append(b)
+    return out
+
+
+def package_ready_for_sale(pkg: dict | None, release: str) -> bool:
+    """The listing package admits the release to READY: it is for exactly this release and
+    every blocker on it is publication-only. A package READY for owner review has none; a
+    BLOCKED one qualifies only when its sole blockers wait on the sample photograph."""
+    from . import listing_package as LP
+
+    pkg = pkg or {}
+    if not release or pkg.get("release_hash") != release:
+        return False
+    if pkg.get("state") == LP.READY:
+        return not pkg.get("blockers")
+    return (pkg.get("state") == LP.BLOCKED and bool(pkg.get("blockers"))
+            and not draft_blockers(pkg))
 
 
 def ready_for_sale(db, slug: str, version: str, release: str | None = None) -> dict:
     """D-OWNER-SALE-PIPELINE: certified pattern + complete certified gallery + both premium
     PDF certificates PASS for this release + every listing gate PASS. Unreadable is not
-    ready. `release` defaults to the certified release on file."""
+    ready. `release` defaults to the certified release on file.
+
+    D-OWNER-PRIVATE-DRAFT-BEFORE-SAMPLE: a gate that blocks only publication (the sample
+    photograph, `release_gates.ACTIVATION_ONLY_CODES`) does not stop READY or the private
+    draft; it is returned in `publication_blockers`, and `publishable` is False while any
+    remains. Activation still refuses on it (`for_publish(stage=activation)`)."""
     from . import listing_package as LP
 
     reasons = []
@@ -1115,14 +1169,16 @@ def ready_for_sale(db, slug: str, version: str, release: str | None = None) -> d
                 f"{t} {e['verdict']}" for t, e in certs["editions"].items()))
     except Exception as exc:  # noqa: BLE001
         reasons.append(f"PDF certificates unreadable: {type(exc).__name__}")
+    waits: list[str] = ["listing package unread"]
     try:
         pkg = LP.latest(db, slug, version) or {}
-        if pkg.get("state") != LP.READY or pkg.get("release_hash") != release or \
-                pkg.get("blockers"):
+        if not package_ready_for_sale(pkg, release):
             reasons.append("listing gates do not all PASS (listing package not ready)")
+        waits = publication_blockers(pkg)
     except Exception as exc:  # noqa: BLE001
         reasons.append(f"listing package unreadable: {type(exc).__name__}")
-    return {"ready": not reasons, "reasons": reasons, "release": release}
+    return {"ready": not reasons, "reasons": reasons, "release": release,
+            "publication_blockers": waits, "publishable": not reasons and not waits}
 
 
 def _ready(db, key, run, *, follow, start_images, store_root):
@@ -1132,9 +1188,13 @@ def _ready(db, key, run, *, follow, start_images, store_root):
         _update(db, key, blocker="not_ready", detail="; ".join(got["reasons"])[:2000])
         return {"state": run["state"], "next": None, "blocker": "not_ready",
                 "reasons": got["reasons"]}
+    # D-OWNER-PRIVATE-DRAFT-BEFORE-SAMPLE: READY may still wait on a publication-only gate
+    # (the sample photograph); it is recorded, so the board never reads it as publishable.
     _update(db, key, state=READY, stage="ready", blocker="", detail="",
-            evidence={"ready_at": _now().isoformat()})
-    return {"state": READY, "next": None}
+            evidence={"ready_at": _now().isoformat(),
+                      "publication_waits_on": got.get("publication_blockers") or []})
+    return {"state": READY, "next": None,
+            "publication_blockers": got.get("publication_blockers") or []}
 
 
 # ---- image production hook -------------------------------------------------------------------
@@ -1274,9 +1334,18 @@ def board(db, *, now: datetime | None = None) -> dict:
         if r["state"] == AWAITING_PRE_IMAGE:
             pre[r["blocker"] or "unrecorded"] = pre.get(r["blocker"] or "unrecorded", 0) + 1
     reserved = round(sum(r["reserved_cad"] for r in rows if r["reservation"] == "held"), 2)
+    # D-OWNER-PRIVATE-DRAFT-BEFORE-SAMPLE: READY for a private draft, publication still
+    # waiting on a publication-only gate (the sample photograph), counted by that gate.
+    waiting: dict[str, int] = {}
+    for r in rows:
+        if r["state"] == READY:
+            for code in (r["evidence"].get("publication_waits_on") or []):
+                waiting[str(code)] = waiting.get(str(code), 0) + 1
     return {"readable": True, "releases": len(rows), "eligible": len(eligible),
             "gallery_done": len(gallery_done), "pdfs_certified": len(pdfs),
-            "ready": by_state[READY], "blocked_by_reason": dict(sorted(blocked.items())),
+            "ready": by_state[READY],
+            "ready_publication_waits_on": dict(sorted(waiting.items())),
+            "blocked_by_reason": dict(sorted(blocked.items())),
             "stalled": stalled, "awaiting_pre_image_readiness": by_state[AWAITING_PRE_IMAGE],
             "awaiting_pre_image_by_reason": dict(sorted(pre.items())),
             "awaiting_admission": by_state[AWAITING_ADMISSION],

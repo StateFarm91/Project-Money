@@ -367,6 +367,18 @@ def test_3_package_draft_upload_and_byte_for_byte_readback_of_every_image_and_bo
             uploaded = sorted((int(i["rank"]), i["sha256"])
                               for i in fake.received_images[lid])
             assert uploaded == frames and len(uploaded) == 7, (uploaded, frames)
+            # D-OWNER-PRIVATE-DRAFT-BEFORE-SAMPLE: the draft exists before any sample photo,
+            # and it is a private draft only (publication is test_14's).
+            assert fake.listings[lid]["state"] == "draft"
+            from brambleloop.publish import sale_pipeline as SPL
+
+            run = SPL.get(db, slug, version, rh) or {}
+            assert run.get("state") == SPL.READY, (run, premium["ran"])
+            assert run["evidence"].get("publication_waits_on") == ["SAMPLE_PHOTO_REQUIRED"], \
+                run["evidence"]
+            S["draft"] = dict(fake.listings[lid])
+            S["draft_files"] = list(fake.received_files[lid])
+            S["draft_images"] = list(fake.received_images[lid])
     with db.session() as s:
         row = s.scalar(select(AuditLog).where(AuditLog.action == "store.published"))
         rb = row.detail["read_back"]
@@ -841,6 +853,97 @@ def test_13_the_allow_list_is_what_admits():
         {"code": "FIRST_CUSTOMER_BLOCKING", "why": "etsy_remote_state: UNVERIFIABLE -- x"},
         {"code": "OTHER", "area": "etsy_remote_state", "why": "x"},
         {"code": "FIRST_CUSTOMER_BLOCKING", "area": "imagery", "why": "x"}]}}) == {}
+
+
+# ---- D-OWNER-PRIVATE-DRAFT-BEFORE-SAMPLE ------------------------------------------------------
+
+def _publication_refused_without_the_sample_photo(S) -> dict:
+    """The private draft of test_3 exists and was read back; publication (store.activate,
+    the real handler at LIMITED_PRODUCTION on the loopback fake) refuses on
+    SAMPLE_PHOTO_REQUIRED, sends nothing that changes the listing, and leaves it a draft."""
+    import test_search_hero_publish as SH
+    from brambleloop.core.models import JobStatus, Phase
+    from brambleloop.publish import release_gates as RG
+    from brambleloop.publish import sale_pipeline as SPL
+    from tests.fake_etsy import FakeEtsy
+
+    db, version, rh, slug = S["db"], S["version"], S["rh"], SH.SLUG
+    act = RG.for_publish(db, slug=slug, version=version, read_only=True,
+                         stage=RG.STAGE_ACTIVATION)
+    photo = [r for r in act["reasons"] if str(r).startswith("SAMPLE_PHOTO_REQUIRED:")]
+    assert act["blocks_release"] is True and photo, act["reasons"]
+    assert act["sample_photo"]["satisfied"] is False
+    # READY for the private draft, never publishable while the photo is missing.
+    sale = SPL.ready_for_sale(db, slug, version, rh)
+    assert sale["ready"] is True, sale
+    assert sale["publishable"] is False and \
+        sale["publication_blockers"] == ["SAMPLE_PHOTO_REQUIRED"], sale
+    with laura_publication_double(db):
+        with FakeEtsy() as fake, SH._owner_and_fake(fake):
+            from sqlalchemy import select
+
+            from brambleloop.core.models import Listing
+
+            with db.session() as s_:
+                row = s_.scalar(select(Listing).where(Listing.product_slug == slug,
+                                                      Listing.version == version))
+                lid = row.etsy_listing_id
+            fake.listings[lid] = {**S["draft"], "state": "draft"}
+            fake.received_files[lid] = list(S["draft_files"])
+            fake.received_images[lid] = list(S["draft_images"])
+            job = SH._run(db, "store_operator", "store.activate",
+                          {"slug": slug, "version": version, "release": rh},
+                          phase=Phase.LIMITED_PRODUCTION)
+            out = job.outputs or {}
+            said = (job.last_error or "") + str(out)
+            assert out.get("activated") is not True, out
+            assert "SAMPLE_PHOTO_REQUIRED" in said, said[:2000]
+            assert fake.listings[lid]["state"] == "draft", fake.listings[lid]["state"]
+            changed = [r["operation"] for r in fake.requests if not r["operation"].startswith(
+                ("get", "ping"))]
+            assert changed == [], changed
+    return {"job_status": job.status, "reasons": out.get("reasons")}
+
+
+def test_14_publication_is_refused_without_the_sample_photo():
+    S = chain()
+    if not S.get("published"):
+        test_3_package_draft_upload_and_byte_for_byte_readback_of_every_image_and_both_pdfs()
+    _publication_refused_without_the_sample_photo(S)
+
+
+def test_15_a_mutation_removing_the_publish_time_sample_gate_is_killed():
+    """The activation-stage photo gate in `for_publish` is load-bearing: a mutant with it
+    removed makes test_14's check fail (and nothing else is mutated)."""
+    import types
+
+    from brambleloop.publish import release_gates as RG
+
+    S = chain()
+    if not S.get("published"):
+        test_3_package_draft_upload_and_byte_for_byte_readback_of_every_image_and_both_pdfs()
+    src = Path(RG.__file__).read_text()
+    gate = ('    if stage == STAGE_ACTIVATION:\n'
+            '        reasons.extend(photo["reasons"])\n')
+    assert src.count(gate) == 1, "the publish-time sample gate moved; update this mutant"
+    mutant = types.ModuleType(RG.__name__)
+    mutant.__dict__.update(__name__=RG.__name__, __package__=RG.__package__,
+                           __file__=RG.__file__)
+    exec(compile(src.replace(gate, ""), RG.__file__, "exec"), mutant.__dict__)
+    real = RG.for_publish
+    RG.for_publish = mutant.for_publish
+    try:
+        try:
+            _publication_refused_without_the_sample_photo(S)
+        except AssertionError:
+            killed = True
+        else:
+            killed = False
+    finally:
+        RG.for_publish = real
+    assert killed, "removing the activation-stage SAMPLE_PHOTO_REQUIRED gate went unnoticed"
+    # And the real gate still refuses after the mutant is gone.
+    _publication_refused_without_the_sample_photo(S)
 
 
 if __name__ == "__main__":

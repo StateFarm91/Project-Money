@@ -220,12 +220,19 @@ def assemble(db, slug: str, version: str) -> dict | None:
         # with its area. It still blocks this package (and publishing); it only does not
         # stop the release being admitted for its images.
         publish_time = release_gates.publish_time_reasons(gate)
+        # D-OWNER-PRIVATE-DRAFT-BEFORE-SAMPLE: a reason that blocks only activation (the
+        # sample-photo requirement) is tagged with its code. It stays a blocker here, so this
+        # package stays BLOCKED for owner review and publication; the sale pipeline alone
+        # reads the tag, to reach READY and a private draft before the photo exists.
+        activation_only = release_gates.activation_only_reasons(gate)
         for reason in gate.get("reasons") or []:
             b = {"source": "release_gates.for_publish", "why": str(reason)[:300]}
             if str(reason) in visual:
                 b["image"] = True
             elif str(reason) in publish_time:
                 b["publish_time"] = publish_time[str(reason)]
+            if str(reason) in activation_only:
+                b["activation_only"] = activation_only[str(reason)]
             blockers.append(b)
 
     try:

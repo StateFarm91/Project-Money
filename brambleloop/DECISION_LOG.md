@@ -4058,3 +4058,31 @@ Batch 19d (code 43609a8de) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the own
 ## D-OWNER-DEPLOY-19d1 — 2026-11-21T03:27:55Z
 
 Batch 19d1 (code 80ce7211b) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 15d03a0a17002990d1c06085c10fc98bdaf48aa9 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-PRIVATE-DRAFT-BEFORE-SAMPLE — 2026-11-21T03:55Z (owner)
+
+**Question put to the owner:** may a private, unpublished Etsy draft exist before a real sample
+photo is on file, with publishing still waiting for the photo?
+**Owner, verbatim:** "yes, private drafts before sample photo are fine".
+
+**Decision (implemented BATCH19D-SALE2).** `SAMPLE_PHOTO_REQUIRED` (Etsy Help 44297885802647)
+blocks PUBLICATION, the move of a draft to active, exactly as before. It no longer blocks the
+sale pipeline's READY state (D-OWNER-SALE-PIPELINE) or the creation, upload and byte-for-byte
+read-back of a PRIVATE DRAFT.
+- **Mechanism.** `release_gates.ACTIVATION_ONLY_CODES = {"SAMPLE_PHOTO_REQUIRED"}` is an explicit
+  allow-list. `release_gates.activation_only_reasons` reads it from an activation-stage verdict's
+  own `sample_photo` part, never from other text. `listing_package.assemble` tags such a blocker
+  `activation_only`. The tag is read only by `sale_pipeline.publication_blockers`, which
+  re-checks the source, the allow-list and the code prefix. `package_ready_for_sale` accepts a
+  package whose only blockers are publication-only. `ready_for_sale` returns
+  `publication_blockers` and `publishable`. READY records `publication_waits_on`, and the board
+  counts it under `ready_publication_waits_on`.
+- **Unchanged.** The listing package stays BLOCKED, so the owner review is not raised and the
+  package is not "ready for owner review". `for_publish(stage=activation)` still refuses on
+  the photo, and `store.activate` reads it three times. The draft path keeps
+  `owner_authorised=False` for the exercise client, the `BRAMBLELOOP_PUBLISH_AUTHORISED` kill
+  switch and the listing-fee cap. Every other gate is unchanged, including the photo-copy
+  truthfulness check, which still blocks a draft. No photo was forged.
+- **Tests.** `test_vis_gallery_e2e` tests 3 and 7 assert the draft upload and its byte-for-byte
+  read-back. Test 14 shows publication refused without the photo. Test 15 kills a mutant of
+  `for_publish` that has the activation-stage photo gate removed.

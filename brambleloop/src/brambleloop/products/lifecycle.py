@@ -115,8 +115,11 @@ def derive(db, slug: str) -> dict:
         # and every listing gate passes (`publish.sale_pipeline.ready_for_sale`).
         sale = _ready_for_sale(db, slug, sale_version) if (assets and gallery) else None
         if sale and sale["ready"]:
+            waits = sale.get("publication_blockers") or []
             stage, why = ("LISTING_READY", "ready for sale: certified pattern, complete "
-                          "certified gallery, both premium PDFs certified, every gate PASS")
+                          "certified gallery, both premium PDFs certified, every gate PASS"
+                          + (f"; publication waits on {', '.join(waits)} (private draft "
+                             f"only, D-OWNER-PRIVATE-DRAFT-BEFORE-SAMPLE)" if waits else ""))
         elif assets and gallery:
             stage, why = "VISUAL", ("a draft listing with its gallery, not yet ready for sale: "
                                     + "; ".join((sale or {}).get("reasons") or ["unreadable"]))
