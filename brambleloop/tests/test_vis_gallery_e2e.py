@@ -368,7 +368,7 @@ def test_3_package_draft_upload_and_byte_for_byte_readback_of_every_image_and_bo
                               for i in fake.received_images[lid])
             assert uploaded == frames and len(uploaded) == 7, (uploaded, frames)
             # D-OWNER-PRIVATE-DRAFT-BEFORE-SAMPLE: the draft exists before any sample photo,
-            # and it is a private draft only (publication is test_14's).
+            # and it is a private draft only (publication is test_7a's).
             assert fake.listings[lid]["state"] == "draft"
             from brambleloop.publish import sale_pipeline as SPL
 
@@ -912,16 +912,16 @@ def _publication_refused_without_the_sample_photo(S) -> dict:
     return {"job_status": job.status, "reasons": out.get("reasons")}
 
 
-def test_14_publication_is_refused_without_the_sample_photo():
+def test_7a_publication_is_refused_without_the_sample_photo():
     S = chain()
     if not S.get("published"):
         test_3_package_draft_upload_and_byte_for_byte_readback_of_every_image_and_both_pdfs()
     _publication_refused_without_the_sample_photo(S)
 
 
-def test_15_a_mutation_removing_the_publish_time_sample_gate_is_killed():
+def test_7b_a_mutation_removing_the_publish_time_sample_gate_is_killed():
     """The activation-stage photo gate in `for_publish` is load-bearing: a mutant with it
-    removed makes test_14's check fail (and nothing else is mutated)."""
+    removed makes test_7a's check fail (and nothing else is mutated)."""
     import types
 
     from brambleloop.publish import release_gates as RG

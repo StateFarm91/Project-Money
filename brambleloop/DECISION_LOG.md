@@ -4084,5 +4084,5 @@ read-back of a PRIVATE DRAFT.
   switch and the listing-fee cap. Every other gate is unchanged, including the photo-copy
   truthfulness check, which still blocks a draft. No photo was forged.
 - **Tests.** `test_vis_gallery_e2e` tests 3 and 7 assert the draft upload and its byte-for-byte
-  read-back. Test 14 shows publication refused without the photo. Test 15 kills a mutant of
+  read-back. Test 7a shows publication refused without the photo. Test 7b kills a mutant of
   `for_publish` that has the activation-stage photo gate removed.
