@@ -3995,3 +3995,17 @@ Rejected: closing rows on absence alone; waiving gate.certify's incident halt (l
 GET /api/readback/evidence: parked_admission measured at about 40 ms locally, so it is not shown to be
 the 45 s. It was made cheaper anyway (one admission read per release, column selects), and the body
 now carries `timing_ms` per section. Report: `w6/review_requests/HALT-380-VERIFY.md`.
+
+## D-MAIN-HALT-380-VERIFY-RELEASE — 2026-11-21T09:32Z
+
+Release of eng/halt-380-verify on top of 19h1 (1bb7c4f5).
+
+**Cause.** Provenance rows for artefacts that no longer exist read STALE forever, and no stage can ever rewrite them. They are:
+- `visual_truth` rows for deleted gallery frames;
+- `marketing_asset` rows for superseded drafts.
+
+They also made `marketing.schedule` refuse each product's real marketing rebuild. That kept 12 products and systemic halt 380 open. eng/halt-380-h5 reached the same orphan-frame cause independently.
+
+**Fix.** Narrow and fail-closed: only those two vanished or superseded cases read RETIRED. Real-gate refusals park the product: it stays halted itself but no longer counts toward the systemic halt. No gate was weakened.
+
+**Tests.** 17 suites, no failures (vis_gallery completes before release). The release needs the owner's per-SHA approval; the auto-deploy window closed at 05:00Z.
