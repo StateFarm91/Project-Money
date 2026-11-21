@@ -239,6 +239,26 @@ def _bounded_key(prefix: str, stamp: str) -> str:
 RETRY_AFTER = timedelta(hours=12)
 
 
+def _current_deploy_started_at(db):
+    """The first `runtime.started` audit row of the commit now running, else None."""
+    try:
+        from sqlalchemy import select
+
+        from ..core.build import identity as build_identity
+        from ..core.models import AuditLog
+
+        commit = (build_identity() or {}).get("commit") or ""
+        if not commit or commit == "dev":
+            return None
+        for at, detail in db.execute(select(AuditLog.at, AuditLog.detail).where(
+                AuditLog.action == "runtime.started").order_by(AuditLog.id)):
+            if (detail or {}).get("commit") == commit:
+                return at if at.tzinfo else at.replace(tzinfo=timezone.utc)
+    except Exception:  # noqa: BLE001 - unknown deploy time keeps the plain window
+        return None
+    return None
+
+
 def _recent_rebuild_slugs(db, now: datetime) -> set[str]:
     """Products with a chain.rebuild in flight, or one that ended inside RETRY_AFTER.
 
@@ -249,6 +269,13 @@ def _recent_rebuild_slugs(db, now: datetime) -> set[str]:
     from ..core.models import Job, JobStatus
 
     since = now - RETRY_AFTER
+    # A deploy is new code: an attempt that ended before it says nothing about whether the
+    # rebuild can complete now. Count the window from the current commit's first boot, so each
+    # deploy gets one immediate retry per product (in-flight attempts still count; the
+    # REBUILD_MAX_ATTEMPTS budget is unchanged).
+    deployed = _current_deploy_started_at(db)
+    if deployed is not None and deployed > since:
+        since = deployed
     rows = db.execute(select(Job.inputs).where(
         Job.job_type == "chain.rebuild",
         or_(Job.status.in_((JobStatus.PENDING, JobStatus.RUNNING, JobStatus.FAILED)),

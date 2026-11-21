@@ -220,6 +220,16 @@
    "verify_deploy": "DEPLOYED",
    "authorization": "owner per-SHA AskUserQuestion 2026-11-21",
    "rollback_to": "88fc059a3ae808982451a103da357ae552b4cfcf"
+  },
+  {
+   "sha": "17f17c200593d0f044f257af9dd9bec668d48184",
+   "batch": "19h4",
+   "code": "a607a3832",
+   "at": "2026-11-21T12:21:43Z",
+   "verify_deploy": "DEPLOYED",
+   "override": "D-OWNER-DEPLOY-19h4",
+   "authorization": "D-OWNER-AUTODEPLOY-TONIGHT",
+   "rollback_to": "dc10a48d5709d99924723a21e10653a49d35df18"
   }
  ]
 }
