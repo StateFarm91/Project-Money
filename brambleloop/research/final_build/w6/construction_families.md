@@ -47,6 +47,10 @@ fails if a family in that table is missing from this file.
 | `vessel` | `creative.fallback_constructions.vessel` | verified | `test_a_research_basket_routes_to_the_vessel_engine_and_certifies` | small / medium / large from `products.vessels.BASKET_SIZES` (house design sizes, **no published standard**) | striped walls only; one size per release; pet bed is cat size only |
 | `tapestry` | `creative.fallback_constructions.tapestry_basket` | verified | `test_a_research_tapestry_basket_routes_to_its_chart_and_certifies` | small / medium / large from `BASKET_SIZES` | two charts (diamond, check), two colours; a motif word outside the allowlist (for example "heron") is held |
 | `panel_pair` | `creative.fallback_constructions.panel_pair` | physical_gate | `test_a_research_cushion_is_physical_gated_not_flattened` | `size_truth.PILLOW_FORMS` (standard pillow-form sizes) | certification's risk matrix sets class C; the only refusal is `PHYSICAL_TEST_REQUIRED` |
+| `round_vessel` | `creative.homedecor.round_vessel` | verified (ENG-HOMEDECOR) | `tests/test_eng_homedecor.py::test_a_research_round_basket_certifies_with_a_round_base` | small / medium / large from `BASKET_SIZES` | the vessel's striped walls on a staggered-increase round base (`geometry.corners` reads 0) |
+| `bowl` | `creative.homedecor.bowl` | verified (ENG-HOMEDECOR) | `tests/test_eng_homedecor.py::test_a_research_bowl_certifies_with_a_flared_wall` | small / medium / large from `homedecor.BOWL_SIZES` (house design sizes, **no published standard**) | round base, wall flares one wedge in every three rounds; plain sc bands; the concept's repeat is not used |
+| `lidded_vessel` | `creative.homedecor.lidded_vessel` | verified (ENG-HOMEDECOR) | `tests/test_eng_homedecor.py::test_a_research_lidded_basket_certifies_with_a_fitting_lid` | `BASKET_SIZES`; lid fit computed with an assumed fabric thickness | plain lid with a lip; no knob; fit computed, not measured; no combination with round/handles yet |
+| `handled_vessel` | `creative.homedecor.handled_vessel` | verified (ENG-HOMEDECOR) | `tests/test_eng_homedecor.py::test_a_research_handled_basket_certifies_with_cut_out_handles` | `BASKET_SIZES`; opening `HANDLE_MIN_CM` is a design choice | cut-out handles only; attached handles belong to the tote (partial) |
 | `garment_raglan` | `products.garment_release` (`raglan_cardigan`) | verified | `tests/test_eng_garment.py::test_a_research_adult_cardigan_runs_concept_to_pdf_in_nine_sizes`, `::test_a_research_baby_cardigan_runs_concept_to_pdf` | CYC woman XS-5X; CYC baby 3-24 months (`cir.graded`), one release of every size | cardigan only; relaxed or oversized; adult pair proven on the adult table, baby pair on the baby table only (ENG-GARMENT) |
 | `garment_one_piece` | `products.garment_release` (`one_piece_sweater`) | verified | `tests/test_eng_garment.py::test_a_research_child_sweater_runs_concept_to_pdf` | CYC child/youth 2-12 (`cir.graded`) | sweater on the child table only; adult one-piece held until a proof exists (ENG-GARMENT) |
 | `hat_beanie` | `products.wearables` (`beanie`) | verified | `tests/test_eng_garment2.py::test_a_research_adult_beanie_runs_concept_to_pdf`, `::test_a_research_child_beanie_runs_concept_to_pdf`, `::test_a_research_baby_beanie_runs_concept_to_pdf` | CYC head chart Preemie-Man (`cir.graded.HEAD`), stated -2 cm ease; height and brim are design ratios | rib brim and round crown only; no pom-pom, earflaps, visor or shaped brim (ENG-GARMENT-2) |
@@ -143,3 +147,21 @@ this branch**. Their certification status is whatever the certification runs in
   stays admitted. The twin tolerance is untouched.
 - **Pair guard.** `PAIR_PROOFS` names a certifying proof for every admitted (family, category)
   pair; a sweep test fails when the router admits a pair without one.
+
+## ENG-HOMEDECOR slice 1 (2026-11-20)
+
+Before this slice, five basket titles certified as the plain hexagon basket: "Round", "Oval",
+"Yarn Bowl", "Plant Pot Cozy" and "Moss Stitch" (reproduced through the real handlers). Now:
+
+- **Built and verified:** `round_vessel`, `bowl`, `lidded_vessel`, `handled_vessel` (table above).
+- **Held, by name, at intake, at draft and at certify:** oval/oblong/square/rectangular outlines
+  (the surface model is a circle), plant-pot cozies and planters (no sourced pot size), stitch
+  textures the walls do not work (moss, seed, linen, herringbone, ...), and any combination of
+  two variants (no combined proof), nesting sets (one draft is one release).
+- **Gates** (`creative.homedecor.findings`, run by `gate.certify` on the CIR and listing titles):
+  `VESSEL_BASE_NOT_FLAT`, `VESSEL_OUTLINE_UNSUPPORTED`, `VESSEL_BOWL_NOT_FLARED`,
+  `VESSEL_LID_DOES_NOT_FIT`, `VESSEL_HANDLE_UNSUPPORTED`, `VESSEL_OBJECT_UNSUPPORTED`,
+  `VESSEL_TEXTURE_UNSUPPORTED`, each with a mutation test.
+- New shared features in `NAMED_FEATURES`: `closure`, `straps`, `outline_round`, `outline_oval`,
+  `bowl`, `planter`, `stitch_texture` (`lid` is honest for `lidded_vessel`, `handles` for
+  `handled_vessel`).

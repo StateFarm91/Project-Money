@@ -254,6 +254,13 @@ def _plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
         coloured = tapestry_route(title)
         if coloured is not None:
             return coloured
+        # ENG-HOMEDECOR: a round base, a bowl, a lid or cut-out handles is drafted as that
+        # variant; an outline, a fitted object or a texture nothing works is refused by name.
+        from . import homedecor
+
+        variant = homedecor.vessel_route(title)
+        if variant is not None:
+            return variant
         return {"family": VESSEL, "needs": "", "why": "a basket is worked in the round"}
     if category in PET_CATEGORIES and re.search(_PET_BED_HEAD, fold_title(title)):
         lowered_p = fold_title(title)       # OPUS2L-4: Unicode dashes and forms folded

@@ -1260,6 +1260,7 @@ def handle_cir_draft(ctx: JobContext) -> dict:
     lineage = _fallback_lineage(seed, dict(i), concept)
     from ..creative import fallback_constructions as FC
     from ..creative.prototype import PrototypeRefused, source_provenance
+    from ..creative import homedecor as _HD
 
     # OPUS2-P0 (P0-DRAFT-CONSTRUCTIONS): the shape the concept's stitches are worked into is
     # decided before any CIR exists. A shaped form no fallback rule makes is refused by name
@@ -1292,6 +1293,19 @@ def handle_cir_draft(ctx: JobContext) -> dict:
                     concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
                     concept.source_brief, primitives)
             cir = FC.vessel(concept, provenance=provenance)
+        elif route["family"] in _HD.VARIANTS:
+            # ENG-HOMEDECOR: vessel variants (round base, bowl, lid, cut-out handles).
+            provenance = None
+            if lineage["known"]:
+                concept.source_provenance = lineage["source"]
+                concept.source_brief = lineage["brief"]
+                primitives = (FC.VESSEL_PRIMITIVES + _HD.PRIMITIVES[route["family"]]
+                              + tuple(p for p in lineage["primitives"]
+                                      if p != "runtime.pipeline.concept_to_cir"))
+                provenance = source_provenance(
+                    concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
+                    concept.source_brief, primitives)
+            cir = _HD.build(route["family"], concept, provenance=provenance)
         elif route["family"] == FC.COSY:
             provenance = None
             if lineage["known"]:

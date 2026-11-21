@@ -460,6 +460,10 @@ def certify(
     findings.extend(stitch_semantics_findings(cir))
     # A4A-1: an object noun in the title is held to that object's size band.
     findings.extend(object_size_findings(cir, twin))
+    # ENG-HOMEDECOR: a vessel's base is flat and turns into a wall, and every vessel claim in
+    # its name (round, oval, bowl, lid, handles, planter, a stitch texture) is backed by rows.
+    from ..creative import homedecor as _homedecor
+    findings.extend(_homedecor.findings(cir, twins, "cir.title"))
     # S1 review 6958883678 H2: the listing title is a size claim too ("Queen Size", "26 x 26
     # inch"); the twin must be the size it states.
     if listing is not None and twin is not None and getattr(listing, "title", None):
@@ -497,6 +501,8 @@ def certify(
     if listing is not None:
         findings.extend(check_listing(listing, cir, proof_states=proof_states))
         findings.extend(check_shape_claims(listing.title, cir, twin, "listing.title"))
+        from ..creative import homedecor as _homedecor_l
+        findings.extend(_homedecor_l.findings(cir, twins, "listing.title", text=listing.title))
         findings.extend(check_technique_claims(listing.title, cir, twin, "listing.title"))
         stages.append("policy")
 

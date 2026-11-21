@@ -36,6 +36,26 @@
 >   environment-only.
 > - Open risk: the test_cert_wiring drain is about 1240 s of its 1525 s limit on a 4-core host.
 > - Report: `research/final_build/w6/review_requests/CERTFIX-1.md`.
+> **2026-11-20 — FIX-B19C unit B on `eng/homedecor` (NOT merged to main, NOT deployed; production unchanged).**
+> Merged `claude/batch19-approve-all` (13585c4f). b19-c B1 fixed (`honest_fams` in test_eng_families). B2 fixed:
+> the lidded basket had no renderable hero and no schematic once PremiumStandard existed; `schematic_for` now draws
+> separately worked pieces (no seams) when every piece has a measured footprint, giving the labelled cover hero and
+> FINISHED MEASUREMENTS. Cover: `makes_words` for one component, "In 2 pieces: 1 basket, 1 lid" for several.
+> PremiumStandard unchanged. Report: `research/final_build/w6/review_requests/FIX-B19C.md`.
+> **2026-11-20 — ENG-HOMEDECOR fix for review b17-b (finding 1 and the `spans` survivor, finding 5), merged with claude/w6-INTEG6 dde3ea62; NOT reviewed again, NOT deployed.** `creative/homedecor.findings` now emits `VESSEL_GEOMETRY_UNKNOWN` when a vessel title has no readable twin geometry, and when a round, bowl or lid claim sits on a base not worked from a magic ring. Before this, both cases passed silently. New tests in test_eng_homedecor pin that error and the `spans` exclusion in `cir/geometry._increase_and_parentage`. Each mutant (`return []`, and dropping `not spans`) now fails a test.
+>
+> **2026-11-20 — ENG-HOMEDECOR slice 1 (`eng/homedecor`, builder branch; NOT reviewed, NOT integrated, NOT deployed; production unchanged, SHADOW).** Vessels in the round.
+> - **Defect found first.** Five basket titles were each granted a certificate as the plain hexagon basket, reproduced through the real handlers: "Round …", "Oval …", "… Yarn Bowl", "… Plant Pot Cozy" and "Moss Stitch …". They are now refused at intake, at draft and at certify.
+> - **Built (VERIFIED, end-to-end proofs in `tests/test_eng_homedecor.py`).** `creative.homedecor` has four variants: `round_vessel` (staggered increases, 0 corners), `bowl` (round base, flared wall), `lidded_vessel` (a lid fitted past the rim by whole wedges) and `handled_vessel` (two opposite cut-out handles). Each proof runs concept → certify → US and UK PDFs, checked against the small-home-goods PDF standard.
+> - **Gates.** `homedecor.findings` runs in `gate.certify` on the CIR title and on the listing title. Codes: `VESSEL_BASE_NOT_FLAT`, `_OUTLINE_UNSUPPORTED`, `_BOWL_NOT_FLARED`, `_LID_DOES_NOT_FIT`, `_HANDLE_UNSUPPORTED`, `_OBJECT_UNSUPPORTED`, `_TEXTURE_UNSUPPORTED`. Each has a mutation test.
+> - **Still held, by name.** Oval, square and rectangular outlines; planters and pot cozies (no sourced pot size); stitch textures; combinations of two variants; nesting sets. Décor and textures are slices 2 and 3.
+> - **Shared fixes.**
+>   - A spanning chain is no longer counted as an increase by `geometry.corners`.
+>   - A multi-piece PDF cover no longer reads "Makes 2 baskets" for a basket and its lid (the tote read "Makes 3 baskets").
+> - **Not verified.**
+>   - Every size and fit figure is computed, not measured. Lid fit assumes a fabric thickness; `HANDLE_MIN_CM` is a design choice.
+>   - Nothing ran against production.
+> - Review request: `research/final_build/w6/review_requests/homedecor_slice1.md`.
 
 > **2026-11-20 — FIX-DEMAND-STALL on `claude/w6-INTEG8-wip` (Batch 18 integration; NOT deployed; production
 > unchanged).** A promoted concept waiting in the supply queue for an uncertified engine (on the production pool:

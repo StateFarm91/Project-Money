@@ -41,6 +41,7 @@ import re
 from dataclasses import dataclass
 
 from . import fallback_constructions as FC
+from . import homedecor as HD
 
 VERIFIED, PHYSICAL_GATE, PARTIAL, NONE = "verified", "physical_gate", "partial", "none"
 ADMITTED_STATUSES = frozenset({VERIFIED, PHYSICAL_GATE})
@@ -59,6 +60,7 @@ class Family:
 
 
 PROOF = "tests/test_eng_families.py"
+HD_PROOF = "tests/test_eng_homedecor.py"
 CW_PROOF = "tests/test_eng_colourwork.py"
 CW_TAPESTRY = FC.COLOURWORK_TAPESTRY
 GARMENT_PROOF = "tests/test_eng_garment.py"
@@ -102,6 +104,27 @@ FAMILIES: dict[str, Family] = {f.key: f for f in (
            ("per-category template",),
            "creative.size_truth PILLOW_FORMS (standard pillow-form sizes)",
            "certification withholds for the risk class C physical sample"),
+    # ENG-HOMEDECOR: the vessel variants (creative.homedecor), each proven end to end.
+    Family(HD.ROUND_VESSEL, "creative.homedecor.round_vessel", VERIFIED,
+           f"{HD_PROOF}::test_a_research_round_basket_certifies_with_a_round_base",
+           ("small", "medium", "large"),
+           "products.vessels.BASKET_SIZES (house design sizes, no published standard)",
+           "the plain vessel's striped walls on a staggered-increase round base"),
+    Family(HD.BOWL, "creative.homedecor.bowl", VERIFIED,
+           f"{HD_PROOF}::test_a_research_bowl_certifies_with_a_flared_wall",
+           ("small", "medium", "large"),
+           "creative.homedecor.BOWL_SIZES (house design sizes, no published standard)",
+           "plain single crochet in bands; the concept's stitch repeat is not used"),
+    Family(HD.LIDDED, "creative.homedecor.lidded_vessel", VERIFIED,
+           f"{HD_PROOF}::test_a_research_lidded_basket_certifies_with_a_fitting_lid",
+           ("small", "medium", "large"),
+           "products.vessels.BASKET_SIZES; lid fit computed with an assumed fabric thickness",
+           "a plain lid with a lip, no knob or handle; fit is computed, not measured"),
+    Family(HD.HANDLED, "creative.homedecor.handled_vessel", VERIFIED,
+           f"{HD_PROOF}::test_a_research_handled_basket_certifies_with_cut_out_handles",
+           ("small", "medium", "large"),
+           "products.vessels.BASKET_SIZES; opening width a design choice (HANDLE_MIN_CM)",
+           "cut-out handles only; attached handles are the tote family (partial)"),
     # ENG-PLUSH (D-OWNER-CORE-FAMILIES): the ball-body bear or bunny. Admitted at
     # physical_gate because a research-derived toy compiles, builds its twin, reverse-compiles
     # US and UK, passes every computable child-safety check and renders US/UK PDFs with the
@@ -293,9 +316,21 @@ NAMED_FEATURES: tuple[tuple[str, str, frozenset], ...] = (
     ("waffle_stitch", r"\bwaffles?\b|\bbasket[- ]?weave\b|\btextured?\b|\bribbed\b|"
                       r"\bribbing\b|\bwoven\b|\bcluster\b|\bshell stitch\b|\bcrocodile\b",
      frozenset()),
-    ("lid", r"\blids?\b|\blidded\b|\bcovered\b|\blidded\b|\bzipp?(?:er|ered)?\b|"
-            r"\bbuttons?\b|\bclosures?\b|\bflaps?\b", frozenset()),
-    ("handles", r"\bhandles?\b|\bhandled\b|\bstraps?\b", frozenset({FC.TOTE})),
+    # ENG-HOMEDECOR: a lid is honest for the lidded vessel; every other closure is not.
+    ("lid", r"\blids?\b|\blidded\b", frozenset({HD.LIDDED})),
+    ("closure", r"\bcovered\b|\bzipp?(?:er|ered)?\b|\bbuttons?\b|\bclosures?\b|\bflaps?\b",
+     frozenset()),
+    ("handles", r"\bhandles?\b|\bhandled\b", frozenset({FC.TOTE, HD.HANDLED})),
+    ("straps", r"\bstraps?\b", frozenset({FC.TOTE})),
+    # ENG-HOMEDECOR: outlines, objects and stitch textures a title can name.
+    ("outline_round", HD._ROUND_RE, frozenset({HD.ROUND_VESSEL, HD.BOWL})),
+    ("outline_oval", r"\boval\b|\boblong\b", frozenset()),
+    ("bowl", HD._BOWL_RE, frozenset({HD.BOWL})),
+    ("planter", HD._PLANTER_RE, frozenset()),
+    ("stitch_texture", r"\bmoss(?: stitch)?\b|\bseed stitch\b|\blinen stitch\b|"
+                       r"\bgranite stitch\b|\bherringbone\b|\bv[- ]stitch\b|\bgriddle stitch\b|"
+                       r"\bhoneycomb\b|\blemon peel\b|\bsuzette\b|\bwattle stitch\b|"
+                       r"\bspike stitch\b|\bthermal stitch\b", frozenset()),
     ("amigurumi_features", r"\bamigurumi\b|\bears?\b|\btails?\b|\bwhiskers?\b|\bfaces?\b|"
                            r"\bsnouts?\b|\beyes?\b|\bpaws?\b|\bhorns?\b|\bwings?\b|"
                            r"\bplush\b|\bstuffed\b", frozenset({FC.AMIGURUMI, FC.LOVEY})),
@@ -399,6 +434,7 @@ PAIR_PROOFS: dict[tuple[str, str], str] = {
     (FC.VESSEL, "basket"): FAMILIES[FC.VESSEL].proof,
     (FC.TAPESTRY, "basket"): FAMILIES[FC.TAPESTRY].proof,
     (FC.PANEL_PAIR, "pillow"): FAMILIES[FC.PANEL_PAIR].proof,
+    **{(v, "basket"): FAMILIES[v].proof for v in HD.VARIANTS},
     # ENG-COLOURWORK: each pair names its own end-to-end proof (concept -> admit -> CIR ->
     # compile -> twin -> certify -> US/UK PDF with chart). The cushion is physical-gated: the
     # proof shows certification withholds only for the class C physical sample.
@@ -517,8 +553,10 @@ def route(*, category: str, title: str, form: str, construction: str, slug: str 
     # amigurumi construction names it honestly.
     if declared == FC.AMIGURUMI and family == FC.LOVEY:
         declared = FC.LOVEY
+    # ENG-HOMEDECOR: a vessel concept drafted by a vessel variant is the vessel, honestly.
     if declared is not None and family != declared and not (
-            {family, declared} <= {FC.TAPESTRY, CW_TAPESTRY} and category == "basket"):
+            {family, declared} <= {FC.TAPESTRY, CW_TAPESTRY} and category == "basket") \
+            and not (declared == FC.VESSEL and family in HD.VARIANTS):
         return _hold(declared, f"the concept declares {construction!r} {form!r} ({declared}) "
                                f"but its category {category!r} and title draft a {family}; "
                                f"drafting it would mislabel the product")
@@ -680,6 +718,9 @@ def draft_hold(category: str | None, title: str | None, construction: str | None
         return f"{HOLD_PREFIX}{family}"
     if cat in FC.VESSEL_CATEGORIES and FC.tapestry_route(title) is not None:
         family = FC.TAPESTRY
+    elif cat in FC.VESSEL_CATEGORIES and (HD.vessel_route(title) or {}).get("family") \
+            in HD.VARIANTS:
+        family = HD.vessel_route(title)["family"]
     elif cat in FC.POUCH_CATEGORIES and re.search(r"\bdrawstring\b", folded):
         family = FC.POUCH
     elif cat in FC.TOTE_CATEGORIES and re.search(FC._TOTE_WORDS, folded):
