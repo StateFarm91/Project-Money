@@ -109,6 +109,9 @@ def test_second_directive_recovers_then_exercises_bounded():
     good = lambda: {"ok": True, "status": "clean", "shop_is_clean": True}  # noqa: E731
     assert E.maybe_run_2(db2, now=at, recoverer=rec, runner=good)["ok"] is True
     assert E.maybe_run_2(db2, now=at, recoverer=rec, runner=good)["ran"] is False
+    v = E._visibility_2(db)
+    assert v["attempts"] == E.MAX_ATTEMPTS_2 and v["last"][0]["recovery_cleaned"] == 1, v
+    assert "why" not in str(v), v
     assert E.maybe_run_2(_db(), now=E.SUNSET_2 + timedelta(minutes=1),
                          recoverer=rec, runner=good)["ran"] is False
 
