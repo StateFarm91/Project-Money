@@ -618,8 +618,21 @@ def check(db, *, current: dict[str, str],
     seen: set[tuple[str, str]] = set()
     latest_version = getattr(current, "latest_version", None) or {}
     by_version = getattr(current, "by_version", None) or {}
+    retired_slugs = _retired_slugs()
     for row in db.scalars(select(ArtefactProvenance)):
         seen.add((row.artefact_class, row.artefact_key))
+        # eng/publish-unhalt U2: a retired legacy-duplicate concept slug is never rebuilt
+        # (`creative.preengineering` refuses it; its design lives on under the slug that
+        # superseded it), so a recorded artefact of it read STALE for good, raised a halting
+        # row nothing could cure and counted toward the systemic halt. The expected-side loop
+        # below already retires such a slug's unrecorded output; a recorded row is retired
+        # by the same rule, so both halves of the sweep agree.
+        if row.product_slug in retired_slugs:
+            why = (f"{row.product_slug} is a retired legacy-duplicate concept slug; its "
+                   f"recorded output is retired, never served as current or rebuilt")
+            verdicts.append(Verdict(row.artefact_class, row.artefact_key, row.product_slug,
+                                    UNPROVEN, why=why, retired=why))
+            continue
         # R1: judged against the release it was built from. For the newest release that is
         # the same comparison as before; for an older one it is that release's own record.
         built = built_from_version(row.artefact_key, row.product_slug, row.inputs or {},
@@ -673,6 +686,15 @@ def check(db, *, current: dict[str, str],
                  "and would pass any sweep that only compares recorded rows. A stable slug "
                  "must never make stale output appear current")))
     return verdicts
+
+
+def _retired_slugs() -> set[str]:
+    """The retired legacy-duplicate concept slugs (`products.launch0.LEGACY_DUPLICATES`)."""
+    try:
+        from ..products.launch0 import LEGACY_DUPLICATES
+        return set(LEGACY_DUPLICATES)
+    except Exception:  # noqa: BLE001 - without the list, nothing is retired by slug
+        return set()
 
 
 def _superseded_lookup(db):
@@ -871,6 +893,17 @@ def sweep(db, *, current: dict[str, str],
     # release the product has since moved past is closed as superseded, with the reason.
     superseded_why = {f"{SENTINEL_SIGNATURE}:{v.artefact_class}:{v.artefact_key}": v.why
                       for v in verdicts if v.state == SUPERSEDED}
+    # eng/publish-unhalt U1: a row whose artefact is now RETIRED (legacy output of a
+    # superseded design, or of a retired legacy-duplicate slug) can never read FRESH -- nothing
+    # rebuilds a retired artefact -- so it stayed open, halting its product, and counted
+    # toward the company-wide halt for good. Retirement is the deterministic sweep's own
+    # verdict, so it is the cleared cause. Likewise a row whose artefact the sweep no longer
+    # finds at all (no provenance row, and not among the artefacts that exist downstream):
+    # nothing exists to be stale. That second rule needs the full `expected` estate; without
+    # it absence proves nothing and the row stays open.
+    retired_why = {f"{SENTINEL_SIGNATURE}:{v.artefact_class}:{v.artefact_key}": v.retired
+                   for v in verdicts if retired(v)}
+    judged = {f"{SENTINEL_SIGNATURE}:{v.artefact_class}:{v.artefact_key}" for v in verdicts}
     cleared = []
     for row in db.scalars(select(Incident)
                           .where(Incident.signature.like(f"{SENTINEL_SIGNATURE}:%"))
@@ -887,6 +920,24 @@ def sweep(db, *, current: dict[str, str],
             detail = dict(row.detail or {})
             detail["resolution"] = ("superseded, not stale: "
                                     + superseded_why[row.signature])[:400]
+            detail["resolved_at"] = datetime.now(timezone.utc).isoformat()
+            row.detail = detail
+            cleared.append(row.signature)
+        elif row.signature in retired_why:
+            row.resolved = True
+            detail = dict(row.detail or {})
+            detail["resolution"] = ("retired, not stale: "
+                                    + str(retired_why[row.signature]))[:400]
+            detail["resolved_at"] = datetime.now(timezone.utc).isoformat()
+            row.detail = detail
+            cleared.append(row.signature)
+        elif (expected is not None and row.signature not in judged
+              and row.signature != backlog_signature):
+            row.resolved = True
+            detail = dict(row.detail or {})
+            detail["resolution"] = ("the artefact no longer exists: it has no provenance row "
+                                    "and is not among the artefacts that exist downstream, "
+                                    "so nothing is stale")
             detail["resolved_at"] = datetime.now(timezone.utc).isoformat()
             row.detail = detail
             cleared.append(row.signature)
