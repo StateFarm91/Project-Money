@@ -4028,3 +4028,7 @@ Consequence:
 - A render is never presented as a sample photo (Product Truth, no fake evidence). `SAMPLE_PHOTO_REQUIRED` stays a publication gate.
 - Private drafts remain allowed (D-OWNER-PRIVATE-DRAFT-BEFORE-SAMPLE).
 - The compliant routes are put to the owner: a paid independent tester through the existing tester-kit programme (consequential spend, so the owner decides), or a sales channel without that rule.
+
+## D-OWNER-DEPLOY-19h4 — 2026-11-21T12:19:31Z
+
+Batch 19h4 (code a607a3832) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to dc10a48d5709d99924723a21e10653a49d35df18 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
