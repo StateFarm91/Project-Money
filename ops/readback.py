@@ -375,6 +375,42 @@ EVIDENCE_ITEMS = (
 )
 
 
+_VOCAB = re.compile(r"^[a-z][a-z0-9_.:@-]{0,79}$")
+
+
+def _why_not_candidates(releases) -> str:
+    """eng/publish-unhalt U5: the WARN named a count and no cause, so the operator could not
+    tell a halt from a missing gallery from an unread policy without the raw JSON. Built only
+    from the fixed-vocabulary fields the server already emits (section names, blocker source
+    identifiers, booleans); anything else is dropped, never echoed."""
+    if not isinstance(releases, list) or not releases:
+        return ""
+    parts, tally = [], {}
+    for r in releases[:30]:
+        if not isinstance(r, dict):
+            continue
+        why = []
+        if r.get("on_etsy") is True:
+            why.append("already_on_etsy")
+        secs = r.get("publication_sections") or {}
+        why += sorted(f"{k}={v}" for k, v in secs.items()
+                      if isinstance(k, str) and v in ("FAIL", "UNKNOWN") and _VOCAB.match(k))
+        if r.get("package_state") != "ready_for_owner_review":
+            why.append(f"package={r.get('package_state') or 'none'}")
+        elif r.get("package_is_current_release") is not True:
+            why.append("package_not_current_release")
+        why += [f"blocker:{s}" for s in (r.get("package_blocker_sources") or [])
+                if isinstance(s, str) and _VOCAB.match(s)]
+        for w in why:
+            tally[w] = tally.get(w, 0) + 1
+        rel = str(r.get("release") or "?")
+        if _VOCAB.match(rel):
+            parts.append(f"{rel}: {', '.join(why[:8]) or 'no reason emitted'}")
+    common = sorted(tally.items(), key=lambda kv: (-kv[1], kv[0]))[:6]
+    return ("; most common: " + ", ".join(f"{k} x{n}" for k, n in common)
+            + " | " + " | ".join(parts[:7])) if parts else ""
+
+
 def _judge_section(name: str, section, judged) -> tuple[str, str]:
     """(verdict, short reason). UNKNOWN whenever the evidence is absent or unreadable."""
     if name == "scheduler":
@@ -398,7 +434,8 @@ def _judge_section(name: str, section, judged) -> tuple[str, str]:
         if cands:
             return PASS, f"draft candidates {cands}"
         return WARN, (f"no draft candidate among {section.get('certified_with_listing')} "
-                      f"certified Launch-0 releases with a listing")
+                      f"certified Launch-0 releases with a listing"
+                      + _why_not_candidates(section.get("releases")))
     if name == "motif_backlog_recovery":
         if not isinstance(section, dict) or section.get("readable") is not True:
             return WARN, ("section missing" if not isinstance(section, dict) else

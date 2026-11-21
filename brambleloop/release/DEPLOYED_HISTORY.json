@@ -101,6 +101,86 @@
    "sha": "a4952711c5e1dcab1d668239656778d016ba1cfd",
    "observed": "2026-11-20T22:04Z",
    "evidence": "owner exact-SHA OK ('Yes, push Batch 18 now'). Batch 18 code 511a8c63 (demand-supply + etsy-publish fixes + demand-stall fix) + release records. Overlap 353/0. Rollback rehearsal to 09be42d6 ALLOW. verify_deploy DEPLOYED; worker alive. Readback: 9/9 shops scanned, engine-demand row live; seasonal.cycle_proof re-billing (6 calls) traced to dead-letter redrive, fix in eng/fix-cycle-proof-billing."
+  },
+  {
+   "sha": "2f7da291f2d1d3199ccf0b93a96be5b723606aa9",
+   "batch": "19a",
+   "code": "13585c4f",
+   "at": "2026-11-21T00:15:34Z",
+   "verify_deploy": "DEPLOYED",
+   "readback_evidence": "FAIL (PASS 11, FAIL 6, UNKNOWN 0)",
+   "override": "D-OWNER-DEPLOY-OVERRIDE-4",
+   "rollback_to": "a4952711"
+  },
+  {
+   "sha": "c9e8549f3592cf9c609619066243051ba3f7e0e9",
+   "batch": "19b",
+   "code": "46748ff53",
+   "at": "2026-11-21T02:06:32Z",
+   "verify_deploy": "DEPLOYED",
+   "override": "D-OWNER-DEPLOY-19b",
+   "authorization": "D-OWNER-AUTODEPLOY-TONIGHT",
+   "rollback_to": "2f7da291f2d1d3199ccf0b93a96be5b723606aa9"
+  },
+  {
+   "sha": "4f1c32f0d9487c9f0b40c864f12b1d559a7282a1",
+   "batch": "19c",
+   "code": "957c8f945",
+   "at": "2026-11-21T02:33:12Z",
+   "verify_deploy": "DEPLOYED",
+   "override": "D-OWNER-DEPLOY-19c",
+   "authorization": "D-OWNER-AUTODEPLOY-TONIGHT",
+   "rollback_to": "c9e8549f3592cf9c609619066243051ba3f7e0e9"
+  },
+  {
+   "sha": "a24f8d83ca778b083d6e60054184f65e1e55ef03",
+   "batch": "19c1",
+   "code": "996525ed2",
+   "at": "2026-11-21T02:37:39Z",
+   "verify_deploy": "DEPLOYED",
+   "override": "D-OWNER-DEPLOY-19c1",
+   "authorization": "D-OWNER-AUTODEPLOY-TONIGHT",
+   "rollback_to": "4f1c32f0d9487c9f0b40c864f12b1d559a7282a1"
+  },
+  {
+   "sha": "bcbf5f2d216d96b2c78f3bfc2676a87fe60c406b",
+   "batch": "19c2",
+   "code": "952474c12",
+   "at": "2026-11-21T02:55:31Z",
+   "verify_deploy": "DEPLOYED",
+   "override": "D-OWNER-DEPLOY-19c2",
+   "authorization": "D-OWNER-AUTODEPLOY-TONIGHT",
+   "rollback_to": "a24f8d83ca778b083d6e60054184f65e1e55ef03"
+  },
+  {
+   "sha": "ec5843d75cc80c2f8aaa6689162e86f6acc9ec04",
+   "batch": "19c3",
+   "code": "072a9b17b",
+   "at": "2026-11-21T03:08:02Z",
+   "verify_deploy": "DEPLOYED",
+   "override": "D-OWNER-DEPLOY-19c3",
+   "authorization": "D-OWNER-AUTODEPLOY-TONIGHT",
+   "rollback_to": "bcbf5f2d216d96b2c78f3bfc2676a87fe60c406b"
+  },
+  {
+   "sha": "15d03a0a17002990d1c06085c10fc98bdaf48aa9",
+   "batch": "19d",
+   "code": "43609a8de",
+   "at": "2026-11-21T03:26:47Z",
+   "verify_deploy": "DEPLOYED",
+   "override": "D-OWNER-DEPLOY-19d",
+   "authorization": "D-OWNER-AUTODEPLOY-TONIGHT",
+   "rollback_to": "ec5843d75cc80c2f8aaa6689162e86f6acc9ec04"
+  },
+  {
+   "sha": "7b250d6164e4509617edd157048cc42db9a6b9bb",
+   "batch": "19d1",
+   "code": "80ce7211b",
+   "at": "2026-11-21T03:29:50Z",
+   "verify_deploy": "DEPLOYED",
+   "override": "D-OWNER-DEPLOY-19d1",
+   "authorization": "D-OWNER-AUTODEPLOY-TONIGHT",
+   "rollback_to": "15d03a0a17002990d1c06085c10fc98bdaf48aa9"
   }
  ]
 }

@@ -59,6 +59,17 @@
 > `test_concepts100` (2 tests): failing identically on base `claude/batch19-fixers` (pre-existing; NOT fixed here).
 > `test_eng_demand_supply`: failing on base (cosy-round-bear held by `outline_round`, fixed here), then hit a harness
 > DuplicateJob (`_run` keyed by id(inputs)), fixed in the test; re-run alone: 0 failed. Contracts suites pass.
+> **2026-11-21 — LEARN-PROOF-2 on `eng/learn-proof-2` (from `claude/batch19c-etsy` c5d6df2; NOT merged, NOT deployed;
+> no lesson applied in production).** All 14 benchmark lessons now switch on a deterministic hook (was 6): HC-L1 effective
+> vs strike price (`intel/serp.capture`), HC-L2 cosy-farm concept cluster + MM-L1 chenille trait (radar, cap +0.06), HC-L3
+> no photo-of-the-making claims (SEO, blocking), HC-L4 component-grouped amigurumi instructions (PDF rule), HC-L6 upload
+> refuses a link page / non-PDF / truncated / hash mismatch (`EtsyClient._attach_file`), HC-L7 front-load (soft), MM-L2
+> "Joining as you go" appendix entry + rule, MM-L3 chenille yarn class with shedding/care note, MM-L5 toy scale frame held in
+> a hand (campaign brief), MM-L7 tension guidance rule. Readback: every department wired; applied is UNKNOWN until its hook
+> ran. OPEN: MM-L2 compiler/twin/reverse validation of joined counts; HC-L1 changes nothing when the payload has no sale
+> price. Targeted run 20261121T023222Z-3239 on 55f4e9c (33 suites incl. test_learn_proof, test_vacuity, PDF, SEO, Etsy,
+> SERP, gallery, readback): 601 passing, 0 failing. Full suite not run. Decision D-LEARN-PROOF-2. Report:
+> `research/final_build/w6/review_requests/LEARN-PROOF-2.md`.
 > **2026-11-21 — LEARN-PROOF on `eng/learn-proof` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT deployed;
 > production unchanged).** Both benchmark teardowns' department lessons (HC-L1..7, MM-L1..7) are now 14 structured records
 > (department, lesson class, effect hook) in the learning store (`learning_derived_lessons`, loop `benchmark`), ingested
@@ -999,6 +1010,39 @@
 
 _Updated 2026-09-20 by the Brambleloop build session. Maintained continuously so any future
 session resumes without rediscovery (Execution Directive step 1, Master Plan section 35)._
+
+> **2026-11-21 — PUBLISH-UNHALT on `eng/publish-unhalt` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT
+> deployed; production unchanged at 2f7da291, SHADOW).**
+> - **Trigger.** The readback had FAIL `publishing_halt_clear` and WARN "no draft candidate among 7". The token-gated
+>   evidence was not read: no Railway variable values, no operator token. Findings come from the code plus public
+>   `/api/verify` and `/health`.
+> - **Halt fixes (D-ENG-PUBLISH-UNHALT).** The systemic halt is evidenced only by per-product rows. Three row shapes
+>   could never close:
+>   - U1: a `stale-artefact` row whose artefact now reads retired, or no longer exists;
+>   - U2: rows of the retired legacy-duplicate slugs `market-basket-trio` and `hexie-coaster-set`, both among
+>     production's 14 halted products. Their recorded rows read STALE, their rebuilds are refused by design, and
+>     rebuild-incomplete could never close;
+>   - U3: an exhausted rebuild-incomplete hold whose recorded #39 policy refusal (`listing_image_rules`) had since
+>     cleared under D-OWNER-POLICY39-OVERRIDE.
+>   All three now close or release on their cleared cause. A U3 release keeps the row open and halting, gives one
+>   recorded budget and one targeted rebuild, and happens at most once per hold.
+> - **U5.** The readback WARN names each release's failing sections and blocker sources, from fixed vocabulary only.
+> - **Draft-candidate predicate.** Checked and correct.
+> - **Owner items (OWNER_ACTIONS_P0.md).**
+>   - P0-1: the controlled Etsy exercise. `etsy_remote_state` is UNVERIFIABLE without it, and the only door is the
+>     operator endpoint.
+>   - P0-2: fresh readings of the five etsy.com/legal pages. The excerpt is dated 2026-09-26 against a 30-day limit,
+>     so the packet's `policy` section is FAIL. Confirm before acting.
+> - **Tests.** New `test_publish_unhalt`: 10 tests, 9 of which fail on 8204c93. Targeted run 20261121T003209Z-1418
+>   (15 suites, dirty tree, not release-eligible): 257 passing, 4 suites failing. Of those:
+>   - two were fixtures that used the retired slugs as ordinary products. `test_eng_stale_rebuild_loop` now expects
+>     12 live products planned and asserts the retired two are not; `test_eng_recovery` uses the live
+>     `hexagon-coaster-set`. Both re-run green;
+>   - two fail identically on the base, so they are **pre-existing and not caused here**:
+>     `test_first_listing_doors` (gallery 6 of 7 frames, D-OWNER-GALLERY-COMPLETE) and `test_w4_readback_evidence`
+>     (the CLI token test).
+>   `test_vacuity` passed.
+> - **Report.** `w6/review_requests/PUBLISH-UNHALT.md`.
 
 ## PRODUCTION DIAGNOSIS — 2026-11-20 04:55 UTC (Main, live readback of 5496bc4a / Batch 11)
 

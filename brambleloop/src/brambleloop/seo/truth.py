@@ -253,8 +253,14 @@ def validate_listing(title: str, tags: list[str], facts: ProductFacts, *,
 
     blocking += benchmark_lessons.seo_check(facts.cir, facts.slug,
                                             segments + list(tags), lessons)
+    # LEARN-PROOF-2: HC-L3 (no promise of photos of the making without a physical sample)
+    # blocks; HC-L7 (front-load the object and "pattern") is advice, never a block.
+    blocking += benchmark_lessons.photo_claim_findings([title or ""] + list(tags),
+                                                       slug=facts.slug, effects=lessons)
 
     soft: list[str] = []
+    soft += benchmark_lessons.front_load_findings(title or "", slug=facts.slug,
+                                                  effects=lessons)
     if len(tags) < seo_mod.TAG_MAX_COUNT:
         soft.append(f"TAG_SLOTS_UNUSED: {len(tags)} of {seo_mod.TAG_MAX_COUNT}")
     return {"ok": not blocking, "blocking": blocking, "soft": soft, "stuffing": stuffed,

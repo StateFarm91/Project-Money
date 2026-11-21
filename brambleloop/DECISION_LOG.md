@@ -3879,6 +3879,17 @@ Reversible by decision.
 - Both PDF layouts now print the eye-options panel (amigurumi) and the chunky/chenille hook range, so the learned
   standard does not refuse what production builds. The bytes of those documents change from this commit.
 - Reversible by decision.
+## D-LEARN-PROOF-2 — every benchmark lesson has a hook; content is printed unconditionally (LEARN-PROOF-2, 2026-11-21)
+- A lesson may switch on more than one hook (`BenchmarkLesson.also`); MM-L3 adds `yarn_chenille_class`, MM-L7 adds
+  `pdf_tension_guidance`.
+- Renderers print learned content (chenille care note, join-as-you-go entry) whatever the snapshot; the lesson switches on
+  only the audit requirement. Bytes of a certified CIR never depend on the process that rendered it (HC-L6 hash match).
+- HC-L1: an effective price below the listed one replaces it; the listed price is kept as `strike_price` and never banded.
+  Absent effective price = unchanged (absent is not "no discount").
+- HC-L7 front-loading is advice (soft), never a block; its badge half was already `commerce.search.tag_truth`.
+- HC-L6 runs on the bytes at upload time; an empty payload keeps the existing "no bytes" refusal.
+- Concept nudges: MM-L1 cap +0.04 unchanged; HC-L2 +0.02; total cap +0.06; amigurumi only.
+- Reversible by decision.
 ## 2026-11-21 — CLOTHING-E2E (`eng/clothing-e2e` from `claude/batch19-fixers` 8204c93)
 - **D-CLOTHING-E2E-1 — hats, socks and slippers are the garment demand family.** `products.demand`
   classified "beanie", "socks" and "slippers" as `accessory`, which is not a boosted family, so the
@@ -3979,3 +3990,71 @@ M2/L4). No existing check was relaxed; four rules were added to `publish.pdf_sta
   gate D-OWNER-SALE-PIPELINE requires to PASS. `test_w6_listing_chain_e2e` documents that it cannot
   be reached in a test without forging, so the two tests stay red until a real sample photo
   exists. No gate was relaxed and nothing was forged.
+
+## D-ENG-PUBLISH-UNHALT — halting rows close on their cleared cause (eng/publish-unhalt, 2026-11-21; routine engineering)
+**Problem.** The company-wide halt is evidenced only by per-product halting rows, so it clears only when they can close.
+Three shapes of row could never close. Each is fixed here, with no gate relaxed.
+- **U1.** A `stale-artefact` row now closes when the sweep reads its artefact **retired** (the retirement reason is
+  recorded). It also closes when the artefact **no longer exists**: no provenance row and absent from the full `expected`
+  estate. With no estate given, absence proves nothing and the row stays open.
+- **U2.** Recorded artefacts of a retired legacy-duplicate slug (`products.launch0.LEGACY_DUPLICATES`) read
+  UNPROVEN+retired, matching the expected-side rule. The rebuild graph no longer plans their rebuilds (`retired_skipped`).
+  The sentinel closes such a product's `rebuild-incomplete` row, naming the retirement.
+- **U3.** An exhausted `rebuild-incomplete` hold whose recorded refusal names watched policy sources
+  (`platform_policy.POLICY_SOURCES` keys plus a `#39`/policy marker) is released once none of them is unreviewed (owner
+  overrides honoured), stale or unread. The release is one fresh, recorded budget (`hold_released`) plus one targeted
+  rebuild. It happens at most once per distinct hold, and attempts that failed before it do not count. The row stays
+  open and halting, and only the existing positive-evidence rules close it. If the policy state is unreadable, nothing
+  is released.
+- **U5.** The readback's no-draft-candidate WARN names each release's failing sections and blocker sources. It uses
+  fixed-vocabulary fields only.
+**Unchanged.** The systemic rule (3 products and 50%), #39, the kill switch, fees, child safety, and the grant and
+activation gates.
+**Owner items.** These are owner items, not code: the controlled Etsy exercise (`etsy_remote_state`) and fresh readings
+of the five etsy.com/legal pages (the packet's `policy` section). Both are in OWNER_ACTIONS_P0.md.
+
+## D-OWNER-ETSY-EXERCISE — 2026-11-21T02:20Z (owner)
+
+**Owner, about OWNER_ACTIONS_P0 P0-1:** "Im not on my pc. I can't do it. You do it". This came after the owner chose "Railway runs it inside" in AskUserQuestion, a route that proved impossible: Railway's agent cannot run commands in the container.
+
+**Decision.** `ops.owner_etsy_exercise` runs the unchanged `integrations.etsy_exercise.run(mode="full")` from the deployed service itself. The exercise makes one marked DRAFT, then deletes it and verifies the delete. Its client is built with `owner_authorised=False`, so it cannot publish. Cost: CA$0. Limits:
+- It starts in a boot thread only when `RAILWAY_DEPLOYMENT_ID` is set.
+- It runs only inside [02:20Z 2026-11-21, +24 h].
+- It makes at most 2 attempts, and stops after the first clean run.
+- Every attempt is audited. A refusal, such as an expired Etsy grant, is recorded and never worked around.
+
+The operator token is never read by any session.
+## D-MAIN-19B-PRODUCT-RUN-INCOMPLETE — 2026-11-21T02:08Z
+Batch 19b ships with `test_product_run` **incomplete, not passed**: 3 of 36 tests passed, 33 were not run, and none failed. At the local pace (about 20 minutes a test on a contended 4-CPU host) it cannot finish before the owner's 05:00Z deadline. Every other changed and overlap suite passes:
+- 22 merged-unit suites;
+- 17 batch suites;
+- the paid gate, the owner directive (with the B19-SEC sunset), approvals, vis_gallery, physfix, garment2 and readback evidence.
+The cloud full-suite cert (cert-results/d8751850) runs product_run in full. If it fails there, the fix ships next, or production rolls back to 2f7da291.
+## D-OWNER-DEPLOY-OVERRIDE-4 — 2026-11-20T22:26Z
+Batch 19a (D-OWNER-APPROVE-ALL alone, on top of production 511a8c63) is deployed without a full-suite certification, under the owner's exact-SHA approval. Reason: the owner deadline is end of day 2026-11-20. The changed suites pass (8 suites, 168 tests), and a rollback to a4952711 was rehearsed. The boot guard still requires a full-suite record; this override does not satisfy it.
+## D-OWNER-DEPLOY-19b — 2026-11-21T02:04:27Z
+Batch 19b (code 46748ff53) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 2f7da291f2d1d3199ccf0b93a96be5b723606aa9 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-DEPLOY-19c — 2026-11-21T02:30:47Z
+
+Batch 19c (code 957c8f945) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to c9e8549f3592cf9c609619066243051ba3f7e0e9 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-DEPLOY-19c1 — 2026-11-21T02:36:01Z
+
+Batch 19c1 (code 996525ed2) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 4f1c32f0d9487c9f0b40c864f12b1d559a7282a1 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-DEPLOY-19c2 — 2026-11-21T02:53:31Z
+
+Batch 19c2 (code 952474c12) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to a24f8d83ca778b083d6e60054184f65e1e55ef03 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-DEPLOY-19c3 — 2026-11-21T03:06:07Z
+
+Batch 19c3 (code 072a9b17b) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to bcbf5f2d216d96b2c78f3bfc2676a87fe60c406b was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-DEPLOY-19d — 2026-11-21T03:24:51Z
+
+Batch 19d (code 43609a8de) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to ec5843d75cc80c2f8aaa6689162e86f6acc9ec04 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-DEPLOY-19d1 — 2026-11-21T03:27:55Z
+
+Batch 19d1 (code 80ce7211b) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 15d03a0a17002990d1c06085c10fc98bdaf48aa9 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.

@@ -497,7 +497,9 @@ def test_a_legacy_row_with_nothing_stale_gets_exactly_one_targeted_rebuild():
     """Production: 14 rows in `rebuild_incomplete_legacy_budget_pending`. A pre-branch row whose
     product reads nothing STALE is never reached by the propagation (it enqueues only for moved
     refs), so it could neither restate onto the bounded budget nor close. It now gets one
-    targeted rebuild of its named keys, once per row; nothing is closed without evidence."""
+    targeted rebuild of its named keys, once per row; nothing is closed without evidence.
+    (eng/publish-unhalt: the fixture slug is the live `hexagon-coaster-set`; the retired
+    legacy-duplicate `hexie-coaster-set` now closes as retired instead -- test_publish_unhalt U2.)"""
     import test_eng_stale_rebuild_loop as base
 
     from brambleloop.core.models import Product
@@ -506,16 +508,16 @@ def test_a_legacy_row_with_nothing_stale_gets_exactly_one_targeted_rebuild():
     fp = {"chain:release": {"old": "0" * 16, "new": "1" * 16}}
     db = base._db()
     with db.session() as s:
-        for slug in ("hexie-coaster-set", "spooky-garland", "pet-snuggle-mat"):
+        for slug in ("hexagon-coaster-set", "spooky-garland", "pet-snuggle-mat"):
             s.add(Product(slug=slug, title=slug))
         s.flush()
         # legacy, nothing stale: its named PDF has no provenance row; its chart reads fresh
-        s.add(Incident(severity="P2", signature="rebuild-incomplete:hexie-coaster-set",
+        s.add(Incident(severity="P2", signature="rebuild-incomplete:hexagon-coaster-set",
                        product_slug=None, halts_publication=True, report_count=6,
-                       summary="legacy", detail={"stale": ["pdf:hexie-coaster-set@1.0.0#pdf-us"],
+                       summary="legacy", detail={"stale": ["pdf:hexagon-coaster-set@1.0.0#pdf-us"],
                                                  "reason": "t", "fingerprints": fp}))
-        A.record(s, artefact_class="chart", artefact_key="hexie-coaster-set@1.0.0#chart",
-                 product_slug="hexie-coaster-set",
+        A.record(s, artefact_class="chart", artefact_key="hexagon-coaster-set@1.0.0#chart",
+                 product_slug="hexagon-coaster-set",
                  inputs={"chain:release": A.chain_fingerprint()})
         # already under the new budget: the bounded retry owns it, no restart here
         s.add(Incident(severity="P2", signature="rebuild-incomplete:spooky-garland",
@@ -531,14 +533,14 @@ def test_a_legacy_row_with_nothing_stale_gets_exactly_one_targeted_rebuild():
                  product_slug="pet-snuggle-mat", inputs={"chain:release": "0" * 16})
     with _Policy():
         out = base._sentinel(db, "legacy-1")
-        assert out["rebuild_incomplete_legacy_restarted"] == ["hexie-coaster-set"], out
+        assert out["rebuild_incomplete_legacy_restarted"] == ["hexagon-coaster-set"], out
         again = base._sentinel(db, "legacy-2")
         assert again["rebuild_incomplete_legacy_restarted"] == [], again
     with db.session() as s:
         jobs = [j for j in s.scalars(select(Job).where(Job.job_type == "chain.rebuild"))
                 if (j.idempotency_key or "").startswith("rebuild:legacy-restart:")]
         assert len(jobs) == 1 and jobs[0].inputs["artefacts"] == [
-            "pdf:hexie-coaster-set@1.0.0#pdf-us"], [(j.idempotency_key, j.inputs) for j in jobs]
+            "pdf:hexagon-coaster-set@1.0.0#pdf-us"], [(j.idempotency_key, j.inputs) for j in jobs]
         rows = {r.signature: r for r in s.scalars(select(Incident).where(
             Incident.signature.like("rebuild-incomplete:%")))}
         assert not any(r.resolved for r in rows.values())            # nothing closed

@@ -363,6 +363,11 @@ def flux_campaign_for(category: str, *, listing: str = "") -> dict:
     for pos, (job, role) in enumerate(FLUX_SLOTS, start=1):
         generated = job != el.CONTENTS
         laura, brief = briefs.get(job, (False, CONTENTS_BRIEF))
+        if job == el.SCALE:
+            # LEARN-PROOF-2 (benchmark MM-L5): a toy's scale frame is held in a hand.
+            from ..learning import benchmark_lessons as _bench
+
+            brief = _bench.scale_brief(category, brief, subject=listing)
         slots.append({
             "position": pos, "role": role, "job": job, "route": FLUX_ROUTE,
             "why": el.JOBS[job], "required_by": list(REQUIRED_BY.get(job, ("F-254",))),

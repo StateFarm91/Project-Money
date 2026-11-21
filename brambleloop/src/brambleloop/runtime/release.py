@@ -8140,13 +8140,47 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         settled = (provenance.FRESH, provenance.SUPERSEDED)
         incomplete_close, incomplete_open = [], {}
         legacy_restart: list[tuple[str, int, list[str]]] = []
-        from ..ops.rebuild_graph import legacy_incomplete
+        from ..ops.rebuild_graph import (held_policy_cause_cleared, legacy_incomplete,
+                                         release_cleared_hold)
+        # eng/publish-unhalt U3: what refuses on policy now -- the cause an exhausted hold
+        # recorded is re-read against this, never against the hold's own wording alone.
+        try:
+            from ..gates.platform_policy import freshness as _fresh
+            from ..gates.platform_policy import unreviewed_changes as _unrev
+
+            _pol = _fresh(ctx.db)
+            policy_unreviewed = {str(c["source"]) for c in _unrev(ctx.db)}
+            policy_not_current = ({e["source"] for e in _pol["stale"]}
+                                  | set(_pol["never_checked"]))
+            policy_readable = True
+        except Exception:  # noqa: BLE001 - unreadable policy releases no hold
+            policy_unreviewed, policy_not_current, policy_readable = set(), set(), False
+        retired_slugs = provenance._retired_slugs()
+        retired_close: list[str] = []
+        holds_released: list[str] = []
+        released_restart: list[tuple[str, int, list[str], str]] = []
         for r in list(session.scalars(_select(_Incident).where(
                 _Incident.signature.like(f"{REBUILD_INCOMPLETE_SIGNATURE}:%"),
                 _Incident.resolved == False))):  # noqa: E712
             slug_ = r.signature.split(":", 1)[1]
             if not r.product_slug:
                 r.product_slug = slug_       # review M-A: file legacy rows against the product
+            # eng/publish-unhalt U2: a retired legacy-duplicate product is never rebuilt, so
+            # its row could never close and it held the systemic halt open. The product's
+            # retirement (products.launch0.LEGACY_DUPLICATES) is the cleared cause.
+            if slug_ in retired_slugs:
+                retired_close.append(r.signature)
+                continue
+            if policy_readable:
+                cleared = held_policy_cause_cleared(r.detail, unreviewed=policy_unreviewed,
+                                                    not_current=policy_not_current)
+                if cleared is not None:
+                    release_cleared_hold(r, cleared, now=_utcnow())
+                    holds_released.append(slug_)
+                    keys_ = [str(k) for k in ((r.detail or {}).get("stale") or [])][:50]
+                    if keys_:
+                        released_restart.append((slug_, r.id, keys_,
+                                                 cleared["held_digest"]))
             named = [str(k) for k in ((r.detail or {}).get("stale") or [])]
             own = [v for v in by_slug.get(slug_, []) if not v.get("retired")]
             keys = named or [f"{v['artefact_class']}:{v['artefact_key']}" for v in own]
@@ -8179,6 +8213,12 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
             resolution=("every artefact this row named reads fresh (or superseded) in the "
                         "provenance check and none of the product's reads stale: the "
                         "outstanding rebuild has been delivered"))
+        incomplete_cleared += _life.resolve_signatures(
+            session, retired_close,
+            resolution=("the product is a retired legacy-duplicate concept slug "
+                        "(products.launch0.LEGACY_DUPLICATES): it is never rebuilt, so no "
+                        "rebuild is outstanding; its design is sold under the slug that "
+                        "superseded it"))
 
     legacy_restarted: list[str] = []
     for slug_, row_id, keys_ in legacy_restart:
@@ -8189,6 +8229,20 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
                                       "(ENG-RECOVERY)"),
                            "legacy_restart": row_id},
                           idempotency_key=f"rebuild:legacy-restart:{slug_}:{row_id}")
+        if job is not None:
+            legacy_restarted.append(slug_)
+
+    # eng/publish-unhalt U3: a released hold gets one targeted rebuild of what it names (keyed
+    # on the row and the hold it released, so once per release), whether or not anything reads
+    # STALE now -- without it a row whose artefacts read UNPROVEN waited for a retry that the
+    # propagation never asks for.
+    for slug_, row_id, keys_, digest_ in released_restart:
+        job = ctx.enqueue("listing", "chain.rebuild",
+                          {"product_slug": slug_, "artefacts": keys_, "fingerprints": {},
+                           "reason": ("rebuild-incomplete hold released: the policy refusal "
+                                      "it recorded has cleared (eng/publish-unhalt)"),
+                           "hold_released": row_id},
+                          idempotency_key=f"rebuild:hold-released:{slug_}:{row_id}:{digest_}")
         if job is not None:
             legacy_restarted.append(slug_)
 
@@ -8217,6 +8271,8 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         "rebuild_incomplete_cleared": incomplete_cleared,
         "rebuild_incomplete_open": dict(list(incomplete_open.items())[:50]),
         "rebuild_incomplete_legacy_restarted": legacy_restarted[:50],
+        "rebuild_incomplete_holds_released": holds_released[:50],
+        "rebuild_incomplete_retired_closed": [s_.split(":", 1)[1] for s_ in retired_close][:50],
     }
     ctx.audit("ops.sentinel", detail=detail)
 

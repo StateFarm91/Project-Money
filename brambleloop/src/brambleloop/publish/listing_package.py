@@ -56,6 +56,17 @@ def _try(fn, *a, **k):
         return None, f"{type(exc).__name__}: {str(exc)[:300]}"
 
 
+def _try_payload(etsy_ops, db, slug, version):
+    """`_try(certified_payload)`, except that HeroUnjudged propagates to the caller."""
+    from ..queue.effects import LeaseLost
+    try:
+        return etsy_ops.certified_payload(db, slug, version), None
+    except (LeaseLost, etsy_ops.HeroUnjudged):
+        raise
+    except Exception as exc:  # noqa: BLE001 - a reader that cannot answer is a blocker
+        return None, f"{type(exc).__name__}: {str(exc)[:300]}"
+
+
 def _release_source_digest(cir, listing, certificate) -> str | None:
     """Fingerprint the stored release design and listing fields we read."""
     if not isinstance(cir, dict) or not isinstance(certificate, dict) or listing is None:
@@ -217,11 +228,17 @@ def assemble(db, slug: str, version: str) -> dict | None:
                 b["publish_time"] = publish_time[str(reason)]
             blockers.append(b)
 
-    payload, err = _try(etsy_ops.certified_payload, db, slug, version)
+    try:
+        payload, err = _try_payload(etsy_ops, db, slug, version)
+    except etsy_ops.HeroUnjudged as exc:
+        # Image-caused (the hero is judged on the gallery), so it does not stop admission for
+        # images; it still blocks this package and publishing.
+        payload, err = None, None
+        blockers.append({"source": "certified_payload", "why": str(exc)[:300], "image": True})
     copy = None
     if err is not None:
         blockers.append({"source": "certified_payload", "why": err})
-    else:
+    elif payload is not None:
         fields, ferr = _try(etsy_ops.sent_fields, payload)
         copy = fields if ferr is None else None
         if ferr is not None:

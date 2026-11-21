@@ -275,6 +275,28 @@ def _startup() -> None:
         _owner_directives.apply(db)
     except Exception:  # noqa: BLE001 - applying a directive must never prevent a boot
         pass
+    # D-OWNER-ETSY-EXERCISE: the owner's one-time instruction to run the controlled Etsy
+    # exercise (one marked draft, deleted and verified; CA$0; never publishes). It runs in a
+    # background thread after the boot settles, at most twice, only inside the directive's
+    # window, and every attempt is audited.
+    try:
+        import threading as _threading
+        import time as _time
+
+        from ..ops import owner_etsy_exercise as _oee
+
+        import os as _os
+
+        # Only the deployed service (Railway sets RAILWAY_DEPLOYMENT_ID), never a test or a laptop.
+        if _os.environ.get("RAILWAY_DEPLOYMENT_ID") and _oee.due(db)["due"]:
+            def _run_owner_etsy_exercise():
+                _time.sleep(BOOT_JOB_DELAY_SECONDS)
+                _oee.maybe_run(db, verify=_verify_snapshot)
+
+            _threading.Thread(target=_run_owner_etsy_exercise, daemon=True,
+                              name="owner-etsy-exercise").start()
+    except Exception:  # noqa: BLE001 - never prevents a boot
+        pass
     if schema_changes:
         # A schema change nobody can see is how a deploy breaks quietly.
         Registry(db).audit("orchestrator", "schema.migrated",
@@ -392,6 +414,20 @@ def _startup() -> None:
                       inputs={"approved_at": _freeze.approved().get("at", "")})
     except Exception as e:  # noqa: BLE001 - never block a boot
         BOOT_ENQUEUES.append({"name": "model_freeze", "outcome": "error",
+                              "detail": f"{type(e).__name__}: {e}"[:300]})
+
+    # D-OWNER-SALE-PIPELINE: images start only at `listing.package` (`admit_for_sale` enqueues
+    # the FLUX route). That sweep is six-hourly, so after a deploy that changes admission the
+    # first image could wait six hours. Ask for one sweep per deployed commit, using the
+    # scheduler's own post-deploy retry form; nothing new is authorised by it.
+    try:
+        _commit = build_identity().get("commit", "") or "dev"
+        _boot_enqueue("listing_package", when=True, agent="listing",
+                      job_type="listing.package",
+                      key=f"boot-listing-package-{_commit}",
+                      inputs={"cadence": "listing_package", "retry_for_commit": _commit})
+    except Exception as e:  # noqa: BLE001 - never block a boot
+        BOOT_ENQUEUES.append({"name": "listing_package", "outcome": "error",
                               "detail": f"{type(e).__name__}: {e}"[:300]})
 
     # And re-ask #300's chain while its assets link is still open. The cadence is weekly,

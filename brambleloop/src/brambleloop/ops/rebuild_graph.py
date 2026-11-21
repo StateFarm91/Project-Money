@@ -136,6 +136,16 @@ def rebuild_set(db, *, changed: dict[str, str],
         affected.add(key)
         frontier.extend(children.get(key, ()))
 
+    # eng/publish-unhalt U2: a retired legacy-duplicate slug is never rebuilt
+    # (`creative.preengineering` refuses it), so planning its artefacts enqueued a
+    # chain.rebuild that could only be refused, spent the bounded budget and filed a
+    # rebuild-incomplete hold for a product that no longer exists. Its artefacts read
+    # retired in `artefacts.check`; they are listed apart here, never planned.
+    from .artefacts import _retired_slugs
+
+    retired_slugs = _retired_slugs()
+    retired_skipped = sorted(k for k in affected if nodes[k].product_slug in retired_slugs)
+    affected -= set(retired_skipped)
     order = _topological(affected, children)
 
     # Coverage: the rebuild set is the part people read, so what the graph cannot see is
@@ -155,6 +165,7 @@ def rebuild_set(db, *, changed: dict[str, str],
                      "refs": sorted(r for r in nodes[k].inputs if r in changed)}
                     for k in order],
         "count": len(order),
+        "retired_skipped": retired_skipped,
         "seeds": sorted(seeds),
         "coverage": {
             "in_graph": len(nodes),
@@ -301,6 +312,94 @@ def reset_legacy_budget(inc, *, now: datetime | None = None) -> dict | None:
             "why": LEGACY_RESET_WHY}
 
 
+HOLD_RELEASE_KEY = "hold_released"
+
+
+def _hold_text(detail) -> str:
+    d = detail or {}
+    parts = [str(d.get("held") or "")]
+    parts += [str(x) for x in (d.get("refused_by") or [])]
+    parts += [str((f or {}).get("why") or "") for f in (d.get("failed_attempts") or [])
+              if isinstance(f, dict)]
+    return " | ".join(p for p in parts if p)
+
+
+def held_policy_cause_cleared(detail, *, unreviewed: set[str], not_current: set[str]):
+    """eng/publish-unhalt U3: the policy sources an exhausted hold names as its cause, when
+    every one of them has since cleared -- or None.
+
+    A hold filed while a #39 refusal (an unreviewed material change, e.g. the
+    `listing_image_rules` change the owner later released by D-OWNER-POLICY39-OVERRIDE)
+    refused every attempt records that refusal in `held` / `refused_by` / `failed_attempts`.
+    Nothing re-read it: the hold outlived its cause, no retry ran, the row could never close
+    and the company-wide halt it fed stayed open. The cause is read deterministically: the
+    watched source keys (`platform_policy.POLICY_SOURCES`) named in the recorded refusal
+    text. Cleared means none of them is unreviewed (owner overrides honoured, as everywhere)
+    and none is stale or unread. A hold naming no policy source, or one that is still
+    refused, returns None and stays held. One release per distinct hold
+    (`hold_released.held_digest`), so a cause that re-holds is not looped."""
+    from ..gates.platform_policy import POLICY_SOURCES
+
+    d = detail or {}
+    if not d.get("held"):
+        return None
+    text = _hold_text(d)
+    if "#39" not in text and "policy" not in text.lower():
+        return None
+    named = sorted(src for src in POLICY_SOURCES if src in text)
+    if not named:
+        return None
+    digest = hashlib.sha256(text.encode()).hexdigest()[:16]
+    if (d.get(HOLD_RELEASE_KEY) or {}).get("held_digest") == digest:
+        return None
+    if any(src in unreviewed or src in not_current for src in named):
+        return None
+    return {"sources": named, "held_digest": digest}
+
+
+def release_cleared_hold(inc, cleared: dict, *, now: datetime | None = None) -> dict:
+    """Give a hold whose cause cleared one fresh, recorded budget (the row stays OPEN and
+    halting; only a verified rebuild or the sentinel's positive evidence closes it)."""
+    detail = dict(inc.detail or {})
+    record = {"at": (now or datetime.now(timezone.utc)).isoformat(),
+              "sources": cleared["sources"], "held_digest": cleared["held_digest"],
+              "previous_held": str(detail.get("held") or "")[:500],
+              "previous_report_count": int(inc.report_count or 1),
+              "why": ("the policy refusal this hold recorded has cleared (no named source is "
+                      "unreviewed, stale or unread now); one fresh budget of "
+                      f"{REBUILD_MAX_ATTEMPTS} attempts")}
+    detail.pop("held", None)
+    detail["attempts"] = 0
+    detail[HOLD_RELEASE_KEY] = record
+    inc.detail = detail
+    inc.report_count = 1
+    return record
+
+
+def _released_at(db, slugs) -> dict[str, datetime]:
+    """When each product's rebuild-incomplete hold was last released (U3), so attempts that
+    failed under the cleared cause do not spend the fresh budget."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+
+    out: dict[str, datetime] = {}
+    sigs = [f"{REBUILD_INCOMPLETE_SIGNATURE}:{s}" for s in slugs]
+    if not sigs:
+        return out
+    for sig, detail in db.execute(select(Incident.signature, Incident.detail).where(
+            Incident.signature.in_(sigs), Incident.resolved.is_(False))):
+        at = ((detail or {}).get(HOLD_RELEASE_KEY) or {}).get("at")
+        if not at:
+            continue
+        try:
+            t = datetime.fromisoformat(str(at))
+        except ValueError:
+            continue
+        out[sig.split(":", 1)[1]] = t if t.tzinfo else t.replace(tzinfo=timezone.utc)
+    return out
+
+
 def change_id(changed: dict[str, str], own_refs: set[str]) -> str:
     """Review LOW of 0d2e6cbc: the change *this product* is asked to absorb -- only the refs
     its artefacts record, with their new fingerprints. The job key carries the estate-wide
@@ -330,6 +429,7 @@ def _failed_attempts_by_change(db, slugs, *, now: datetime) -> tuple[dict, dict]
     legacy: dict[str, int] = {}
     if not slugs:
         return out, legacy
+    released: dict[str, datetime] | None = None
     like = [Job.idempotency_key.like(f"rebuild:product:{s}:%") for s in slugs]
     for key, status, inputs, outputs, err, finished in db.execute(select(
             Job.idempotency_key, Job.status, Job.inputs, Job.outputs, Job.last_error,
@@ -356,6 +456,12 @@ def _failed_attempts_by_change(db, slugs, *, now: datetime) -> tuple[dict, dict]
         if not inputs.get("change_id"):
             legacy[slug] = legacy.get(slug, 0) + 1
             continue
+        if released is None:
+            released = _released_at(db, slugs)
+        if slug in released and finished is not None:
+            f_at = finished if finished.tzinfo else finished.replace(tzinfo=timezone.utc)
+            if f_at <= released[slug]:
+                continue        # U3: failed under a cause that has since cleared
         out.setdefault(f"{slug}|{inputs['change_id']}", []).append(
             {"why": why, "finished_at": str(finished), "job_key": key,
              "status": getattr(status, "value", str(status))})

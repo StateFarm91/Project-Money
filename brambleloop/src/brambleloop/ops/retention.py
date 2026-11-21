@@ -113,6 +113,10 @@ NEVER_PRUNED_TABLES = ("oauth_credentials",)
 # The point is not this list's current contents; it is that the next lifetime aggregate
 # somebody writes has to come here and make a decision.
 KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
+    # D-OWNER-ETSY-EXERCISE: the attempt cap and the "already ran clean" check count every
+    # row of the action over the directive's 24 h window; pruning one would allow a retry.
+    "owner_directive.etsy_exercise": ("lifetime_total",
+        "ops.owner_etsy_exercise.due counts every attempt (cap and clean-run check)"),
     # ENG-VIS-GALLERY (D-OWNER-FLUX-GALLERY): the selected generated gallery of a release is
     # read per release (newest row for slug@version) for as long as the listing lives; the
     # newest rows of the action overall would not keep an older release's, so it is protected.

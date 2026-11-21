@@ -67,6 +67,9 @@ SLUGS = ["autumn-oak-mosaic-throw", "cloudline-baby-blanket", "harvest-table-run
          "pressed-flower-motifs", "pumpkin-cluster-set", "spooky-garland",
          "valentine-heart-garland", "winter-village-graphghan"]
 
+RETIRED = ("market-basket-trio", "hexie-coaster-set")     # products.launch0.LEGACY_DUPLICATES
+LIVE = [s_ for s_ in SLUGS if s_ not in RETIRED]
+
 _MAKE_DB = None          # set per engine by the runner
 
 
@@ -149,16 +152,19 @@ def test_a_finished_attempt_is_reported_waiting_not_already_queued():
     _production_estate(db)
     with _MovedChain():
         first = _sentinel(db, "1")
-        assert len(first["rebuild_enqueued"]) == 2 * len(SLUGS), first["rebuild_enqueued"]
+        # eng/publish-unhalt U2: the two retired legacy-duplicate slugs among production's
+        # fourteen are never planned (their rebuild is refused by design); the other twelve are.
+        assert len(first["rebuild_enqueued"]) == 2 * len(LIVE), first["rebuild_enqueued"]
+        assert not any(r in k for r in RETIRED for k in first["rebuild_enqueued"]), first
         _finish_all_rebuilds(db)                       # every attempt ended (refused: no release)
         second = _sentinel(db, "2")
         assert second["rebuild_enqueued"] == [], second
         assert second["rebuild_already_queued"] == [], second["rebuild_already_queued"]
-        assert sorted(second["rebuild_retry_waiting"]) == SLUGS, second
+        assert sorted(second["rebuild_retry_waiting"]) == LIVE, second
         ev = PE.stale_rebuilds(db, now=datetime.now(timezone.utc))
         assert ev["rebuild_jobs_unfinished"] == 0
         assert ev["last_propagation_already_queued"] == 0, ev
-        assert ev["last_propagation_retry_waiting"] == len(SLUGS), ev
+        assert ev["last_propagation_retry_waiting"] == len(LIVE), ev
         # a product with a rebuild genuinely in flight (a verify pass) *is* already queued
         JobQueue(db).enqueue("listing", "chain.rebuild",
                              {"product_slug": SLUGS[0], "artefacts": ["x:y"], "verify": 1},
