@@ -975,6 +975,39 @@
 _Updated 2026-09-20 by the Brambleloop build session. Maintained continuously so any future
 session resumes without rediscovery (Execution Directive step 1, Master Plan section 35)._
 
+> **2026-11-21 — PUBLISH-UNHALT on `eng/publish-unhalt` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT
+> deployed; production unchanged at 2f7da291, SHADOW).**
+> - **Trigger.** The readback had FAIL `publishing_halt_clear` and WARN "no draft candidate among 7". The token-gated
+>   evidence was not read: no Railway variable values, no operator token. Findings come from the code plus public
+>   `/api/verify` and `/health`.
+> - **Halt fixes (D-ENG-PUBLISH-UNHALT).** The systemic halt is evidenced only by per-product rows. Three row shapes
+>   could never close:
+>   - U1: a `stale-artefact` row whose artefact now reads retired, or no longer exists;
+>   - U2: rows of the retired legacy-duplicate slugs `market-basket-trio` and `hexie-coaster-set`, both among
+>     production's 14 halted products. Their recorded rows read STALE, their rebuilds are refused by design, and
+>     rebuild-incomplete could never close;
+>   - U3: an exhausted rebuild-incomplete hold whose recorded #39 policy refusal (`listing_image_rules`) had since
+>     cleared under D-OWNER-POLICY39-OVERRIDE.
+>   All three now close or release on their cleared cause. A U3 release keeps the row open and halting, gives one
+>   recorded budget and one targeted rebuild, and happens at most once per hold.
+> - **U5.** The readback WARN names each release's failing sections and blocker sources, from fixed vocabulary only.
+> - **Draft-candidate predicate.** Checked and correct.
+> - **Owner items (OWNER_ACTIONS_P0.md).**
+>   - P0-1: the controlled Etsy exercise. `etsy_remote_state` is UNVERIFIABLE without it, and the only door is the
+>     operator endpoint.
+>   - P0-2: fresh readings of the five etsy.com/legal pages. The excerpt is dated 2026-09-26 against a 30-day limit,
+>     so the packet's `policy` section is FAIL. Confirm before acting.
+> - **Tests.** New `test_publish_unhalt`: 10 tests, 9 of which fail on 8204c93. Targeted run 20261121T003209Z-1418
+>   (15 suites, dirty tree, not release-eligible): 257 passing, 4 suites failing. Of those:
+>   - two were fixtures that used the retired slugs as ordinary products. `test_eng_stale_rebuild_loop` now expects
+>     12 live products planned and asserts the retired two are not; `test_eng_recovery` uses the live
+>     `hexagon-coaster-set`. Both re-run green;
+>   - two fail identically on the base, so they are **pre-existing and not caused here**:
+>     `test_first_listing_doors` (gallery 6 of 7 frames, D-OWNER-GALLERY-COMPLETE) and `test_w4_readback_evidence`
+>     (the CLI token test).
+>   `test_vacuity` passed.
+> - **Report.** `w6/review_requests/PUBLISH-UNHALT.md`.
+
 ## PRODUCTION DIAGNOSIS — 2026-11-20 04:55 UTC (Main, live readback of 5496bc4a / Batch 11)
 
 Read-only evidence via the readback token: **FAIL 9, PASS 4, UNKNOWN 0.**

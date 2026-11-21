@@ -3870,3 +3870,24 @@ M2/L4). No existing check was relaxed; four rules were added to `publish.pdf_sta
   amigurumi PDF, correctly). Real progress photos need a physical sample. The real amigurumi build
   still blocks on the child-safety width x height gap (D-ENG-PDF-TEMPLATE-2); the fixture is a test
   fixture only.
+## D-ENG-PUBLISH-UNHALT — halting rows close on their cleared cause (eng/publish-unhalt, 2026-11-21; routine engineering)
+**Problem.** The company-wide halt is evidenced only by per-product halting rows, so it clears only when they can close.
+Three shapes of row could never close. Each is fixed here, with no gate relaxed.
+- **U1.** A `stale-artefact` row now closes when the sweep reads its artefact **retired** (the retirement reason is
+  recorded). It also closes when the artefact **no longer exists**: no provenance row and absent from the full `expected`
+  estate. With no estate given, absence proves nothing and the row stays open.
+- **U2.** Recorded artefacts of a retired legacy-duplicate slug (`products.launch0.LEGACY_DUPLICATES`) read
+  UNPROVEN+retired, matching the expected-side rule. The rebuild graph no longer plans their rebuilds (`retired_skipped`).
+  The sentinel closes such a product's `rebuild-incomplete` row, naming the retirement.
+- **U3.** An exhausted `rebuild-incomplete` hold whose recorded refusal names watched policy sources
+  (`platform_policy.POLICY_SOURCES` keys plus a `#39`/policy marker) is released once none of them is unreviewed (owner
+  overrides honoured), stale or unread. The release is one fresh, recorded budget (`hold_released`) plus one targeted
+  rebuild. It happens at most once per distinct hold, and attempts that failed before it do not count. The row stays
+  open and halting, and only the existing positive-evidence rules close it. If the policy state is unreadable, nothing
+  is released.
+- **U5.** The readback's no-draft-candidate WARN names each release's failing sections and blocker sources. It uses
+  fixed-vocabulary fields only.
+**Unchanged.** The systemic rule (3 products and 50%), #39, the kill switch, fees, child safety, and the grant and
+activation gates.
+**Owner items.** These are owner items, not code: the controlled Etsy exercise (`etsy_remote_state`) and fresh readings
+of the five etsy.com/legal pages (the packet's `policy` section). Both are in OWNER_ACTIONS_P0.md.
