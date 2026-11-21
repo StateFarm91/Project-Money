@@ -162,6 +162,9 @@ def _run():
             assert again["rebuild_retried"] == [] and again["rebuild_enqueued"] == [], again
             M._drain_attempt(db)
             out = pe.rebuild_outcomes(db, now=utcnow())
+            # the next hourly sweep closes the retired earlier-plan rows "retired, not stale"
+            sweep = base._sentinel(db, "live-4")
+            assert sweep["stale"] == 1 and sweep["rebuild"] == [owner], sweep
 
         with db.session() as s:
             open_rows = {i.signature: i for i in s.scalars(select(Incident).where(
