@@ -4473,3 +4473,7 @@ Batch 19h12 (code 093bb69a1) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the o
 ## D-OWNER-DEPLOY-19h13 — 2026-11-21T19:50:19Z
 
 Batch 19h13 (code d3edf96bc) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to f860904d16a7f8716ebf3b0b9e09c7e3d7bdecc8 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-ENG-19F-KNOWN-FAILURE — 2026-11-21 (integrator)
+
+Batch 19f is released with one known failure that predates it. In test_halt_380_live, `test_production_sequence_a_second_deploy_the_same_day_retries_and_converges` fails the same way on a clean 19h12 checkout without 19f, so it is not counted against 19f. A separate lane is fixing it. Every other suite in the 19f union passes, and so do the overlap suites run after merging claude/w6-release-19h13 (supply-research).
