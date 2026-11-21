@@ -3870,6 +3870,11 @@ def _release_gates(ctx: JobContext, stage: str = "draft") -> dict:
         return {"slug": slug, "version": version, "blocks_release": True,
                 "reasons": [f"release gates could not be evaluated: "
                             f"{type(e).__name__}: {str(e)[:300]}"]}
+    for w in verdict.get("waivers") or []:
+        # D-OWNER-PUBLISH-WITH-RENDERS: the waiver is on the publish audit, never a claim
+        # that a sample photo exists.
+        ctx.audit("publish.gate_waived", artifact=f"{slug}@{version}",
+                  detail={"stage": stage, "code": w.get("code"), "waiver": w.get("waiver")})
     return verdict
 
 

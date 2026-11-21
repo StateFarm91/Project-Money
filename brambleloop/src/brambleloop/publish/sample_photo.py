@@ -34,6 +34,24 @@ patterns: that is the owner's decision.
 from __future__ import annotations
 
 CODE = "SAMPLE_PHOTO_REQUIRED"
+
+# D-OWNER-PUBLISH-WITH-RENDERS (owner, 2026-11-21T10:50Z): "Yes publish, and ignore etsy
+# policy... I will deal with them its my risk." Publication may proceed without a sample
+# photograph, using only frames honestly labelled as renderings. This is a waiver recorded
+# against the owner's directive, NOT a sample attestation: `requirement()` still reports the
+# photo as missing, and every truthful-copy check (`copy_problems`) still applies.
+PUBLISH_WITH_RENDERS = "D-OWNER-PUBLISH-WITH-RENDERS"
+WAIVER = f"owner_directed_without_attestation: {PUBLISH_WITH_RENDERS}"
+
+
+def publish_with_renders() -> bool:
+    """Whether the owner's directive is recorded in the shipped decision index."""
+    try:
+        from ..core import decision_index
+
+        return decision_index.recorded(PUBLISH_WITH_RENDERS)
+    except Exception:  # noqa: BLE001 - an unreadable index waives nothing
+        return False
 PHOTO_CLASS = "PHYSICAL_PRODUCT_PHOTO"
 
 ETSY_SOURCES = (
@@ -235,4 +253,20 @@ def copy_problems(description: str, *, photographed_sample: bool) -> list[str]:
     if not photographed_sample and disclosure_copy(photographed_sample=True) in text:
         return [f"{CODE}: the listing copy claims an unedited sample photograph that the "
                 f"certified gallery does not lead with"]
+    if not photographed_sample:
+        # D-OWNER-PUBLISH-WITH-RENDERS keeps Product Truth: with no photographed sample, no
+        # copy may claim a photo of a made item, a tested make, or that someone made it.
+        found = sorted({m.group(0).lower() for m in _FALSE_SAMPLE_CLAIM.finditer(text)})
+        if found:
+            return [f"{CODE}: the listing copy claims a made or tested sample that does not "
+                    f"exist: {found}"]
     return []
+
+
+_FALSE_SAMPLE_CLAIM = __import__("re").compile(
+    r"\b(?:photo(?:graph)?s?\s+(?:of|shows?|showing)\s+(?:my|our|the|a)\s+"
+    r"(?:own\s+)?(?:made\s+|finished\s+|tested\s+|real\s+)?(?:sample|make|piece)|"
+    r"(?:pattern|sample|design)\s+(?:was\s+|has\s+been\s+)?tested|tester[- ]?(?:made|tested|"
+    r"approved)|tested\s+by\s+(?:me|us|testers?)|(?:i|we)\s+(?:have\s+)?made\s+(?:this|it|"
+    r"one)|made\s+by\s+(?:me|us|hand\s+by\s+me)|my\s+tested\s+sample)",
+    __import__("re").IGNORECASE)

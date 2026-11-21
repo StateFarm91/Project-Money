@@ -156,6 +156,13 @@ def production_like():
 
     path, version, rh = SH._chain(SLUG, CATEGORY)
     db = Database(f"sqlite:///{path}")
+    # BATCH19F (D-OWNER-SALE-PIPELINE): production's chain end raises the agents' launch
+    # decision (`launch.plan`) for the release; the sale pipeline's spend admission reads it.
+    from brambleloop.core.models import JobStatus
+
+    job = SH._run(db, "growth", "launch.plan", {"slug": SLUG, "version": version,
+                                                 "release": rh})
+    assert job.status is JobStatus.DONE, job.last_error
     out = D.apply(db)
     assert sorted(out["activated"]) == ["flux-3-image:generation", "openai-vision:vision"], out
     return db, version, rh
@@ -221,6 +228,11 @@ def run_worker(db, *, limit=400, laura_double=True, judges_for=None, after=None,
                     if laura_double:
                         stack2.__exit__(None, None, None)
                 if not did:
+                    # Time passes: a job production schedules a little later (the sale
+                    # pipeline's admission runs about 90 s after the package) is due now.
+                    # Moving run_after forward skips no step and no gate.
+                    if _advance_clock(db):
+                        continue
                     idle += 1
                     continue
                 idle = 0
@@ -237,6 +249,21 @@ def run_worker(db, *, limit=400, laura_double=True, judges_for=None, after=None,
 
 
 # ---- readings -----------------------------------------------------------------------------
+
+def _advance_clock(db) -> bool:
+    """Make the earliest future-dated PENDING job due now. True when one was moved."""
+    from sqlalchemy import select
+
+    from brambleloop.core.models import Job, JobStatus, utcnow
+
+    with db.session() as s:
+        j = s.scalar(select(Job).where(Job.status == JobStatus.PENDING,
+                                       Job.run_after > utcnow()).order_by(Job.run_after))
+        if j is None:
+            return False
+        j.run_after = utcnow()
+        return True
+
 
 def _gallery_key(rh):
     from brambleloop.visual import image_production as IP

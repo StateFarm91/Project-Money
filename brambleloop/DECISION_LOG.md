@@ -4191,3 +4191,18 @@ it. No gate, binding rule, attempt cap or halt rule changed. Branch `eng/halt-38
 Batch 19h (code 384399c64) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 7b250d6164e4509617edd157048cc42db9a6b9bb was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
 ## D-OWNER-DEPLOY-19h1 — 2026-11-21T04:25:50Z
 Batch 19h1 (code c391386fd) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to b17649901845b9a20fcfe596d108a18c75578b1a was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-PUBLISH-WITH-RENDERS — 2026-11-21T10:50Z, amended 10:55Z (owner)
+
+**Owner.** The owner answered "Yes, publish with labelled renders" to the question "May listings publish with no real sample photo, using only FLUX images…?". They added, verbatim: "Yes publish, and ignore etsy policy. I said 100 times ignore etsy policies. I will deal with them its my risk." At 10:55Z they amended it, verbatim: "NO FLUX PHOTOS WILL SAY RENDERING. THATS A DIRECT ORDER. Everything is supposed to look real. Do not add labels."
+
+**Decision.**
+- `SAMPLE_PHOTO_REQUIRED` (Etsy Help 44297885802647) no longer blocks publication while this heading is in the decision index. The waiver is recorded on the activation verdict, on the listing package (`waivers`) and on the publish audit (`publish.gate_waived`) as `owner_directed_without_attestation: D-OWNER-PUBLISH-WITH-RENDERS`. It is NOT a sample attestation: `sample_photo.requirement` still reports the photo as missing.
+- FLUX (generated-gallery) frames carry no buyer-visible "rendering" label. Their alt text describes the scene only. Their honesty_label and provenance (generator, model, prompt hash) stay recorded internally in the certificate and the audit.
+
+**Unchanged:**
+- Fidelity and scale gates: each frame must match the certified CIR's size, colours, stripes and shape.
+- Copy truth: no listing copy may claim a photo of a made sample, a tested make, or "I made this" (`sample_photo.copy_problems`, which now detects such claims).
+- The listing's AI-disclosure copy and fields.
+- Child safety, the kill switch, fees and budgets.
+- The signed publication grant and the owner's separate publishing approval.

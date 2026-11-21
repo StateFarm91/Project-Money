@@ -331,6 +331,7 @@ def assemble(db, slug: str, version: str) -> dict | None:
     from . import sale_pipeline as SPL
 
     certs, err = _try(SPL.pdf_certificates, db, slug, version, release)
+    premium_certified = bool(err is None and certs and certs.get("both_pass"))
     if err is not None:
         blockers.append({"source": "pdf_standard", "why": err})
     else:
@@ -344,7 +345,13 @@ def assemble(db, slug: str, version: str) -> dict | None:
     # premium illustrated PDFs certified for this release"): the interim engine PDF never
     # makes a package READY. Tagged `image`: it is the gallery that is missing from the
     # documents, so it does not stop the release being admitted for its images.
-    if files is not None and files.get("pdf_sha256_by_terminology"):
+    # BATCH19F: the sale pipeline's premium editions are that same requirement met --
+    # illustrated with the certified gallery, certified against the PDF standard for exactly
+    # this release and bound to the current gallery record (`sale_pipeline.pdf_certificates`).
+    # When both PASS, the interim engine build no longer stands for the documents, so this
+    # check is the fallback only while they do not.
+    if (not premium_certified and files is not None
+            and files.get("pdf_sha256_by_terminology")):
         for why in pdf_illustration_blockers(db, slug, version, release, framed_read):
             blockers.append({"source": "pdf_illustration", "why": why[:300], "image": True})
     # Review OPUS2F A-4: the copy must belong to this release. (One row per slug@version is
@@ -399,6 +406,7 @@ def assemble(db, slug: str, version: str) -> dict | None:
         "disclosures": sorted({f["honesty_label"] for f in frames if f.get("honesty_label")}),
         "files": files,
         "blockers": blockers,
+        "waivers": list((gate or {}).get("waivers") or []) if isinstance(gate, dict) else [],
         "publishes": False,
         "sources": {"copy": "runtime.etsy_ops.certified_payload",
                     "gallery": "runtime.etsy_ops.certified_frames",

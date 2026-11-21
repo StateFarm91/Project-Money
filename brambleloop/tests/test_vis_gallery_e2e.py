@@ -912,11 +912,45 @@ def _publication_refused_without_the_sample_photo(S) -> dict:
     return {"job_status": job.status, "reasons": out.get("reasons")}
 
 
-def test_7a_publication_is_refused_without_the_sample_photo():
+@contextmanager
+def _publish_with_renders(on: bool):
+    """D-OWNER-PUBLISH-WITH-RENDERS as recorded (on) or not recorded (off)."""
+    from brambleloop.publish import sample_photo as SPH
+
+    real = SPH.publish_with_renders
+    SPH.publish_with_renders = lambda: on
+    try:
+        yield
+    finally:
+        SPH.publish_with_renders = real
+
+
+def test_7a_publication_without_a_sample_photo_needs_the_owner_directive():
+    """D-OWNER-PUBLISH-WITH-RENDERS: without the directive, publication refuses on
+    SAMPLE_PHOTO_REQUIRED exactly as before. With it, the photo requirement is WAIVED and
+    recorded as a waiver -- never as a sample attestation -- and the truthful-copy rule
+    still refuses any claim of a photographed or tested sample."""
+    from brambleloop.publish import release_gates as RG
+    from brambleloop.publish import sample_photo as SPH
+
     S = chain()
     if not S.get("published"):
         test_3_package_draft_upload_and_byte_for_byte_readback_of_every_image_and_both_pdfs()
-    _publication_refused_without_the_sample_photo(S)
+    with _publish_with_renders(False):
+        _publication_refused_without_the_sample_photo(S)
+    db, version, slug = S["db"], S["version"], "cloudline-baby-blanket"
+    with _publish_with_renders(True):
+        act = RG.for_publish(db, slug=slug, version=version, read_only=True,
+                             stage=RG.STAGE_ACTIVATION)
+        assert not [r for r in act["reasons"] if str(r).startswith(SPH.CODE)], act["reasons"]
+        assert act["sample_photo"]["satisfied"] is False, act["sample_photo"]   # no claim
+        assert act["waivers"] == [{"code": SPH.CODE, "waiver": SPH.WAIVER,
+                                   "waived": act["sample_photo"]["reasons"]}], act["waivers"]
+        assert SPH.WAIVER == "owner_directed_without_attestation: D-OWNER-PUBLISH-WITH-RENDERS"
+        # Product Truth still holds: copy claiming a photographed or tested sample is refused.
+        for claim in ("Photo of my sample, crocheted and tested by me.",
+                      "Every photo shows my tested sample."):
+            assert SPH.copy_problems(claim, photographed_sample=False), claim
 
 
 def test_7b_a_mutation_removing_the_publish_time_sample_gate_is_killed():
@@ -930,8 +964,8 @@ def test_7b_a_mutation_removing_the_publish_time_sample_gate_is_killed():
     if not S.get("published"):
         test_3_package_draft_upload_and_byte_for_byte_readback_of_every_image_and_both_pdfs()
     src = Path(RG.__file__).read_text()
-    gate = ('    if stage == STAGE_ACTIVATION:\n'
-            '        reasons.extend(photo["reasons"])\n')
+    gate = ('        else:\n'
+            '            reasons.extend(photo["reasons"])\n')
     assert src.count(gate) == 1, "the publish-time sample gate moved; update this mutant"
     mutant = types.ModuleType(RG.__name__)
     mutant.__dict__.update(__name__=RG.__name__, __package__=RG.__package__,
@@ -941,7 +975,8 @@ def test_7b_a_mutation_removing_the_publish_time_sample_gate_is_killed():
     RG.for_publish = mutant.for_publish
     try:
         try:
-            _publication_refused_without_the_sample_photo(S)
+            with _publish_with_renders(False):
+                _publication_refused_without_the_sample_photo(S)
         except AssertionError:
             killed = True
         else:
@@ -949,8 +984,9 @@ def test_7b_a_mutation_removing_the_publish_time_sample_gate_is_killed():
     finally:
         RG.for_publish = real
     assert killed, "removing the activation-stage SAMPLE_PHOTO_REQUIRED gate went unnoticed"
-    # And the real gate still refuses after the mutant is gone.
-    _publication_refused_without_the_sample_photo(S)
+    # And the real gate still refuses (without the owner's directive) after the mutant is gone.
+    with _publish_with_renders(False):
+        _publication_refused_without_the_sample_photo(S)
 
 
 if __name__ == "__main__":

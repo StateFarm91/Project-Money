@@ -2955,7 +2955,8 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     if flat_stages:
         # BATCH19D: a flat row-worked piece's row-progress diagrams (construction_diagrams).
         doc.para("Each card shows the piece after its last row: a construction diagram of the "
-                 f"rows worked so far at the finished width ({twin.width_cm:.1f} cm), drawn to "
+                 "rows worked so far at the calculated finished width "
+                 f"(approx. {twin.width_cm:.1f} cm), drawn to "
                  "one scale from this pattern's stitch data, not a photograph. The rose outline "
                  "is the row just worked; the faint area is the rows still to work.", size=9.5,
                  color=MUTED, font=FONT_BODY_ITALIC)
