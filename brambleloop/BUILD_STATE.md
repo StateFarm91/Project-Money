@@ -1,5 +1,7 @@
-> **2026-11-21 — BATCH19D-SALE2 on `claude/batch19d-sale2` (batch19d 76d0525 + `w6-release-19d1`, production
-> 7b250d61; NOT merged to the main branch, NOT deployed; production unchanged).** Owner decision
+> **2026-11-21 — BATCH19D-SALE2 on `claude/batch19d-sale2` (batch19d 76d0525 + `w6-release-19d1` 7b250d61 +
+> `w6-release-19h1`, production 1bb7c4f5, merged at 80bc28b with halt-380/H3/H4 and every boot step kept. Run
+> 20261121T082202Z-785 @ 80bc28b, clean tree, 27 suites: 326 passing, 2 suites failing, the same pre-existing two
+> named below; test_vis_gallery_e2e 15/15; NOT merged to the main branch, NOT deployed; production unchanged).** Owner decision
 > D-OWNER-PRIVATE-DRAFT-BEFORE-SAMPLE ("yes, private drafts before sample photo are fine") is implemented.
 > `SAMPLE_PHOTO_REQUIRED` still refuses activation exactly as before. It no longer stops the sale pipeline's READY
 > state or the private draft (`release_gates.ACTIVATION_ONLY_CODES`, the package's `activation_only` tag, and

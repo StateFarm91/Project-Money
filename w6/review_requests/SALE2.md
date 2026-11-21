@@ -1,7 +1,8 @@
 # Review request — claude/batch19d-sale2
 
 **Branch:** `claude/batch19d-sale2`, from `claude/batch19d` 76d0525, with
-`origin/claude/w6-release-19d1` (production 7b250d61) merged in. Not merged to the main branch,
+`origin/claude/w6-release-19d1` (production 7b250d61) and then `origin/claude/w6-release-19h1`
+(production 1bb7c4f5, merge commit 80bc28b) merged in. Not merged to the main branch,
 not deployed, no PR. Production is unchanged.
 
 **Owner decision (D-OWNER-PRIVATE-DRAFT-BEFORE-SAMPLE, 2026-11-21T03:55Z, verbatim):**
@@ -21,6 +22,20 @@ not deployed, no PR. Production is unchanged.
 - `test_w4_readback_evidence`: 23 rows. 19d1 added none; batch19d added the sale row.
 - `DECISION_LOG.md`: both sides' entries kept.
 - `autonomy_map.json` and `decision_index.json` regenerated.
+
+## 1b. Merge of w6-release-19h1 (80bc28b)
+
+- It conflicted only in `BUILD_STATE.md` and `DECISION_LOG.md`, where both sides' entries are
+  kept, and in the generated `autonomy_map.json`. The code merged without a conflict.
+- Checked present after the merge:
+  - `listing_package.py`: HeroUnjudged, `_try_payload`, `pdf_standard_blocker` and the
+    `activation_only` tag.
+  - `production_evidence.py`: `factory_visibility`.
+  - `app/main.py`: the owner directive, the Etsy exercise, `listing.package`, and the
+    stale-artefact sentinel and health sweeps.
+  - The halt-380 fixes and H3/H4, with their suites: `test_eng_halt_380`, `test_halt_380_h3`
+    and `test_halt380_h4_rebuild_drain`.
+- `autonomy_map.json` and `decision_index.json` are regenerated (97 ids).
 
 ## 2. Why READY was still blocked
 
@@ -109,3 +124,16 @@ outside this task; they are recorded in BUILD_STATE. On production 7b250d61, `te
 ## 6. Owner actions
 
 None new. Publication still needs a real unedited photograph of a sample (owner, physical).
+
+## 7. Suite run after the 19h1 merge
+
+The run was `JOBS=4 SUITE_REGISTRY=0 SUITES=... bash run_tests.sh`, run id
+20261121T082202Z-785, at 80bc28b on a clean tree. It covered 27 suites: the 18 requested plus
+test_eng_halt_380, test_halt380_h4_rebuild_drain, test_w4_launchfix,
+test_w6_listing_chain_e2e, test_w3_decision_index, test_learn_proof,
+test_eng_stale_rebuild_loop, test_v11_autonomy_timeline and test_w4_c12_lifecycle.
+
+**Result: 326 passing, 2 suites failing.** All requested suites pass, including all 15 tests
+of test_vis_gallery_e2e: 3, 7, 7a and 7b. The two failing suites are the same pre-existing
+test_w4_launchfix (two IMG tests) and test_w6_listing_chain_e2e (C and D) described in
+section 5, and they fail with the same messages.
