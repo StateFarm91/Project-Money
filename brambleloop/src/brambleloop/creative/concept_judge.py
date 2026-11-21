@@ -28,8 +28,9 @@ stays WAITING, never passed.
   plus the company reservation;
 - `paid_calls.guarded` applies the fingerprint;
 - `judge_held` adds the CA$ budget reservation.
-On top of that, `attempted` makes the call idempotent per board image: one paid attempt per
-(board sha256, provider) per `RETRY_AFTER`, recorded BEFORE the call. A redrive, a retried
+On top of that, on the openai-vision route `attempted` makes the call idempotent per board image:
+one paid attempt per (concept, board sha256, provider) per `RETRY_AFTER`, recorded after the
+budget reservation and BEFORE the send. A redrive, a retried
 job or a second worker never repeats it, and a judgement already on file is never re-asked.
 """
 from __future__ import annotations
@@ -94,16 +95,20 @@ def choose(db) -> tuple[str | None, object | None]:
     return None, None
 
 
-def attempted(db, board_sha: str, provider_name: str, *, now: datetime | None = None) -> bool:
-    """A paid judgement of these bytes by this provider was already attempted recently."""
+def attempted(db, board_sha: str, provider_name: str, *, slug: str | None = None,
+              now: datetime | None = None) -> bool:
+    """A paid judgement of this concept's bytes by this provider was attempted recently."""
     from sqlalchemy import select
 
     from ..core.models import AuditLog
 
     now = _aware(now) or datetime.now(timezone.utc)
     with db.session() as s:
-        for at, d in s.execute(select(AuditLog.at, AuditLog.detail).where(
-                AuditLog.action == ATTEMPT_ACTION, AuditLog.at >= now - RETRY_AFTER)):
+        q = select(AuditLog.at, AuditLog.detail).where(
+            AuditLog.action == ATTEMPT_ACTION, AuditLog.at >= now - RETRY_AFTER)
+        if slug is not None:
+            q = q.where(AuditLog.artifact == slug)
+        for at, d in s.execute(q):
             d = d or {}
             if d.get("board_sha256") == board_sha and d.get("provider") == provider_name:
                 return True

@@ -1018,23 +1018,23 @@ def judge_held(ctx, *, slug: str, board: str, provider=None) -> dict:
     if not shown:
         return {"judged": False, "why": f"the board's bytes cannot be shown to a judge: "
                                         f"{missing}"[:200]}
+    guard = None
     if provider is None:
         # ENG-ADMIT-TO-BUILD: whichever owner-activated vision provider is usable
         # (`creative.concept_judge.choose`); none means no judgement, so the concept waits.
         from . import concept_judge
 
-        _vendor, provider = concept_judge.choose(ctx.db)
+        vendor, provider = concept_judge.choose(ctx.db)
         if provider is None:
             return {"judged": False, "why": "no owner-activated vision provider is usable"}
-    from . import concept_judge
-
-    provider_name = str(getattr(provider, "name", "") or type(provider).__name__)[:40]
-    if concept_judge.attempted(ctx.db, board_sha, provider_name):
-        # Idempotent per board image: one paid attempt per bytes and provider per window.
-        return {"judged": False, "why": "this board was already sent to this judge within "
-                                        "the retry window; not sent again"}
-    concept_judge.record_attempt(ctx, slug=slug, board_sha=board_sha,
-                                 provider_name=provider_name, model=provider.model)
+        if vendor == concept_judge.OPENAI:
+            # The openai-vision route is idempotent per (concept, board bytes): one paid
+            # attempt per RETRY_AFTER, recorded just before the send (after the budget
+            # reservation), so a redrive never repeats it. The Anthropic route is unchanged.
+            guard = str(getattr(provider, "name", "") or "openai")[:40]
+            if concept_judge.attempted(ctx.db, board_sha, guard, slug=slug):
+                return {"judged": False, "why": "this board was already sent to this judge "
+                                                "within the retry window; not sent again"}
     held = None
     try:
         reservation = gw.check_budget(
@@ -1043,6 +1043,11 @@ def judge_held(ctx, *, slug: str, board: str, provider=None) -> dict:
             max_tokens=JUDGE_MAX_TOKENS, agent=ctx.job.agent, purpose=JUDGE_TASK,
             job_id=ctx.job.id)
         held = reservation["reservation_id"]
+        if guard is not None:
+            from . import concept_judge
+
+            concept_judge.record_attempt(ctx, slug=slug, board_sha=board_sha,
+                                         provider_name=guard, model=provider.model)
         response = provider.see(JUDGE_SYSTEM, JUDGE_PROMPT, [shown],
                                 max_tokens=JUDGE_MAX_TOKENS)
     except gw.BudgetExceeded as exc:
@@ -1091,8 +1096,10 @@ def regate_held(ctx, *, today: date | None = None, provider=None) -> dict:
     from . import concept_judge
 
     if provider is None:
-        _vendor, provider = concept_judge.choose(ctx.db)
-        vision_ok = provider is not None
+        vendor, chosen = concept_judge.choose(ctx.db)
+        vision_ok = chosen is not None
+        if vendor == concept_judge.OPENAI:
+            provider = chosen        # the Anthropic route keeps choosing its own provider
     else:
         vision_ok = gw.vision_usable(ctx.db) or concept_judge.openai_vision_usable(ctx.db)
     stopped = False
@@ -1258,8 +1265,12 @@ def judge_radar_waiting(ctx, *, today: date | None = None, provider=None,
         from . import concept_judge
 
         if provider is None:
-            _vendor, provider = concept_judge.choose(ctx.db)
-        vision_ok = provider is not None
+            vendor, chosen = concept_judge.choose(ctx.db)
+            vision_ok = chosen is not None
+            if vendor == concept_judge.OPENAI:
+                provider = chosen    # the Anthropic route keeps choosing its own provider
+        else:
+            vision_ok = gw.vision_usable(ctx.db) or concept_judge.openai_vision_usable(ctx.db)
     judged_now, held = [], []
     asked_n = 0
     renders_n = 0
