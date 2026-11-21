@@ -6130,7 +6130,7 @@ def _close_set_aside(ctx: JobContext, set_aside: dict) -> list[str]:
         for k, why in sorted(set_aside.items()):
             closed += incident_lifecycle.resolve_signatures(
                 s, [f"{SENTINEL_SIGNATURE}:{k}"],
-                resolution=(f"set aside, not stale: {why}")[:400])
+                resolution=str(why)[:400])
     return closed
 
 
@@ -6276,8 +6276,10 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
         # eng/halt-380-verify: retired names alone are no evidence of a delivered rebuild, so
         # a pass that completed nothing and set only retired names aside leaves the product's
         # row to the sentinel's positive-evidence rule rather than closing it here.
-        set_aside = {**{k: f"retired: {w}" for k, w in retired_now.items()},
-                     **{k: f"superseded: {w}" for k, w in superseded_now.items()}}
+        # The sweep's own resolution wording (`ops.artefacts`), so a row closed here reads
+        # exactly as the hourly sentinel would have closed it.
+        set_aside = {**{k: f"retired, not stale: {w}" for k, w in retired_now.items()},
+                     **{k: f"superseded, not stale: {w}" for k, w in superseded_now.items()}}
         closed = _close_on_verified_rebuild(
             ctx, slug, completed=fresh,
             outstanding=stale if (stale or fresh or not set_aside) else sorted(set_aside))
