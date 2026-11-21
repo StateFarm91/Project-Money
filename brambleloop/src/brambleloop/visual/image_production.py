@@ -512,7 +512,11 @@ def record_candidate(db, cand: dict, verdict: dict, *, method: str, run: str = "
             checks={**verdict["checks"], "_publication": verdict.get("publication") or {},
                     # D-OWNER-FLUX-GALLERY: the route the candidate was generated and judged
                     # under, so a re-verification and the listing set judge it the same way
-                    **({"_route": {"route": str(cand["route"])}} if cand.get("route") else {}),
+                    **({"_route": {"route": str(cand["route"]),
+                                   # ENG-OWNER-GALLERY: who made the frame (internal only)
+                                   **({"supplied_by": str(cand["supplied_by"])[:20]}
+                                      if cand.get("supplied_by") else {})}}
+                       if cand.get("route") else {}),
                     **({"_paid_call": {"token": cand["_paid_call_token"]}}
                        if cand.get("_paid_call_token") else {}),
                     **({"_generation_operation": {"key": cand["_generation_operation"],

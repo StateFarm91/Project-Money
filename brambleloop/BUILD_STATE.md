@@ -13,6 +13,35 @@
 > the Approvals counts and badge. New suite `test_approve_all_v2` 15/15; targeted run 20261121T111632Z-5788 (24 suites).
 > `test_first_listing_doors` and `test_w4_launchfix` fail identically on base. **UNVERIFIED** on production data;
 > `SAMPLE_PHOTO_REQUIRED` still gates publication. Report: `research/final_build/w6/review_requests/APPROVE-ALL-V2.md`.
+> **2026-11-21 — OWNER-GALLERY on `eng/owner-gallery` (from `claude/owner-assets-basket` a981e97; NOT merged, NOT
+> deployed; production unchanged, no production row read).** The owner supplied 7 FLUX 3 frames of the hexagonal basket
+> (locked Laura model laura-r2-a42aeac7) as listing photos. Owner direct order (D-OWNER-NO-RENDER-LABELS): "NO FLUX
+> PHOTOS WILL SAY RENDERING ... Do not add labels."
+> New intake `visual.owner_frames.ingest(db, slug, version, files, actor="owner")`:
+> - stores the exact bytes and their sha256, and records provenance internally (receipt audit, candidate row with
+>   `supplied_by: owner`, asset claims, `visual_truth` lineage);
+> - assigns campaign slots;
+> - runs the SAME per-frame gates as generated frames (`candidate_gates.evaluate` + `gallery_persist.frame_matrix`,
+>   incl. `cir_references` and the route exception), plus `product_scale`, `stripe_layout` (vessel wall bands
+>   measured in code against the CIR) and `alt_text`;
+> - certifies only through `release_gates.listing_set`.
+> Alt text describes the scene: no label, no render wording, no photograph or made-sample claim. It is checked again
+> in `generated_listing_set`. `check_listing_copy` refuses made-sample, "tested" and "I made this" copy.
+> **Result on the 7 real frames: 0 certified, nothing written.** Every frame fails:
+> - quality: 896-1024 px against the 2000 px floor;
+> - stripe placement: the middle cream band is 22-30 % of the wall against the CIR's 8 % (1 of 12 rounds).
+> The two Laura frames also fail scale (about 24-25 cm against 16 cm, +50/+55 %). Fidelity, motif, realism and the
+> Laura gates are UNMEASURED: vision is unfunded and no release anchor exists. Every scene is a nursery, against
+> D-W4-OWNER-BASKET-IDENTITY (flagged; no gate).
+> Tests:
+> - new `tests/test_owner_gallery.py` 6/6;
+> - test_vis_gallery_e2e 13/13, test_owner_gallery_complete 5/5, test_vacuity 8/8, test_v5_scale 4/4,
+>   test_v6_gallery_e2e 10/10, test_vis_gallery_gates 14/14, test_w4_ownerimg 35/35, test_w4_visnext 22/22,
+>   test_w4_visnext_frames 7/7, test_w4_controlled_experiments 10/10;
+> - core compiler/reverse/twin pass.
+> These were targeted per-file runs on a dirty tree, not a release-eligible full run.
+> Flagged for main: the factory FLUX route's alt text still opens with CONCEPT_LABEL (no "rendering" in it, but it is
+> a label). Report: `w6/review_requests/OWNER-GALLERY.md`.
 > **2026-11-21 — HALT-380-VERIFY on `eng/halt-380-verify` (from `claude/w6-release-19h1` 90403e5 = deployed 1bb7c4f5;
 > NOT merged, NOT deployed; production unchanged, no production row read).** Readback 08:20Z: done 199, unfinished 0,
 > no artefact completed since 2026-11-20T13:12Z, 14 retry-waiting, 12 rebuild-incomplete. Clean-slate rebuilds verify

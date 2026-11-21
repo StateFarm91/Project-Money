@@ -4066,3 +4066,25 @@ Each row is re-routed at the write; a changed class refuses the press.
 - Per grant: the sealed ledger row and `owner.grant.approve_everything`.
 - Per press: one `owner_queue.approve_everything` row.
 Reversible: closed rows can be reopened (lifecycle), and grants are revocable until used.
+## D-OWNER-NO-RENDER-LABELS — 2026-11-21 (owner direct order)
+**Owner, verbatim:** "NO FLUX PHOTOS WILL SAY RENDERING. THATS A DIRECT ORDER. Everything is supposed to look real. Do not add labels."
+**What changes.** These apply to owner-supplied FLUX frames (`visual.owner_frames`):
+- No label or watermark is drawn on the pixels. The owner's bytes are stored and certified unchanged, by sha256.
+- The alt text describes the certified product and the scene. Example: "Hexagonal crochet basket in cream with two wine stripes, on a wooden dresser ...".
+- The alt text never says render or rendering, never calls the image a photograph, and never claims a made sample (`owner_frames.buyer_text_problems`). `release_gates.generated_listing_set` checks it again before a certificate is issued.
+**What does not change.** These stay, for accuracy to buyers, as the order's own scope requires:
+- **Internal provenance is still recorded.** That covers the `images.owner_frame_received` audit (sha256, generator, model, Laura identity, actor), the candidate row (`ai_generated_owner_submitted`, `_route.supplied_by: owner`), the asset claims (`is_photograph: False`, `supplied_by: owner`) and the `visual_truth` lineage. No buyer surface reads any of these.
+- **Frames must match the certified CIR.** That means size and scale, stripe count and placement, colours, rim and shape. Owner frames pass the same gates as generated frames, plus `product_scale`, `stripe_layout` and `alt_text`.
+- **No copy may claim a made sample, a test, or "I made this"** (`owner_frames.check_listing_copy`, together with `gates.estimate_claims`' physical words). `SAMPLE_PHOTO_REQUIRED` (D-OWNER-NO-SAMPLE) remains a publication gate.
+**Not touched by this decision:**
+- The listing-description AI disclosure already in copy. It is not a label on a photo, and the order did not name it.
+- The generated route's alt text (`release_gates._gallery_alt_text`). It opens with `eligibility.CONCEPT_LABEL`, which does not contain "rendering" but is a label. Whether to apply the order to factory-generated FLUX frames too is main's call, so it is flagged in OWNER-GALLERY.md rather than changed here.
+## D-ENG-OWNER-GALLERY-1 — owner frames enter through `visual.owner_frames.ingest`, judged on the generated gates (2026-11-21; routine engineering)
+- **Same gates, no substitution.** Each frame runs `candidate_gates.evaluate` on the generated-gallery route and then `gallery_persist.frame_matrix`. That includes `cir_references`: the frame must have been conditioned on the release's CIR reference renders, in order. It also includes the route's exception (`eligibility.gallery_exception`). An owner frame not conditioned on those renders reads UNMEASURED or FAIL there, as a generated frame would.
+- **Added checks** (they apply to owner frames; the generated route is unchanged):
+  - `product_scale`: `visual.scale` is required on the size and lifestyle slots and on any frame with a person. A plain prop-free shot with no anchor reads NOT_APPLICABLE. A measured FAIL is always a FAIL.
+  - `stripe_layout`: the judge points at one wall strip. Code labels each row by its nearest palette chromaticity and compares the band sequence and shares with `vessel.vessel_models(cir)`, within `vessel.SHARE_REL_MAX`.
+  - `alt_text`: see D-OWNER-NO-RENDER-LABELS.
+- **Scale anchor added.** `"adult head, chin to crown": 22.0` cm in `visual.scale.ANCHORS`. This is a stated anthropometric assumption, so that a frame of a person holding the product can be measured. The scale prompt now also asks for `setting` (plain or scene).
+- **Records.** Owner candidates use run key `<release run>#owner`, so they never enter a generated run's selection. The CIR anchor is still read from the release's generated-gallery run. Slots come from `shot_plans.FLUX_SLOTS`. A second frame for a slot must be marked `alternate`: it is judged but not placed.
+- **Tests.** `tests/test_owner_gallery.py`. Report: `w6/review_requests/OWNER-GALLERY.md`.

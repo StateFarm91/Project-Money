@@ -44,6 +44,10 @@ ANCHORS: dict[str, float] = {
     "apple": 8.0,
     "kitchen chair seat": 42.0,     # width
     "pillow": 66.0,                 # standard bed pillow, long side
+    # ENG-OWNER-GALLERY: a person holding the product. Adult head height, chin to crown
+    # (not the hair), about 22 cm (adult anthropometric mean, women ~21-22, men ~23): a
+    # stated assumption, not a measurement of the model.
+    "adult head, chin to crown": 22.0,
 }
 
 
@@ -65,9 +69,11 @@ def prompt() -> str:
     names = "; ".join(sorted(ANCHORS))
     return ("Find the handmade crochet item in this photograph, and one of these everyday "
             f"objects if one is clearly visible: {names}. Give each as a box in fractions of "
-            "the image width and height. Do not estimate any size. Answer as JSON: "
+            "the image width and height. Do not estimate any size. Say whether the item stands "
+            "alone on a plain backdrop with no other objects (setting \"plain\") or in a scene "
+            "with other objects or a person (setting \"scene\"). Answer as JSON: "
             '{"anchor": "<one name from the list, or none>", "anchor_box": [x0, y0, x1, y1], '
-            '"product_box": [x0, y0, x1, y1]}')
+            '"product_box": [x0, y0, x1, y1], "setting": "plain" or "scene"}')
 
 
 def _box(v, w: int, h: int):
@@ -126,4 +132,6 @@ def verify(judge, data: bytes, cir) -> dict:
         size = Image.open(io.BytesIO(data)).size
     except Exception as exc:  # noqa: BLE001
         return VJ._c(CHECK, VJ.UNKNOWN, f"undecodable image ({type(exc).__name__})")
-    return {**measure(got["reading"], size, expected), "judge": got["judge"]}
+    setting = str(got["reading"].get("setting") or "").strip().lower()[:20]
+    return {**measure(got["reading"], size, expected), "judge": got["judge"],
+            **({"setting": setting} if setting else {})}
