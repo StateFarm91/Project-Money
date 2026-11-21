@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-21T01:15:10.030218+00:00",
+ "generated_at": "2026-11-21T01:37:57.110729+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,8 +10,8 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 151,
-  "handlers": 183,
+  "cadences": 152,
+  "handlers": 185,
   "agents": 35,
   "follow_on_edges": 96
  },

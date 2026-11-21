@@ -8,7 +8,7 @@ markers, labelled DIAGRAM and never presented as a photo.
 
 - The amigurumi template document (the test fixture; never a product) passes the four new
   rules in both editions, and the template's own audit still passes.
-- A mutation per rule, each failing that rule by id (AMI_MUTATIONS; test_pdf_standard's
+- A mutation per rule, each failing that rule by id (AMI_MUTATIONS; test_premium_standard's
   every-rule-has-a-mutation check reads it).
 - UNKNOWN is never PASS: a technique the appendix cannot explain, a missing gauge, a seam
   with no round placement, a piece with no counted rows all FAIL the rule and refuse the build.
@@ -32,7 +32,7 @@ from brambleloop.cir.compiler import compile_cir  # noqa: E402
 from brambleloop.cir.model import Component, Op  # noqa: E402
 from brambleloop.cir.twin import build_twin  # noqa: E402
 from brambleloop.publish import pdf as P  # noqa: E402
-from brambleloop.publish import pdf_standard as S  # noqa: E402
+from brambleloop.publish import premium_standard as S  # noqa: E402
 from brambleloop.publish import pdf_template as T  # noqa: E402
 from brambleloop.publish import technique_appendix as TA  # noqa: E402
 
@@ -195,7 +195,7 @@ def test_no_appendix_template_spells_a_terminology_sensitive_stitch_name():
 
 
 def test_the_engine_layout_prints_the_appendix_too():
-    from tests.test_pdf_standard import _text as engine_text
+    from tests.test_premium_standard import _text as engine_text
 
     text = engine_text("hexagon_coasters")
     sec = text[text.find(TA.HEADING):]
@@ -352,7 +352,7 @@ def test_the_new_rules_apply_where_they_should():
     ctx = _ctx()
     need = {r.id for r in S.RULES if r.required_for(ctx)}
     assert set(NEW_RULES) <= need
-    from tests.test_pdf_standard import _ctx as engine_ctx
+    from tests.test_premium_standard import _ctx as engine_ctx
     coaster = {r.id for r in S.RULES if r.required_for(engine_ctx("hexagon_coasters"))}
     assert "techniques_appendix" in coaster
     assert not {"component_diagrams", "assembly_steps", "eye_options"} & coaster

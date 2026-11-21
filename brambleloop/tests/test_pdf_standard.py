@@ -1,361 +1,222 @@
-"""ENG-PDF-PREMIUM: the family-aware premium PDF standard, held to the rendered bytes.
+"""ENG-SALE-PIPELINE: the premium PDF standard, checked from the BUILT bytes
+(`publish.pdf_standard`, D-OWNER-PDF-STANDARD).
 
-- Golden structure per family: the rules each family requires, and a real document of that
-  family that passes all of them in both editions.
-- US/UK term correctness, a certified count after every row, reproducible bytes.
-- A mutation for every rule: delete the rule's evidence from a real document's extracted
-  text, and that rule, by id, must fail. And one end-to-end mutation: a renderer that drops
-  the licence is refused by `build_pattern_pdf` itself.
+Real documents: the certified hexagon coaster set rendered by `publish.pdf` in both editions,
+with a synthetic seven-frame certified gallery (test_double images: flat colour PNGs standing
+in for the certified campaign frames) placed through the `campaign_photos` hook. Each check
+is then broken one at a time and must FAIL; UNKNOWN is never PASS.
+
+Run: cd brambleloop && PYTHONPATH=src:tests $PY tests/test_pdf_standard.py
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # noqa: E702
 import hashlib
-import re
+import io
 import sys
-from datetime import date
-from functools import lru_cache
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "src"), str(ROOT)]
-
-from brambleloop.cir.compiler import compile_cir  # noqa: E402
-from brambleloop.cir.twin import build_twin  # noqa: E402
-from brambleloop.commerce import terms as T  # noqa: E402
-from brambleloop.publish import abbreviations, pdf  # noqa: E402
-from brambleloop.publish import pdf_standard as S  # noqa: E402
-
-RELEASED = date(2026, 10, 27)
-
-
-def _cir(key: str):
-    if key == "garment":
-        from brambleloop.products import garments
-        return garments.every_graded_cir()["harbour-drop-shoulder-pullover-xs"]
-    if key == "pillow":
-        from brambleloop.products import moment_candidates
-        return moment_candidates.heart_row_ring_pillow()
-    from brambleloop.products import launch0
-    return launch0.cir_for(key)
-
-
-# One representative per family, chosen for render time.
-FAMILY_DOCS = {
-    S.SMALL_HOME: "hexagon_coasters",
-    S.BLANKET: "nordic_forest_baby",
-    S.BASKET: "basket_small",
-    S.GARMENT: "garment",
-    S.PILLOW: "pillow",
-}
-
-
-@lru_cache(maxsize=None)
-def _doc(key: str, term: str = "US"):
-    cir = _cir(key)
-    result = compile_cir(cir)
-    twin = build_twin(cir, result)
-    doc = pdf.build_pattern_pdf(cir, terminology=term, released_on=RELEASED, twin=twin)
-    return cir, result, twin, doc
-
-
-@lru_cache(maxsize=None)
-def _text(key: str, term: str = "US") -> str:
-    return pdf.extracted_text(_doc(key, term)[3].pdf_bytes)
-
-
-def _ctx(key: str, term: str = "US") -> S.Context:
-    cir, result, twin, _ = _doc(key, term)
-    return S.context(cir, twin, result, term)
-
-
-# ---- families -------------------------------------------------------------------------------
-
-def test_each_representative_is_classified_into_its_family():
-    for fam, key in FAMILY_DOCS.items():
-        assert S.family_of(_cir(key)) == fam, (key, S.family_of(_cir(key)))
-    assert S.family_of(_cir("placemat_pair")) == S.SMALL_HOME
-    assert S.family_of(_cir("snowflake_ornaments")) == S.SMALL_HOME
-    assert S.family_of(_cir("cloudline_blanket")) == S.BLANKET
-
-
-def test_an_amigurumi_cir_gets_the_toy_rules_when_one_exists():
-    """No amigurumi engine exists yet (ENG-FAMILIES: none). Its rule set is fixed now."""
-    import dataclasses
-    cir = dataclasses.replace(_cir("hexagon_coasters"), title="Little Fox Amigurumi Toy")
-    assert S.family_of(cir) == S.AMIGURUMI
-    _c, result, twin, _d = _doc("hexagon_coasters")
-    ctx = S.context(cir, twin, result, "US", childrens=False)
-    need = {r.id for r in S.RULES if r.required_for(ctx)}
-    assert {"safety", "inline_diagrams"} <= need
-
-
-GOLDEN = {
-    # The concise-but-complete standard every family starts from.
-    "core": {"cover", "overview_table", "supply_yarn", "supply_hook_notions",
-             "gauge_every_fabric", "construction_narrative", "abbreviations",
-             "row_counts", "rs_ws", "finishing", "tips", "licence",
-             "about_brand", "rendering_disclosure", "substitution", "schematic",
-             "techniques_appendix"},
-    S.SMALL_HOME: {"colourwork_chart"},
-    S.BLANKET: {"colourwork_chart", "safety"},
-    S.BASKET: {"inline_diagrams", "colourwork_chart"},
-    S.GARMENT: {"size_chart", "assembly"},
-    S.PILLOW: {"inline_diagrams", "assembly", "colourwork_chart"},
-}
-
-
-def _golden(fam: str, term: str):
-    key = FAMILY_DOCS[fam]
-    _cir_, _r, _t, doc = _doc(key, term)
-    audit = doc.standard
-    assert audit["family"] == fam
-    assert audit["ok"], (key, term, audit["failures"])
-    expected = GOLDEN["core"] | GOLDEN[fam] | {"running_header_footer"}
-    assert set(audit["required"]) == expected, (
-        key, sorted(set(audit["required"]) ^ expected))
-
-
-def test_golden_structure_small_home_goods():
-    for term in ("US", "UK"):
-        _golden(S.SMALL_HOME, term)
-
-
-def test_golden_structure_blanket():
-    for term in ("US", "UK"):
-        _golden(S.BLANKET, term)
-
-
-def test_golden_structure_basket():
-    for term in ("US", "UK"):
-        _golden(S.BASKET, term)
-
-
-def test_golden_structure_garment():
-    for term in ("US", "UK"):
-        _golden(S.GARMENT, term)
-
-
-def test_golden_structure_pillow():
-    for term in ("US", "UK"):
-        _golden(S.PILLOW, term)
-
-
-def test_a_coaster_is_not_held_to_the_garment_manual():
-    need = set(_doc("hexagon_coasters")[3].standard["required"])
-    assert "size_chart" not in need and "assembly" not in need and "safety" not in need
-
-
-# ---- terms, counts, bytes --------------------------------------------------------------------
-
-def test_each_edition_uses_its_own_terms():
-    for key in ("hexagon_coasters", "placemat_pair"):
-        uk = S._instructions(_text(key, "UK"), _ctx(key, "UK"))
-        us = S._instructions(_text(key, "US"), _ctx(key, "US"))
-        assert uk and us
-        assert not re.search(r"(?<![\w-])sc(?![\w-])", uk), key
-        assert re.search(r"(?<![\w-])sc(?![\w-])", us), key
-        # The UK edition's double crochet is the US single crochet.
-        assert re.search(r"(?<![\w-])dc(?![\w-])", uk), key
-        used = _doc(key)[2].stitch_types_used
-        assert used, key
-        for code in used:
-            for term, body in (("US", us), ("UK", uk)):
-                key_text = _text(key, term)
-                assert any(w in key_text for w in abbreviations.spellings(code, term)), (
-                    key, term, code)
-
-
-def test_yarn_is_in_yards_in_the_us_edition_and_metres_in_the_uk_edition():
-    for key in ("hexagon_coasters", "nordic_forest_baby"):
-        us = S._section(_text(key, "US"), "How much yarn", ("Substituting",))
-        uk = S._section(_text(key, "UK"), "How much yarn", ("Substituting",))
-        assert " yd" in us and "100 g ball" in us
-        assert " yd" not in uk and " m" in uk and "100 g ball" in uk
-
-
-def test_the_hook_is_given_in_us_and_mm_with_the_gauge_phrase():
-    t = _text("hexagon_coasters")
-    assert "5 mm (US H-8)" in t and S.HOOK_GAUGE_PHRASE in t
-    assert S.hook_words(5.25) == "5.25 mm"          # no guessed US name off the table
-
-
-def test_every_row_and_round_has_its_certified_count():
-    for key in ("hexagon_coasters", "placemat_pair", "garment", "pillow"):
-        for term in ("US", "UK"):
-            rows = S.row_counts(_text(key, term), term)
-            assert len(rows) >= 7, (key, term)
-            assert all(c is not None for _k, _i, c in rows), (key, term)
-            assert not S._counts(_text(key, term), _ctx(key, term)), (key, term)
-
-
-def test_flat_rows_alternate_rs_and_ws_from_the_cirs_turns():
-    body = S._instructions(_text("placemat_pair"), _ctx("placemat_pair"))
-    assert "Row 1 (RS) (cream):" in body and "Row 2 (WS) (wine):" in body
-    assert "Row 3 (RS)" in body
-    assert pdf.RS_NOTE[:40] in _text("placemat_pair")
-
-
-def test_same_release_same_bytes_in_both_editions():
-    for key in ("hexagon_coasters", "placemat_pair"):
-        cir = _cir(key)
-        for term in ("US", "UK"):
-            a = pdf.build_pattern_pdf(cir, terminology=term, released_on=RELEASED)
-            b = pdf.build_pattern_pdf(_cir(key), terminology=term, released_on=RELEASED)
-            assert hashlib.sha256(a.pdf_bytes).digest() == hashlib.sha256(b.pdf_bytes).digest()
-
-
-def test_multi_piece_covers_do_not_count_the_object_by_its_first_piece():
-    assert pdf.makes_words(_cir("hexagon_coasters")) == "Makes 4 coasters"
-    assert pdf.makes_words(_cir("garment")) == "Made from 4 pieces"
-    assert pdf.makes_words(_cir("pillow")) == "Made from 3 pieces"
-    for key in ("garment", "pillow"):
-        t = _text(key)
-        assert "bodys" not in t and "Makes 3 pillows" not in t
-
-
-def test_the_licence_is_ours_and_carries_credit_and_a_disclaimer():
-    sale = T.BRAMBLELOOP_TERMS.sentence(T.FINISHED_ITEM_SALE)
-    assert "not manufactured at scale" in sale and "credit to Brambleloop Studio" in sale
-    for key in FAMILY_DOCS.values():
-        t = _text(key)
-        assert sale in t and S.DISCLAIMER in t, key
-
-
-def test_the_brand_page_is_about_the_studio_and_never_laura():
-    for key in FAMILY_DOCS.values():
-        for term in ("US", "UK"):
-            t = _text(key, term)
-            assert S.ABOUT_HEADING in t and not re.search(r"\bLaura\b", t), (key, term)
-    assert not any("Laura" in p for p in S.ABOUT_PARAGRAPHS)
-
-
-# ---- mutations: one per rule ----------------------------------------------------------------
-
-def _drop(*needles):
-    def m(text):
-        for n in needles:
-            text = text.replace(n, "")
-        return text
-    return m
-
-
-def _sub(pattern, repl):
-    return lambda text: re.sub(pattern, repl, text)
-
-
-# rule id -> (document key that requires the rule, mutation of its extracted text)
-MUTATIONS = {
-    "cover": ("hexagon_coasters", _drop("SKILL")),
-    "overview_table": ("hexagon_coasters", _drop("CYC 3")),
-    "supply_yarn": ("hexagon_coasters", _drop("100 g ball")),
-    "supply_hook_notions": ("hexagon_coasters", _drop(S.HOOK_GAUGE_PHRASE)),
-    "gauge_every_fabric": ("hexagon_coasters", _sub(r"14\.5 sts x 16(\.0)? rows", "x")),
-    "construction_narrative": ("hexagon_coasters", _drop("How it is made")),
-    "schematic": ("hexagon_coasters", _drop("FINISHED MEASUREMENTS")),
-    "size_chart": ("garment", _drop("finished chest")),
-    "abbreviations": ("hexagon_coasters", _drop("US CROCHET TERMS")),
-    "row_counts": ("hexagon_coasters", _sub(r"\(42 sts\)", "")),
-    "rs_ws": ("placemat_pair", _sub(r"Row 2 \(WS\)", "Row 2")),
-    "inline_diagrams": ("basket_small", _drop("construction diagram")),
-    "colourwork_chart": ("hexagon_coasters", _drop("CHART AND KEYS")),
-    "finishing": ("hexagon_coasters", _drop("weave in")),
-    "assembly": ("pillow", _drop("ASSEMBLY AND FINISHING")),
-    "substitution": ("hexagon_coasters", _drop("yd per gram")),
-    "tips": ("hexagon_coasters", _drop("Tips and troubleshooting")),
-    "licence": ("hexagon_coasters", _drop("credit to Brambleloop Studio")),
-    "about_brand": ("hexagon_coasters", lambda t: t + " Designed by Laura."),
-    "rendering_disclosure": ("hexagon_coasters",
-                             _drop("not a photograph", "digital rendering", "Photograph")),
-    "safety": ("nordic_forest_baby", _drop(pdf.CHILDRENS_HEADING)),
-    "techniques_appendix": ("hexagon_coasters", _drop("Starting in a magic ring")),
-}
-
-
-def test_every_rule_has_a_mutation():
-    # The amigurumi-only rules (no engine document is amigurumi) are mutated on the template's
-    # amigurumi document in tests/test_pdf_diagrams.py (AMI_MUTATIONS), each by id.
-    from tests.test_pdf_diagrams import AMI_MUTATIONS
-
-    assert set(MUTATIONS) | set(AMI_MUTATIONS) | {"running_header_footer",
-                                                  "special_stitches"} == set(S.RULE_IDS)
-
-
-
-def test_a_special_stitch_without_its_definition_fails():
-    """No catalogue product uses a special stitch yet, so the rule is held on a context whose
-    twin uses the bobble: required, failing without the section, passing with it."""
-    import types
-    from brambleloop.publish import abbreviations as A
-
-    ctx = _ctx("hexagon_coasters")
-    twin = types.SimpleNamespace(**{k: getattr(ctx.twin, k) for k in
-                                    ("stitch_types_used", "yarn_metres_by_color", "width_cm")})
-    twin.stitch_types_used = set(twin.stitch_types_used) | {"bob"}
-    import dataclasses
-    ctx = dataclasses.replace(ctx, twin=twin)
-    rule = next(r for r in S.RULES if r.id == "special_stitches")
-    assert rule.required_for(ctx)
-    assert rule.check(_text("hexagon_coasters"), ctx)
-    ok = _text("hexagon_coasters") + " Special stitches bob " + A.method("bob", "US")
-    assert not rule.check(ok, ctx)
-
-
-def test_each_rule_fails_when_its_evidence_is_removed():
-    for rule_id, (key, mutate) in sorted(MUTATIONS.items()):
-        ctx = _ctx(key)
-        text = _text(key)
-        assert rule_id in {r.id for r in S.RULES if r.required_for(ctx)}, (rule_id, key)
-        before = S.audit_text(text, ctx)
-        assert rule_id not in before.failures, (rule_id, before.failures.get(rule_id))
-        mutated = mutate(text)
-        assert mutated != text, f"{rule_id}: the mutation changed nothing in {key}"
-        after = S.audit_text(mutated, ctx)
-        assert rule_id in after.failures, f"{rule_id}: removing its evidence did not fail it"
-
-
-def test_a_page_without_its_folio_or_running_head_fails():
-    cir, _r, _t, doc = _doc("hexagon_coasters")
-    pages = S.pages_text(doc.pdf_bytes)
-    assert not S.header_footer_failures(pages, cir)
-    broken = list(pages)
-    broken[2] = broken[2].replace(f"page 3 of {len(pages)}", "")
-    assert S.header_footer_failures(broken, cir)
-    broken = list(pages)
-    broken[4] = broken[4].replace("BRAMBLELOOP ·", "")
-    assert S.header_footer_failures(broken, cir)
-
-
-def test_no_production_code_turns_the_standard_off():
-    src = ROOT / "src" / "brambleloop"
-    hits = [str(p.relative_to(src)) for p in src.rglob("*.py")
-            if "enforce_standard=False" in p.read_text(encoding="utf-8")]
-    assert hits == [], hits
-
-
-def test_the_build_refuses_a_pdf_that_drops_a_required_section():
-    original = pdf.licence_paragraphs
-    try:
-        pdf.licence_paragraphs = lambda: ["Terms"]
-        try:
-            pdf.build_pattern_pdf(_cir("hexagon_coasters"), released_on=RELEASED)
-        except S.PremiumStandardRefused as e:
-            assert "licence" in str(e)
-        else:
-            raise AssertionError("a PDF without its licence was built")
-    finally:
-        pdf.licence_paragraphs = original
+sys.path.insert(0, str(ROOT / "src"))
+
+from PIL import Image  # noqa: E402
+
+from brambleloop.products import launch0 as L  # noqa: E402
+from brambleloop.publish import pdf_photos as PP  # noqa: E402
+from brambleloop.publish import pdf_standard as PS  # noqa: E402
+from brambleloop.publish.pdf import build_pattern_pdf  # noqa: E402
+
+ROLES = ["hero", "lifestyle", "detail", "size", "colour_context", "materials", "whats_included"]
+_C: dict = {}
+
+
+def frames(seed=0, n=7):
+    """test_double: the certified campaign frames' bytes."""
+    out = []
+    for i, r in enumerate(ROLES[:n]):
+        im = Image.new("RGB", (1800, 1800), ((40 + i * 25 + seed) % 256, 90, 120))
+        b = io.BytesIO()
+        im.save(b, "PNG")
+        d = b.getvalue()
+        out.append({"sha256": hashlib.sha256(d).hexdigest(), "role": r, "position": i + 1,
+                    "data": d})
+    return out
+
+
+def _fixture():
+    if not _C:
+        cir = L.cir_for("hexagon_coasters")
+        plan = PP.plan(frames())
+        _C.update(cir=cir, plan=plan, expected=PP.expected(plan["slots"]))
+        for t in PS.TERMINOLOGIES:
+            _C[t] = build_pattern_pdf(cir, terminology=t, campaign_photos=plan["slots"]).pdf_bytes
+        _C["base_US"] = build_pattern_pdf(cir, terminology="US").pdf_bytes
+    return _C
+
+
+def _status(r, name):
+    return next(c["status"] for c in r["checks"] if c["check"] == name)
+
+
+def test_both_engine_editions_pass_every_structural_check_from_their_bytes():
+    """The engine layout's premium editions meet every structural and photo-slot rule. They
+    still FAIL as a whole: the engine cover carries no owner logo (D-OWNER-PDF-LOGO), which
+    is why the sale pipeline certifies only the owner template (test_sale_pipeline_e2e)."""
+    C = _fixture()
+    assert C["plan"]["problems"] == []
+    for t in PS.TERMINOLOGIES:
+        r = PS.check(C[t], cir=C["cir"], terminology=t, expected=C["expected"])
+        assert r["layout"] == "engine"
+        assert r["verdict"] == PS.FAIL and r["failed"] == ["logo:cover"], (t, r["failed"])
+        r2 = PS.check(C[t], cir=C["cir"], terminology=t, expected=C["expected"],
+                      require_template=True)
+        assert set(r2["failed"]) == {"logo:cover", "layout"}, r2["failed"]
+        for slot in PP.SLOTS:
+            assert _status(r, f"slot:{slot}") == PS.PASS
+        for name in ("sections", "licence_page", "stitch_counts", "schematic", "diagrams",
+                     "page_range", "cover", "terminology", "no_uncertified_photos"):
+            assert _status(r, name) == PS.PASS, name
+
+
+def test_the_edition_must_be_the_one_checked():
+    C = _fixture()
+    r = PS.check(C["US"], cir=C["cir"], terminology="UK", expected=C["expected"])
+    assert r["verdict"] == PS.FAIL and "terminology" in r["failed"]
+
+
+def test_a_document_without_the_gallery_fails_every_photo_slot():
+    C = _fixture()
+    r = PS.check(C["base_US"], cir=C["cir"], terminology="US", expected=C["expected"])
+    assert r["verdict"] == PS.FAIL
+    assert {"slot:cover_hero", "slot:overview_lifestyle", "slot:progress",
+            "slot:gallery"} <= set(r["failed"])
+
+
+def test_pending_images_is_the_pre_image_reading_and_never_a_pass():
+    C = _fixture()
+    r = PS.check(C["base_US"], cir=C["cir"], terminology="US", expected=None, images="pending")
+    assert r["verdict"] == "PASS_PENDING_IMAGES" and r["verdict"] != PS.PASS
+    assert _status(r, "slot:gallery") == PS.PENDING
+
+
+def test_images_that_are_not_the_certified_frames_never_count():
+    C = _fixture()
+    other = PP.expected(PP.plan(frames(seed=101))["slots"])
+    r = PS.check(C["US"], cir=C["cir"], terminology="US", expected=other)
+    assert r["verdict"] == PS.FAIL
+    assert "slot:gallery" in r["failed"] and "no_uncertified_photos" in r["failed"]
+
+
+def test_no_expectation_is_unknown_never_pass():
+    C = _fixture()
+    r = PS.check(C["US"], cir=C["cir"], terminology="US", expected=None)
+    # Without an expectation every photo slot is UNKNOWN, never PASS (the engine cover's
+    # missing logo FAILs on its own, so the verdict is FAIL here, still never PASS).
+    assert r["verdict"] != PS.PASS and all(
+        _status(r, f"slot:{s}") == PS.UNKNOWN for s in PP.SLOTS), r["checks"]
+    assert PS.check(b"not a pdf", cir=C["cir"], terminology="US",
+                    expected=C["expected"])["verdict"] == PS.UNKNOWN
+
+
+def test_a_short_gallery_fails_the_gallery_slot():
+    C = _fixture()
+    plan = PP.plan(frames(n=5))         # hero..colour_context: 5 frames, 5 in the gallery
+    assert plan["slots"]["gallery"] and len(plan["slots"]["gallery"]) == 5
+    short = {k: list(v) for k, v in plan["slots"].items()}
+    short["gallery"] = short["gallery"][:4]
+    data = build_pattern_pdf(C["cir"], terminology="US", campaign_photos=short).pdf_bytes
+    r = PS.check(data, cir=C["cir"], terminology="US", expected=PP.expected(short))
+    assert "slot:gallery" in r["failed"], r["failed"]
+    assert any("gallery page needs" in p for p in PP.plan(frames(n=4))["problems"])
+
+
+def test_the_cover_hero_must_be_full_bleed():
+    doc = {"pages": [{"index": 1, "width": 612.0, "lines": [], "text": "", "section": "Cover",
+                      "images": [{"sha256": "h", "dct": True, "drawn": (500.0, 300.0)}]}],
+           "page_count": 1}
+    exp = {"slots": {"cover_hero": ["h"]}, "renditions": {"h": {}}}
+    got = {c["check"]: c for c in PS._slots(doc, exp)}
+    assert got["slot:cover_hero"]["status"] == PS.FAIL
+    assert "full bleed" in got["slot:cover_hero"]["why"]
+
+
+def test_a_row_without_its_stitch_count_fails():
+    doc = {"pages": [{"index": 7, "section": "Instructions", "text": "", "images": [],
+                      "lines": ["Rnd 1 (cream):", "6 sc in ring.", "(6 sts)",
+                                "Rnd 2 (cream):", "[inc] x 6.", "after Rnd 2",
+                                "Rnd 3 (cream):", "[sc, inc] x 6.", "(18 sts)"]}]}
+    r = PS._stitch_counts(doc)
+    assert r["status"] == PS.FAIL and "1 of 3" in r["why"], r
+    doc["pages"][0]["lines"].insert(5, "(12 sts)")
+    assert PS._stitch_counts(doc)["status"] == PS.PASS
+
+
+def test_the_licence_page_must_carry_every_decided_paragraph():
+    C = _fixture()
+    doc = PS.read(C["US"])
+    assert PS._licence(doc)["status"] == PS.PASS
+    for p in doc["pages"]:
+        if p["section"] == "Terms and support":
+            p["text"] = "Terms and support\nSupport and credits"
+    assert PS._licence(doc)["status"] == PS.FAIL
+
+
+def test_family_aware_sections_and_page_range():
+    C = _fixture()
+    assert PS.family(C["cir"]) == "home"
+    doc = PS.read(C["US"])
+    assert PS._page_range(doc, "home")["status"] == PS.PASS
+    assert PS._page_range({"page_count": 3}, "home")["status"] == PS.FAIL
+
+    class Graded:                       # a graded garment needs its size chart and care
+        grading = object()
+        title = C["cir"].title
+    got = {c["check"]: c for c in PS._sections(doc, Graded(), "US")}
+    assert got["sections"]["status"] == PS.FAIL and "Sizes and fit" in got["sections"]["why"]
+
+
+def test_schematic_and_diagrams_are_required():
+    C = _fixture()
+    doc = PS.read(C["US"])
+    for p in doc["pages"]:
+        if p["section"] == "Instructions":
+            p["images"] = []
+    got = {c["check"]: c for c in PS._schematic_and_diagrams(doc, set())}
+    assert got["diagrams"]["status"] == PS.FAIL
+    for p in doc["pages"]:
+        p["images"] = []
+    got = {c["check"]: c for c in PS._schematic_and_diagrams(doc, set())}
+    assert got["schematic"]["status"] == PS.FAIL
+
+
+def test_renditions_are_deterministic_and_refuse_wrong_bytes():
+    f = frames()[0]
+    assert PP.rendition(f["data"]) == PP.rendition(f["data"])
+    bad = dict(f, sha256="0" * 64)
+    assert PP.plan([bad])["problems"] and not PP.plan([bad])["slots"]["cover_hero"]
+
+
+def test_omitting_the_hook_leaves_the_document_unchanged():
+    from datetime import date
+
+    cir = L.cir_for("hexagon_coasters")
+    a = build_pattern_pdf(cir, terminology="US", released_on=date(2026, 11, 1)).pdf_bytes
+    b = build_pattern_pdf(cir, terminology="US", released_on=date(2026, 11, 1),
+                          campaign_photos=None).pdf_bytes
+    assert a == b
 
 
 if __name__ == "__main__":
-    fails = 0
-    for name, fn in sorted(globals().items()):
-        if name.startswith("test_") and callable(fn):
-            try:
-                fn()
-                print("OK  ", name)
-            except Exception as e:  # noqa: BLE001
-                fails += 1
-                import traceback
-                traceback.print_exc()
-                print("FAIL", name, repr(e))
-    sys.exit(1 if fails else 0)
+    import traceback
+
+    failed = 0
+    for name, fn in sorted((n, f) for n, f in dict(globals()).items() if n.startswith("test_")):
+        try:
+            fn()
+            print("OK  ", name)
+        except Exception:  # noqa: BLE001
+            failed += 1
+            print("FAIL", name)
+            traceback.print_exc()
+    print(f"{failed} failed")
+    sys.exit(1 if failed else 0)

@@ -95,10 +95,16 @@ STAGES: tuple[tuple[str, str], ...] = (
     ("owner_card", "ready_for_owner_review"),
 )
 STAGE_STATE = dict(STAGES)
-STATES = ("awaiting_certified_pattern", "reference_preparation", "product_generation",
-          "lifestyle_generation", "gallery_assembly", "automated_verification",
-          "ready_for_owner_review", "blocked", "approved_for_publication",
-          "waiting_for_sale_admission")
+# D-OWNER-SPEND-ORDER (ENG-SALE-PIPELINE): `awaiting_pre_image_readiness` is the non-spending
+# wait of a run whose release is not (yet) admitted for sale by `publish.sale_pipeline`.
+AWAITING_PRE_IMAGE = "awaiting_pre_image_readiness"
+STATES = ("awaiting_certified_pattern", AWAITING_PRE_IMAGE, "reference_preparation",
+          "product_generation", "lifestyle_generation", "gallery_assembly",
+          "automated_verification", "ready_for_owner_review", "blocked",
+          "approved_for_publication", "waiting_for_sale_admission")
+# The stages that can call a generator (and so spend); none runs for an unadmitted release.
+SPENDING_STAGES = ("prepare_references", "product_generation", "identity_anchor",
+                   "lifestyle_generation", "remaining_roles", "repair")
 NOTIFY_STATES = ("ready_for_owner_review", "blocked")
 
 MAX_ATTEMPTS_PER_ROLE = 3          # one generation + two repairs
@@ -1073,6 +1079,39 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
     return out
 
 
+_ADMISSION_WHY = ("D-OWNER-SPEND-ORDER: paid image generation starts only for a release the "
+                  "sale pipeline admitted (certified, selected for sale, every non-image gate "
+                  "PASS, within the per-listing cap and the month ceiling)")
+
+
+def _spend_admitted(db, gen, exp, controlled, slug, version, release) -> bool:
+    """Whether this run may call its generator. A known-free generator (a test double or a
+    deterministic renderer) spends nothing; an experiment or an owner-authorised controlled
+    run carries its own authorization and caps. Otherwise -- a paid generator, or none wired
+    yet -- only a release `publish.sale_pipeline` admitted may proceed. Unreadable is no."""
+    if exp is not None or controlled:
+        return True
+    if gen is not None and getattr(gen, "paid", True) is False:
+        return True
+    try:
+        from ..publish import sale_pipeline
+
+        return sale_pipeline.spend_admitted(db, slug, version, release)
+    except Exception:  # noqa: BLE001 - unreadable admission never spends
+        return False
+
+
+def _sale_owned(db, slug: str, version: str, release: str) -> bool:
+    """Whether `publish.sale_pipeline` holds a run for exactly this release. Unreadable is
+    treated as owned, so its (stricter) spend gate is read first."""
+    try:
+        from ..publish import sale_pipeline
+
+        return sale_pipeline.get(db, slug, version, release) is not None
+    except Exception:  # noqa: BLE001
+        return True
+
+
 def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
     """Run one stage and enqueue the next. `follow(inputs, idempotency_key)` enqueues."""
     slug, version, release = inputs["slug"], inputs["version"], str(inputs.get("release") or "")
@@ -1115,6 +1154,9 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
                 "why": f"job epoch {epoch} is not the run's epoch {run.get('restarts', 0)}"}
     if run["state"] in ("blocked", "ready_for_owner_review", "approved_for_publication"):
         return {"run_key": key, "skipped": True, "why": f"run is {run['status']}"}
+    if run["state"] == AWAITING_PRE_IMAGE and stage != "retrieve_release":
+        # D-OWNER-SPEND-ORDER: an admitted re-entry starts again at retrieve_release.
+        return {"run_key": key, "skipped": True, "why": f"run is {run['status']}"}
     if generator is not None:
         gen = generator
     elif exp is not None:
@@ -1126,6 +1168,13 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
         # b17-c A3 (D-OWNER-SPEND-ORDER): every stage of a paid gallery -- the FLUX route
         # always, the campaign route whenever its generator is paid -- re-checks for-sale
         # admission before it does anything. Not admitted parks it without spend.
+        # Batch 19: both spend admissions must hold (vis-gallery `sale_admission` and the
+        # sale pipeline's `spend_admitted`). Where the sale pipeline owns the release, or the
+        # stage itself spends, its gate is read first and the run waits in its state.
+        if (stage in SPENDING_STAGES or _sale_owned(db, slug, version, release)) and \
+                not _spend_admitted(db, gen, exp, controlled, slug, version, release):
+            return {"run_key": key, **_update(db, key, stage=stage, status=AWAITING_PRE_IMAGE,
+                                               record={"outputs": {"waiting": _ADMISSION_WHY}})}
         adm = sale_admission(db, slug, version, release)
         if not adm["admitted"]:
             return _park_for_sale(db, key, stage, adm)
@@ -1185,6 +1234,10 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
                          record={"evidence": bind})
         if plan is None:
             return block(f"{run['listing']} has no shot plan (not a Launch-0 listing)")
+        if not _spend_admitted(db, gen, exp, controlled, slug, version, release):
+            return {"run_key": key, **_update(db, key, stage=stage, status=AWAITING_PRE_IMAGE,
+                                               record={"evidence": bind, "outputs": {
+                                                   "waiting": _ADMISSION_WHY}})}
         rec = {"inputs": dict(inputs), "evidence": bind,
                "outputs": {"plan_roles": [r["role"] for r in plan["roles"]],
                            "route": route or "campaign", "family": plan.get("family")}}
@@ -1197,6 +1250,12 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
     data = _stage_data(db, key)
     bind = (data.get("retrieve_release") or {}).get("evidence") or {}
 
+    if stage in SPENDING_STAGES and not _spend_admitted(db, gen, exp, controlled, slug,
+                                                        version, release):
+        # a continuation queued before admission was withdrawn (or before this rule) waits,
+        # never spends
+        return {"run_key": key, **_update(db, key, stage=stage, status=AWAITING_PRE_IMAGE,
+                                           record={"outputs": {"waiting": _ADMISSION_WHY}})}
     if gen is None and stage in ("prepare_references", "product_generation",
                                  "lifestyle_generation", "remaining_roles", "repair"):
         return block("no image generator is wired: W-FLUXAPI's stage functions have not "

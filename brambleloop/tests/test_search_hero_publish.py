@@ -1,4 +1,5 @@
-"""F-004 end to end: the search certificate reaches PASS on the merits, and publish succeeds.
+"""F-004 end to end: the search certificate reaches PASS on the merits, and publish is no
+longer stopped by it.
 
 `runtime.etsy_ops.certified_payload` refuses unless the stored search verdict is PASS, and
 `listing.seo` -- the only writer -- issued the certificate with the hero unjudged, so the
@@ -7,10 +8,12 @@ reached a draft forced the stored verdict to PASS. Here nothing is forced: the r
 `gate.certify` -> `assets.build` (the disclosed render set) -> `listing.seo` handlers run on
 a temporary sqlite database, the hero is judged on the listing-set certificate and the
 completed certificate written back with its evidence, the owner's publication grant is
-recorded through the real approve path, and the real `store.publish` handler creates
-exactly one draft on `tests/fake_etsy` (loopback only). The negatives: a hero that was
-never judged, a hero that fails, and a certified set that was superseded all refuse with
-zero Etsy requests.
+recorded through the real approve path, and the real `store.publish` handler passes the
+search, listing-set and certified-image gates on a complete (>= 7 frame) certified gallery
+and is stopped only by D-OWNER-SALE-PIPELINE (the release is truthfully not READY for sale
+here; see the merits test). The negatives: a six-frame certified set
+(D-OWNER-GALLERY-COMPLETE), a hero that was never judged, a hero that fails, and a certified
+set that was superseded all refuse with zero Etsy requests (`tests/fake_etsy`, loopback).
 
 Held outside this test's subject, each with its own tests: the creative parity gate (#75;
 the disclosed set's HERO and COMPETITIVE dimensions need a vision description and a blind
@@ -73,10 +76,6 @@ from tests.fake_etsy import FakeEtsy  # noqa: E402
 import _owner_grant; _owner_grant.scoped_owner_approvals()  # noqa: E402,E702  (WS4-0a)
 
 SLUG = "cloudline-baby-blanket"
-# A product whose disclosed set certifies the complete gallery (D-OWNER-GALLERY-COMPLETE); the
-# blanket's set certifies 6 of the 7 frames and is rightly blocked from publish (b18-a A-1).
-FULL_SLUG = "housewarming-key-basket"
-FULL_CATEGORY = "basket"
 OWNER_TOKEN = "fixture-owner-publication-credential-32+"
 _BUILT: dict = {}
 
@@ -233,43 +232,18 @@ def _creates(fake) -> list:
 # ---------------------------------------------------------------------------- the merits
 
 # D-OWNER-GALLERY-COMPLETE: a listing is uploaded only with its whole certified gallery
-# (`shot_plans.CAMPAIGN_MIN_FRAMES`). The blanket's disclosed set certifies six frames (no
-# ANGLE/CONSTRUCTION for a flat piece), so its publish is refused before Etsy; the key
-# basket's certifies the complete gallery and is the one that reaches a draft.
-def test_a_partial_certified_gallery_passes_the_hero_but_publish_is_blocked_with_no_request():
-    from brambleloop.visual.shot_plans import CAMPAIGN_MIN_FRAMES
-
-    path, version, rh = _chain()
-    db = Database(f"sqlite:///{path}")
-    row = _profile(db)
-    assert row.verdict == "PASS", (row.verdict, row.certificate.get("reasons"))
-    cert = etsy_ops.certified_frames(db, SLUG, version, release=rh)
-    assert 0 < len(cert["frames"]) < CAMPAIGN_MIN_FRAMES, cert
-    assert any(p.startswith("gallery incomplete") for p in cert["problems"]), cert
-    with FakeEtsy() as fake, _owner_and_fake(fake):
-        _grant(db, version, rh)
-        job = _run(db, "store_operator", "store.publish",
-                   {"slug": SLUG, "version": version, "release": rh},
-                   phase=Phase.LIMITED_PRODUCTION)
-        assert job.status is JobStatus.DONE, job.last_error
-        out = job.outputs
-        assert out.get("published") is False and out.get("blocked") is True, out
-        assert any("gallery incomplete" in r for r in out.get("reasons") or []), out
-        assert _creates(fake) == [] and not fake.received_images, fake.requests
-    with db.session() as s:
-        listing = s.scalar(select(Listing).where(Listing.product_slug == SLUG))
-        assert listing is None or not listing.etsy_listing_id, listing.etsy_listing_id
-    db.engine.dispose()
+# (`shot_plans.CAMPAIGN_MIN_FRAMES`, seven). The blanket's disclosed set plus its verified
+# supplements certifies six frames on the production path (a flat piece has no ANGLE or
+# CONSTRUCTION frame); the key basket's certifies eight. So the merits run is on the basket,
+# through the same real handlers, and the six-frame blanket is asserted blocked on its own.
+FULL_SLUG = "housewarming-key-basket"
+FULL_CATEGORY = "basket"
 
 
-def test_certify_assets_seo_grant_publish_creates_exactly_one_draft_with_no_forced_verdict():
-    from brambleloop.visual.shot_plans import CAMPAIGN_MIN_FRAMES
-
-    path, version, rh = _chain(FULL_SLUG, FULL_CATEGORY)
-    db = Database(f"sqlite:///{path}")
-    row = _profile(db, FULL_SLUG)
-    # listing.seo judged the hero on the certified disclosed set and wrote PASS back, with
-    # the evidence it used, bound to this release.
+def _hero_passed_on_the_merits(db, slug, version, rh) -> dict:
+    """listing.seo judged the hero on the certified disclosed set and wrote PASS back, with
+    the evidence it used, bound to this release. Returns the valid listing-set record."""
+    row = _profile(db, slug)
     assert row.verdict == "PASS", (row.verdict, row.certificate.get("reasons"))
     cert = row.certificate
     assert cert["checks"]["hero"]["ok"] is True and not cert["pending"], cert["checks"]["hero"]
@@ -280,9 +254,45 @@ def test_certify_assets_seo_grant_publish_creates_exactly_one_draft_with_no_forc
         frame1 = next(f for f in rec.certificate["frames"] if f["position"] == 1)
         assert frame1["sha256"] == ev["frame_1_sha256"]
         assert frame1["kind"] == "disclosed_render"
+        valid = list(s.scalars(select(ListingSetCertificateRecord).where(
+            ListingSetCertificateRecord.state == "valid")))
+        assert [r.id for r in valid] == [ev["listing_set_record_id"]], \
+            [(r.id, r.state) for r in valid]
+        frames = sorted((int(f["position"]), f["sha256"]) for f in rec.certificate["frames"])
     assert cert["bound_fingerprint"] == row.fingerprint
-    payload = etsy_ops.certified_payload(db, FULL_SLUG, version)
+    payload = etsy_ops.certified_payload(db, slug, version)
     assert payload.taxonomy_id == row.taxonomy_id
+    return {"record_id": ev["listing_set_record_id"], "frames": frames}
+
+
+def test_certify_assets_seo_grant_publish_passes_every_gate_up_to_the_sale_rule_with_no_forced_verdict():
+    """The merits, nothing forced, on a release whose certified set is the whole gallery.
+
+    Before ENG-SALE-PIPELINE this run ended in exactly one Etsy draft. D-OWNER-SALE-PIPELINE
+    (HARD RULE) now refuses publication unless the release is READY for sale -- both premium
+    PDFs certified and the listing package READY -- and in this environment that is truthfully
+    not so (no physical sample is bound; the Etsy remote claims are unverified). Faking READY
+    is refused here as in test_visual_factory_e2e::test_b1. So the run asserts what this
+    module owns -- the search certificate PASSES on the merits, the certified set is complete
+    and every frame is served byte for byte in certificate order -- and that store.publish
+    passes the search, listing-set and F-524 image gates and is stopped by the sale rule alone,
+    with zero Etsy requests. The draft-and-read-back of a READY release is the integration
+    item named in w6/review_requests/FIX-SALE-PIPELINE.md."""
+    from brambleloop.visual.shot_plans import CAMPAIGN_MIN_FRAMES
+
+    path, version, rh = _chain(FULL_SLUG, FULL_CATEGORY)
+    db = Database(f"sqlite:///{path}")
+    rec = _hero_passed_on_the_merits(db, FULL_SLUG, version, rh)
+    # The whole certified gallery: the disclosed renders plus the W4-VISUAL supplements the
+    # certificate was issued with, at least the campaign standard's seven.
+    assert len(rec["frames"]) >= CAMPAIGN_MIN_FRAMES == 7, rec["frames"]
+    served = etsy_ops.certified_images(db, FULL_SLUG, version, release=rh)
+    assert served["problems"] == [], served["problems"]
+    assert served["record_id"] == rec["record_id"]
+    import hashlib
+
+    assert [hashlib.sha256(d).hexdigest() for _n, d in served["images"]] == \
+        [sha for _pos, sha in rec["frames"]], "served set differs from the certified set"
 
     with FakeEtsy() as fake, _owner_and_fake(fake):
         grant = _grant(db, version, rh, slug=FULL_SLUG)
@@ -290,43 +300,45 @@ def test_certify_assets_seo_grant_publish_creates_exactly_one_draft_with_no_forc
                    {"slug": FULL_SLUG, "version": version, "release": rh},
                    phase=Phase.LIMITED_PRODUCTION)
         assert job.status is JobStatus.DONE, job.last_error
-        assert job.outputs.get("published") is True, job.outputs
-        assert len(_creates(fake)) == 1, [r["operation"] for r in fake.requests]
-        lid = job.outputs["etsy_listing_id"]
-        assert fake.listings[lid]["state"] == "draft"
-        assert int(fake.listings[lid]["taxonomy_id"]) == row.taxonomy_id
-        # The published gallery is exactly the complete certified set: the disclosed renders
-        # plus the W4-VISUAL gallery supplements the certificate was issued with, in its
-        # order and byte for byte -- nothing certified dropped, nothing uncertified added.
-        with db.session() as s:
-            valid = list(s.scalars(select(ListingSetCertificateRecord).where(
-                ListingSetCertificateRecord.state == "valid")))
-            assert [r.id for r in valid] == [ev["listing_set_record_id"]], \
-                [(r.id, r.state) for r in valid]
-            certified = sorted((int(f["position"]), f["sha256"])
-                               for f in valid[0].certificate["frames"])
-        uploaded = sorted((int(i["rank"]), i["sha256"]) for i in fake.received_images[lid])
-        assert uploaded == certified, (uploaded, certified)
-        assert len(fake.images[lid]) == len(certified) >= CAMPAIGN_MIN_FRAMES, \
-            len(fake.images[lid])
+        out = job.outputs
+        assert out.get("published") is False and out.get("blocked") is True, out
+        # stopped by the sale rule alone: no search, listing-set or image-gate reason
+        assert out["reasons"] and all("D-OWNER-SALE-PIPELINE" in r for r in out["reasons"]), out
+        assert not any("gallery incomplete" in r or "search" in r.split(":")[0]
+                       for r in out["reasons"]), out
+        assert fake.requests == [], [r["operation"] for r in fake.requests]
     with db.session() as s:
         listing = s.scalar(select(Listing).where(Listing.product_slug == FULL_SLUG))
-        assert str(listing.etsy_listing_id) == str(lid)
+        assert listing.etsy_listing_id in (None, ""), listing.etsy_listing_id
     assert grant
     db.engine.dispose()
 
-    # The 6-frame blanket is the same chain with an incomplete gallery: it stays blocked.
+
+def test_a_six_frame_certified_set_passes_search_but_is_blocked_before_etsy():
+    """D-OWNER-GALLERY-COMPLETE: the blanket's hero passes on the merits, but its certified
+    set is six frames, one short of the whole gallery, so publish refuses at the image gate
+    with zero Etsy requests -- no partial gallery is ever uploaded."""
+    from brambleloop.visual.shot_plans import CAMPAIGN_MIN_FRAMES
+
     path, version, rh = _chain()
     db = Database(f"sqlite:///{path}")
+    rec = _hero_passed_on_the_merits(db, SLUG, version, rh)
+    assert len(rec["frames"]) == 6 < CAMPAIGN_MIN_FRAMES, rec["frames"]
+    served = etsy_ops.certified_images(db, SLUG, version, release=rh)
+    assert served["images"] == [], served
+    assert served["problems"] == [
+        f"gallery incomplete: listing-set certificate {served['record_id']} names 6 of the "
+        f"{CAMPAIGN_MIN_FRAMES} required listing photos (D-OWNER-GALLERY-COMPLETE)"], served
     with FakeEtsy() as fake, _owner_and_fake(fake):
         _grant(db, version, rh)
         job = _run(db, "store_operator", "store.publish",
                    {"slug": SLUG, "version": version, "release": rh},
                    phase=Phase.LIMITED_PRODUCTION)
-        out = job.outputs or {}
-        assert out.get("published") is not True and out.get("blocked") is True, out
+        assert job.status is JobStatus.DONE, job.last_error
+        out = job.outputs
+        assert out.get("published") is False and out.get("blocked") is True, out
         assert any("gallery incomplete" in r for r in out.get("reasons") or []), out
-        assert _creates(fake) == [], [r["operation"] for r in fake.requests]
+        assert fake.requests == [], [r["operation"] for r in fake.requests]
     db.engine.dispose()
 
 

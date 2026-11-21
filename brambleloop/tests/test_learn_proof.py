@@ -20,7 +20,7 @@ sys.path[:0] = [str(ROOT / "src"), str(ROOT), str(ROOT / "tests")]
 from brambleloop.core.db import Database  # noqa: E402
 from brambleloop.learning import benchmark_lessons as B  # noqa: E402
 from brambleloop.learning import progress  # noqa: E402
-from brambleloop.publish import pdf_standard as S  # noqa: E402
+from brambleloop.publish import premium_standard as S  # noqa: E402
 
 RELEASED = date(2026, 10, 27)
 

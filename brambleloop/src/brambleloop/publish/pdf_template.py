@@ -113,7 +113,7 @@ PROOF_MARKER = "TEXT-ONLY PROOF  ·  NOT CUSTOMER-READY  ·  AWAITING CERTIFIED 
 TEST_DOUBLE_MARKER = "PROOF WITH TEST-DOUBLE IMAGES  ·  NOT CUSTOMER-READY"
 
 # The template's section sequence: (key, number, kicker, title). Keys are the names a checker
-# reads (`SECTIONS`), aligned with publish.pdf_standard where a counterpart exists
+# reads (`SECTIONS`), aligned with publish.premium_standard where a counterpart exists
 # (`CHECKER_SECTION_ALIASES`).
 SECTIONS: tuple[tuple[str, str, str, str], ...] = (
     ("cover", "", "", ""),
@@ -1244,7 +1244,7 @@ class _Facts:
                 f"within this range and check the gauge again.")
 
     def eye_options(self) -> list[str]:
-        """Embroidered or safety eyes (`pdf_standard.eye_option_lines`, shared with the engine
+        """Embroidered or safety eyes (`premium_standard.eye_option_lines`, shared with the engine
         layout). Safety eyes are offered only when the certified materials list them; they
         are a small part, so an embroidered face is the only option for a child under 3."""
         out = P._std.eye_option_lines(self.cir)
