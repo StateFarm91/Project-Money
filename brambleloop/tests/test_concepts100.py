@@ -232,9 +232,12 @@ def test_held_families_are_visible_and_never_dropped():
                  if k.startswith("construction_unsupported:") and n}
     assert held_keys, h["held_reasons"]
     # Families with no engine yet: each is held under its own key, with a count.
-    for fam in ("amigurumi", "hat", "mosaic", "c2c", "cable"):
+    for fam in ("amigurumi", "mosaic", "c2c", "cable"):
         assert f"construction_unsupported:{fam}" in held_keys, (fam, h["held_reasons"])
         assert h["by_family"][fam].get("held"), fam
+    # Hats have an engine now (ENG-GARMENT-2): they route to it and are never held as unbuilt.
+    assert "construction_unsupported:hat" not in h["held_reasons"], h["held_reasons"]
+    assert any(r.family == "hat_beanie" and r.state != P.HELD for r in _pool(db))
     # Garments: held under the garment construction that refused them, never a bare
     # `garment` key (the engines exist now; the key names which construction held it).
     garment_keys = {k for k in held_keys if k.startswith("construction_unsupported:garment_")}

@@ -459,7 +459,19 @@ def test_every_variant_is_a_verified_family_with_a_proof_in_this_file():
                             construction="in_the_round")["admitted"], title
 
 
+
+def test_round_as_a_preposition_is_not_an_outline_claim():
+    import re
+    r = re.compile(HD._ROUND_RE)
+    for text in ("a band carried round the wall", "a stripe worked round its rim",
+                 "worked in rounds from a flat base"):
+        assert not r.search(text), text
+    for text in ("round basket", "chunky round pouf", "circular base", "circle bag"):
+        assert r.search(text), text
+
+
 TESTS = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
+
 
 if __name__ == "__main__":
     failures = 0

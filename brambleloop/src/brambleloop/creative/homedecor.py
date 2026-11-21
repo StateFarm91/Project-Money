@@ -71,7 +71,8 @@ PRIMITIVES = {
 # "year round", "all round", "in the round" and "a round" (one round of stitches) are not
 # outlines.
 _ROUND_RE = (r"(?<!year )(?<!year-)(?<!all )(?<!all-)(?<!the )(?<!a )"
-             r"\b(?:round|circular|circle)\b")
+             # "carried round the wall" / "round its rim" is the preposition, not an outline.
+             r"\b(?:round\b(?!\s+(?:the|its|it|each|every)\b)|circular\b|circle\b)")
 # "granny square" and "afghan square" name a motif (`construction_families` holds it by name).
 _OVAL_RE = (r"\b(?:oval|oblong|rectangular)\b|(?<!granny )(?<!afghan )\bsquare\b"
             r"(?! motifs?)")
