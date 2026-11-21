@@ -44,16 +44,23 @@ def start_images(ctx: JobContext):
     def start(slug, version, release):
         run = SPL.image_run(ctx.db, slug, version, release)
         if run is None:
+            # BATCH19F: the sale pipeline's gallery stage certifies the seven-frame FLUX
+            # campaign (D-OWNER-FLUX-GALLERY), so a new run is started on that route.
             return {"started": "new", **IP.trigger(enqueue, slug=slug, version=version,
-                                                   release=release)}
+                                                   release=release, route=IP.SP.FLUX_ROUTE)}
         if run["state"] in (IP.AWAITING_PRE_IMAGE, "awaiting_certified_pattern"):
+            # Re-enter exactly this run: its route is part of its key and its inputs.
+            route = IP.route_of_key(run["run_key"])
             inputs = {"slug": slug, "version": version, "release": release,
                       "stage": IP.STAGES[0][0], "round": 0}
+            if route:
+                inputs["route"] = route
             if run.get("restarts"):
                 inputs["epoch"] = int(run["restarts"])
             hour = datetime.now(timezone.utc).strftime("%Y%m%d%H")
             job = enqueue(inputs, IP.stage_key(slug, version, release, IP.STAGES[0][0],
-                                               epoch=int(run.get("restarts") or 0))
+                                               epoch=int(run.get("restarts") or 0),
+                                               route=route)
                           + f":admitted:{hour}")
             return {"started": "admitted_reentry", "enqueued": job is not None,
                     "run_key": run["run_key"]}
