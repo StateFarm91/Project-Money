@@ -2702,6 +2702,16 @@ def handle_store_publish(ctx: JobContext) -> dict:
     base_docs = docs
     docs = {t: _replace(d, pdf_bytes=premium[t]) for t, d in base_docs.items()}
     doc = docs["US"]
+    # BATCH19D: the file sent is the certified premium edition, so the read-back compares the
+    # bytes Etsy holds with THAT certificate's hash (re-hashed on read by
+    # `certified_premium_pdfs`, whose certificates are bound to the `assets.build` hashes
+    # checked above). Comparing them with the base `assets.build` hashes would refuse every
+    # READY release's draft. The base check is kept beside it, never dropped.
+    import hashlib as _hashlib
+
+    hash_check = {**hash_check, "base_certified": hash_check.get("certified"),
+                  "certified": {t: _hashlib.sha256(premium[t]).hexdigest() for t in docs},
+                  "certified_by": "sale_pipeline.certified_premium_pdfs"}
 
     store = ArtifactStore(ctx.job.inputs.get("artifact_dir"))
     stored_by_terminology = {

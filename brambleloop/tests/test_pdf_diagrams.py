@@ -231,6 +231,122 @@ def test_a_flat_piece_gets_a_diagram_at_its_width():
     assert img.size == (T.PROFILE_PX, T.PROFILE_PX)
 
 
+def test_an_amigurumi_flat_part_keeps_its_component_diagram_and_gets_no_row_progress_stage():
+    """BATCH19D reconciliation: a pattern with any piece in rounds is drawn by the component
+    diagrams (ENG-PDF-DIAGRAMS), never also by construction_diagrams' row-progress stages."""
+    from brambleloop.publish import construction_diagrams as CD
+
+    cir = _fx().pebble_friend()
+    flat = Component(name="tag", construction="flat_rows", foundation=10, rows=[
+        dataclasses.replace(cir.components[0].rows[0], index=i, ops=[Op("sc", 10)],
+                            declared_count=10, note=None) for i in (1, 2, 3, 4)])
+    cir = dataclasses.replace(cir, components=cir.components + [flat])
+    assert CD._flat_geometry(cir) is None
+    assert not [st for st in CD.stages(cir) if st.part == "flat"]
+
+
+# ---- BATCH19D: row-progress diagrams for flat row-worked pieces ----------------------------
+
+@lru_cache(maxsize=None)
+def _blanket():
+    from brambleloop.products import launch0
+
+    cir = launch0.cir_for("cloudline_blanket")
+    return cir, build_twin(cir, compile_cir(cir), component=cir.components[0].name)
+
+
+def test_a_flat_piece_gets_row_progress_diagrams_at_its_finished_size():
+    from brambleloop.publish import construction_diagrams as CD
+
+    cir, twin = _blanket()
+    st = CD.stages(cir)
+    rows = sorted({c.row for c in twin.cells})
+    assert st and all(s.part == "flat" for s in st), [s.part for s in st]
+    assert len(st) <= CD.MAX_FLAT_STAGES and st[-1].round == rows[-1]
+    assert [s.round for s in st] == CD.stage_rounds(cir)
+    # every row belongs to exactly one stage, in order, from the first row
+    assert st[0].first == rows[0]
+    assert all(b.first == a.round + 1 for a, b in zip(st, st[1:]))
+    for s in st:
+        assert s.stitches == sum(1 for c in twin.cells if c.row == s.round)
+        assert s.image().size == (CD.SIZE_PX, CD.SIZE_PX)
+    cap = CD.flat_caption(st[2], cir)
+    assert cap.startswith(f"DIAGRAM after row {st[2].round}: {st[2].stitches} stitches")
+    assert f"{twin.width_cm:.1f} cm wide" in cap and f"of {twin.height_cm:.1f} cm" in cap
+    assert f"{twin.row_top_cm[st[2].round]:.1f} of" in cap and cap.endswith(
+        "not a photograph.")
+    # deterministic: same CIR, same bytes
+    assert [s.png for s in CD.stages(cir)] == [s.png for s in st]
+
+
+def test_a_flat_diagram_draws_worked_rows_in_their_colours_and_the_rest_faint():
+    from brambleloop.publish import construction_diagrams as CD
+    from brambleloop.visual import disclosed_render as D
+
+    cir, twin = _blanket()
+    st = CD.stages(cir)
+    first, last = st[0].image().convert("RGB"), st[-1].image().convert("RGB")
+    palette = set(D._palette(cir).values())
+
+    def near(px, colours, tol=24):
+        return any(sum(abs(a - b) for a, b in zip(px, c)) <= tol for c in colours)
+
+    # just under the top edge of the piece: still to work after the first stage (faint),
+    # worked in a yarn colour after the last
+    W, H = CD.SIZE_PX, CD.SIZE_PX
+    probe = None
+    for y in range(int(H * 0.10), int(H * 0.5)):
+        if near(first.getpixel((W // 2, y)), [CD.FAINT], 6):
+            probe = (W // 2, y + 3)
+            break
+    assert probe is not None, "no faint (still to work) area after the first stage"
+    assert near(first.getpixel(probe), [CD.FAINT], 6)
+    assert near(last.getpixel(probe), palette), last.getpixel(probe)
+
+
+def test_the_engine_flat_pdf_passes_the_sale_diagrams_check_and_fails_without_it():
+    """The sale checker's `diagrams` check FAILed every flat piece before BATCH19D (no stage
+    diagram was drawn), so no flat product could become READY. A mutation that removes the
+    row-progress diagrams must FAIL it again, by id."""
+    from brambleloop.publish import construction_diagrams as CD
+    from brambleloop.publish import pdf_standard as PS
+
+    cir, _twin = _blanket()
+
+    def diagrams():
+        b = P.build_pattern_pdf(cir, terminology="US", released_on=RELEASED).pdf_bytes
+        doc = PS.read(b)
+        got = {c["check"]: c for c in PS._schematic_and_diagrams(doc, set())}
+        return got["diagrams"], doc
+
+    ok, doc = diagrams()
+    assert ok["status"] == PS.PASS and ok["count"] >= 1, ok
+    text = "\n".join(p["text"] for p in doc["pages"])
+    assert "construction diagram of the rows worked so far" in re.sub(r"\s+", " ", text)
+    # the premium standard's inline_diagrams rule reads the same words
+    assert S._diagrams(re.sub(r"\s+", " ", text), None) == []
+    real = CD._flat_geometry
+    CD._flat_geometry = lambda c: None
+    try:
+        bad, _ = diagrams()
+    finally:
+        CD._flat_geometry = real
+    assert bad["status"] == PS.FAIL, bad
+
+
+def test_the_template_keeps_its_flat_mini_grids_and_takes_no_row_progress_stage():
+    """BATCH19D reconciliation: the template already draws a flat piece's inline diagrams as
+    mini-grids at the tricky rows; the row-progress stages are the engine layout's."""
+    cir, _twin = _blanket()
+    assert T._template_stages(cir) == []
+    from brambleloop.products import launch0
+
+    coaster = launch0.cir_for("hexagon_coasters")
+    from brambleloop.publish import construction_diagrams as CD
+
+    assert [s.png for s in T._template_stages(coaster)] == [s.png for s in CD.stages(coaster)]
+
+
 def test_diagrams_are_deterministic():
     cir = _fx().pebble_friend()
     a = T.component_profile(cir, cir.components[0]).tobytes()

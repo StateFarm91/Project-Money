@@ -338,6 +338,12 @@ def test_3_package_draft_upload_and_byte_for_byte_readback_of_every_image_and_bo
         pkg = lp.latest(db, slug, version)
         assert pkg is not None, pkg
         with FakeEtsy() as fake, SH._owner_and_fake(fake):
+            # BATCH19D: D-OWNER-SALE-PIPELINE (HARD RULE) publishes only a release READY for
+            # sale, so the real sale chain runs first: the agents' launch decision, then every
+            # `sale.pipeline` stage (gallery -> premium PDFs built with the certified gallery
+            # -> certified against D-OWNER-PDF-STANDARD -> attached -> READY). Nothing in it
+            # is doubled beyond the gates `_owner_and_fake` already holds.
+            premium = _drive_sale_pipeline(db, slug, version, rh)
             SH._grant(db, version, rh)
             job = SH._run(db, "store_operator", "store.publish",
                           {"slug": slug, "version": version, "release": rh},
@@ -348,8 +354,11 @@ def test_3_package_draft_upload_and_byte_for_byte_readback_of_every_image_and_bo
             assert out.get("read_back_verified") is True, out
             lid = out["etsy_listing_id"]
             assert fake.listings[lid]["state"] == "draft"
+            # The files sent are the certified premium editions, each certificate bound to
+            # the `assets.build` hash of the same terminology for this release.
             got = sorted(f["sha256"] for f in fake.received_files[lid])
-            assert got == sorted(certified.values()), (got, certified)
+            assert got == sorted(premium["sha"].values()), (got, premium["sha"])
+            assert premium["base"] == certified, (premium["base"], certified)
             with db.session() as s:
                 rec = s.scalar(select(ListingSetCertificateRecord).where(
                     ListingSetCertificateRecord.state == "valid"))
@@ -364,6 +373,42 @@ def test_3_package_draft_upload_and_byte_for_byte_readback_of_every_image_and_bo
     assert rb["verified"] is True and rb["files"]["verified"] is True, rb
     assert rb["images"]["verified"] is True, rb["images"]
     S["published"] = True
+
+
+def _drive_sale_pipeline(db, slug, version, rh) -> dict:
+    """The real launch decision and the real sale-pipeline stages for this release, in order,
+    until the run stops. Returns the certified premium editions' hashes and the base
+    (`assets.build`) hashes their certificates are bound to."""
+    import test_search_hero_publish as SH
+    from brambleloop.core.models import JobStatus
+    from brambleloop.publish import sale_pipeline as SPL
+    from brambleloop.publish.sale_pipeline import PdfCertificate
+
+    job = SH._run(db, "growth", "launch.plan", {"slug": slug, "version": version,
+                                                 "release": rh})
+    assert job.status is JobStatus.DONE, job.last_error
+    SPL.ensure_tables(db)
+    queued: list[dict] = []
+    stage, ran = "admission", []
+    for _ in range(len(SPL.STAGES) + 2):
+        queued.clear()
+        out = SPL.run_stage(db, {"slug": slug, "version": version, "release": rh,
+                                 "stage": stage},
+                            follow=lambda inputs, key: queued.append(inputs),
+                            start_images=lambda *a, **k: None)
+        ran.append((stage, out.get("state"), out.get("blocker")))
+        state = (SPL.get(db, slug, version, rh) or {}).get("state")
+        nxt = queued[0]["stage"] if queued else SPL.NEXT_STAGE.get(state)
+        if state == SPL.READY or not nxt or nxt == stage:
+            break
+        stage = nxt
+    certs = SPL.pdf_certificates(db, slug, version, rh)
+    assert certs["both_pass"] is True, (certs, ran)
+    with db.session() as s:
+        base = {t: s.get(PdfCertificate, e["certificate_id"]).base_pdf_sha256
+                for t, e in certs["editions"].items()}
+    return {"sha": {t: e["pdf_sha256"] for t, e in certs["editions"].items()}, "base": base,
+            "ran": ran}
 
 
 def _fresh(**kw):

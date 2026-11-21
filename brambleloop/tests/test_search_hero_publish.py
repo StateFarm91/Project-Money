@@ -311,6 +311,44 @@ def test_certify_assets_seo_grant_publish_passes_every_gate_up_to_the_sale_rule_
         listing = s.scalar(select(Listing).where(Listing.product_slug == FULL_SLUG))
         assert listing.etsy_listing_id in (None, ""), listing.etsy_listing_id
     assert grant
+
+    # BATCH19D: the draft and its byte-for-byte gallery upload (HEAD's assertion, kept with
+    # the sale rule above). The sale verdict is the one thing replaced, by a labelled
+    # test_double: READY for sale and its certified premium PDFs are derived and asserted by
+    # test_sale_pipeline_e2e, not here. Everything this module owns -- the search certificate,
+    # the listing-set certificate, the F-524 image gate and the upload -- runs for real, and
+    # the gallery that reaches the draft must be exactly the certified set.
+    from brambleloop.publish import sale_pipeline as _sale
+
+    premium_double = {t: f"%PDF-1.4 test_double premium {t}\n".encode()   # test_double
+                      for t in ("US", "UK")}
+    real_ready, real_premium = _sale.ready_for_sale, _sale.certified_premium_pdfs
+    _sale.ready_for_sale = lambda *a, **k: {"ready": True, "reasons": []}   # test_double
+    _sale.certified_premium_pdfs = lambda *a, **k: dict(premium_double)     # test_double
+    try:
+        with FakeEtsy() as fake, _owner_and_fake(fake):
+            job = _run(db, "store_operator", "store.publish",
+                       {"slug": FULL_SLUG, "version": version, "release": rh},
+                       phase=Phase.LIMITED_PRODUCTION)
+            assert job.status is JobStatus.DONE, job.last_error
+            assert job.outputs.get("published") is True, job.outputs
+            assert len(_creates(fake)) == 1, [r["operation"] for r in fake.requests]
+            lid = job.outputs["etsy_listing_id"]
+            assert fake.listings[lid]["state"] == "draft"
+            assert int(fake.listings[lid]["taxonomy_id"]) == _profile(db, FULL_SLUG).taxonomy_id
+            # The published gallery is exactly the complete certified set: the disclosed
+            # renders plus the W4-VISUAL gallery supplements the certificate was issued with,
+            # in its order and byte for byte -- nothing certified dropped, nothing
+            # uncertified added.
+            uploaded = sorted((int(i["rank"]), i["sha256"]) for i in fake.received_images[lid])
+            assert uploaded == rec["frames"], (uploaded, rec["frames"])
+            assert len(fake.images[lid]) == len(rec["frames"]) >= CAMPAIGN_MIN_FRAMES, \
+                len(fake.images[lid])
+    finally:
+        _sale.ready_for_sale, _sale.certified_premium_pdfs = real_ready, real_premium
+    with db.session() as s:
+        listing = s.scalar(select(Listing).where(Listing.product_slug == FULL_SLUG))
+        assert str(listing.etsy_listing_id) == str(lid)
     db.engine.dispose()
 
 

@@ -2951,12 +2951,22 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                     y2 -= 4.8 * mm
             yy -= max(len(cell) for cell in row) * 4.8 * mm
         doc.y = top - hh - 6 * mm
-    if stages:
+    flat_stages = bool(stages) and stages[0].part == "flat"
+    if flat_stages:
+        # BATCH19D: a flat row-worked piece's row-progress diagrams (construction_diagrams).
+        doc.para("Each card shows the piece after its last row: a construction diagram of the "
+                 f"rows worked so far at the finished width ({twin.width_cm:.1f} cm), drawn to "
+                 "one scale from this pattern's stitch data, not a photograph. The rose outline "
+                 "is the row just worked; the faint area is the rows still to work.", size=9.5,
+                 color=MUTED, font=FONT_BODY_ITALIC)
+        doc.space(1 * mm)
+    elif stages:
         doc.para("Each card shows the piece after its last round: a construction diagram drawn "
                  "from this pattern's stitch data, not a photograph. The rose outline is the "
                  "round just worked; early rounds are shown enlarged.", size=9.5, color=MUTED,
                  font=FONT_BODY_ITALIC)
         doc.space(1 * mm)
+    stage_component = cir.components[0].name.replace("_", " ").lower()
     stage_for = {}
     for st in stages:
         for k in range(st.first, st.round + 1):
@@ -2992,14 +3002,18 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             doc.need(10 * mm)
             doc.para(ln, size=10, color=FOREST, font=FONT_BODY_ITALIC)
         groups: list[tuple[object, list[str]]] = []
+        # The stage diagrams describe one component (the twin's); a multi-panel flat pattern
+        # places them only in that component's block, never under another piece.
+        block_key = title.lower().split(" (")[0].replace("_", " ").strip()
+        draws = len(cir.components) == 1 or block_key == stage_component
         for ln in steps:
             m = _STEP_NUMBER.match(ln)
-            st = stage_for.get(int(m.group(1))) if m else None
+            st = stage_for.get(int(m.group(1))) if (m and draws) else None
             if groups and groups[-1][0] is st:
                 groups[-1][1].append(ln)
             else:
                 groups.append((st, [ln]))
-        if stages and all(g[0] is not None for g in groups):
+        if stages and draws and all(g[0] is not None for g in groups):
             _step_cards(doc, groups, yarn_rgb, comp, head)
         else:
             for _st, group in groups:
