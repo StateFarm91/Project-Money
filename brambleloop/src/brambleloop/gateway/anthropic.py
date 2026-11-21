@@ -1373,7 +1373,16 @@ def vision_usable(db) -> bool:
 # A successful probe younger than this is reused (an audited `model.probe` row marked
 # `reused`, nothing billed) unless something since contradicts it.
 MODEL_PROBE_REUSE = timedelta(hours=24)
-_CONTRADICTS = ("DECLINED", "FAILED_BILLED", "UNCERTAIN")
+# FIX-CYCLE-PROOF-BILLING (production a4952711: model.probe fingerprint beff7c26565a billed
+# twice, jobs 72529 and 72706). Any failed Anthropic paid call counted as a contradiction, and
+# this transport only ever records DECLINED or UNCERTAIN -- so a 429, a 529 or one long
+# generation timing out in another job (seasonal.cycle_proof's field of concepts) re-billed
+# the probe. Those are about one request, and a real outage is already read by the shared
+# breaker (`runtime.worker.model_provider_down`). What contradicts "this account can serve"
+# is the provider refusing the account: a spent balance (funding) or a ProviderUnusable
+# decline (a 4xx for auth, billing or permission).
+_CONTRADICTS = ("DECLINED",)
+_CONTRADICTING_ERROR = "ProviderUnusable"
 
 
 def _probe_at(record: dict) -> datetime | None:
@@ -1404,9 +1413,11 @@ def _contradicted_since(db, since: datetime) -> list[str]:
             failed = int(s.scalar(select(func.count()).select_from(PaidCallRecord).where(
                 PaidCallRecord.effect.like("anthropic.%"),
                 PaidCallRecord.outcome.in_(_CONTRADICTS),
+                PaidCallRecord.error.like(f"{_CONTRADICTING_ERROR}%"),
                 PaidCallRecord.at >= since)) or 0)
         if failed:
-            why.append(f"{failed} Anthropic paid call(s) failed since the last probe")
+            why.append(f"{failed} Anthropic paid call(s) refused as unusable since the last "
+                       f"probe")
     except Exception:  # noqa: BLE001
         why.append("paid-call record unreadable")
     return why

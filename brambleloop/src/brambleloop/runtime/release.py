@@ -6888,8 +6888,10 @@ def handle_seasonal_cycle_proof(ctx: JobContext) -> dict:
     from ..core.resilience import PermanentError, TransientError
     from ..gateway.anthropic import AnthropicProvider
     from ..gateway import failover
+    from ..gateway.paid_calls import PaidCallReplayedFailure, PaidCallUnresolved
     from ..publish import listing_asset
     from ..creative import prospecting
+    from ..queue.effects import LeaseLost
     from ..seasonal import cycle
 
     # The gateway is the difference between this job doing its job and this job reporting
@@ -6921,19 +6923,47 @@ def handle_seasonal_cycle_proof(ctx: JobContext) -> dict:
                                          "links before the assets link this job exists "
                                          "to close")}
 
+    # FIX-CYCLE-PROOF-BILLING (F-659): every paid step is checkpointed, not only the whole
+    # report. A retried or redriven attempt resumes each finished step -- the concept field
+    # and the asset maker's record -- instead of repaying for it; the transport's paid-call
+    # replay (`gateway.paid_calls`, now across this job type's re-runs too) is the backstop
+    # for a step that was paid and not yet checkpointed.
+    gateway = _CheckpointedGateway(ctx, gateway)
+
     with tempfile.TemporaryDirectory(prefix="cycle-proof-") as work_dir:
         def make_asset(cir):
             # Dispatched by form rather than by this handler's opinion: a cardigan needs
             # her in the frame and a blanket does not, and one place decides that so the
             # cycle, the daily job and the release chain cannot answer it differently.
+            key = f"asset:{cir.slug}"
+            saved_asset = _restore_step(ctx, key)
+            if saved_asset is not None and "record" in saved_asset:
+                return saved_asset["record"]
             result = compile_cir(cir)
             if not result.ok:
                 return None
-            return listing_asset.make(ctx.db, cir, build_twin(cir, result),
+            made = listing_asset.make(ctx.db, cir, build_twin(cir, result),
                                       work_dir=work_dir)
+            _checkpoint_step(ctx, key, {"record": made})
+            return made
 
         try:
             report = cycle.run(ctx.db, gateway=gateway, asset_maker=make_asset)
+        except LeaseLost:
+            # Not a refusal: the queue fenced this attempt off. Returning a refusal here
+            # would report the proof as declined while the attempt holding the lease runs.
+            raise
+        except (PaidCallUnresolved, PaidCallReplayedFailure) as exc:
+            # The paid-call store refused to buy an identical request again (F-339 / F-307):
+            # an earlier attempt or proof job paid for it and its outcome is unknown or
+            # failed. Re-running cannot change that answer, so this is a refusal recorded --
+            # never a dead letter that a redrive would turn into a second bill.
+            ctx.audit("seasonal.cycle_proof_refused",
+                      detail={"why": str(exc)[:400], "waiting_on": "paid_call_reconciliation"})
+            return {"ran": True, "complete": False, "refused": "paid_call_reconciliation",
+                    "why": (f"the cycle stopped rather than pay twice: {str(exc)[:200]}. "
+                            f"Nothing about #300 is proved or disproved by this"),
+                    "waiting_on": "paid_call_reconciliation"}
         except (PermanentError, TransientError) as exc:
             # A spent provider balance is a refusal, not a defect.
             #
@@ -6951,10 +6981,11 @@ def handle_seasonal_cycle_proof(ctx: JobContext) -> dict:
             # account -- so a dead letter here is a queue entry nobody can action wearing
             # the costume of a bug.
             ctx.audit("seasonal.cycle_proof_refused",
-                      detail={"why": str(exc)[:400],
+                      detail={"why": str(exc)[:400], "error_class": type(exc).__name__,
                               "waiting_on": "model_provider_balance"})
             return {"ran": True, "complete": False,
                     "refused": "model_provider_balance",
+                    "error_class": type(exc).__name__,
                     "why": (f"the cycle could not be run because the model provider "
                             f"refused: {str(exc)[:200]}. Nothing about #300 is proved or "
                             f"disproved by this -- the proof did not run"),
@@ -6975,6 +7006,32 @@ def handle_seasonal_cycle_proof(ctx: JobContext) -> dict:
 
     _checkpoint_step(ctx, "cycle_report", {"report": report})
     return _file_cycle_proof(ctx, report, resumed=False)
+
+
+class _CheckpointedGateway:
+    """A job gateway whose `complete_json` answers are checkpointed per call (F-659).
+
+    Keyed by the call's position in this attempt and a digest of what was asked, so a resumed
+    attempt that asks the same question in the same order gets the checkpointed answer and
+    a different question is asked for real. Everything else is the wrapped gateway's."""
+
+    def __init__(self, ctx: JobContext, inner):
+        self._ctx, self._inner, self._n = ctx, inner, 0
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
+
+    def complete_json(self, prompt_ref, **kw):
+        digest = hashlib.sha256(json.dumps([prompt_ref, kw], sort_keys=True,
+                                           default=str).encode()).hexdigest()[:24]
+        key = f"paid:{self._n}:{digest}"
+        self._n += 1
+        saved = _restore_step(self._ctx, key)
+        if saved is not None and isinstance(saved.get("answer"), dict):
+            return saved["answer"]
+        answer = self._inner.complete_json(prompt_ref, **kw)
+        _checkpoint_step(self._ctx, key, {"answer": answer})
+        return answer
 
 
 def _file_cycle_proof(ctx: JobContext, report: dict, *, resumed: bool) -> dict:

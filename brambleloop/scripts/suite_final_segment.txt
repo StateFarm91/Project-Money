@@ -41,6 +41,7 @@ tests/test_executor.py
 tests/test_fb4_launch.py
 tests/test_fb4_ops.py
 tests/test_fin_truth_closure.py
+tests/test_fix_cycle_proof_billing.py
 tests/test_gallery_escalation.py
 tests/test_health.py
 tests/test_improve_handlers.py
