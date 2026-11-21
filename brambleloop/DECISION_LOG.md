@@ -4206,6 +4206,8 @@ Batch 19h1 (code c391386fd) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the ow
 - The listing's AI-disclosure copy and fields.
 - Child safety, the kill switch, fees and budgets.
 - The signed publication grant and the owner's separate publishing approval.
+
+**Supersedes** the line "`SAMPLE_PHOTO_REQUIRED` stays a publication gate" of D-OWNER-NO-SAMPLE (10:40Z), on the owner's later instruction (10:50Z). Every other line of D-OWNER-NO-SAMPLE stands, including that a render is never presented as a sample photo.
 ## D-HALT-380-VERIFY — 2026-11-21
 Production 1bb7c4f5: chain.rebuild done 199 and unfinished 0, but no artefact completed since
 2026-11-20T13:12Z. Reproduced on the real chain: a provenance row whose artefact no longer exists
