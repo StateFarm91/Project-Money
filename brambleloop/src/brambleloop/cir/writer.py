@@ -20,9 +20,16 @@ def _term(code: str, terminology: str) -> str:
     return stitches.term(code, terminology)
 
 
+JOIN_PHRASE = "through both layers of the"
+
+
 def write_op(op: Op, terminology: str = "US") -> str:
     """One op; an op worked in its own colour ends "with <colour>" (P0-CIR-COLOURWORK)."""
     text = _write_op(op, terminology)
+    joins = getattr(op, "joins", None)
+    if joins:
+        # ENG-AMIGURUMI-BREADTH: a low-sew join, in a fixed grammar the reverse compiler reads.
+        text += f" {JOIN_PHRASE} {joins}"
     colour = getattr(op, "color", None)
     return f"{text} with {colour}" if colour else text
 

@@ -85,6 +85,7 @@ TRIANGLE = "triangle"
 STOCKING = "stocking"
 TAPESTRY = "tapestry"
 AMIGURUMI = "amigurumi"
+AMIGURUMI_ANIMAL = "amigurumi_animal"     # creative.animals.FAMILY (ENG-AMIGURUMI-BREADTH)
 # ENG-PLUSH slices 2-3 (creative.cushions, creative.baby).
 ENVELOPE = "envelope_cushion"
 APPLIQUE = "applique_cushion"
@@ -237,7 +238,20 @@ def _plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
         # P0 construction breadth (owner directive 2026-11-01 section 3C): a plain ball-body
         # bear or bunny is drafted as shaped rounds, stuffed and joined; any other animal,
         # character, size, count or feature is refused by name.
-        return amigurumi_route(title)
+        ball = amigurumi_route(title)
+        if ball["family"] == AMIGURUMI:
+            return ball
+        # ENG-AMIGURUMI-BREADTH: a shaped low-sew animal (creative.animals). A title naming an
+        # animal that engine knows (built or refused by name) gets its verdict; any other title
+        # keeps the ball-body refusal.
+        from . import animals
+
+        shaped = animals.route(title)
+        if shaped["family"] == animals.FAMILY:
+            return {**shaped, "family": AMIGURUMI_ANIMAL}
+        if animals.names_an_animal(title):
+            return shaped
+        return ball
     if category in POUCH_CATEGORIES and re.search(r"\bdrawstring\b", fold_title(title)):
         # P0 construction breadth (bags and accessories): a plain drawstring pouch is a small
         # round vessel with an eyelet round and a threaded chain cord.

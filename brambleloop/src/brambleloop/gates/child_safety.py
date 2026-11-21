@@ -193,6 +193,15 @@ STATEMENTS: dict[str, Statement] = {s.key: s for s in (
               "carries it. Knot the tail inside and bury it through at least 5 cm of "
               "stitches. Pull each sewn piece firmly when you finish; resew any that moves.",
               "Sew every piece on across its whole edge"),
+    # ENG-AMIGURUMI-BREADTH: a crocheted-in (low-sew) piece is joined by the pattern's own
+    # stitches, not sewn; this states how that join must be worked and checked.
+    Statement("low_sew_joins", "Crocheted-in joins",
+              "Every crocheted-in piece is joined as the pattern says: each joining stitch "
+              "goes through both loops of the body stitch and through both layers of the "
+              "piece's flattened edge, across the whole edge, so no part of the edge is left "
+              "loose and no single stitch carries it. Pull each joined piece firmly when you "
+              "finish; work again any edge stitch that is loose.",
+              "Every crocheted-in piece is joined as the pattern says"),
     Statement("stuffing", "Stuffing",
               "Use only new, clean polyester toy stuffing. Never use beans, pellets, rice, "
               "seeds, beads or anything hard. Work at the stated gauge or tighter so stuffing "
@@ -406,6 +415,12 @@ def profile_for(cir, childrens: tuple[str, str] | None = None) -> tuple[str, ...
         flags.add("face")
     if any(s.piece_a != s.piece_b and s.method != "pick_up" for s in cir.assembly):
         flags.add("sewn")
+    # ENG-AMIGURUMI-BREADTH: a piece crocheted in (low-sew) is still an attached piece: the
+    # small-parts, age and physical-evidence rules read it exactly as a sewn one.
+    from ..cir import low_sew as _low_sew
+
+    if _low_sew.joined_pieces(cir):
+        flags.add("joined_in")
     if garment_months(cir) is not None:
         flags.add("garment")
     title = _fold(f"{cir.title} {cir.slug}")
@@ -443,6 +458,8 @@ def required_statements(profile: tuple[str, ...]) -> tuple[str, ...]:
         keys.append("eye_options")
     if "sewn" in profile:
         keys.append("joins")
+    if "joined_in" in profile:
+        keys.append("low_sew_joins")
     if "stuffed" in profile:
         keys.append("stuffing")
     if "sleep" in profile:
@@ -453,7 +470,7 @@ def required_statements(profile: tuple[str, ...]) -> tuple[str, ...]:
 def age_text(profile: tuple[str, ...], small_parts_clear: bool | None) -> str:
     """The age statement this document may print (review M4): the small-parts claim only when
     the SMALL_PARTS check passed, none for a one-piece item, a do-not-give warning otherwise."""
-    if "sewn" not in profile:
+    if "sewn" not in profile and "joined_in" not in profile:
         return AGE_TEXT_ONE_PIECE
     if small_parts_clear is True:
         return STATEMENTS["age_suitability"].text
@@ -613,17 +630,68 @@ def _age(cir, profile, childrens, small: Check) -> Check:
     if band not in _ch.AGE_BANDS:
         return Check("AGE_SUITABILITY", UNKNOWN,
                      f"age band {band!r} is not one this gate knows: UNKNOWN is not a pass")
-    if band == _ch.UNDER_3 and "sewn" in profile and small.state != PASS:
+    attached = "sewn" in profile or "joined_in" in profile
+    if band == _ch.UNDER_3 and attached and small.state != PASS:
         return Check("AGE_SUITABILITY", small.state,
                      f"for a child under 3 every sewn-on piece must be shown clear of the "
                      f"small-parts cylinder, and SMALL_PARTS is {small.state}")
     return Check("AGE_SUITABILITY", PASS,
                  f"age band {band}: "
                  + ("every sewn-on piece is clear of the small-parts cylinder"
-                    if "sewn" in profile else "one piece, nothing sewn on"))
+                    if attached else "one piece, nothing sewn on"))
 
 
 def _joins(cir, result) -> Check:
+    # ENG-AMIGURUMI-BREADTH: crocheted-in pieces are checked first and never skipped: a toy
+    # with no sewn seam is not "nothing joined" when its limbs are crocheted into its rounds.
+    from ..cir import low_sew as _low_sew
+
+    if _low_sew.joined_pieces(cir):
+        low = _low_sew_joins(cir, result)
+        if low.state != PASS:
+            return low
+        rest = _sewn_joins(cir, result)
+        if rest.detail == "no piece is sewn onto another":
+            return low
+        return rest if rest.state != PASS else Check(
+            "JOINS_VALIDATED", PASS, f"{low.detail}; {rest.detail}")
+    return _sewn_joins(cir, result)
+
+
+def _low_sew_joins(cir, result) -> Check:
+    from ..cir import low_sew as _low_sew
+
+    if result is None or not result.ok:
+        return Check("JOINS_VALIDATED", UNKNOWN, "the pattern did not compile, so no "
+                                                 "crocheted-in join is measured")
+    own = [f for f in result.findings if f.code.startswith("LOW_SEW")]
+    if own:
+        return Check("JOINS_VALIDATED", FAIL, "; ".join(f"{f.code}: {f.message}" for f in own))
+    try:
+        from ..cir import assembly as _assembly
+        from ..cir.twin import build_twin
+
+        twins = {c.name: build_twin(cir, result, component=c.name) for c in cir.components}
+        geo = _assembly.assemble(cir, twins)
+    except Exception as exc:  # noqa: BLE001 - an unmeasurable join is UNKNOWN, never a pass
+        return Check("JOINS_VALIDATED", UNKNOWN, f"crocheted-in joins could not be measured "
+                                                 f"({exc})")
+    joins = [j for j in geo.joins if j.method == _low_sew.METHOD]
+    bad = [j for j in joins if j.verdict == "mismatched"]
+    if bad:
+        return Check("JOINS_VALIDATED", FAIL, "; ".join(j.why for j in bad))
+    unsure = [j for j in joins if j.verdict != "sound"]
+    expected = sum(c.make for c in cir.components if c.name in _low_sew.joined_pieces(cir))
+    if unsure or len(joins) != expected:
+        return Check("JOINS_VALIDATED", UNKNOWN,
+                     f"crocheted-in joins not all measured ({len(joins)} of {expected}): "
+                     f"UNKNOWN is not a pass")
+    return Check("JOINS_VALIDATED", PASS,
+                 f"{len(joins)} crocheted-in join(s), each worked through both loops and both "
+                 f"layers of a flattened edge and measured stitch for stitch on the twin")
+
+
+def _sewn_joins(cir, result) -> Check:
     sewn = [s for s in cir.assembly if s.piece_a != s.piece_b and s.method != "pick_up"]
     picked = [s for s in cir.assembly if s.piece_a != s.piece_b and s.method == "pick_up"]
     if not sewn and picked:
@@ -862,7 +930,7 @@ def _physical(cir, profile, childrens) -> Check:
     # Required where the construction can fail in a child's hands: a stuffed piece (closure,
     # stuffing containment) or a sewn-on piece (seam pull). A flat, unstuffed, one-piece
     # blanket has neither, and its other checks are computable.
-    needs = ("stuffed" in profile or "sewn" in profile
+    needs = ("stuffed" in profile or "sewn" in profile or "joined_in" in profile
              or bool(childrens and childrens[0] in ("lovey", "amigurumi_toy")))
     # Review M4: the age band is read. For a child under 3 the physical test is required for
     # anything with a seam or a closure -- the cases above -- and ALSO for any toy or lovey

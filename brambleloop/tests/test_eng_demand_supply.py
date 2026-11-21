@@ -389,8 +389,10 @@ def test_originals_run_through_intake_gates_into_buildable_work_and_engine_deman
                                         - timedelta(days=10)).isoformat(), "n": 200},
                                 {"at": datetime.now(timezone.utc).isoformat(), "n": 300}]}))
     approved, refused, proposed = [], {}, 0
+    # `_run` keys each job by id(inputs): keep every pass's input alive so no id is reused.
+    passes = [{"pass": k} for k in range(8)]
     for k in range(8):
-        out = T._run(db, "radar.concept_intake", {"pass": k})
+        out = T._run(db, "radar.concept_intake", passes[k])
         assert out["originals_proposed"] <= O.MAX_PER_RUN, out
         proposed += out["originals_proposed"]
         approved += out["approved"]
@@ -403,7 +405,8 @@ def test_originals_run_through_intake_gates_into_buildable_work_and_engine_deman
     held = {s: r for s, r in refused.items()
             if any(str(x).startswith("construction_unsupported:") for x in r)}
     assert set(held) == set(refused), "every refusal is engine demand, none a copy or dupe"
-    assert "riverbank-capybara-amigurumi" in held
+    # ENG-AMIGURUMI-BREADTH: the capybara now has an engine; the hedgehog's spines do not.
+    assert "low-sew-hedgerow-hedgehog-amigurumi" in held
     panel = D.panel(db)
     listed = {c["slug"] for e in panel["engines"] for c in e["concepts"]}
     assert set(held) <= listed, set(held) - listed

@@ -26,6 +26,25 @@
 > identically on base 8204c93 (pre-existing gallery/amigurumi). Browser proof on the real backend at 390 px. Open: CC static
 > bundle 399,958 of 400,000 bytes (42 B headroom); not run on production.
 > Report: `research/final_build/w6/review_requests/MISSION-CONTROL-2.md`.
+> **2026-11-21 — ENG-AMIGURUMI-BREADTH on `eng/amigurumi-breadth` (cut from `claude/batch19-fixers`; NOT merged, NOT
+> deployed; production unchanged; SHADOW).** Shaped low-sew animals and the lamb lovey head are now routable to a
+> physical-gated engine. New CIR primitive `Op.joins` (CIR v3 -> v4, declared): a limb, ear, tail or fin is worked
+> closed, flattened, and crocheted into a named body round. `cir.low_sew` validates it in the compiler (`LOW_SEW_*`)
+> from the twin's cells; `cir.assembly` records each as a measured join; the writer prints it and the reverse
+> compiler reads it back (US/UK). Child safety made stricter, not weaker: crocheted-in pieces are inside small-parts,
+> AGE, PHYSICAL_EVIDENCE and JOINS_VALIDATED (no more "nothing sewn = PASS" for a low-sew toy), plus a required
+> "Crocheted-in joins" statement. New family `amigurumi_animal` (`creative.animals`): frog, capybara, lamb, duckling,
+> whale, otter, cow, dinosaur, octopus (chunky only); embroidered features only; HELD at certification for the
+> physical sample and child-safety physical evidence (proof `tests/test_eng_animals.py`). Demand catalogue: 6 animals
+> + 2 round ball toys now admitted; axolotl (gills), hedgehog (spines), otter (stone), cow (patches), dinosaur
+> (spikes), little-fox-lovey stay held by name. Lamb lovey head ("Sleepy Lamb Lovey") proven end to end. Not
+> verified on a physical sample; no listing, sale or production run exists for any of these. Review request:
+> `w6/review_requests/ENG-AMIGURUMI-BREADTH.md`.
+> Tests (run 20261121T003710Z-1430, dirty tree, 16 targeted suites incl. test_compiler/test_reverse/test_twin/
+> test_eng_families/test_eng_plush/test_vacuity/test_eng_animals): 275 passing, 2 suites failing.
+> `test_concepts100` (2 tests): failing identically on base `claude/batch19-fixers` (pre-existing; NOT fixed here).
+> `test_eng_demand_supply`: failing on base (cosy-round-bear held by `outline_round`, fixed here), then hit a harness
+> DuplicateJob (`_run` keyed by id(inputs)), fixed in the test; re-run alone: 0 failed. Contracts suites pass.
 > **2026-11-20 — CERTFIX-3 on `certfix/3` (cut from `claude/w6-INTEG8-wip` 511a8c6; NOT merged, NOT deployed;
 > production unchanged).** Real fixes for nine Batch 18 certification failures; no gate, assertion or child-safety
 > rule weakened. Teen garments grade at CYC 14/16 only (a teen drop-shoulder was drafted at size 2 and held by the

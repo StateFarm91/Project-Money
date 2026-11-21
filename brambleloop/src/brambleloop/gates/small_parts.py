@@ -80,8 +80,17 @@ def separable_pieces(cir) -> list[tuple[str, float, float]]:
 
 
 def _sewn_on(cir) -> list[str]:
-    return sorted({piece for s in (getattr(cir, "assembly", None) or [])
-                   if s.piece_a != s.piece_b for piece in (s.piece_a, s.piece_b)})
+    """Every attached piece: either end of a sewn join, and (ENG-AMIGURUMI-BREADTH) every piece
+    crocheted into another by a low-sew join, which can come away just as a sewn one can."""
+    from ..cir import low_sew
+
+    sewn = {piece for s in (getattr(cir, "assembly", None) or [])
+            if s.piece_a != s.piece_b for piece in (s.piece_a, s.piece_b)}
+    try:
+        sewn |= set(low_sew.joined_pieces(cir))
+    except Exception:  # noqa: BLE001 - a CIR-like object without rows has no joined pieces
+        pass
+    return sorted(sewn)
 
 
 def blocking(cir) -> list[str]:

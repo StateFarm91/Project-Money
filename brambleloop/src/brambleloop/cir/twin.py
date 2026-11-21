@@ -82,6 +82,9 @@ class Cell:
     # error mirrors every other row of `color_grid`, which feeds chart rendering -- so a flat
     # two-colour chart has been drawn with alternate rows reversed.
     fabric_position: int = 0
+    # ENG-AMIGURUMI-BREADTH: the piece this stitch is worked through (a low-sew join), so the
+    # twin knows where on the round each limb, ear or tail sits (`cir.low_sew`).
+    joins: str | None = None
 
 
 @dataclass
@@ -284,7 +287,8 @@ def build_twin(
                         Cell(row=r.index, position=pos, stitch=op.stitch,
                              color=getattr(op, "color", None) or r.color,
                              repeat_group=op.repeat_group,
-                             loop=getattr(op, "loop", "both"))
+                             loop=getattr(op, "loop", "both"),
+                             joins=getattr(op, "joins", None))
                     )
                     pos += 1
         model.row_widths[r.index] = pos
