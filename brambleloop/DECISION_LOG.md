@@ -4241,3 +4241,7 @@ instructions.
   CA$ ceilings, the per-gallery limit (`concept-board:<slug>`) and the code's image caps. On top
   of those, the toy board's own limits: 2 renders per run and 4 per UTC day, so listing galleries
   keep the day's image budget. Each render is 1k tier, about CA$0.07.
+
+## D-OWNER-DEPLOY-19h12 — 2026-11-21T18:34:12Z
+
+Batch 19h12 (code 093bb69a1) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 5188badb0006ca0030925523ec23162d0510ac7b was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
