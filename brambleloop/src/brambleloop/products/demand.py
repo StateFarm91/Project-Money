@@ -71,15 +71,18 @@ _FAMILY_WORDS: tuple[tuple[str, str], ...] = (
            r"pacifier clip)\b"),
     (GARMENT, r"\b(?:cardigan|sweater|jumper|pullover|vest|tank|tee|t-shirt|top|dress|"
               r"romper|cardi|shrug|bolero|poncho|kimono|jacket|coat|hoodie|skirt|"
-              r"sweatshirt|garment|clothing)\b"),
+              r"sweatshirt|garment|clothing|hat|hats|beanie|beanies|bonnet|balaclava|"
+              r"socks|slippers|mittens|gloves)\b"),
     (PILLOW, r"\b(?:pillow|pillows|cushion|cushions|bolster|pouf|ottoman)\b"),
     (AMIGURUMI, r"\b(?:amigurumi|stuffed|plush|plushie|plushies|stuffie|softie|toy|toys|"
                 r"doll|keychain)\b"),
     (BABY, r"\b(?:baby|babies|newborn|infant|nursery|bib|bootie|booties|layette|"
            r"swaddle|cocoon)\b"),
     ("blanket", r"\b(?:blanket|throw|afghan|graphghan|granny square blanket)\b"),
-    ("accessory", r"\b(?:hat|beanie|bonnet|balaclava|scarf|cowl|shawl|shawlette|wrap|"
-                  r"mittens|gloves|headband|ear warmer|socks|slippers|bandana)\b"),
+    # CLOTHING-E2E: hats, socks and slippers are graded clothing (the wearable engines size
+    # them on the CYC head and foot charts), so they read as the garment family; a scarf or
+    # cowl is still an accessory.
+    ("accessory", r"\b(?:scarf|cowl|shawl|shawlette|wrap|headband|ear warmer|bandana)\b"),
     ("bag", r"\b(?:bag|tote|pouch|purse|clutch|backpack|bucket bag)\b"),
     ("seasonal_decor", r"\b(?:christmas|halloween|easter|valentine|valentines|thanksgiving|"
                        r"garland|ornament|ornaments|stocking|pumpkin|wreath|advent)\b"),
@@ -90,7 +93,9 @@ _FAMILY_WORDS: tuple[tuple[str, str], ...] = (
 _CATEGORY_FAMILY: dict[str, str] = {
     "amigurumi": AMIGURUMI, "toy": AMIGURUMI, "baby": BABY, "nursery": BABY,
     "pillow": PILLOW, "cushion": PILLOW, "garment": GARMENT, "blanket": "blanket",
-    "mosaic_blanket": "blanket", "graphghan": "blanket", "hat": "accessory",
+    "mosaic_blanket": "blanket", "graphghan": "blanket", "hat": GARMENT,
+    "sock": GARMENT, "slipper": GARMENT, "top": GARMENT, "dress": GARMENT,
+    "cardigan": GARMENT, "sweater": GARMENT, "vest": GARMENT,
     "scarf": "accessory", "shawl": "accessory", "bag": "bag",
     "seasonal_decor": "seasonal_decor", "ornament": "seasonal_decor",
     "stocking": "seasonal_decor", "coaster": "home_decor", "placemat": "home_decor",
@@ -119,7 +124,9 @@ _FORM_WORDS: dict[str, tuple[tuple[str, str], ...]] = {
               ("sweater", r"\b(?:sweater|jumper|pullover|sweatshirt|hoodie)\b"),
               ("vest", r"\b(?:vest|tank|slipover)\b"),
               ("top", r"\b(?:top|tee|t-shirt|cami)\b"),
-              ("dress", r"\b(?:dress|romper|skirt)\b")),
+              ("dress", r"\b(?:dress|romper|skirt)\b"),
+              ("hat", r"\b(?:hats?|beanies?|bonnet|balaclava)\b"),
+              ("footwear", r"\b(?:socks|slippers)\b")),
 }
 DEFAULT_FORM = "standard"
 

@@ -359,7 +359,21 @@ def _schematic(text, ctx):
 
 
 def _size_chart(text, ctx):
-    out = _has(text, "Sizes and fit", "to fit chest", "finished chest", "ease", "yarn about")
+    # CLOTHING-E2E: a hat or sock is graded on the head or foot chart, not the chest; its
+    # chart must name the measure it IS graded on, to fit and finished, never omit one.
+    g = ctx.cir.grading
+    first = (g.sizes[0].get("body_cm") or {}) if g is not None and g.sizes else {}
+    if g is not None and "bust" not in first and first:
+        from .pdf import _MEASURE_WORDS
+
+        word = _MEASURE_WORDS.get(next(iter(first)), next(iter(first)).replace("_", " "))
+        need = ("Sizes and fit", f"to fit {word}", "finished", "yarn about")
+        if any(k in first for k in ("head", "foot_circ")):
+            need += ("ease",)
+        out = _has(text, *need)
+    else:
+        out = _has(text, "Sizes and fit", "to fit chest", "finished chest", "ease",
+                   "yarn about")
     if ctx.cir.grading is not None:
         for s in ctx.cir.grading.sizes:
             name = str(s.get("size", s.get("name", "")))

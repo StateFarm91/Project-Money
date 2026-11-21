@@ -404,11 +404,23 @@ def test_a_buttoned_or_strapped_baby_garment_is_held_never_drafted():
 def test_every_tee_and_tank_size_is_granted():
     assert_family_release(TEE.key, ADULT_SIZES)
     assert_family_release(TANK.key, ADULT_SIZES)
-    assert_family_release(KIDS_TANK.key, CHILD_SIZES)
+
+
+def test_the_kids_tank_is_refused_because_its_slash_neck_cannot_pass_a_childs_head():
+    # CLOTHING-E2E: the slash neck opens 37-48 cm (front and back) against a 46-56 cm head
+    # (CYC head chart). It was certified here and then refused at the PDF.
+    from brambleloop.intel import childrens as ch
+
+    r = released(KIDS_TANK.key)
+    assert not r.granted
+    for size, cir in r.cirs.items():
+        assert any(c.startswith("GARMENT_NECK_FIT") or "GARMENT_NECK_FIT" in c
+                   for c in r.reasons()), r.reasons()
+        assert "OPENING_TOO_SMALL" in {p["code"] for p in ch.physical_plausibility(cir)}, size
 
 
 def test_tops_are_graded_relaxed_and_rise_size_to_size():
-    for spec in (TEE, TANK, KIDS_TANK):
+    for spec in (TEE, TANK):
         r = released(spec.key)
         ms = [WB.top_measures(c) for c in r.cirs.values()]
         assert ms and all(b["chest"] > a["chest"] for a, b in zip(ms, ms[1:])), spec.key
@@ -420,20 +432,15 @@ def test_tops_are_graded_relaxed_and_rise_size_to_size():
     assert tee["upper_arm"] >= released(TEE.key).design.graded_size("M").body_cm("upper_arm")
 
 
-def test_tops_reverse_compile_hold_size_truth_and_the_kids_tank_is_child_safe():
-    for spec in (TEE, TANK, KIDS_TANK):
+def test_tops_reverse_compile_and_hold_size_truth():
+    for spec in (TEE, TANK):
         assert_reverse_reads_back(spec.key)
         assert_size_truth(spec.key)
-    assert released(KIDS_TANK.key).cirs
-    for size, cir in released(KIDS_TANK.key).cirs.items():
-        v = CS.evaluate(cir, compile_cir(cir))
-        assert v.applies and v.verdict == CS.VERDICT_PASS and "sewn" not in v.profile, size
 
 
 def test_tops_documents_read_back_with_chart_and_schematic():
-    for spec in (TEE, TANK, KIDS_TANK):
+    for spec in (TEE, TANK):
         assert_document(spec.key)
-    assert CS.SECTION_HEADING in " ".join(document(KIDS_TANK.key, "US").text.split())
     assert CS.SECTION_HEADING not in " ".join(document(TEE.key, "US").text.split())
 
 
@@ -464,12 +471,11 @@ def test_tops_route_by_title_and_unbuilt_tops_are_held():
     from brambleloop.creative import construction_families as CF
 
     for cat, title, fam in (("top", "Saltwind Boxy Tee", "top_tee"),
-                            ("top", "Driftwood Tank Top", "top_tank"),
-                            ("top", "Pebble Kids Tank", "top_tank")):
+                            ("top", "Driftwood Tank Top", "top_tank")):
         got = CF.route(category=cat, title=title, form="fitted_garment",
                        construction="flat_rows")
         assert got["admitted"] and got["family"] == fam, (title, got)
-    for title in ("Kids Boxy Tee", "V-Neck Tee", "Cropped Tank", "Lace Tank",
+    for title in ("Kids Boxy Tee", "V-Neck Tee", "Cropped Tank", "Lace Tank", "Pebble Kids Tank",
                   "Long Sleeve Tee", "Fitted Tee"):
         got = CF.route(category="top", title=title, form="fitted_garment",
                        construction="flat_rows")
@@ -960,9 +966,19 @@ def test_a_research_adult_tank_runs_concept_to_pdf():
     assert_concept_to_pdf(out, ADULT_SIZES, "top_tank")
 
 
-def test_a_research_child_tank_runs_concept_to_pdf():
-    out = _research_wearable_to_pdf(KIDS_TANK_P)
-    assert_concept_to_pdf(out, CHILD_SIZES, "top_tank")
+def test_a_research_kids_tank_is_held_at_intake_not_drafted():
+    # CLOTHING-E2E: the kids tank is not admitted (its slash neck cannot pass a child's head),
+    # so a research concept for one is held by name at intake, before anything is drafted.
+    import test_eng_families as T
+
+    db = T._db()
+    T._benchmarks(db, KIDS_TANK_P["concept"]["pod"])
+    tid = T._answered_task(db)
+    T.intake.attach_proposal(db, tid, KIDS_TANK_P)
+    got = T._run(db, "radar.concept_intake", {})
+    assert got["approved"] == [], got
+    reasons = [r for x in got["refused"] for r in x["reasons"]]
+    assert any(str(r).startswith("construction_unsupported:top_tank") for r in reasons), got
 
 
 VCARDI_P = _wearable_proposal(
@@ -1073,12 +1089,14 @@ def test_a_research_adult_market_bag_runs_concept_to_pdf():
 def test_hats_route_to_the_beanie_and_others_are_held():
     from brambleloop.creative import construction_families as CF
 
-    for title in ("Hollin Ridge Beanie", "Slouchy Moss Hat", "Baby Beanie", "Kids Toque"):
+    # "Moss" is held since ENG-HOMEDECOR (stitch_texture: the beanie works no moss stitch).
+    for title in ("Hollin Ridge Beanie", "Slouchy Fern Hat", "Baby Beanie", "Kids Toque"):
         got = CF.route(category="hat", title=title, form="hat", construction="in_the_round")
         assert got["admitted"] and got["family"] == "hat_beanie", (title, got)
     for title, cons in (("Pom Pom Beanie", "in_the_round"), ("Sun Hat", "in_the_round"),
                         ("Earflap Hat", "in_the_round"), ("Cabled Beanie", "in_the_round"),
-                        ("Beanie", "flat_rows"), ("Bucket Hat", "in_the_round")):
+                        ("Beanie", "flat_rows"), ("Bucket Hat", "in_the_round"),
+                        ("Slouchy Moss Hat", "in_the_round")):
         got = CF.route(category="hat", title=title, form="hat", construction=cons)
         assert not got["admitted"] and got["reason"].startswith(CF.HOLD_PREFIX), (title, got)
     assert CF.route(category="scarf", title="Ridge Beanie", form="hat",

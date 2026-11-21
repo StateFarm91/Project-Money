@@ -1263,6 +1263,18 @@ def top_gates(ctx) -> list:
     if "upper_arm" in m and m["upper_arm"] + 1e-9 < g.body_cm("upper_arm"):
         bad("GARMENT_ARMHOLE_FIT", f"the sleeve is {m['upper_arm']:.1f} cm round; the upper "
                                    f"arm is {g.body_cm('upper_arm'):g} cm")
+    # CLOTHING-E2E: a pull-on top for a child must pass the child's head. The slash neck is
+    # open front and back, so its opening is twice its width, checked against the CYC head
+    # chart (`intel.childrens.head_to_pass_cm`, the same reading the PDF's children's
+    # plausibility check makes). Before this the kids tank was certified here and refused
+    # at the PDF (its 37-48 cm opening cannot pass a 46-56 cm head).
+    from ..intel.childrens import head_to_pass_cm
+
+    head = head_to_pass_cm(ctx["design"].table.name, size)
+    if head is not None and 2 * m["neck"] + 1e-9 < head[0]:
+        bad("GARMENT_NECK_FIT", f"the slash neck opens {2 * m['neck']:.1f} cm round (front "
+                                f"and back); a child of size {size} has a head up to "
+                                f"{head[0]:g} cm (CYC head chart, {head[1]} upper bound)")
     rows = [x.stitch_count for x in res.rows if x.component == "body"]
     nr = int(f.numbers["neck_row"])
     front, back = rows[:nr - 1], rows[nr:]
@@ -1484,7 +1496,10 @@ def vneck_cardigan(g: GradedSize, spec: WearableSpec) -> CIR:
     pick = GF.pick_up_count(edge_cm, g)
     bands = []
     for side in ("band_left", "band_right"):
-        bp = GF.Piece(side, fam, foundation=pick, grain="across", feature="button_band",
+        # CLOTHING-E2E: a plain front band (no buttonholes, nothing to fasten) is a "band";
+        # labelled "button_band" it read as buttonholes with no buttons
+        # (CLOSURE_WITHOUT_BUTTONS) and every baby size was refused at the PDF.
+        bp = GF.Piece(side, fam, foundation=pick, grain="across", feature="band",
                       direction="side_to_side", foundation_kind="none",
                       note=f"picked up along the {side.split('_')[1]} front edge, from the "
                            f"hem up the V to the raglan line")
@@ -2061,6 +2076,11 @@ _SHAWL_COMMON = dict(
     fit_note=("Sized to span the arms: the wingspan is twice the neck-to-wrist measurement "
               "plus 12 cm of stated ease each side to drape."),
     tips=("Count every row of the increases: each row ends 2 stitches wider than the last.",),
+    # CLOTHING-E2E: "wrap it round the shoulders" says how a shawl is worn, not that it is a
+    # round outline (ENG-HOMEDECOR's `outline_round` word held every such concept by name).
+    # A circular or round shawl is still refused below.
+    honest_phrases=(r"\b(?:wrap(?:ped|s)?|drape[ds]?|thr[eo]wn?|throw|tie[ds]?|worn) "
+                    r"(?:it |them )?round (?:the|your|her|his|their) shoulders\b",),
     refuse=((r"\b(?:crescent|half[- ]moon|circular|circle|pi shawl|lace|lacy|"
              r"openwork|mesh|fring(?:e|ed)|tassels?|pom-?poms?|ruana|poncho|capelet|"
              r"shrug|hood(?:ed)?|pockets?|granny|mosaic|c2c|corner[- ]to[- ]corner)\b",

@@ -3800,3 +3800,37 @@ Reversible by decision.
 - Both PDF layouts now print the eye-options panel (amigurumi) and the chunky/chenille hook range, so the learned
   standard does not refuse what production builds. The bytes of those documents change from this commit.
 - Reversible by decision.
+## 2026-11-21 — CLOTHING-E2E (`eng/clothing-e2e` from `claude/batch19-fixers` 8204c93)
+- **D-CLOTHING-E2E-1 — hats, socks and slippers are the garment demand family.** `products.demand`
+  classified "beanie", "socks" and "slippers" as `accessory`, which is not a boosted family, so the
+  demand-led originals could never propose a wearable the ENG-GARMENT-2 engines build. They grade on
+  the CYC head and foot charts, so they are clothing (`garment`, SECONDARY_BOOST). Scarves, cowls,
+  shawls and wraps stay `accessory`. Baby clothing stays `garment` (not `baby`), as before.
+- **D-CLOTHING-E2E-2 — a measured opening is checked, an unmeasured one is still UNVERIFIED.**
+  `intel.childrens.physical_plausibility` reported every closed-front child garment
+  OPENING_UNVERIFIED, so every certified romper, dress and baby/kids beanie was refused at the PDF.
+  It now compares the BUILT opening (from the size's own rows) with a sourced body figure: a neck
+  opening or slash neck against the CYC head chart (largest head at the size's youngest age, never
+  below Toddler 46 cm); a hat's brim ring against the size's head, and a sock's circumference
+  against the foot, each less the bounded stretch ease the grading already allows. Too small is
+  OPENING_TOO_SMALL (refused). Nothing measured: OPENING_UNVERIFIED, unchanged.
+- **D-CLOTHING-E2E-3 — the kids tank is held.** Its slash neck opens 37-48 cm against a 46-56 cm
+  child head at every child size. `top_gates` refuses it (GARMENT_NECK_FIT) and
+  `WEARABLE_PAIR_AUDIENCE[(top_tank, top)]` is adult only, so a research kids tank is held at intake
+  (`construction_unsupported:top_tank`) instead of being certified and refused at the PDF.
+- **D-CLOTHING-E2E-4 — length band per garment kind.** The 0.85-1.6 x back-length band is a top's;
+  a dress/pinafore is held to 1.5-2.3 and a romper to 1.3-1.9 (each engine's design ratio within
+  about 15 %).
+- **D-CLOTHING-E2E-5 — a front band with no buttonholes is a `band`.** The V-neck cardigan and the
+  buttonless (baby) raglan cardigan labelled their plain bands `button_band`, which the children's
+  check reads as buttonholes with no buttons (CLOSURE_WITHOUT_BUTTONS).
+- **D-CLOTHING-E2E-6 — head- and foot-chart child sizes get the children's assignment.**
+  `publish.pdf.graded_childrens_assignment` read only the CYC body tables, so a baby beanie or kids
+  sock rendered with no children's safety block. It now reads the head and foot tables too
+  (`months_of` gives each size's youngest age).
+- **D-CLOTHING-E2E-7 — the size chart and its standard name the measure a size is graded on.** A hat
+  or sock has no chest: `pdf.size_chart` formatted None and crashed `assets.build`, and the premium
+  standard required "to fit chest". Both now use the head/foot measures (to fit, finished, ease).
+- **D-CLOTHING-E2E-8 — "round" is honest for the ball-body amigurumi and for a shawl worn "round the
+  shoulders".** ENG-HOMEDECOR's `outline_round` word held "Cosy Round Bear Amigurumi" and the shawl
+  proof by name. "Moss" stays held on a hat (no moss-stitch engine).

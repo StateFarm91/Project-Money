@@ -1388,6 +1388,25 @@ def carries_no_market_numbers() -> bool:
 #              attached (it is covered by `seams`).
 
 LENGTH_TO_BACK_LENGTH = (0.85, 1.6)
+# CLOTHING-E2E: the band above is a top's (shoulder to hem of a sweater or cardigan). A dress
+# hangs past the hips and a romper runs shoulder to crotch, so each is held to its own band:
+# the design ratio the baby engines build to (`products.wearables`: dress 2.0 and pinafore 1.8
+# of the back length; romper 1.6 with its bands), within about 15 % either side. Matched on
+# the CIR title; any other garment keeps the top's band.
+LENGTH_TO_BACK_LENGTH_BY_KIND: tuple[tuple[str, str, tuple[float, float]], ...] = (
+    ("dress", r"\b(?:dress|dresses|pinafore|pinafores)\b", (1.5, 2.3)),
+    ("romper", r"\b(?:romper|rompers)\b", (1.3, 1.9)),
+)
+
+
+def length_band(title: str) -> tuple[str, tuple[float, float]]:
+    import re
+
+    folded = str(title or "").lower()
+    for kind, rx, band in LENGTH_TO_BACK_LENGTH_BY_KIND:
+        if re.search(rx, folded):
+            return kind, band
+    return "top", LENGTH_TO_BACK_LENGTH
 
 
 def _attached(cir) -> dict[str, bool]:
@@ -1410,6 +1429,84 @@ def _attached(cir) -> dict[str, bool]:
                 seen.add(nxt)
                 stack.append(nxt)
     return {n: n in seen for n in names}
+
+
+def head_to_pass_cm(table: str, size: str) -> tuple[float, str] | None:
+    """The head a pull-on garment of this size must pass, from the CYC head chart.
+
+    CLOTHING-E2E. The size is read at the YOUNGEST age it is named for (`cir.graded.months_of`)
+    and the head is the largest upper bound among the head-chart rows a child of that age can
+    already be in (`cir.graded.HEAD_MONTHS`, our stated lower bounds), and never less than the
+    Toddler row's upper bound (46 cm, the largest under-3 head), the same bound the baby
+    engines are built to. Adult and unnamed sizes: None."""
+    from ..cir.graded import HEAD, HEAD_MONTHS, months_of
+
+    months = months_of(table, size)
+    if months is None:
+        return None
+    rows = {b.size: b.published.get("head") for b in HEAD.sizes}
+    toddler = float(rows["Toddler"][1])
+    best, label = toddler, "Toddler"
+    for name, youngest in HEAD_MONTHS.items():
+        head = rows.get(name)
+        if youngest <= months and isinstance(head, tuple) and float(head[1]) > best:
+            best, label = float(head[1]), name
+    return best, label
+
+
+def opening_reading(table: str, entry: dict) -> dict | None:
+    """How a closed-front wearable's way on is MEASURED against the body, or None (unmeasured).
+
+    CLOTHING-E2E: the openings check used to report every closed-front garment unverified,
+    because nothing measured an opening; the wearable engines now measure theirs, and an
+    unmeasured opening still reads UNVERIFIED (never a pass). Each reading compares the BUILT
+    opening (`built_cm`, measured from the size's own rows) with a sourced body figure:
+
+    * a neck opening (`neck_opening`, the perimeter the head passes through) or a slash neck
+      (`neck`, the width across: front and back give twice that) against `head_to_pass_cm`;
+    * a hat (graded on the CYC head chart): its brim ring against the size's head, less the
+      bounded stretch ease the grading allows (`cir.graded.STRETCH_EASE_LIMIT_CM`);
+    * a sock or slipper (graded on the CYC foot chart): its circumference against the foot,
+      less the same bounded stretch ease.
+    """
+    from ..cir.graded import FOOT, HEAD, STRETCH_EASE_LIMIT_CM
+
+    body, built = entry.get("body_cm") or {}, entry.get("built_cm") or {}
+    size = str(entry.get("size"))
+
+    def reading(opening: float, need: float, what: str, against: str) -> dict:
+        ok = float(opening) + 1e-9 >= float(need)
+        return {"passes": ok, "opening_cm": round(float(opening), 1),
+                "need_cm": round(float(need), 1),
+                "detail": (f"the {what} is {float(opening):.1f} cm round and must pass "
+                           f"{float(need):.1f} cm ({against})")}
+
+    if table == HEAD.name and body.get("head") is not None:
+        ring = built.get("brim_ring", built.get("circumference"))
+        if ring is None:
+            return None
+        lim = STRETCH_EASE_LIMIT_CM["head"]
+        return reading(ring, float(body["head"]) - lim, "brim ring",
+                       f"the size {size} head {float(body['head']):g} cm on the CYC head chart, "
+                       f"less at most {lim:g} cm of rib stretch")
+    if table == FOOT.name and body.get("foot_circ") is not None:
+        ring = built.get("circumference")
+        if ring is None:
+            return None
+        lim = STRETCH_EASE_LIMIT_CM["foot_circ"]
+        return reading(ring, float(body["foot_circ"]) - lim, "foot and cuff",
+                       f"the size {size} foot {float(body['foot_circ']):g} cm on the CYC foot "
+                       f"chart, less at most {lim:g} cm of stretch")
+    need = head_to_pass_cm(table, size)
+    if need is None:
+        return None
+    head, row = need
+    against = f"the CYC head chart's {row} upper bound, the largest head at that size's age"
+    if built.get("neck_opening") is not None:
+        return reading(built["neck_opening"], head, "neck opening", against)
+    if built.get("neck") is not None:
+        return reading(2 * float(built["neck"]), head, "slash neck (front and back)", against)
+    return None
 
 
 def physical_plausibility(cir) -> list[dict]:
@@ -1460,9 +1557,13 @@ def physical_plausibility(cir) -> list[dict]:
                       or bool(re.search(r"\bfronts? (?:stay|stays|left|are) open\b|\bopen[- ]"
                                         r"front\b", text)))
         if not front_open:
-            add("OPENING_UNVERIFIED", "openings", "a closed-front garment needs a head opening "
-                "this system can check against the size's head circumference; no sourced "
-                "head measurement is carried, so the opening is unverified")
+            reading = opening_reading(grading.table, entry)
+            if reading is None:
+                add("OPENING_UNVERIFIED", "openings", "a closed-front garment needs a head "
+                    "opening this system can check against the size's head circumference; "
+                    "no sourced head measurement is carried, so the opening is unverified")
+            elif not reading["passes"]:
+                add("OPENING_TOO_SMALL", "openings", reading["detail"])
         body, built = entry.get("body_cm") or {}, entry.get("built_cm") or {}
         for b_key, m_key in (("bust", "chest"), ("upper_arm", "upper_arm"),
                              ("armhole_depth", "armhole")):
@@ -1471,9 +1572,9 @@ def physical_plausibility(cir) -> list[dict]:
                     f"less than the size {entry.get('size')} body {b_key} {body[b_key]} cm")
         if "back_length" in body and "length" in built and float(body["back_length"]):
             ratio = float(built["length"]) / float(body["back_length"])
-            lo, hi = LENGTH_TO_BACK_LENGTH
+            kind, (lo, hi) = length_band(cir.title)
             if not lo <= ratio <= hi:
                 add("PROPORTION_LENGTH", "proportion", f"built length {built['length']} cm is "
                     f"{ratio:.2f} x the back length {body['back_length']} cm (wearable band "
-                    f"{lo}-{hi})")
+                    f"for a {kind} {lo}-{hi})")
     return out

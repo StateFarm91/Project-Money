@@ -485,7 +485,11 @@ def raglan_cardigan(g: GradedSize, *, key: str, title: str, family: StitchFamily
         n_buttons = max(3, int(round(front_edge_cm / BUTTON_SPACING_CM)))
     bands = []
     for side, holes in (("band_left", 0), ("band_right", n_buttons)):
-        p = Piece(side, fam, foundation=pick, grain="across", feature="button_band",
+        # CLOTHING-E2E: with no buttons (the baby sizes) the bands are plain front bands;
+        # labelled "button_band" they read as buttonholes with no buttons
+        # (CLOSURE_WITHOUT_BUTTONS) and every baby size was refused at the PDF.
+        p = Piece(side, fam, foundation=pick, grain="across",
+                  feature="button_band" if n_buttons else "band",
                   direction="side_to_side", foundation_kind="none",
                   note=f"picked up along the {'left' if side == 'band_left' else 'right'} "
                        f"front edge")
