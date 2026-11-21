@@ -284,7 +284,7 @@ export async function guardedAction({ title, lines, confirmLabel, danger, requir
 
 export { h, icon, clear };
 
-// ---- W4-CCFM1 (F-652 / F-670): a small, dependency-free bar chart ----------------------------
+// ---- W4-CCFM1 (F-652 / F-670): a small, dependency-free bar chart ----
 const SVG = "http://www.w3.org/2000/svg";
 
 /**

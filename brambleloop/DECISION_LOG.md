@@ -3759,3 +3759,30 @@ mutants (including `|| true` and `pull_request_target`) are killed.
 - is verified with `verify_deploy` and a read-back after the push.
 
 A failed verify or read-back rolls back to the previous production SHA. After 05:00Z, the per-SHA owner question returns.
+## D-MC2-APPROVE-ALL — the owner's "Approve all eligible" button is the owner's own act, behind the existing step-up (MISSION-CONTROL-2, 2026-11-21; owner request)
+**Owner, relayed:** Mission Control "is a mess"; "I need an approve all button" (see also D-OWNER-APPROVE-ALL).
+**Rule (`app/command_center/approve_all.py`).** `POST /api/cc/approve-all` approves, in one transaction, every open or
+parked OwnerAction row that `authority.standing_internal.classify` marks ROUTINE_INTERNAL or AUTO_CLOSE and that the
+key guard does not catch. It needs an owner session (passphrase + TOTP login), CSRF and a nonce (the existing gate), a
+FRESH step-up (`auth.require_stepup`, action `owner_queue.approve_all`) and the preview's `expected_digest`; a changed
+eligible set is refused (409). Each row is re-read and re-judged at the write.
+**Never approved, listed separately with the reason:** child-safety holds; physical-sample attestations; spend above
+ceilings (and paid ads / subscriptions); public-publishing authority (publication, activation, phase, standing policy,
+live listings); every other genuine exception (grants, OAuth consent, KYC / legal / banking, external-policy
+attestation, unclassified kinds); every card that is not an OwnerAction row (executor gates, grant cards, policy
+reviews, the release card). The key guard excludes a classifier-routine row whose key names a child-safety, physical,
+spend or publication subject (defence in depth).
+**Audit.** Per row: the `owner_action.lifecycle` row (actor `owner:cc:<session>`) and one `owner_action.approve_all`
+row (batch, class, rule, from/to, step_up, session). Per press: one `owner_queue.approve_all` row with the counts, ids
+and excluded tallies. Never written as the standing authority. Nothing is deleted, signed, sealed, published, spent or
+messaged. Reversible: a closed row may be reopened (`owner_queue` lifecycle).
+## D-MC2-HOME — the Command Center home is one screen: six P0 verdicts, today's counts, the owner queue in one line (MISSION-CONTROL-2, 2026-11-21; routine product)
+The repository names no fixed list of "six P0 conditions", so they are defined here, each from an existing reader:
+(1) running and healthy — `p0_board.running`; (2) all mandatory shops scanned on time — `p0_board.shops`;
+(3) products advancing — `p0_board.development` + `ops.daily_ledger` (an advance today or yesterday);
+(4) certified releases with every PDF and gallery item proven — `p0_board.releases` + `p0_board.assets`;
+(5) Etsy drafts exist — `p0_board.etsy`; (6) publication safety — `/api/verify`'s `verify_checks.publication_checks`.
+Each is PASS / FAIL / UNKNOWN; an unreadable reader is UNKNOWN, never a pass. Today's counts come from the daily ledger
+(UNKNOWN is never 0). The previous Home content is kept, folded under "Full overview". The all-product inventory is the
+existing ENG-CATALOGUE (`GET /api/cc/catalogue`, SQL pagination and search over every row) with a new `proof` field.
+Reversible by decision.

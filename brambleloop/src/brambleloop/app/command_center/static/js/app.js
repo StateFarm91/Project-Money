@@ -14,7 +14,7 @@ const state = { session: null, route: null, renderSeq: 0 };
 const root = document.getElementById("main");
 const THEME_KEY = "cc-theme";
 
-// ---- theme (per-viewer convenience only; storage may be unavailable) -----------------------
+// ---- theme (per-viewer convenience only; storage may be unavailable) ----
 export function getTheme() {
   try { return localStorage.getItem(THEME_KEY) || "auto"; } catch (_) { return "auto"; }
 }
@@ -28,7 +28,7 @@ function applyTheme(t) {
 }
 applyTheme(getTheme());
 
-// ---- navigation -----------------------------------------------------------------------------
+// ---- navigation ----
 function navLink(tab, { compact }) {
   return h("a", { class: compact ? "tab" : "side-link", href: `#/${tab.id}`, data: { tab: tab.id } },
     icon(tab.icon, compact ? 22 : 20),
@@ -116,7 +116,7 @@ export async function refreshChrome() {
   }
 }
 
-// ---- routing --------------------------------------------------------------------------------
+// ---- routing ----
 function parseHash() {
   const raw = location.hash.replace(/^#\/?/, "");
   const [pathPart, queryPart] = raw.split("?");
@@ -169,7 +169,7 @@ async function route() {
   if (seq === state.renderSeq) root.dataset.rendered = hash;
 }
 
-// ---- login ----------------------------------------------------------------------------------
+// ---- login ----
 function showLogin(message) {
   document.body.classList.add("is-signed-out");
   document.getElementById("view-title").textContent = "Sign in";
@@ -219,7 +219,7 @@ export async function signOut() {
   showLogin("Signed out.");
 }
 
-// ---- connectivity ---------------------------------------------------------------------------
+// ---- connectivity ----
 function updateOnline() {
   const el = document.getElementById("net");
   const on = navigator.onLine;
@@ -229,7 +229,7 @@ function updateOnline() {
 window.addEventListener("online", () => { updateOnline(); toast("Back online. Refreshing."); route(); });
 window.addEventListener("offline", () => { updateOnline(); toast("Offline. Nothing you tap will be sent until you reconnect.", "warn"); });
 
-// ---- boot -----------------------------------------------------------------------------------
+// ---- boot ----
 async function boot() {
   try {
     state.session = await loadStatus();

@@ -82,7 +82,7 @@ function uploadForm(products, out) {
   return form;
 }
 
-// ---- gallery approval card (W-VISNEXT) ---------------------------------------------------
+// ---- gallery approval card (W-VISNEXT) ----
 // The images themselves, and three decisions that stay apart: your look (recorded, read by no
 // gate), technical certification (automated; your look cannot change it) and publication
 // authorization (step-up; every gate is re-checked when you press it).
@@ -196,7 +196,7 @@ function runRow(p, rerender, slot) {
     open);
 }
 
-// ---- wardrobe editor (W-VISNEXT) -----------------------------------------------------------
+// ---- wardrobe editor (W-VISNEXT) ----
 
 function outfitRow(o, listings, reload) {
   const act = async (payload, ok) => {
@@ -254,7 +254,7 @@ export function wardrobeEditor(w, listings, reload) {
     newOutfitForm(w, reload));
 }
 
-// ---- controlled experiments (W-VISNEXT) ----------------------------------------------------
+// ---- controlled experiments (W-VISNEXT) ----
 // Owner-only. Authorize and Run both need step-up. The output is an EXPERIMENT: shown in the
 // same gallery card, never publishable.
 

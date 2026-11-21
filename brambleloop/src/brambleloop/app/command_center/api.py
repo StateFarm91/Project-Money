@@ -318,6 +318,41 @@ def make_router(db) -> APIRouter:
 
         return ok(p0_board.view(db))
 
+    # MISSION-CONTROL-2: the one-screen home -- six P0 verdicts, today's counts, the owner
+    # queue in one line. Read-only, owner session, the same `/api/cc` default-deny gate.
+    @router.get("/mission")
+    def mission_view(request: Request):
+        from . import mission
+
+        return ok(mission.view(db))
+
+    # MISSION-CONTROL-2: "Approve all eligible". The preview reads (owner session). The
+    # approval needs the existing owner step-up (passphrase + TOTP), CSRF and a nonce (the
+    # gate), and the preview's digest; it never approves an excluded category.
+    @router.get("/approve-all")
+    def approve_all_preview(request: Request):
+        from . import approve_all
+
+        return ok(approve_all.preview(db))
+
+    @router.post("/approve-all")
+    async def approve_all_execute(request: Request):
+        from . import approve_all
+
+        body = await body_of(request)
+        auth.require_stepup(db, request, approve_all.STEP_UP_ACTION)
+        try:
+            out = await run_in_threadpool(
+                lambda: approve_all.execute(
+                    db, actor=actor(request),
+                    expected_digest=str(body.get("expected_digest") or ""),
+                    session_public_id=auth.current_public_id(request)))
+        except approve_all.Refused as exc:
+            raise auth.refuse(db, request, 409, "REFUSED_BY_AUTHORITY", str(exc),
+                              kind="action",
+                              session_public_id=auth.current_public_id(request)) from None
+        return ok({"ok": True, "action": approve_all.STEP_UP_ACTION, **out})
+
     # ENG-DAILY: the Daily panel -- per-day production counts and today's zero-output
     # diagnoses. Read-only, owner session, the same `/api/cc` default-deny gate.
     @router.get("/daily")

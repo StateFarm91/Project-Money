@@ -1,6 +1,5 @@
-// Typed client for the Owner Command Center API, per lane C's contract
-// research/final_build/v1_1/COMMAND_CENTER_API.md. Every path and header name the frontend
-// depends on is declared here, so adapting to a contract change is a one-file edit.
+// Typed client for the Owner Command Center API (contract: research/final_build/v1_1/
+// COMMAND_CENTER_API.md). Every path and header the frontend uses is declared here.
 //
 // Security properties this module guarantees for every caller:
 //  - same-origin requests only; the HttpOnly session cookie travels with credentials:"same-origin";
@@ -16,31 +15,7 @@ export const H_CSRF = "X-CSRF-Token";
 export const H_NONCE = "X-CC-Nonce";
 export const H_TS = "X-CC-Timestamp";
 
-/** @typedef {"OK"|"DEGRADED"|"BLOCKED"|"UNKNOWN"} Status */
-/**
- * @typedef {Object} Envelope   cross-lane provider envelope (§0)
- * @property {Status} status
- * @property {string|null} as_of
- * @property {"measured"|"estimated"|"modelled"|"unknown"} basis
- * @property {Array<Object>} items
- * @property {Array<string>} sources
- * @property {string=} reason
- * @property {string=} provider
- */
-/**
- * @typedef {Object} TabResponse
- * @property {string} tab
- * @property {string} generated_at
- * @property {Object<string, Envelope>} sections
- */
-/**
- * @typedef {Object} Money       (§0) render `display`; value_cad null is UNKNOWN, never 0
- * @property {number|null} value_cad
- * @property {"MEASURED"|"ESTIMATED"|"MODELLED"|"UNKNOWN"|"UNMEASURED"} state
- * @property {string} basis
- * @property {string} display
- * @property {Array<string>} sources
- */
+// Response shapes (envelope, tab, money): COMMAND_CENTER_API.md §0.
 
 const q = (params) => {
   const s = new URLSearchParams();
@@ -82,6 +57,8 @@ export const ENDPOINTS = {
   completion: () => `${API_BASE}/completion`,
   p0Board: () => `${API_BASE}/p0-board`,
   daily: () => `${API_BASE}/daily`,
+  mission: () => `${API_BASE}/mission`,
+  approveAll: () => `${API_BASE}/approve-all`,
   demand: () => `${API_BASE}/demand`,
   // ENG-CATALOGUE: the full catalogue (paged, filtered) and the per-department evidence.
   catalogue: (p = {}) => `${API_BASE}/catalogue${q({ q: p.q, stage: p.stage, category: p.category, held: p.held, page: p.page, page_size: p.page_size })}`,
@@ -336,6 +313,9 @@ export const api = {
   completion: () => get(ENDPOINTS.completion()),
   p0Board: () => get(ENDPOINTS.p0Board()),
   daily: () => get(ENDPOINTS.daily()),
+  mission: () => get(ENDPOINTS.mission()),
+  approveAllPreview: () => get(ENDPOINTS.approveAll()),
+  approveAll: (digest) => post(ENDPOINTS.approveAll(), { expected_digest: digest }),
   demand: () => get(ENDPOINTS.demand()),
   catalogue: (p) => get(ENDPOINTS.catalogue(p)),
   operatingEvidence: () => get(ENDPOINTS.operatingEvidence()),

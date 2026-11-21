@@ -4,6 +4,7 @@ import { card, statusPill, sourcesList, guardedAction, toast, freshness, release
 import { formatMoney, relTime, utcStamp, humanize, UNKNOWN_TEXT } from "../format.js";
 import { sectionsOf, pageMeta, renderSection, backLink, tabStatus } from "./_shared.js";
 import { rankDecisions, decideFirstCard } from "./_decisions.js";
+import { approveAllCard } from "./_mission.js";
 
 const FIELDS = [
   ["recommendation", "Agent recommendation"],
@@ -303,7 +304,7 @@ export async function render({ params, rerender }) {
     return h("div", { class: "stack" }, backLink("#/approvals", "All approvals"), ...pageMeta(result, result.data),
       approvalCard(result.data || {}, { stale: result.stale, rerender, open: true, readAt: (result.data && result.data.generated_at) || null }));
   }
-  const result = await api.approvals();
+  const [result, bulk] = await Promise.all([api.approvals(), approveAllCard({ rerender })]);
   const data = result.data || {};
   const cards = Array.isArray(data.cards) ? data.cards : [];
   const s = sectionsOf(data);
@@ -321,6 +322,7 @@ export async function render({ params, rerender }) {
   return h("div", { class: "stack" },
     ...pageMeta(result, data),
     data.reason ? tabStatus(data) : null,
+    bulk,
     decideFirstCard(ranked, { limit: 3, onBatch: toBatches,
       meta: h("p", { class: "card-meta" }, "Inbox read: ", freshness(data.generated_at || null, { stale: result.stale, fetchedAt: result.fetchedAt })) }),
     sorted.length ? sorted.map((c, i) => approvalCard(c, { stale: result.stale, rerender, open: i === 0, readAt: data.generated_at || null }))

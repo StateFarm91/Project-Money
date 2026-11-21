@@ -250,6 +250,23 @@ def evidence(item: dict, version_row: dict | None, listing: dict | None,
     }
 
 
+def proof(ev: dict) -> dict:
+    """MISSION-CONTROL-2: the row's proof in one line -- which evidence exists (certificate, US/UK
+    PDF hashes, gallery, listing package, Etsy read-back) and which does not. Derived only from
+    `evidence`; a link that does not exist is listed as missing, never implied."""
+    ev = ev or {}
+    pdf = ((ev.get("pdf") or {}).get("sha256_by_terminology") or {})
+    etsy = ev.get("etsy") or {}
+    have = {"certificate": bool(ev.get("certificate")),
+            "pdf_us": bool(pdf.get("US") or pdf.get("us")),
+            "pdf_uk": bool(pdf.get("UK") or pdf.get("uk")),
+            "gallery": bool(ev.get("gallery")), "listing_package": bool(ev.get("listing_package")),
+            "etsy_read_back": etsy.get("read_back") in ("live", "verified")}
+    shown = [k for k, v in have.items() if v]
+    return {**have, "summary": (", ".join(shown) if shown else "no proof recorded yet"),
+            "missing": [k for k, v in have.items() if not v]}
+
+
 # ---- families ----------------------------------------------------------------------------------
 
 def _families(db) -> dict[str, tuple[str, str | None]]:
@@ -343,8 +360,10 @@ def build_index(db, *, now: datetime | None = None, snap: dict | None = None) ->
             "tiers": {k: bool(v.get("ready") if k != "internal" else v.get("complete"))
                       for k, v in (it.get("tiers") or {}).items()},
             "evidence": evidence(it, versions.get(key), listing, intent),
+            "proof": None,
             "cost_to_date_cad": (it.get("evidence") or {}).get("cost_to_date_cad"),
         }
+        payload["proof"] = proof(payload["evidence"])
         rows.append((it["slug"], it["version"] or "", it.get("title") or "",
                      1 if it.get("head") else 0, 1 if it["slug"] in product_slugs else 0,
                      payload["state"], payload["state_label"],

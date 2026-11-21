@@ -13,6 +13,19 @@
 > activated openai-vision only. If anthropic-vision is closed in production the stall remains, now named per concept
 > under `regated.radar_held`. Decision D-NEW-PRODUCT-FLOW. Report:
 > `research/final_build/w6/review_requests/NEW-PRODUCT-FLOW.md`.
+> **2026-11-21 — MISSION-CONTROL-2 on `eng/mission-control-2` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT
+> deployed; production unchanged).** The owner: Mission Control "is a mess"; "approve all button". Home is now one screen
+> (`GET /api/cc/mission`): six P0 verdicts PASS/FAIL/UNKNOWN from existing readers (p0_board sections and the
+> `/api/verify` publication checks; the six are defined in D-MC2-HOME, the repo had no fixed list), today's daily-ledger
+> counts and the owner queue in one line; the old Home is folded under "Full overview". Inventory: the existing
+> ENG-CATALOGUE (SQL pagination/search over all rows) gains a per-row `proof`. "Approve all eligible"
+> (`POST /api/cc/approve-all`, D-MC2-APPROVE-ALL): fresh owner step-up (passphrase + TOTP) + CSRF/nonce + preview digest;
+> approves classifier-routine/auto-close OwnerAction rows only; never child-safety, physical-sample, spend-above-ceiling,
+> public-publishing or other genuine exceptions (listed with reasons); every approval audited. New suite
+> `test_mission_control2` 13/0; targeted run 20261121T004014Z-6296 145 passing / 0 failing; 3 CC-adjacent suites fail
+> identically on base 8204c93 (pre-existing gallery/amigurumi). Browser proof on the real backend at 390 px. Open: CC static
+> bundle 399,958 of 400,000 bytes (42 B headroom); not run on production.
+> Report: `research/final_build/w6/review_requests/MISSION-CONTROL-2.md`.
 > **2026-11-20 — CERTFIX-3 on `certfix/3` (cut from `claude/w6-INTEG8-wip` 511a8c6; NOT merged, NOT deployed;
 > production unchanged).** Real fixes for nine Batch 18 certification failures; no gate, assertion or child-safety
 > rule weakened. Teen garments grade at CYC 14/16 only (a teen drop-shoulder was drafted at size 2 and held by the

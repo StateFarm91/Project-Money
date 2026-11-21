@@ -7,6 +7,7 @@ import { sectionsOf, pageMeta, renderAll, sectionDetails, isMoney } from "./_sha
 import { rankDecisions, decideFirstCard } from "./_decisions.js";
 import { overviewBlocks, nextDecisions } from "./_overview.js";
 import { checksCard } from "./_checks.js";
+import { missionBoard } from "./_mission.js";
 
 const BRIEF_ORDER = [
   ["decisions_needed", "Decisions needed"], ["what_changed", "What changed"], ["completed", "Completed"],
@@ -58,7 +59,7 @@ function heroCard(hl, result) {
 }
 
 export async function render({ rerender }) {
-  const [homeR, briefR, apprR] = await Promise.allSettled([api.home(), api.morning(12), api.approvals()]);
+  const [homeR, briefR, apprR, missionR] = await Promise.allSettled([api.home(), api.morning(12), api.approvals(), missionBoard()]);
   const checks = await checksCard({ rerender });
   if (homeR.status === "rejected") throw homeR.reason;
   const result = homeR.value;
@@ -93,6 +94,8 @@ export async function render({ rerender }) {
 
   return h("div", { class: "stack" },
     ...pageMeta(result, data),
+    missionR.status === "fulfilled" ? missionR.value : errorState(missionR.reason),
+    h("details", { class: "home-more" }, h("summary", null, "Full overview: decisions, blocks, checks and every section"),
     heroCard(hl, result),
     // W4-CCUX: the top decisions, with cost and consequence, before anything else to read.
     decide,
@@ -103,7 +106,7 @@ export async function render({ rerender }) {
       h("a", { class: "btn btn-primary", href: "#/approvals" }, icon("approvals", 18), "Decisions"),
       h("a", { class: "btn", href: "#/company" }, icon("operations", 18), "Company"),
       h("a", { class: "btn", href: "#/completion" }, icon("approvals", 18), "Completion"),
-      h("a", { class: "btn", href: "#/ask" }, icon("ask", 18), "Ask")),
+      h("a", { class: "btn", href: "#/ask" }, icon("ask", 18), "Ask"))),
     h("details", { class: "home-more" }, h("summary", null, "More on Home: changes since you last looked, overnight handoff and every section"),
     card({ title: "Since you last looked", subtitle: data.last_seen_at ? `Last viewed ${relTime(data.last_seen_at)} (${utcStamp(data.last_seen_at)})`
       : (changes && changes.basis_note) || null, actions: seenBtn },
