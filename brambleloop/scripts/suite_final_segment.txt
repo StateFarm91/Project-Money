@@ -299,3 +299,4 @@ tests/test_eng_animals.py
 tests/test_evidence_perf.py
 tests/test_supply_lane.py
 tests/test_halt_380_marketing.py
+tests/test_etsy_exercise.py
