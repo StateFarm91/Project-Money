@@ -462,6 +462,14 @@ def latest_reading(db, kind: str) -> dict | None:
 # ---- the certified listing -----------------------------------------------------------
 
 
+class HeroUnjudged(ValueError):
+    """The search certificate is PENDING only because the hero is not judged yet.
+
+    The hero is judged on the certified listing set, which needs the gallery, which needs
+    for-sale admission. So this one refusal is image-caused (D-OWNER-SALE-PIPELINE). Any
+    failed check, any other unjudged check, REFUSED or STALE is not, and never raises this."""
+
+
 def certified_payload(db, slug: str, version: str):
     """The Etsy payload for a certified release, built exactly as store.publish builds it.
 
@@ -498,15 +506,25 @@ def certified_payload(db, slug: str, version: str):
     # F-004: PASS is written back only once the hero was judged on the certified listing
     # set (`search.judge_hero`) and only while that evidence and the copy are current;
     # PENDING (hero unjudged), REFUSED and STALE all refuse here.
+    _search_rule(selected)
+    payload = build_payload(materials=[m.name for m in cir.materials], **copy)
+    payload.taxonomy_id = int(selected["taxonomy_id"])
+    payload.properties = canonical_properties(selected.get("properties"))
+    return payload
+
+
+def _search_rule(selected: dict) -> None:
+    """Refuse unless the search certificate is PASS; a PENDING whose only unjudged check is
+    the hero raises HeroUnjudged (image-caused), everything else ValueError."""
+    if (selected.get("certified") == "PENDING"
+            and list(selected.get("certified_pending") or []) == ["hero"]):
+        raise HeroUnjudged("listing search profile PENDING: only the hero is unjudged; it is "
+                           "judged on the certified listing set once the gallery exists")
     if selected.get("certified") != "PASS":
         raise ValueError(
             f"listing search profile not certified PASS "
             f"({selected.get('certified')}: "
             f"{'; '.join(selected.get('certified_problems') or []) or 'see the search certificate'})")
-    payload = build_payload(materials=[m.name for m in cir.materials], **copy)
-    payload.taxonomy_id = int(selected["taxonomy_id"])
-    payload.properties = canonical_properties(selected.get("properties"))
-    return payload
 
 
 def canonical_properties(properties):

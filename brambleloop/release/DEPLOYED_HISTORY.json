@@ -141,6 +141,26 @@
    "override": "D-OWNER-DEPLOY-19c1",
    "authorization": "D-OWNER-AUTODEPLOY-TONIGHT",
    "rollback_to": "4f1c32f0d9487c9f0b40c864f12b1d559a7282a1"
+  },
+  {
+   "sha": "bcbf5f2d216d96b2c78f3bfc2676a87fe60c406b",
+   "batch": "19c2",
+   "code": "952474c12",
+   "at": "2026-11-21T02:55:31Z",
+   "verify_deploy": "DEPLOYED",
+   "override": "D-OWNER-DEPLOY-19c2",
+   "authorization": "D-OWNER-AUTODEPLOY-TONIGHT",
+   "rollback_to": "a24f8d83ca778b083d6e60054184f65e1e55ef03"
+  },
+  {
+   "sha": "ec5843d75cc80c2f8aaa6689162e86f6acc9ec04",
+   "batch": "19c3",
+   "code": "072a9b17b",
+   "at": "2026-11-21T03:08:02Z",
+   "verify_deploy": "DEPLOYED",
+   "override": "D-OWNER-DEPLOY-19c3",
+   "authorization": "D-OWNER-AUTODEPLOY-TONIGHT",
+   "rollback_to": "bcbf5f2d216d96b2c78f3bfc2676a87fe60c406b"
   }
  ]
 }

@@ -1778,6 +1778,10 @@ def evidence(db, *, now: datetime | None = None, deploy_handlers: dict | None = 
     """The body of GET /api/readback/evidence (read-only token)."""
     now = _aware(now) or datetime.now(timezone.utc)
     sections = {name: _section(name, db, now) for name in SECTIONS}
+    try:  # not a judged section: visibility only (no readback row, no verdict)
+        sections["factory_visibility"] = factory_visibility(db, now=now)
+    except Exception as exc:  # noqa: BLE001
+        sections["factory_visibility"] = _unreadable(exc)
     if deploy_handlers is not None:
         try:
             sections["deploy_readback"] = deploy_readback(deploy_handlers)
@@ -1801,3 +1805,65 @@ def evidence(db, *, now: datetime | None = None, deploy_handlers: dict | None = 
                                "paid-call payloads", "conversations", "owner data",
                                "customer data", "secrets"],
             "server_judgement": judged, **sections}
+
+
+# ---- factory visibility (read-only; counts and fixed vocabulary only) --------------------
+
+_VIS_JOB_TYPES = ("listing.package", "visual.image_production", "ops.owner_queue_consolidate",
+                  "assets.generated_gallery", "visual.gallery_certify")
+
+
+def factory_visibility(db, *, now: datetime) -> dict:
+    """What the factory is doing right now, for the read-only token. It carries no job inputs
+    or outputs, no error text and no secret: job counts by type and status (24 h), FLUX image
+    runs by state, which paid providers are active (names only), and the owner Etsy-exercise
+    attempts (outcome class only)."""
+    from collections import Counter
+
+    from sqlalchemy import select
+
+    from ..core.models import Job
+
+    out: dict = {"readable": True}
+    since = now - timedelta(hours=24)
+    try:
+        with db.session() as s:
+            rows = s.execute(select(Job.job_type, Job.status, Job.created_at)
+                             .where(Job.job_type.in_(_VIS_JOB_TYPES))).all()
+        jobs: Counter = Counter()
+        for jt, st, at in rows:
+            at = _aware(at)
+            if at is None or at >= since:
+                jobs[f"{jt}:{getattr(st, 'value', st)}"] += 1
+        out["jobs_24h"] = dict(sorted(jobs.items()))
+    except Exception as exc:  # noqa: BLE001
+        out["jobs_24h"] = _unreadable(exc)
+    try:
+        from ..visual.image_records import ImageProductionRun, ensure_tables
+
+        ensure_tables(db)
+        with db.session() as s:
+            states = Counter(str(r.status) for r in s.scalars(select(ImageProductionRun)))
+        out["image_runs_by_state"] = dict(sorted(states.items()))
+    except Exception as exc:  # noqa: BLE001
+        out["image_runs_by_state"] = _unreadable(exc)
+    try:
+        from ..gateway import paid_provider_gate as G
+
+        G.ensure_tables(db)
+        act = {}
+        for provider, scope in (("flux-3-image", "generation"), ("openai-vision", "vision")):
+            st = G.activation_state(db, provider, scope, now=now)
+            act[f"{provider}:{scope}"] = bool(st.get("active"))
+        out["paid_activations_active"] = act
+    except Exception as exc:  # noqa: BLE001
+        out["paid_activations_active"] = _unreadable(exc)
+    try:
+        from . import owner_etsy_exercise as OEE
+
+        out["owner_etsy_exercise"] = [
+            {"attempt": a.get("attempt"), "ok": a.get("ok"), "status": a.get("status"),
+             "refused": a.get("refused")} for a in OEE._attempts(db)]
+    except Exception as exc:  # noqa: BLE001
+        out["owner_etsy_exercise"] = _unreadable(exc)
+    return out
