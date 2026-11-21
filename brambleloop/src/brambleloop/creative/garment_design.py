@@ -13,7 +13,10 @@ purchased pattern. Routing (what CAN be made):
   construction   top_down_yoke -> raglan worked top-down; flat, bottom-up, side-to-side,
                  modular or cable-panel constructions -> drop-shoulder flat pieces seamed.
                  Anything else is refused with its name.
-  body table     child and teen recipients -> CYC child/youth 2-16; a new parent's gift is
+  body table     child and teen recipients -> CYC child/youth; a child is graded 2-16, a
+                 teen only to the youth sizes a teenager wears (`TEEN_SIZES`, 14 and 16): a
+                 teen's garment is not drafted at a toddler's size it was never designed
+                 for (CERTFIX-3, D-CERTFIX3-TEEN-SIZES). A new parent's gift is
                  babywear, which no sourced table here covers, so it is refused rather than
                  graded from a child table it does not fit; everyone else -> CYC woman XS-5X.
   fabric         quick lanes (QUICK, SHORT) -> double crochet in DK for speed; the rest ->
@@ -61,6 +64,10 @@ RAGLAN_CONSTRUCTIONS = frozenset({"top_down_yoke"})
 DROP_SHOULDER_CONSTRUCTIONS = frozenset({"flat_rows", "bottom_up", "side_to_side",
                                          "modular_panels", "cable_panel"})
 CHILD_RECIPIENTS = frozenset({"child", "teen"})
+# The CYC youth sizes named for ages 13 and over. Sizes 12 and under are a child's, inside the
+# child-safety gate (`child_safety.garment_months`) whose rules are not relaxed by this: a
+# child recipient is still graded at every child size and held where the gate holds it.
+TEEN_SIZES = ("14", "16")
 UNSIZED_RECIPIENTS = {"new_parent": "babywear: no sourced baby body table is on file, and "
                                     "grading a baby garment from the child/youth chart would "
                                     "invent measurements"}
@@ -339,9 +346,10 @@ def design_for(concept: Concept) -> GradedDesign:
     else:
         requires, primitives = G.DROP_SHOULDER_REQUIRES, ("cir.graded", "cir.shaping.taper",
                                                           "Seam")
+    sizes = TEEN_SIZES if concept.recipient == "teen" else None
     design = GradedDesign(key=key, title=title, table=table, gauge=gauge,
                           fit=FitIntent(ease, character=ch.ease), requires=requires, primitives=primitives,
-                          template=template, measure=G.built_measures)
+                          template=template, measure=G.built_measures, sizes=sizes)
     design.choices = ch
     return design
 

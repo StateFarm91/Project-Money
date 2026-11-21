@@ -539,6 +539,23 @@ def technique_claim(title: str | None) -> tuple[str, str] | None:
     return None
 
 
+# CERTFIX-3 (D-CERTFIX3-WALL-TAPESTRY): in wall decor a bare "tapestry" is the object -- a
+# wall tapestry, the hanging `creative.size_truth.TAPESTRY` already reads it as and binds to
+# its own size band -- not a claim of tapestry crochet. "Tapestry crochet"/"tapestry stitch",
+# "charted", "colourwork" or a library motif word is still a technique claim, and a wall
+# hanging that makes one stays held (`HELD_CATEGORY_WHY["wall_decor"]`): no plain panel is
+# drafted under a colourwork claim.
+_WALL_OBJECT = r"\btapestr(?:y|ies)\b(?!\s+(?:crochet|stitch))"
+
+
+def wall_object_only(folded: str) -> bool:
+    """True when a wall-decor title's only colourwork word is the object noun "tapestry"."""
+    if not re.search(_WALL_OBJECT, folded):
+        return False
+    rest = re.sub(_WALL_OBJECT, " ", folded)
+    return not re.search(CLAIM, rest) and not motif_named(folded)
+
+
 def route(category: str, title: str | None) -> dict | None:
     """The fallback plan for a colourwork title, or None when the title claims no colourwork.
 
@@ -552,6 +569,8 @@ def route(category: str, title: str | None) -> dict | None:
     claims = bool(re.search(CLAIM, folded))
     if not claims and other is None:
         return None
+    if category == "wall_decor" and other is None and wall_object_only(folded):
+        return None          # the object the category names, not a technique: S1's route
     if category == "basket":
         named = motif_named(title)
         if other is not None or not claims or not named or set(named) <= {"diamond", "check"}:

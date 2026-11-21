@@ -35,8 +35,14 @@ def boot() -> Database:
     return db
 
 
-def drain(db: Database, phase: Phase = Phase.SHADOW, limit: int = 400) -> Worker:
-    w = Worker(db, "shadow-worker", phase=phase)
+def drain(db: Database, phase: Phase = Phase.SHADOW, limit: int = 400, *,
+          exclude: tuple[str, ...] = ()) -> Worker:
+    job_types = None
+    if exclude:
+        from brambleloop.runtime.worker import handlers
+
+        job_types = [t for t in handlers.known() if t not in exclude]
+    w = Worker(db, "shadow-worker", phase=phase, job_types=job_types)
     for _ in range(limit):
         if not w.run_once():
             break
@@ -261,7 +267,11 @@ def test_a_product_that_stops_certifying_has_its_listing_withdrawn():
     # Break the pattern the way a bad edit would: round 5 now claims a count it cannot reach.
     cir.components[0].rows[4].declared_count = 999
     JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()})
-    drain(db)
+    # This product's refusal, not what comes after it: since ENG-SUPPLY the end of a chain
+    # enqueues an admission pass, which re-seeds the release registry's own (certifying)
+    # coaster and drafts a listing for THAT release. The admission pass stays queued here
+    # (CERTFIX-3); the withdrawal under test is the refused certificate's.
+    drain(db, exclude=("supply.admit",))
 
     with db.session() as s:
         listing = s.scalar(select(Listing).where(Listing.product_slug == cir.slug))
