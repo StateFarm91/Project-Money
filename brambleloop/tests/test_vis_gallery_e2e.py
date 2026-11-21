@@ -874,8 +874,10 @@ def _publication_refused_without_the_sample_photo(S) -> dict:
     assert act["blocks_release"] is True and photo, act["reasons"]
     assert act["sample_photo"]["satisfied"] is False
     # READY for the private draft, never publishable while the photo is missing.
+    from brambleloop.publish import listing_package as LP
+
     sale = SPL.ready_for_sale(db, slug, version, rh)
-    assert sale["ready"] is True, sale
+    assert sale["ready"] is True, (sale, (LP.latest(db, slug, version) or {}).get("blockers"))
     assert sale["publishable"] is False and \
         sale["publication_blockers"] == ["SAMPLE_PHOTO_REQUIRED"], sale
     with laura_publication_double(db):
