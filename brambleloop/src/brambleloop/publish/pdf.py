@@ -606,10 +606,14 @@ def graded_childrens_assignment(cir: CIR) -> tuple[str, str] | None:
     the age band; sizes 14 and 16 are over 12 and outside CPSC's children's-product
     definition (`intel.childrens.OVER_TWELVE`), so they carry no children's block.
     """
-    from ..cir.graded import BABY, CHILD, months_of
+    from ..cir.graded import BABY, CHILD, FOOT, HEAD, months_of
 
     g = cir.grading
-    if g is None or g.table not in (CHILD.name, BABY.name):
+    # CLOTHING-E2E: a hat graded on the CYC head chart and a sock or slipper on the CYC foot
+    # chart are children's wearables at their child sizes too (Preemie to Tween; Baby 0-4 to
+    # Youth 4-6). Only the body tables were read, so a baby beanie rendered with no
+    # children's safety block at all. `months_of` reads each size at its youngest age.
+    if g is None or g.table not in (CHILD.name, BABY.name, HEAD.name, FOOT.name):
         return None
     # ENG-GARMENT: the CYC baby table names its sizes in months ("3m" .. "24m").
     months = months_of(g.table, g.size)
@@ -644,6 +648,12 @@ def size_chart(cir: CIR) -> list[tuple[str, str]] | None:
     for e in g.sizes:
         body = (e.get("body_cm") or {}).get("bust")
         built = e.get("built_cm") or {}
+        if body is None:
+            # CLOTHING-E2E: a wearable graded on the head or foot chart (a hat, a sock) has
+            # no chest. Its chart row is every body measure the size is graded from and every
+            # finished measure built from its rows; this formatted None and crashed the PDF.
+            rows.append((f"size {e['size']}", _measure_row(e, this=e["size"] == g.size)))
+            continue
         chest = built.get("chest", (e.get("intended_cm") or {}).get("bust"))
         bits = [f"to fit chest {body:g} cm", f"finished chest {chest:g} cm"]
         if body is not None and chest is not None:
@@ -658,6 +668,31 @@ def size_chart(cir: CIR) -> list[tuple[str, str]] | None:
             bits.insert(0, "this document")
         rows.append((f"size {e['size']}", "; ".join(bits)))
     return rows
+
+
+_MEASURE_WORDS = {"head": "head", "foot_circ": "foot circumference", "foot_length": "foot length",
+                  "neck_to_wrist": "neck to wrist", "brim_ring": "brim", "leg_length": "leg",
+                  "brim": "brim depth", "cuff": "cuff depth", "wingspan": "wingspan"}
+# The finished measure a body measure is worn against, where the two are one circumference.
+_WORN_AGAINST = {"head": "circumference", "foot_circ": "circumference"}
+
+
+def _measure_row(e: dict, *, this: bool) -> str:
+    """A size-chart row for a size graded on a measure other than the chest (CLOTHING-E2E)."""
+    body, built = e.get("body_cm") or {}, e.get("built_cm") or {}
+    bits = ["this document"] if this else []
+    for k, v in body.items():
+        if isinstance(v, (int, float)):
+            bits.append(f"to fit {_MEASURE_WORDS.get(k, k.replace('_', ' '))} {v:g} cm")
+    for k, v in built.items():
+        if isinstance(v, (int, float)):
+            bits.append(f"finished {_MEASURE_WORDS.get(k, k.replace('_', ' '))} {v:g} cm")
+    for k, b in _WORN_AGAINST.items():
+        if isinstance(body.get(k), (int, float)) and isinstance(built.get(b), (int, float)):
+            bits.append(f"{built[b] - body[k]:+.0f} cm ease")
+    if e.get("yarn_m"):
+        bits.append(f"yarn about {e['yarn_m']:.0f} m")
+    return "; ".join(bits)
 
 
 def fit_statement(cir: CIR) -> str | None:

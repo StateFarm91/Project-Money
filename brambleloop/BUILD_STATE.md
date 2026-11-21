@@ -1,3 +1,14 @@
+> **2026-11-21 — CLOTHING-E2E on `eng/clothing-e2e` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT
+> deployed; production unchanged; no clothing product exists in production).** New `tests/test_clothing_e2e.py` drives
+> scan evidence -> demand originals -> intake -> radar.score -> supply admit -> cir.draft (wearable engine, every size
+> graded) -> compile -> certify (twin, reverse, child safety) -> listing.draft -> assets.build -> listing package for a
+> baby romper and a baby beanie. Eight wearable originals added (4 baby, 4 clothing); all but the kids tank are approved.
+> Broken handoffs fixed: hats/socks were an unboosted `accessory` family (never proposed); every closed-front child
+> garment was refused at the PDF as OPENING_UNVERIFIED although the engines measure the opening; dress/romper failed a
+> top's length band; plain front bands read as buttonholes; baby beanies got no children's block; a hat's size chart
+> crashed assets.build; the kids tank (neck cannot pass a child's head) was certified then refused at the PDF (now held).
+> Status of the last stages (pricing -> listing package) is in the review request; read it before claiming the chain.
+> Decisions D-CLOTHING-E2E-1..8. Report: `w6/review_requests/CLOTHING-E2E.md` (repo root).
 > **2026-11-20 — CERTFIX-3 on `certfix/3` (cut from `claude/w6-INTEG8-wip` 511a8c6; NOT merged, NOT deployed;
 > production unchanged).** Real fixes for nine Batch 18 certification failures; no gate, assertion or child-safety
 > rule weakened. Teen garments grade at CYC 14/16 only (a teen drop-shoulder was drafted at size 2 and held by the

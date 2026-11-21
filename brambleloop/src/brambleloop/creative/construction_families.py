@@ -323,7 +323,10 @@ NAMED_FEATURES: tuple[tuple[str, str, frozenset], ...] = (
     ("handles", r"\bhandles?\b|\bhandled\b", frozenset({FC.TOTE, HD.HANDLED})),
     ("straps", r"\bstraps?\b", frozenset({FC.TOTE})),
     # ENG-HOMEDECOR: outlines, objects and stitch textures a title can name.
-    ("outline_round", HD._ROUND_RE, frozenset({HD.ROUND_VESSEL, HD.BOWL})),
+    # CLOTHING-E2E: the ball-body amigurumi engine builds a round toy (a sphere worked in
+    # the round), so "round" is honest for it; ENG-HOMEDECOR's outline word held the owner's
+    # "Cosy Round Bear Amigurumi" original by name.
+    ("outline_round", HD._ROUND_RE, frozenset({HD.ROUND_VESSEL, HD.BOWL, FC.AMIGURUMI})),
     ("outline_oval", r"\boval\b|\boblong\b", frozenset()),
     ("bowl", HD._BOWL_RE, frozenset({HD.BOWL})),
     ("planter", HD._PLANTER_RE, frozenset()),
@@ -459,7 +462,9 @@ WEARABLE_PAIR_AUDIENCE: dict[tuple[str, str], frozenset] = {
     (BABY_DRESS, "dress"): frozenset({"baby"}),
     (BABY_ROMPER, "baby"): frozenset({"baby"}),
     (TOP_TEE, "top"): frozenset({"adult"}),
-    (TOP_TANK, "top"): frozenset({"adult", "child"}),
+    # CLOTHING-E2E: adult only. The slash neck cannot pass a child's head at any child size
+    # (`products.wearables.top_gates` GARMENT_NECK_FIT); held until a child neckline exists.
+    (TOP_TANK, "top"): frozenset({"adult"}),
     (CARDIGAN_VNECK, "cardigan"): frozenset({"adult", "child"}),
     (CARDIGAN_VNECK, "baby"): frozenset({"baby"}),
     (SOCK, "sock"): frozenset({"adult", "child"}),

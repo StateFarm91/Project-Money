@@ -600,7 +600,6 @@ WEARABLE_PROBES = [
     ("baby", "fitted_garment", "bottom_up", "Meadowlark Baby Romper"),
     ("top", "fitted_garment", "flat_rows", "Harbour Light Boxy Tee"),
     ("top", "fitted_garment", "flat_rows", "Seagrass Tank"),
-    ("top", "fitted_garment", "flat_rows", "Rockpool Kids Tank"),
     ("cardigan", "fitted_garment", "top_down_yoke", "Larkspur V-Neck Cardigan"),
     ("cardigan", "fitted_garment", "top_down_yoke", "Chestnut Kids V-Neck Cardigan"),
     ("baby", "fitted_garment", "top_down_yoke", "Snowberry Baby V-Neck Cardigan"),

@@ -97,6 +97,19 @@ def _garment(slug, title, category, construction, recipient, occasion, function,
                     (10.0, 20.0), 14.0)
 
 
+def _wearable(slug, title, category, form, construction, recipient, occasion, function,
+              premise, *, motif="stone", palette="oat", price=7.5, family=None):
+    """CLOTHING-E2E: a graded wearable (hat, romper, dress, tee, sock...) the ENG-GARMENT-2
+    engines build (`products.wearables`). Its demand family is the one `products.demand`
+    classifies its own title into, so the reading it is proposed on is the one it is ranked
+    on. Baby wear is drafted on the baby table only when the recipient sizes it as baby
+    (`new_parent`); the router checks the title and category say the same."""
+    fam = family or D.classify(title, category=category).family
+    return Original(slug, title, category, fam, form, construction, motif, palette,
+                    recipient, occasion, "tender" if recipient == "new_parent" else "serene",
+                    function, premise, price, (6.0, 14.0), 12.0)
+
+
 # House-original designs. Titles are a house descriptor plus the subject; none is taken from
 # an observed listing (checked at run time against every stored title, not trusted here).
 # Each carries its own buyer (recipient, occasion, function): the novelty floor reads those,
@@ -214,6 +227,39 @@ CATALOGUE: tuple[Original, ...] = (
              "bottom_up", "grandparent", "christmas", "a holiday gift layer",
              "A relaxed drop-shoulder pullover knitted up as a holiday gift for a "
              "grandparent", motif="ember"),
+    # -- graded wearables (ENG-GARMENT-2 engines): baby wear first, then clothing
+    _wearable("thistledown-baby-beanie", "Thistledown Baby Beanie", "hat", "hat",
+              "in_the_round", "new_parent", "new_baby", "a soft first hat for pram walks",
+              "A soft cotton baby beanie with a turned rib brim and nothing sewn on, for a "
+              "newborn's first walks in the pram", motif="thistledown"),
+    _wearable("hayloft-baby-romper", "Hayloft Baby Romper", "baby", "fitted_garment",
+              "bottom_up", "new_parent", "new_baby", "a pull-on layer for warm days",
+              "A sleeveless pull-on baby romper in soft cotton with nothing to fasten, for "
+              "warm summer days", motif="hayloft", price=8.0),
+    _wearable("seedling-baby-dress", "Seedling Baby Dress", "baby", "fitted_garment",
+              "bottom_up", "new_parent", "birthday", "a first birthday outfit",
+              "A soft A-line baby dress in cotton that pulls on with nothing to fasten, for a "
+              "first birthday party", motif="seedling", price=8.0),
+    _wearable("fernleaf-baby-v-neck-cardigan", "Fernleaf Baby V-Neck Cardigan", "baby",
+              "fitted_garment", "top_down_yoke", "new_parent", "winter_nesting",
+              "a first-winter layer", "A soft open-front V-neck baby cardigan with nothing "
+              "to fasten, for a baby's first winter", motif="fernleaf", price=8.5),
+    _wearable("larchwood-kids-beanie", "Larchwood Kids Beanie", "hat", "hat", "in_the_round",
+              "child", "back_to_school", "keeps ears warm at the bus stop",
+              "A warm kids beanie with a turned rib brim for frosty mornings at the bus stop",
+              motif="larchwood", price=6.0),
+    _wearable("shoreline-boxy-tee", "Shoreline Boxy Tee", "top", "fitted_garment",
+              "flat_rows", "self", "everyday", "a light layer for a seaside trip",
+              "A boxy cotton tee with short sleeves to pack for a seaside trip",
+              motif="shoreline", price=9.0),
+    _wearable("tidemark-kids-tank", "Tidemark Kids Tank", "top", "fitted_garment",
+              "flat_rows", "child", "birthday", "a summer birthday outfit",
+              "A boxy cotton kids tank for a summer birthday in the garden", motif="tidemark",
+              price=7.0),
+    _wearable("woodsmoke-socks", "Woodsmoke Socks", "sock", "fitted_garment", "in_the_round",
+              "friend_who_has_everything", "everyday", "warm feet on cold floors",
+              "Soft merino socks with a ribbed cuff for slow mornings on cold floors",
+              motif="woodsmoke", price=7.0),
 )
 assert len({o.slug for o in CATALOGUE}) == len(CATALOGUE)
 
