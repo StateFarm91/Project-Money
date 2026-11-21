@@ -139,7 +139,31 @@ def visibility(db) -> dict:
             "ok": rec.get("ok") is True, "counts": _ints(rec.get("counts")),
             "cleaned": int(rec.get("cleaned") or 0),
             "status_classes": _ints(rec.get("status_classes"))},
+        "directive_2": _visibility_2(db),
     }
+
+
+def _visibility_2(db) -> dict:
+    """D-OWNER-ETSY-EXERCISE-2 attempts, fixed vocabulary only (no error text)."""
+    import re as _re
+
+    try:
+        from ..integrations import etsy_exercise as X
+
+        rows = _attempts_2(db)
+        return {"attempts": len(rows), "max_attempts": MAX_ATTEMPTS_2,
+                "ok": any(a.get("ok") is True for a in rows),
+                "last": [{"ok": a.get("ok") is True,
+                          "status_class": X.status_class(a.get("status")),
+                          "refused": (a.get("refused") if _re.fullmatch(
+                              r"[A-Za-z_][A-Za-z0-9_]{0,40}", str(a.get("refused") or ""))
+                                      else ("other" if a.get("refused") else None)),
+                          "recovery_ok": a.get("recovery_ok"),
+                          "recovery_cleaned": int(a.get("recovery_cleaned") or 0),
+                          "shop_is_clean": a.get("shop_is_clean") is True}
+                         for a in rows[-3:]]}
+    except Exception as exc:  # noqa: BLE001
+        return {"readable": False, "error_class": type(exc).__name__}
 
 
 # ---- D-OWNER-ETSY-EXERCISE-2 ------------------------------------------------------------
