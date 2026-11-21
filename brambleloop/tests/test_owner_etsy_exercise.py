@@ -94,6 +94,7 @@ def test_boot_runs_the_sentinel_and_the_health_sweep_once_per_commit():
                  if isinstance(n, ast.FunctionDef) and n.name == "_startup")
     text = ast.get_source_segment(src, start)
     assert '"ops.sentinel"' in text and '"ops.health"' in text and "boot-{_name}-" in text
+    assert '"radar.concept_pool"' in text and '"radar.concept_intake"' in text
 
 
 def test_second_directive_recovers_then_exercises_bounded():
