@@ -291,6 +291,8 @@ DEFAULT_AGENTS: list[dict] = [
                             "chain.successors",
                             # OPUS2 (INTEG-LISTING-JOB): owner-review listing packages.
                             "listing.package",
+                            # ENG-SALE-PIPELINE: the automatic sale chain and its sweep.
+                            "sale.pipeline", "sale.pipeline_sweep",
                             # F-005: read-only Etsy taxonomy snapshot, behind etsy_api.
                             "listing.taxonomy_refresh",
                             # F-280: launch-week Search Visibility owner card (no-op in

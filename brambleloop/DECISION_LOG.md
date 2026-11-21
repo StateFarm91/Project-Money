@@ -3072,6 +3072,20 @@ the listing. Then it's ready to be for sale. Hard rule."
   Mission Control and in readback.
 - Ready for sale = certified pattern + complete certified gallery + both premium illustrated
   PDFs certified for this release + every listing gate PASS. Nothing less counts.
+**D-ENG-VIS-FLUX-1: the FLUX 3 provider follows the documented contract, rejects bad frames at generation, and caps images in code (ENG-VIS-FLUX slice 1, 2026-11-20).** This applies the owner's directive "PERFECT FLUX 3 LISTING IMAGES" within D-W4-F852-AMEND. It changes no publication gate.
+- **The contract is data, with citations.** `gateway/flux_contract.py` holds BFL's documented FLUX 3 Image contract, read 2026-11-20 from the openapi schema, the API reference, pricing, integration and errors pages.
+  - The request builder validates the whole body against it before any reservation.
+  - A test pins the contract to a machine-extracted snapshot of the official schema and rate card.
+- **No seed.** FLUX 3 Image has no seed field (`additionalProperties: false`). The seed is recorded only when BFL's result reports one, and is never invented.
+- **Generation-time rejection.**
+  - A listing frame must be PNG/JPEG, opaque, at least 2000 px on its shortest side and within 1% of the aspect it asked for. An intermediate frame must be at least 900 px.
+  - A frame that fails is rejected before QA. It stays billed, and its bytes and an audit row are kept.
+  - A corrupt download is re-fetched up to twice; this costs nothing.
+  - A rejection is never retried with the same request, because the owner gate would refuse it as already billed.
+  - A replacement is bought only after `flux_provider.replacement_allowed` has re-checked the kept bytes. It also requires that no `motif_recovery` row for the product is open (ENG-MOTIF-BACKLOG's table, read only).
+- **Caps in code, lower-only.** Within `paid_provider_gate.authorize` the caps are 60 images per UTC day and 16 images / CA$2.50 per gallery. The environment can lower them and never raise them. They sit beneath the owner's activation ceilings, so the lower one binds.
+- **Readiness.** It is READY only when `BRAMBLELOOP_IMAGE_KEY_BFL` is present (presence only; the value is never read into output) and the owner's `flux-3-image` generation activation is active. Otherwise it is UNKNOWN with the reason, and the generation job refuses before reserving.
+- **Retention.** `image.generation_rejected` and `image.generation_rejection_rechecked` are lifetime-protected.
 
 ## D-OWNER-PDF-LOGO — 2026-11-20 (owner directive) — supersedes integrator decision N1 (2026-10-31)
 
@@ -3348,6 +3362,71 @@ at intake. Reversible by decision; widen only by adding a proof.
 - **Units.** The US edition gives yarn in yd (m), and the UK edition in m. Ball counts use 100 g balls at the shortest CYC-typical length, so the count does not run short. The hook is given in mm with its CYC US name, and only when the size is on the table. Substitution states the CYC class and its typical length per gram.
 - **Covers.** A design the stitch renderer cannot draw whole (a garment, an assembled pillow) uses its compiler-checked schematic as the cover hero, labelled as a rendering. A multi-component design reads "Made from N pieces", not "Makes 4 bodys".
 - **Not yet built (slice 2+):** a single multi-size garment edition with the other sizes in parentheses (today each size ships as its own CIR/PDF), inline diagrams at garment tricky steps, and a per-fabric gauge table for CIRs that carry component gauges (none in the catalogue today; the rule already checks each one).
+
+## D-ENG-PDF-TEMPLATE-1 — how the owner's master template is rendered (ENG-PDF-TEMPLATE, 2026-11-20; routine engineering)
+
+**Status:** routine engineering decisions implementing D-OWNER-PDF-TEMPLATE. No gate or test was
+weakened. Renderer: `publish/pdf_template.py`; switch: `runtime.release.PDF_LAYOUT` (still
+`"engine"`, see below).
+
+- **Faithful where the template is a layout; never where it is an instruction.** Page sequence,
+  header, footer, palette (read from the template's own fills), Lato + Noto Serif Display
+  (embedded, pinned in `brand/fonts/pdf/SHA256SUMS`), cards, forest bands, numbered sequences,
+  two-column pattern and 4 + 3 gallery grid are reproduced. Its bracketed placeholders, the
+  "ILLUSTRATIVE SLOT" art and the "MASTER LAYOUT • REQUIRES CERTIFIED PRODUCT DATA" marker are
+  never printed; `pdf_template.audit` reads the placeholder list from the template itself.
+- **Brand floors win over the template's smallest type.** The template's 6.3-8.2 pt labels are
+  set at the 9 pt brand minimum, and its rose is darkened only as far as the 4.5:1 contrast floor
+  requires on its ground (`publish.pdf._legible`).
+- **Logo:** the canonical owner logo, resampled only, on the cover (`publish.pdf._cover_logo`),
+  in every page header and in the thank-you block. The template's header shows a monogram crop;
+  a crop is not "resampled only", so the full artwork is used at header size.
+- **Footer additions:** the release id and "page N of M" sit on their own line in the footer band,
+  so a truncated download is visible. The template's footer line and page number are unchanged.
+- **Gallery:** slot n is the valid listing-set certificate's frame at position n (the campaign's
+  order is the gallery's order), embedded as `publish.pdf_photos.rendition` JPEG bytes (the same
+  certified bytes as the listing, provable from the built file). No complete certified gallery is
+  `GalleryAwaiting` ("awaiting gallery"). `proof=True` is an internal text-only proof marked
+  NOT CUSTOMER-READY on every page; test-double images make `proof_test_double`, also marked.
+- **The cover hero sits in the template's card slot, not full bleed.** This follows the owner's
+  layout; the sale-pipeline checker's `slot:cover_hero` full-bleed rule conflicts and is reported
+  to its owner rather than resolved here.
+- **Family variants:** garment (size table, fit + ease, care required), baby and amigurumi
+  (child-safety gate text required, or the build blocks), pillow, blanket and colourwork (the
+  chart always), home décor (concise). The chart appears for other families only when it fits
+  on one page (a 36-tile chart of plain stitches is not help).
+- **Blocking:** a missing required fact (gauge, yarn, yarn quantity, finished size, schematic,
+  making sequence, finishing, a row's stitch count, garment fit or care, child-safety text) raises
+  `TemplateBlocked` with a named reason. Optional sections with nothing to say are omitted.
+- **Default stays `engine`.** The template becomes the default only when it passes every existing
+  PDF suite. Those suites assert engine-specific headings and structure (e.g. "Terms and
+  support", "Instructions (US terms)"), and the premium and sale-pipeline checkers key on the
+  same names (`pdf_template.CHECKER_SECTION_ALIASES` maps them). Switching now would fail them,
+  so the switch is not flipped.
+
+Reversible by decision.
+
+## D-ENG-SALE-PIPELINE-1 — 2026-11-20 (ENG-SALE-PIPELINE, engineering decision)
+
+**Decision:** the sale chain's premium PDFs are always built in the owner's master template
+(`publish.pdf_template.build_template_pdf`, D-OWNER-PDF-TEMPLATE) with the release's seven
+certified gallery frames, independent of the release chain's `PDF_LAYOUT` switch (still
+"engine" for the base release PDFs). Certification uses `publish.pdf_standard.check(...,
+require_template=True)`, which FAILs any other layout.
+- `publish.pdf_standard` (checker `pdf_standard/2`) adds, from the built bytes:
+  - `logo:cover`: a cover image matching the canonical owner logo as resampled by
+    `publish.pdf._cover_logo`. The match is perceptual: greyscale 32×32, mean difference ≤ 8/255,
+    aspect within 3% (D-OWNER-PDF-LOGO);
+  - `slot:gallery7`: exactly the seven certified renditions, in certificate order;
+  - the template's own byte audit (`pdf_template.audit`), included in the verdict.
+- Name clash at merge: ENG-PDF-PREMIUM's family-content module, also called `pdf_standard`, is
+  now `publish.premium_standard` (tests: `test_premium_standard.py`). `publish.pdf_standard`
+  stays the D-OWNER-PDF-STANDARD bytes checker named in D-OWNER-SALE-PIPELINE.
+- Pre-image readiness still reads the base engine PDFs for text, schematics and diagrams,
+  with `logo:cover` PENDING there. The engine cover has no logo, so `logo:cover` is
+  certified only on the template build.
+
+Reversible by decision.
 ## D-ENG-VIS-IDENTITY-2 — held-out calibration and race settlement (ENG-VIS-IDENTITY slice 2, 2026-11-20; routine engineering)
 **Status:** routine engineering decisions within autonomy, made in response to the slice-1 review.
 No gate was relaxed; the calibration gate was tightened.
@@ -3917,3 +3996,31 @@ Batch 19b (code 46748ff53) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the own
 ## D-OWNER-DEPLOY-19c — 2026-11-21T02:30:47Z
 
 Batch 19c (code 957c8f945) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to c9e8549f3592cf9c609619066243051ba3f7e0e9 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+## D-BATCH19D-FLAT-DIAGRAMS — flat row-worked pieces get row-progress construction diagrams; the premium read-back compares the premium certificate (BATCH19D, 2026-11-21; routine engineering)
+- **Defect.** `construction_diagrams.stages` drew round geometry only. A flat row-worked piece
+  (blanket, panel, scarf, wrap) got no inline construction diagram in the engine layout, so the
+  sale checker's `diagrams` check (`publish.pdf_standard`) FAILed it, and no flat product could
+  become READY under D-OWNER-SALE-PIPELINE.
+- **Decision.** A pattern whose components are all `flat_rows` gets up to six row-progress
+  diagrams. They are drawn from the twin (`width_cm`, `height_cm`, `row_top_cm`, cells in fabric
+  order), on one scale, at finished width × rows. Worked rows are drawn cell by cell in their own
+  colour; rows still to work are faint. The newest row has a rose outline, row markers run down
+  the left, and the picture is labelled DIAGRAM. The engine caption calls each one a
+  "construction diagram … not a photograph". They describe the twin's component, and the engine
+  places them only in that component's block.
+- **Reconciled with ENG-PDF-DIAGRAMS (D-ENG-PDF-DIAGRAMS-1), not duplicated.** A pattern with any
+  piece worked in rounds keeps its component diagrams (`pdf_template.component_profile`) and gets
+  no row-progress stage. The template layout already draws a flat piece's inline diagrams as
+  mini-grids at the tricky rows, so it takes only the round-geometry stages
+  (`pdf_template._template_stages`). Each layout draws a piece's rows once.
+- **Premium read-back.** `store.publish` sends the certified premium edition (ENG-SALE-PIPELINE).
+  The read-back now compares the bytes Etsy holds with that edition's hash, re-hashed on read by
+  `sale_pipeline.certified_premium_pdfs`. Those certificates are bound to the `assets.build`
+  hashes, which are checked first and kept beside it as `base_certified`. Before this, every
+  READY release's draft would have read back as unverified.
+- **Not done (honest).** In `test_vis_gallery_e2e`, tests 3 and 7 drive the real sale chain for
+  the blanket. Both premium PDFs now certify PASS. The release still stops at
+  `SAMPLE_PHOTO_REQUIRED`: no unedited photograph of a physical sample exists. That is a listing
+  gate D-OWNER-SALE-PIPELINE requires to PASS. `test_w6_listing_chain_e2e` documents that it cannot
+  be reached in a test without forging, so the two tests stay red until a real sample photo
+  exists. No gate was relaxed and nothing was forged.

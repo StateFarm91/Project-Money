@@ -770,6 +770,7 @@ FREE_JOB_TYPES: frozenset[str] = frozenset({
     "intel.scan_evidence", "intel.watchlist_compare", "intel.watchlist_scan", "learn.scan",
     "learning.knowledge_gaps", "learning.loops", "listing.cross_sell_graph", "listing.outcomes",
     "listing.package", "listing.search_visibility_aging", "listing.search_visibility_watch",
+    "sale.pipeline_sweep",
     "listing.taxonomy_refresh", "listing.window_captures", "mjs.reviews", "mjs.scan",
     "ops.capacity", "ops.continuity", "ops.daily_ledger", "ops.dependencies", "ops.health",
     "ops.heartbeat",
@@ -1283,6 +1284,8 @@ JOB_BANDS: dict[str, str] = {
     "chain.successors": "proven_winner",
     "supply.admit": "proven_winner",              # admits the next product into engineering          # advances a release to its next stage
     "listing.package": "proven_winner",           # owner-review listing package (listing.draft's chain)
+    "sale.pipeline": "proven_winner",             # ENG-SALE-PIPELINE: the release's sale chain
+    "sale.pipeline_sweep": "proven_winner",       # ENG-SALE-PIPELINE: admission + stall sweep
     "intel.scan_evidence": "benchmark_change",    # competitor evidence, like intel.benchmark_*
     "policy.issuer_shadow": "proven_winner",      # WS4-5: shadow decisions on the publish chain
     "policy.stop_watch": "proven_winner",         # WS4: the standing policy's automatic stops

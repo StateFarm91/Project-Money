@@ -113,7 +113,7 @@ PROOF_MARKER = "TEXT-ONLY PROOF  ·  NOT CUSTOMER-READY  ·  AWAITING CERTIFIED 
 TEST_DOUBLE_MARKER = "PROOF WITH TEST-DOUBLE IMAGES  ·  NOT CUSTOMER-READY"
 
 # The template's section sequence: (key, number, kicker, title). Keys are the names a checker
-# reads (`SECTIONS`), aligned with publish.pdf_standard where a counterpart exists
+# reads (`SECTIONS`), aligned with publish.premium_standard where a counterpart exists
 # (`CHECKER_SECTION_ALIASES`).
 SECTIONS: tuple[tuple[str, str, str, str], ...] = (
     ("cover", "", "", ""),
@@ -1059,11 +1059,10 @@ class _Facts:
                 or not self.chart_art().get("tiles"))
 
     def includes_line(self) -> str:
-        from .construction_diagrams import stages as _stages
 
         unit = "round" if "round" in self.cir.components[0].construction else "row"
         parts = ["a schematic"] + (["a chart"] if self.chart_included() else [])
-        if self.memo("stages", lambda: _stages(self.cir)) or _tricky_rows(self, []):
+        if self.memo("stages", lambda: _template_stages(self.cir)) or _tricky_rows(self, []):
             parts.append("inline diagrams at the key steps")
         if self.has_gallery:
             parts.append("the certified gallery")
@@ -1244,7 +1243,7 @@ class _Facts:
                 f"within this range and check the gauge again.")
 
     def eye_options(self) -> list[str]:
-        """Embroidered or safety eyes (`pdf_standard.eye_option_lines`, shared with the engine
+        """Embroidered or safety eyes (`premium_standard.eye_option_lines`, shared with the engine
         layout). Safety eyes are offered only when the certified materials list them; they
         are a small part, so an embroidered face is the only option for a child under 3."""
         out = P._std.eye_option_lines(self.cir)
@@ -1312,7 +1311,7 @@ class _Facts:
 
 # ---- pages -----------------------------------------------------------------------------------
 
-from .pdf_standard import EYE_AGE_GUIDANCE  # noqa: E402  (one source for both layouts)
+from .premium_standard import EYE_AGE_GUIDANCE  # noqa: E402  (one source for both layouts)
 
 
 def _cover(t: _T, f: _Facts, slots: list[dict]) -> None:
@@ -1600,12 +1599,22 @@ def _sizing(t: _T, f: _Facts) -> None:
     t.top += h + 14
 
 
+def _template_stages(cir) -> list:
+    """The construction stages this layout places. BATCH19D: a flat row-worked piece's
+    row-progress stages (`construction_diagrams`, part "flat") are the engine layout's inline
+    diagrams; this layout already draws a flat piece's inline diagrams as its mini-grids at the
+    tricky rows (`_mini_grid`), so it takes only the round-geometry stages and never draws the
+    same rows twice."""
+    from .construction_diagrams import stages
+
+    return [st for st in stages(cir) if st.part != "flat"]
+
+
 def _schematic_image(f: _Facts):
     return f.memo("schematic", lambda: _schematic_image_uncached(f))
 
 
 def _schematic_image_uncached(f: _Facts):
-    from .construction_diagrams import stages
     from .schematic import schematic_for
 
     sch = schematic_for(f.cir, f.result)
@@ -1619,7 +1628,7 @@ def _schematic_image_uncached(f: _Facts):
     views = P._disclosed_views(f.cir)
     if "scale" in views:
         return views["scale"][0], "visual.disclosed_render (scale view, from the twin)"
-    st = stages(f.cir)
+    st = _template_stages(f.cir)
     if st:
         return st[-1].image(), "publish.construction_diagrams.stages"
     grid = _mini_grid(f, 1, max(P._rows_by_index(f.twin) or {1: []}), cols=None, px=480)
@@ -1792,14 +1801,13 @@ def _tricky_rows(f: _Facts, labels: list[tuple[int, str]]) -> set[int]:
 def _pattern(t: _T, f: _Facts, slots: list[dict]) -> int:
     """Section 06: two columns, component bars, Row/Round labels, a stitch count on every
     row, inline mini-diagrams and the progress-photo slot at the tricky steps."""
-    from .construction_diagrams import stages as _stages
 
     t.section_page("pattern")
     sub = f"{f.cir.title.upper()}  •  {f.terminology} TERMINOLOGY"
     t.text(47, 207, sub, SANS_BOLD, MIN_PT, ROSE, track=1.0)
     t.prose.append(f"Instructions ({f.terminology} terms)")
     header = [h for h in f.parsed["header"] if h != f.cir.title]
-    stages = f.memo("stages", lambda: _stages(f.cir))
+    stages = f.memo("stages", lambda: _template_stages(f.cir))
     stage_at = {st.round: st for st in stages}
     progress = next((s for s in slots if s["slot"] == "construction_materials"), None)
     progress_used = False

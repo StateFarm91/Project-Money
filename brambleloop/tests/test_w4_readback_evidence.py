@@ -571,10 +571,12 @@ def test_readback_evidence_cli_never_prints_the_token_and_keeps_unknown_apart():
         # ENG-VISUAL: the visual-pipeline row is advisory (WARN or PASS only).
         # ENG-LEARN: the learning-loops row is advisory (WARN or PASS only).
         # ENG-MOTIF-BACKLOG: the recovery row is advisory (WARN or PASS only).
+        # ENG-SALE-PIPELINE: the sale-pipeline row is advisory (WARN or PASS only).
         # ENG-DAILY: the daily-ledger row is advisory (WARN or PASS; UNKNOWN when unreadable).
         advisory = ("competitor_scans", "scheduler", "first_listing_readiness",
                     "motif_backlog_recovery", "visual_pipeline", "learning", "daily_ledger",
-                    "engine_demand", "autocoder")
+                    "engine_demand", "autocoder",
+                    "sale_pipeline")
         assert all(i["verdict"] in (readback.PASS, readback.FAIL, readback.UNKNOWN)
                    for i in out["items"] if i.get("section") not in advisory)
         assert by["competitor shops scanned (nine-shop research network)"]["verdict"] in (
@@ -592,6 +594,9 @@ def test_readback_evidence_cli_never_prints_the_token_and_keeps_unknown_apart():
             readback.PASS, readback.WARN), by
         assert by["learning loops (image + pattern) progress"]["verdict"] in (
             readback.PASS, readback.WARN), by
+        # ENG-SALE-PIPELINE: the sale-pipeline advisory row (nothing READY yet: WARN).
+        assert by["sale pipeline (eligible, gallery, PDFs certified, READY, blocked)"][
+            "verdict"] in (readback.PASS, readback.WARN), by
         assert by["daily production ledger (14 UTC days)"]["verdict"] in (
             readback.PASS, readback.WARN), by
         # ENG-DEMAND-SUPPLY: the advisory engine-demand row (WARN or PASS only).
@@ -600,8 +605,9 @@ def test_readback_evidence_cli_never_prints_the_token_and_keeps_unknown_apart():
         # ENG-AUTOCODER: advisory; the kill switch is OFF by default, so WARN here.
         assert by["autocoder (change requests -> reviewed auto/* branches)"]["verdict"] == \
             readback.WARN, by
-        # Batch 19: 20 rows + engine demand (ENG-DEMAND-SUPPLY) + autocoder (ENG-AUTOCODER).
-        assert len(out["items"]) == 22, out["items"]
+        # Batch 19: 20 rows + engine demand (ENG-DEMAND-SUPPLY) + autocoder (ENG-AUTOCODER)
+        # + the BATCH19D row.
+        assert len(out["items"]) == 23, out["items"]
         # ENG-DAILY: the daily row never PASSes on UNKNOWN.
         for sec in (None, {"readable": False, "error_class": "OperationalError"}):
             assert readback._judge_section("daily_ledger", sec, None)[0] == readback.UNKNOWN

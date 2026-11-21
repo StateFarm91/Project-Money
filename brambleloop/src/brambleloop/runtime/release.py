@@ -2405,6 +2405,19 @@ def _enqueue_listing_package(ctx: JobContext, i: dict, slug: str) -> None:
     except Exception as exc:  # noqa: BLE001 - the sweep remains the safety net
         ctx.audit("listing.package_event_failed", artifact=f"{slug}@{i['version']}",
                   detail={"error": f"{type(exc).__name__}: {str(exc)[:300]}"})
+    # ENG-SALE-PIPELINE (D-OWNER-SALE-PIPELINE): the launch decision is what selects a
+    # release for sale, so its exit starts the sale chain's admission (a few minutes later,
+    # once this launch.plan job is DONE and readable). Idempotent per release.
+    if i.get("release") and not i.get("fix_only"):
+        try:
+            from ..publish import sale_pipeline as SPL
+            from .sale_pipeline_ops import admission_follow
+
+            SPL.start(admission_follow(ctx), slug=slug, version=i["version"],
+                      release=i["release"])
+        except Exception as exc:  # noqa: BLE001 - the hourly sweep is the safety net
+            ctx.audit("sale.pipeline_event_failed", artifact=f"{slug}@{i['version']}",
+                      detail={"error": f"{type(exc).__name__}: {str(exc)[:300]}"})
 
 
 @handlers.register("launch.plan")
@@ -4019,6 +4032,30 @@ def handle_physical_upgrade(ctx: JobContext) -> dict:
     return out
 
 
+def _hand_on_to_sale_pipeline(ctx: JobContext, out: dict) -> None:
+    """ENG-SALE-PIPELINE: an ordinary (not experiment, not controlled) image run that has
+    reached an end state enqueues the sale chain's gallery stage -- the image stage's
+    successor. Best effort: the hourly sweep re-drives a stalled gallery stage."""
+    i = dict(ctx.job.inputs or {})
+    if i.get("experiment") or i.get("ns") or i.get("controlled_run_id") or not out.get("run_key"):
+        return
+    try:
+        from ..publish import sale_pipeline as SPL
+        from ..visual import image_production
+
+        run = image_production.get_run(ctx.db, out["run_key"])
+        if run is None or run["state"] not in SPL.IMAGE_END_STATES:
+            return
+        SPL.image_run_ended(
+            lambda inputs, key: ctx.enqueue(SPL.AGENT, SPL.JOB_TYPE, inputs,
+                                            idempotency_key=key),
+            slug=run["slug"], version=run["version"], release=run["release"],
+            state=run["state"], epoch=int(run.get("restarts") or 0))
+    except Exception as exc:  # noqa: BLE001 - the sweep is the safety net
+        ctx.audit("sale.pipeline_handoff_failed", artifact=out.get("run_key"),
+                  detail={"error": f"{type(exc).__name__}: {str(exc)[:300]}"})
+
+
 @handlers.register("visual.image_production")
 def handle_image_production(ctx: JobContext) -> dict:
     """One stage of the autonomous listing-image workflow (`visual.image_production`).
@@ -4054,6 +4091,9 @@ def handle_image_production(ctx: JobContext) -> dict:
                                 (status == image_production.STAGE_STATE.get(inputs["stage"])
                                  or (inputs["stage"] == "retrieve_release"
                                      and status == "awaiting_certified_pattern")
+                                 # D-OWNER-SPEND-ORDER: a non-spending wait is a valid
+                                 # end of any stage that could have spent
+                                 or status == image_production.AWAITING_PRE_IMAGE
                                  or status.startswith("blocked(")))
                 next_stage = done_output.get("next")
                 expected_stage = inputs["stage"]
@@ -4085,6 +4125,7 @@ def handle_image_production(ctx: JobContext) -> dict:
         return None
 
     out = image_production.run_stage(ctx.db, dict(ctx.job.inputs), follow=follow)
+    _hand_on_to_sale_pipeline(ctx, out)
     ctx.audit("visual.image_production", artifact=out.get("run_key"),
               detail={k: out.get(k) for k in ("stage", "status", "next", "skipped", "why")})
     return out

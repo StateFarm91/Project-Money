@@ -1,3 +1,17 @@
+> **2026-11-21 — BATCH19D on `claude/batch19d` (batch19c d8751850 + `claude/batch19-sale` 61b508b4; NOT merged to
+> the main branch, NOT deployed; production unchanged).** The sale pipeline is merged onto the Batch 19 fixers. The
+> premium standard now lives in `publish/premium_standard.py`, and `publish/pdf_standard.py` is the sale checker;
+> eng/pdf-diagrams was merged into the former. The defect fixed: flat row-worked pieces FAILed the sale checker's
+> `diagrams` check, so no flat product could become READY. `construction_diagrams.stages` now draws row-progress
+> construction diagrams for flat pieces: width × rows at finished size, from the twin, with row markers and the
+> DIAGRAM label. The template keeps its mini-grids, and amigurumi keeps its component diagrams, so nothing is drawn
+> twice. On the real sale chain the blanket's premium US/UK PDFs now certify PASS. Also found and fixed: the
+> `store.publish` read-back compared the uploaded premium PDF with the base `assets.build` hash, so a READY
+> release's draft could never verify. `test_search_hero_publish` has its byte-for-byte draft-upload assertion
+> back. **Still red, honestly:** `test_vis_gallery_e2e` tests 3 and 7 stop at `SAMPLE_PHOTO_REQUIRED`. No physical
+> sample photo exists, and READY needs every listing gate to PASS; this needs an owner action, not code. Run
+> 20261121T020920Z-4751 @ 5151529: 288 passing, 1 suite failing. Decision D-BATCH19D-FLAT-DIAGRAMS. Report:
+> `research/final_build/w6/review_requests/BATCH19D.md`.
 > **2026-11-21 — NEW-PRODUCT-FLOW on `eng/new-product-flow` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT
 > deployed; production unchanged, no production row read).** Readback prod 2f7da291: 0 certified in 7 d (only the 9
 > Launch-0 at LISTING_READY), loop 11/12 with no `original_product`. Cause, reproduced on the real handlers: with
@@ -126,6 +140,16 @@
 >   - Nothing ran against production.
 > - Review request: `research/final_build/w6/review_requests/homedecor_slice1.md`.
 
+> **2026-11-20 — ENG-SALE-PIPELINE fix round for review b19-a Unit A (`eng/sale-pipeline`; NOT reviewed, NOT integrated, NOT deployed).**
+> - All 5 findings are fixed. Certificates are bound to the current checker, standard and gallery record, and any mismatch is UNKNOWN. The stall clock advances only on a forward move. There is a test where everything is PASS except one UNKNOWN. `test_search_hero_publish` runs its merits on the real 8-frame basket, and a separate test keeps the 6-frame blanket blocked. All 6 mutants are killed.
+> - `claude/batch19-approve-all` (13585c4f) is merged. There are 22 readback items, sw v44, and the map is 150/183/95.
+> - **New HIGH finding, open:** the gallery rule accepts >=7 frames but `slot:gallery7` requires exactly 7, so the disclosed 8-frame basket's premium PDFs FAIL and the release can never be READY. A product decision is needed. Details are in `research/final_build/w6/review_requests/FIX-SALE-PIPELINE.md`.
+> **2026-11-20 — ENG-SALE-PIPELINE slices 1-3 (`eng/sale-pipeline`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
+> D-OWNER-SALE-PIPELINE (hard rule), D-OWNER-SPEND-ORDER, D-OWNER-PDF-STANDARD, D-OWNER-PDF-LOGO, D-OWNER-PDF-TEMPLATE, D-OWNER-GALLERY-COMPLETE.
+> - **Chain (`publish/sale_pipeline.py`, job `sale.pipeline`):** admission (value order, per-listing cap, CA$100/month ceiling, reservation) -> certified 7-photo gallery -> US+UK premium PDFs built in the owner template (`publish/pdf_template.py`) with the same seven certified frames -> `publish/pdf_standard.py` certifies the bytes (layout, canonical logo on the cover, 7 gallery slots in order, template audit, licence, stitch counts) -> listing images attached -> READY. A stall is a named-blocker incident (board, Mission Control, readback row).
+> - **Merged here:** `claude/w6-INTEG6` (dde3ea62), `eng/gallery-complete` (20e81839), `eng/pdf-template` (309522a3; its family module renamed `publish.premium_standard`, D-ENG-SALE-PIPELINE-1).
+> - **Proven only with test doubles** (stub generator and judges, labelled `test_double`): the e2e reaches READY with no owner step. No real gallery, PDF, listing or spend exists from this branch. Production counts are UNKNOWN until deployed and read.
+> - **Known gap:** the engine layout (the release chain's `PDF_LAYOUT`, still "engine") has no logo on the cover; only template builds can certify.
 > **2026-11-20 — FIX-DEMAND-STALL on `claude/w6-INTEG8-wip` (Batch 18 integration; NOT deployed; production
 > unchanged).** A promoted concept waiting in the supply queue for an uncertified engine (on the production pool:
 > `cottage-wall-hanging`, flat_panel refusal) was counted as `promotable_undrafted`/`supply_selected` on every scan
@@ -552,6 +576,7 @@
 > - Measured: all 13 catalogue documents (11 Launch-0/proposed + a garment size + a pillow) pass in US and UK.
 > - NOT built: one multi-size garment edition with sizes in parentheses (each size is still its own PDF); garment
 >   inline diagrams; amigurumi (no engine exists). Review request: `research/final_build/w6/review_requests/pdf_premium_slice1.md`.
+
 > **2026-11-20 — ENG-WARDROBE-SCENES slice 1 (`eng/wardrobe-scenes`, NOT reviewed, NOT merged, NOT deployed; no provider called).**
 > - **Built, new files only:**
 >   - `visual/outfit_library.py`: 63 outfits, pairwise distinct (max 0.598 < 0.60), with harmony, family compatibility and a durable claim through `outfits.reserve`;
