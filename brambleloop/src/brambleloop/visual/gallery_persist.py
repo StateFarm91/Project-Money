@@ -108,7 +108,8 @@ def _candidate_facts(s, candidate_id) -> dict:
 
 
 def write_frames(db, slug: str, version: str, frames: list[dict], *, run_key: str,
-                 actor: str = "publishing", route: str = "") -> dict:
+                 actor: str = "publishing", route: str = "",
+                 extra_claims: dict | None = None) -> dict:
     """Write verified generated frames as `ListingAsset` rows, each with its provenance.
 
     Called only by `persist_approved` after its re-verification. Never overwrites other
@@ -166,7 +167,10 @@ def write_frames(db, slug: str, version: str, frames: list[dict], *, run_key: st
                         "label": "AI-generated concept image",
                         # D-OWNER-FLUX-GALLERY: a render, never physical-sample evidence
                         "is_render": True, "physical_sample_evidence": False,
-                        **({"route": route} if route else {})},
+                        **({"route": route} if route else {}),
+                        # ENG-OWNER-GALLERY: internal provenance only (supplied_by: owner)
+                        **{k: v for k, v in (extra_claims or {}).items()
+                           if k in ("supplied_by",)}},
                 approved=True, blocked_reasons=[])
             s.add(asset)
             s.flush()

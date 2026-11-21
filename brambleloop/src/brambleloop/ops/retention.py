@@ -122,6 +122,11 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
         "visual.laura_approval.card: the raised card (run, digest, frames) by requirement key"),
     "owner_directive.etsy_exercise": ("lifetime_total",
         "ops.owner_etsy_exercise.due counts every attempt (cap and clean-run check)"),
+    "owner_directive.etsy_exercise_2": ("lifetime_total",
+        "ops.owner_etsy_exercise.due_2 counts every attempt (cap and clean-run check)"),
+    # ENG-ETSY-RECOVERY: factory_visibility reads only the newest recovery row.
+    "etsy.exercise_recovery": ("latest",
+        "ops.owner_etsy_exercise.visibility reads the newest row for last_recovery"),
     # ENG-VIS-GALLERY (D-OWNER-FLUX-GALLERY): the selected generated gallery of a release is
     # read per release (newest row for slug@version) for as long as the listing lives; the
     # newest rows of the action overall would not keep an older release's, so it is protected.

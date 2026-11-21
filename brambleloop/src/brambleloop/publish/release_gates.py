@@ -2354,6 +2354,20 @@ def generated_listing_set(db, *, slug: str, version: str, cir, twin, listing, se
             f"{v['position']}: {str(v.get('why'))[:160]}" for v in refused[:4]))
     if listing is None:
         reasons.append("no listing copy is drafted; the listing set cannot be certified")
+    # ENG-OWNER-GALLERY / D-OWNER-NO-RENDER-LABELS: an owner-supplied frame carries the
+    # scene alt text it was judged with (no label, no render wording, no made-sample claim),
+    # re-checked here so a selection edited after intake can never ship other wording.
+    alts: dict[int, str] = {}
+    for sel in selected:
+        if sel.get("supplied_by") == "owner":
+            from ..visual.owner_frames import buyer_text_problems
+
+            alt = str(sel.get("alt_text") or "")
+            bad = buyer_text_problems(alt, surface="alt")
+            if bad:
+                reasons.append(f"frame {sel['position']} ({sel.get('role')}): owner frame alt "
+                               f"text refused: {'; '.join(bad)}"[:300])
+            alts[int(sel["position"])] = alt
 
     geometry = geometry_of(twin, cir)
     claims = claims_of(listing, chosen, _search_profile(db, slug, version))
@@ -2373,7 +2387,8 @@ def generated_listing_set(db, *, slug: str, version: str, cir, twin, listing, se
                 sha256=v["sha256"], job=job, purpose=el.CONVERSION_CREATIVE,
                 medium=AssetClass.AI_LIFESTYLE_CONCEPT.value,
                 honesty_label=el.honesty_label(AssetClass.AI_LIFESTYLE_CONCEPT, job)["label"],
-                kind=GENERATED_RENDER_KIND, alt_text=_gallery_alt_text(job),
+                kind=GENERATED_RENDER_KIND,
+                alt_text=alts.get(int(v["position"])) or _gallery_alt_text(job),
                 represented_variant=cir.variant_key))
         cf = contents["frame"]
         certified.append(ls.CertifiedFrame(

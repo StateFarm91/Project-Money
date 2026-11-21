@@ -308,6 +308,241 @@ def raise_owner_actions(db, stranded: list[dict]) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Leftover and duplicate recovery (ENG-ETSY-RECOVERY, D-OWNER-ETSY-EXERCISE-2)
+#
+# A leftover is a draft the exercise created and has not confirmed gone. A duplicate is a
+# second such draft, left when an earlier run's cleanup failed and the next run made another.
+# Both are recovered the same way, under one rule: this code deletes a listing only when all
+# of the following hold, and leaves everything else alone and reports it.
+#
+# 1. OWN. The ledger (`DRAFT_CREATED`, written by `_Breadcrumbs` before the id was returned)
+#    names the listing id, the ledger title carries the exercise marker, Etsy's title equals
+#    the ledger title exactly (or the exercise's own "<title> updated" rename of it), and the ledger's shop id (when recorded) is this client's shop.
+#    A marked draft that is not in the ledger is FOREIGN: a marker can be typed by anybody.
+# 2. DRAFT. Etsy lists the id in the shop's own `state=draft` listing read, and that row says
+#    `state == "draft"`.
+# 3. NEVER ACTIVE. Etsy has no transition from active back to draft (deactivation gives
+#    `inactive`), so an Etsy draft has not been live. Separately, this system holds no
+#    `etsy.activate` effect intent for the id, and Etsy reports no views or favourites. If the
+#    intent table cannot be read, "never active" is not provable and nothing is deleted.
+#
+# A delete counts only after read-back: `getListing` answers 404 AND the id is absent from a
+# fresh `state=draft` shop read. Both, because a `getListing` that cannot see drafts would
+# make a single 404 look like success. A failed or unverified delete is reported, never hidden.
+
+#: The fixed vocabulary of a recovery's per-listing outcomes. Counts are reported by these
+#: names only; ids and titles stay inside the report for the owner queue and never reach
+#: `factory_visibility`.
+RECOVERY_OUTCOMES = (
+    "removed_verified",    # own draft deleted; read-back confirms it is gone
+    "already_gone",        # in the ledger, and Etsy no longer holds it; ledger settled
+    "delete_failed",       # own draft; the delete raised (status class recorded)
+    "delete_unverified",   # own draft; the delete was accepted but read-back still finds it
+    "left_not_draft",      # in the ledger, but Etsy holds it in a non-draft state: untouched
+    "left_not_provable",   # in the ledger and a draft, but a check failed: untouched
+    "left_foreign",        # a marked draft that the ledger does not name: untouched
+    "could_not_ask",       # Etsy could not be read for this listing: untouched
+)
+RECOVERED = "etsy.exercise_recovery"
+
+
+def _status_class(error: BaseException | None, client: EtsyClient | None = None) -> str:
+    """A fixed-vocabulary class for a failure: the HTTP status bucket, or the error type."""
+    if error is not None and type(error).__name__ == "EtsyNotPermitted":
+        return "refused_by_client"
+    status = 0
+    if client is not None and client.calls:
+        try:
+            status = int(client.calls[-1].get("status") or 0)
+        except (TypeError, ValueError):
+            status = 0
+    if status in (401, 403, 404, 409, 429):
+        return f"http_{status}"
+    if status >= 500:
+        return "http_5xx"
+    if status >= 400:
+        return "http_4xx"
+    if isinstance(error, TransientError):
+        return "transient"
+    return "other"
+
+
+def _state_class(state: str) -> str:
+    state = str(state or "").lower()
+    return state if state in ("draft", "active", "inactive", "removed", "expired",
+                              "sold_out", "edit") else ("" if not state else "other")
+
+
+def _activation_recorded(db, listing_id: str) -> bool | None:
+    """Whether this system ever recorded an activation intent for the id. None: unreadable."""
+    try:
+        from ..queue.effects import EffectIntent, ensure_table
+
+        ensure_table(db)   # idempotent; an absent table means no intent was ever written
+        with db.session() as s:
+            rows = list(s.scalars(select(EffectIntent.idem).where(
+                EffectIntent.effect == "etsy.activate")))
+    except Exception:   # noqa: BLE001 - unreadable means "not provable", never "no"
+        return None
+    return any(str(idem).split(":", 1)[0] == str(listing_id) for idem in rows)
+
+
+def _ledger_rows(db) -> list[dict]:
+    """Every exercise draft the ledger names and has not settled, with its recorded shop id."""
+    from ..core.models import AuditLog
+
+    open_ids = {r["listing_id"]: r for r in outstanding_drafts(db)}
+    if not open_ids:
+        return []
+    shops: dict[str, str] = {}
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog).where(AuditLog.action == DRAFT_CREATED)):
+            d = row.detail or {}
+            lid = str(d.get("listing_id") or "")
+            if lid in open_ids:
+                shops[lid] = str(d.get("shop_id") or "")
+    return [{**r, "shop_id": shops.get(lid, "")} for lid, r in open_ids.items()]
+
+
+def _drafts_by_id(client: EtsyClient) -> dict[str, dict]:
+    return {str(row.get("listing_id") or ""): row
+            for row in client.get_shop_listings(state="draft")}
+
+
+def recover_with(client: EtsyClient, db) -> dict:
+    """Remove the exercise's own leftover and duplicate drafts; leave and report the rest.
+
+    Never raises for an Etsy failure: each listing's outcome is one of `RECOVERY_OUTCOMES`.
+    The returned `listings` carry ids and titles for the owner queue; `counts` and `cleaned`
+    are the only parts meant for wider reporting.
+    """
+    counts = {k: 0 for k in RECOVERY_OUTCOMES}
+    listings: list[dict] = []
+    status_classes: dict[str, int] = {}
+
+    def note(outcome: str, row: dict, **extra) -> None:
+        counts[outcome] += 1
+        listings.append({"listing_id": row.get("listing_id", ""),
+                         "title": row.get("title", ""), "outcome": outcome, **extra})
+        if extra.get("status_class"):
+            status_classes[extra["status_class"]] = status_classes.get(
+                extra["status_class"], 0) + 1
+
+    our_shop = str(getattr(client.credentials, "shop_id", "") or "")
+    try:
+        drafts = _drafts_by_id(client)
+    except (PermanentError, TransientError) as e:
+        ledger = _ledger_rows(db)
+        for row in ledger:
+            note("could_not_ask", row, status_class=_status_class(e, client))
+        return {"ok": False, "counts": counts, "cleaned": 0, "listings": listings,
+                "status_classes": status_classes, "shop_read": False}
+
+    ledger = _ledger_rows(db)
+    ledger_ids = {r["listing_id"] for r in ledger}
+
+    # Marked drafts the ledger does not name: never touched.
+    for lid, row in drafts.items():
+        title = str(row.get("title") or "")
+        if title.startswith(etsy_probe.TEST_TITLE_PREFIX) and lid not in ledger_ids:
+            note("left_foreign", {"listing_id": lid, "title": title})
+
+    for row in ledger:
+        lid = row["listing_id"]
+        on_etsy = drafts.get(lid)
+        if on_etsy is None:
+            # Not among the shop's drafts. Gone, or held in another state: ask the listing.
+            try:
+                exists, state = client.listing_exists(lid)
+            except (PermanentError, TransientError) as e:
+                note("could_not_ask", row, status_class=_status_class(e, client))
+                continue
+            if not exists:
+                _audit(db, DRAFT_REMOVED, {
+                    "listing_id": lid, "title": row["title"],
+                    "confirmed_by": ("recovery read of Etsy: getListing 404 and absent from "
+                                     "the shop's draft listing")})
+                note("already_gone", row)
+            else:
+                note("left_not_draft", row, state_class=_state_class(state))
+            continue
+
+        # Provably own, draft, never active -- every check, or nothing is deleted.
+        checks = {
+            "ledger_title_marked": row["title"].startswith(etsy_probe.TEST_TITLE_PREFIX),
+            # Exactly the ledger title, or the exercise's own step-3 rename of it
+            # (`etsy_probe.run_exercise` sends "<title> updated"). Nothing looser.
+            "etsy_title_matches_ledger": str(on_etsy.get("title") or "") in (
+                row["title"], f"{row['title']} updated"),
+            "same_shop": (not row.get("shop_id") or not our_shop
+                          or str(row["shop_id"]) == our_shop)
+                         and (on_etsy.get("shop_id") in (None, "")
+                              or not our_shop or str(on_etsy.get("shop_id")) == our_shop),
+            "state_is_draft": str(on_etsy.get("state") or "").lower() == "draft",
+            "no_views_or_favourites": not any(
+                isinstance(on_etsy.get(k), (int, float)) and on_etsy.get(k) > 0
+                for k in ("views", "num_favorers")),
+            "no_activation_recorded": _activation_recorded(db, lid) is False,
+        }
+        failed = sorted(k for k, ok in checks.items() if not ok)
+        if failed:
+            note("left_not_provable", row, failed_checks=failed)
+            continue
+
+        try:
+            accepted = bool(client.delete_listing(lid, expect_states=("draft",)))
+        except (PermanentError, TransientError) as e:
+            note("delete_failed", row, status_class=_status_class(e, client))
+            continue
+        if not accepted:
+            note("delete_failed", row, status_class="not_accepted")
+            continue
+        try:
+            exists, state = client.listing_exists(lid)
+            still_draft = lid in _drafts_by_id(client)
+        except (PermanentError, TransientError) as e:
+            note("delete_unverified", row, status_class=_status_class(e, client))
+            continue
+        if exists or still_draft:
+            note("delete_unverified", row,
+                 state_class=_state_class(state) if exists else "draft")
+            continue
+        _audit(db, DRAFT_REMOVED, {
+            "listing_id": lid, "title": row["title"],
+            "confirmed_by": ("recovery delete, then getListing 404 and absent from the "
+                             "shop's draft listing")})
+        note("removed_verified", row)
+
+    left = sum(counts[k] for k in RECOVERY_OUTCOMES
+               if k not in ("removed_verified", "already_gone"))
+    report = {"ok": left == 0, "counts": counts,
+              "cleaned": counts["removed_verified"] + counts["already_gone"],
+              "listings": listings, "status_classes": status_classes, "shop_read": True}
+    _audit(db, RECOVERED, {"ok": report["ok"], "counts": counts,
+                           "cleaned": report["cleaned"], "status_classes": status_classes})
+    return report
+
+
+def recover(db, *, env: dict[str, str] | None = None, transport: Any = None) -> dict:
+    """`recover_with`, on the exercise's own non-activating client, under `single_flight`.
+
+    Raises `ExerciseRefused` / `ExerciseBusy` exactly as `run` does. Stranded own drafts still
+    on Etsy afterwards go to the owner queue (once per listing) as before.
+    """
+    import os
+
+    env = env if env is not None else dict(os.environ)
+    transport = transport if transport is not None else UrllibTransport()
+    with single_flight(db):
+        client = _client(db, env, transport, breadcrumbs=False)
+        report = recover_with(client, db)
+        stuck = [r for r in report["listings"]
+                 if r["outcome"] in ("delete_failed", "delete_unverified")]
+        report["owner_actions"] = raise_owner_actions(db, stuck)
+        return _redactor(client)(report)
+
+
+# ---------------------------------------------------------------------------
 # The client, and the gate that makes activation unreachable
 
 
@@ -707,8 +942,13 @@ def chosen_test_node(db) -> dict:
 
 
 def run(db, *, env: dict[str, str] | None = None, transport: Any = None,
-        mode: str = "full", verify: Callable[[], dict] | None = None) -> dict:
+        mode: str = "full", verify: Callable[[], dict] | None = None,
+        sweep_first: bool = True) -> dict:
     """The whole operator-triggered run. Returns a report; raises only for a refusal.
+
+    `sweep_first=False` (the autonomous directive path) skips `etsy_probe.sweep`, which
+    deletes any marked draft by title alone; that path runs `recover` first instead, which
+    deletes only drafts the ledger proves are its own.
 
     `verify` is injected rather than imported so that this module does not depend on the
     FastAPI application it is called from. The endpoint passes `/api/verify`'s own handler;
@@ -758,12 +998,24 @@ def run(db, *, env: dict[str, str] | None = None, transport: Any = None,
             # matcher's chosen node and its craft property -- each written and read back.
             chosen = chosen_test_node(db)
             report["chosen_node"] = chosen
-            report["exercise"] = etsy_probe.run_exercise(
-                client, cleanup=True, sweep_first=True,
-                ping_reachable=reachable,
-                pattern=etsy_probe.transport_test_pdf("brambleloop-exercise"),
-                taxonomy_id=chosen.get("taxonomy_id"),
-                listing_property=chosen.get("property"))
+            # ENG-ETSY-RECOVERY: settle the exercise's own leftover/duplicate drafts first.
+            # If one of its own drafts cannot be removed, no new draft is created: a delete
+            # that fails now would fail again and strand one more draft per run.
+            report["recovery"] = recover_with(client, db)
+            rc = report["recovery"]["counts"]
+            if rc["delete_failed"] or rc["delete_unverified"]:
+                report["exercise"] = {
+                    "skipped": ("recovery could not remove one of this exercise's own "
+                                "drafts, so no new draft was created"),
+                    "verified": False, "steps": [], "claims": [],
+                    "against_etsy": etsy_probe.against_etsy(client)}
+            else:
+                report["exercise"] = etsy_probe.run_exercise(
+                    client, cleanup=True, sweep_first=sweep_first,
+                    ping_reachable=reachable,
+                    pattern=etsy_probe.transport_test_pdf("brambleloop-exercise"),
+                    taxonomy_id=chosen.get("taxonomy_id"),
+                    listing_property=chosen.get("property"))
             report["against_etsy"] = report["exercise"].get("against_etsy")
             report["shop_read_back"] = shop_read_back(client)
             report["breadcrumbs"] = reconcile(client, db)
@@ -825,13 +1077,71 @@ def run(db, *, env: dict[str, str] | None = None, transport: Any = None,
                                   # so `gates.first_customer.check_etsy_remote_state` judges
                                   # recorded evidence. Names and states only, after redaction.
                                   "against_etsy": bool(redacted.get("against_etsy")),
-                                  "claims": _claim_states(redacted)})
+                                  "claims": _claim_states(redacted),
+                                  # ENG-ETSY-RECOVERY: why, in fixed vocabulary only.
+                                  "cause": outcome_cause(redacted)})
         # W4-LAUNCHFIX review F-2/F-4/F-5: the evidence the first-customer gate reads is a
         # sealed, chained row, bound to this run's own drafts and to the transport it used.
         report_seal = _seal_evidence(db, mode=mode, report=redacted, start_id=start_id,
                                      transport=transport)
         redacted["evidence"] = report_seal
         return redacted
+
+
+_WORD = __import__("re").compile(r"^[a-z][a-z0-9_]{0,47}$")
+
+
+def _word(value: Any) -> str | None:
+    v = str(value or "")
+    return v if _WORD.match(v) else None
+
+
+def status_class(status: Any) -> str:
+    """The fixed class of a `_status` string."""
+    s = str(status or "")
+    if s.startswith(LIVE_STATUS_PREFIX):
+        return "clean"
+    if s.startswith("ATTEMPTED, AND THE SHOP IS NOT CLEAN"):
+        return "shop_not_clean"
+    if s.startswith("ATTEMPTED -- the shop is clean"):
+        return "failed_shop_clean"
+    if s.startswith("RAN AGAINST A LOCAL MODEL"):
+        return "not_against_etsy"
+    return "unknown" if s else "none"
+
+
+def outcome_cause(report: dict) -> dict:
+    """Why a run was or was not clean: step names, taxonomy outcome names and counts only.
+
+    No listing id, title or Etsy message: every string is checked against `_WORD`, so this is
+    safe to show wherever a count may be shown (`factory_visibility`).
+    """
+    ex = report.get("exercise") or {}
+    steps = [st for st in ex.get("steps") or [] if isinstance(st, dict)]
+    failed = [w for w in (_word(st.get("step")) for st in steps if st.get("ok") is False) if w]
+    outcomes: dict[str, int] = {}
+    for st in steps:
+        name = _word(st.get("step"))
+        if name not in ("sweep", "create_draft", "cleanup", "verify_cleanup"):
+            continue
+        for f in st.get("classified") or []:
+            w = _word((f or {}).get("outcome") if isinstance(f, dict) else None)
+            if w:
+                outcomes[f"{name}:{w}"] = outcomes.get(f"{name}:{w}", 0) + 1
+    rb = report.get("shop_read_back") or {}
+    bc = report.get("breadcrumbs") or {}
+    rec = report.get("recovery") or {}
+    return {"failed_steps": failed[:12], "cleanup_outcomes": outcomes,
+            "exercise_skipped": bool(ex.get("skipped")),
+            "read_back_ok": rb.get("ok") is True,
+            "marked_drafts_in_shop": len(rb.get("test_drafts_remaining") or []),
+            "ledger_confirmed_gone": len(bc.get("confirmed_gone") or []),
+            "ledger_still_on_etsy": len(bc.get("still_on_etsy") or []),
+            "ledger_could_not_ask": len(bc.get("could_not_ask") or []),
+            "owner_actions": len(report.get("owner_actions") or []),
+            "recovery_counts": {k: int((rec.get("counts") or {}).get(k) or 0)
+                                for k in RECOVERY_OUTCOMES} if rec else {},
+            "recovery_cleaned": int(rec.get("cleaned") or 0) if rec else 0}
 
 
 def _last_audit_id(db) -> int:

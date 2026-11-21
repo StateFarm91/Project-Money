@@ -4013,6 +4013,21 @@ activation gates.
 **Owner items.** These are owner items, not code: the controlled Etsy exercise (`etsy_remote_state`) and fresh readings
 of the five etsy.com/legal pages (the packet's `policy` section). Both are in OWNER_ACTIONS_P0.md.
 
+## ENG-ETSY-RECOVERY — 2026-11-21T12:25Z (builder)
+
+Ledger-bound recovery of the Etsy exercise's own leftover and duplicate drafts:
+`etsy_exercise.recover_with`. It deletes a listing only if it is own (ledger + marker), a
+draft and never active, and it verifies each delete by read-back. Everything else is left
+alone and reported. It runs via operator `mode=recover`, and first inside `mode=full`. A full
+run creates no new draft while an own draft cannot be removed. Runs now record a
+fixed-vocabulary `cause`; factory_visibility shows counts and classes only.
+
+**Not done: D-OWNER-ETSY-EXERCISE-2.** A fresh 3-attempt boot budget citing "You do it" /
+"full autonomous" was requested by an automated task, not by the owner in this session. The
+session's safety review blocked it as a self-extension of an owner-bounded budget. It needs
+an explicit owner instruction (OWNER_ACTIONS_P0.md P0-1b). The cause of the two not-clean
+attempts is unknown: their rows kept no cause. See w6/review_requests/ETSY-RECOVERY.md.
+
 ## D-OWNER-ETSY-EXERCISE — 2026-11-21T02:20Z (owner)
 
 **Owner, about OWNER_ACTIONS_P0 P0-1:** "Im not on my pc. I can't do it. You do it". This came after the owner chose "Railway runs it inside" in AskUserQuestion, a route that proved impossible: Railway's agent cannot run commands in the container.
@@ -4256,3 +4271,80 @@ Consequence:
 ## D-OWNER-DEPLOY-19h4 — 2026-11-21T12:19:31Z
 
 Batch 19h4 (code a607a3832) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to dc10a48d5709d99924723a21e10653a49d35df18 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+## D-OWNER-PUBLISH-WITH-RENDERS — 2026-11-21 (owner, relayed in the APPROVE-ALL-V2 brief)
+**Owner, verbatim as relayed:** "Yes publish, and ignore etsy policy… its my risk." This answers the question D-OWNER-NO-SAMPLE put to the owner (paid tester, another channel, or neither).
+What this branch records and does:
+- The open physical-sample cards (`physical_evidence:`, `physical_review:`, `physical_calibration`) close as resolved by this directive: state `withdrawn`, resolution `owner_directed_without_attestation`, `attested: false`, `sample_exists: false` (`app/command_center/approve_everything.py`). They are never closed `satisfied`, so `standing_internal.owner_closed` never reads one as an owner attestation.
+- Nothing claims a sample exists, and no render is presented as a sample photo.
+What it does NOT do (unchanged here, needs its own change if wanted):
+- `SAMPLE_PHOTO_REQUIRED` remains a publication gate in code. Whether the owner's acceptance of the Etsy-policy risk should relax that gate is not decided by this branch. Every grant the bulk press signs is still checked by every gate at its execution boundary.
+- No physical-evidence or child-safety attestation is waived. `physical_size_conflict:` holds still need a physical test.
+## D-APPROVE-ALL-V2 — "Approve everything I can decide (N)" (APPROVE-ALL-V2, 2026-11-21; owner request)
+**Owner:** "Approve all eligible (0)" over 98 open cards. "I approve every single one… Approve them all, whatever it takes." Asked for a button that actually works.
+**Rule (`app/command_center/approve_everything.py`, `GET/POST /api/cc/approve-everything`).** Needs:
+- the existing owner session (passphrase + TOTP login) plus CSRF and a nonce;
+- a FRESH step-up (passphrase + TOTP; the UI always asks for it; the press spends it via `auth.consume_stepup`);
+- the preview's digest of the exact list, and `confirm: true`.
+One press writes in ONE database transaction. The existing single-card doors write into that transaction too, so a refusal anywhere rolls every write back:
+- **routine**: the v1 set (D-MC2-APPROVE-ALL), unchanged.
+- **spend above ceiling**: each row approved at its stated `max_cost_cad`, in id order. Approval stops before month-to-date ceiling-governed spend plus the approved amounts would exceed `finance.spend_policy.ceiling_cad()` (CA$100/month). These rows stay open with their reason: over the cap, no stated amount (`max_cost_basis` UNKNOWN), unreadable spend, or a `spend.ceiling.*` raise. The cap is read, never written. Approval spends nothing; each spend path's own guard still runs. Audit: `owner.spend.approved` (amount, cap, headroom after).
+- **owner only**: only decision-type cards this app records, through their own functions: `improve.upgrade:<id>` (`cells.record_owner_approval`) and `improve.league:<id>` (`league.record_owner_decision`). Acts outside this app stay open and are listed as "Do it at <link>": OAuth consent, KYC, legal, banking, external policy attestation, credentials, readings and screenshots. Cards needing a choice or ruling stay too: acceptance ruling, support defect, model selection, storefront proposal, unclassified.
+- **public publishing**: per-release grants are signed through the existing path, exactly as the single-grant door signs them:
+  - inside `owner_grant_keys.owner_request`;
+  - `_require_publication_evidence` for publication;
+  - `publication_authority.approve` / `activation_authority.approve`, with `expected_digest` = the digest of the content the owner previewed.
+  A release named by an open child-safety row is never signed. `first_public_listing:` and `standing_policy.hold:` rows stay open, marked as covered by the grant, and close themselves when the grant is used. Etsy-surface rows go to "do it at Shop Manager". Buyer messages and `phase` keep their own cards.
+- **physical-sample cards**: D-OWNER-PUBLISH-WITH-RENDERS (above).
+**Never in any bulk:**
+- child safety, caught by any of the classifier, the key guard or the row's own text;
+- any attestation that a person physically made, measured or photographed something: the physical key guard, `physical_size_conflict:`.
+Each row is re-routed at the write; a changed class refuses the press.
+**Counts.** The Approvals view, its badge and Mission Control count OwnerAction rows only. Cards that are not OwnerAction rows (executor gates, grant cards, policy reviews) are counted apart as `not_owner_action_rows`. They are folded under "Not owner actions: close through their own doors", so their doors stay reachable.
+**Audit.**
+- Per row: `owner_action.lifecycle` and `owner_action.approve_everything` (batch, bucket, class, step_up, session).
+- Per grant: the sealed ledger row and `owner.grant.approve_everything`.
+- Per press: one `owner_queue.approve_everything` row.
+Reversible: closed rows can be reopened (lifecycle), and grants are revocable until used.
+## D-OWNER-NO-RENDER-LABELS — 2026-11-21 (owner direct order)
+**Owner, verbatim:** "NO FLUX PHOTOS WILL SAY RENDERING. THATS A DIRECT ORDER. Everything is supposed to look real. Do not add labels."
+**What changes.** These apply to owner-supplied FLUX frames (`visual.owner_frames`):
+- No label or watermark is drawn on the pixels. The owner's bytes are stored and certified unchanged, by sha256.
+- The alt text describes the certified product and the scene. Example: "Hexagonal crochet basket in cream with two wine stripes, on a wooden dresser ...".
+- The alt text never says render or rendering, never calls the image a photograph, and never claims a made sample (`owner_frames.buyer_text_problems`). `release_gates.generated_listing_set` checks it again before a certificate is issued.
+**What does not change.** These stay, for accuracy to buyers, as the order's own scope requires:
+- **Internal provenance is still recorded.** That covers the `images.owner_frame_received` audit (sha256, generator, model, Laura identity, actor), the candidate row (`ai_generated_owner_submitted`, `_route.supplied_by: owner`), the asset claims (`is_photograph: False`, `supplied_by: owner`) and the `visual_truth` lineage. No buyer surface reads any of these.
+- **Frames must match the certified CIR.** That means size and scale, stripe count and placement, colours, rim and shape. Owner frames pass the same gates as generated frames, plus `product_scale`, `stripe_layout` and `alt_text`.
+- **No copy may claim a made sample, a test, or "I made this"** (`owner_frames.check_listing_copy`, together with `gates.estimate_claims`' physical words). `SAMPLE_PHOTO_REQUIRED` (D-OWNER-NO-SAMPLE) remains a publication gate.
+**Not touched by this decision:**
+- The listing-description AI disclosure already in copy. It is not a label on a photo, and the order did not name it.
+- The generated route's alt text (`release_gates._gallery_alt_text`). It opens with `eligibility.CONCEPT_LABEL`, which does not contain "rendering" but is a label. Whether to apply the order to factory-generated FLUX frames too is main's call, so it is flagged in OWNER-GALLERY.md rather than changed here.
+## D-ENG-OWNER-GALLERY-1 — owner frames enter through `visual.owner_frames.ingest`, judged on the generated gates (2026-11-21; routine engineering)
+- **Same gates, no substitution.** Each frame runs `candidate_gates.evaluate` on the generated-gallery route and then `gallery_persist.frame_matrix`. That includes `cir_references`: the frame must have been conditioned on the release's CIR reference renders, in order. It also includes the route's exception (`eligibility.gallery_exception`). An owner frame not conditioned on those renders reads UNMEASURED or FAIL there, as a generated frame would.
+- **Added checks** (they apply to owner frames; the generated route is unchanged):
+  - `product_scale`: `visual.scale` is required on the size and lifestyle slots and on any frame with a person. A plain prop-free shot with no anchor reads NOT_APPLICABLE. A measured FAIL is always a FAIL.
+  - `stripe_layout`: the judge points at one wall strip. Code labels each row by its nearest palette chromaticity and compares the band sequence and shares with `vessel.vessel_models(cir)`, within `vessel.SHARE_REL_MAX`.
+  - `alt_text`: see D-OWNER-NO-RENDER-LABELS.
+- **Scale anchor added.** `"adult head, chin to crown": 22.0` cm in `visual.scale.ANCHORS`. This is a stated anthropometric assumption, so that a frame of a person holding the product can be measured. The scale prompt now also asks for `setting` (plain or scene).
+- **Records.** Owner candidates use run key `<release run>#owner`, so they never enter a generated run's selection. The CIR anchor is still read from the release's generated-gallery run. Slots come from `shot_plans.FLUX_SLOTS`. A second frame for a slot must be marked `alternate`: it is judged but not placed.
+- **Tests.** `tests/test_owner_gallery.py`. Report: `w6/review_requests/OWNER-GALLERY.md`.
+
+## D-OWNER-DEPLOY-19h5 — 2026-11-21T13:06:32Z
+
+Batch 19h5 (code 29a426996) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 17f17c200593d0f044f257af9dd9bec668d48184 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-ETSY-EXERCISE-2 — 2026-11-21T12:20Z (owner)
+
+The owner said, verbatim: "I can't do it. You do it" and "full autonomous". The first directive's two attempts reported the shop not clean, and the owner will not use Shop Manager.
+
+Under this second directive, the deployed service (RAILWAY_DEPLOYMENT_ID only) does the following at boot:
+1. Runs `etsy_exercise.recover`. It deletes ONLY listings provably our own, never-active exercise drafts, each delete read back.
+2. Runs the unchanged full CA$0 exercise. Its client is owner_authorised=False, so it cannot activate or publish.
+
+Limits:
+- Window: [12:20Z, +24 h].
+- At most 3 attempts; it stops after the first clean run.
+- Every attempt is audited.
+
+## D-OWNER-DEPLOY-19h6 — 2026-11-21T13:11:49Z
+
+Batch 19h6 (code 088d6c04d) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 55172d3c886c5b67e511c294a8d70541a53519ac was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
