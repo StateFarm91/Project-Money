@@ -1,3 +1,16 @@
+> **2026-11-21 — SUPPLY-FEED on `eng/supply-feed` (from `claude/w6-release-19h8` 94daf05; NOT merged, NOT deployed;
+> production unchanged, no production row read).** Production admitted 0 of 32 READY pool concepts. Cause:
+> `watchlist.compare` dropped every pod we already sell in (`_our_pods`), so those pods never got a watchlist gap or a
+> research question, and the pool's top-ranked READY concepts (cushions, wall panels, baskets, totes) waited forever.
+> Every earlier suite hand-made its research (`test_concepts100._answered_task`). Fix (D-ENG-SUPPLY-FEED): covered
+> arenas are judged by the same rules into `demand_arenas`, linked to a `concepting` watchlist gap and answered by the
+> unchanged `watchlist_research.answer`; `research_for_pod` accepts any gap state but `not_pursuing` and refuses an
+> answer expiring within 2 h; the pool enqueues intake when it admits. factory_visibility.supply adds `allowance`,
+> `ready_by_pod` (research present/absent/unanswered + reason), `ready_by_research` and `last_admit`. Fixture proof,
+> halt open, cadence jobs only: 9 concepts reached `cir.draft` unaided (6 cushions in a covered pod, 3 beanies).
+> **Amigurumi (no toy board) and baby (no READY concept: #108 / raglan engine) did NOT reach cir.draft.** CA$100 cap
+> unchanged. New `test_supply_feed` 7/7; touched suites green; `test_w4_fmbatch1_retention_guard` fails identically on
+> base. **UNVERIFIED** on production. Report: `w6/review_requests/SUPPLY-FEED.md`.
 > **2026-11-21 — APPROVE-ALL-V2 on `eng/approve-all-v2` (from `claude/w6-release-19h3` 2eb0222; NOT merged, NOT
 > deployed; production unchanged, no production row read).** The owner's screenshot showed "Approve all eligible (0)"
 > over 98 open cards. New "Approve everything I can decide (N)" (`GET/POST /api/cc/approve-everything`,

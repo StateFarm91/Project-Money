@@ -163,6 +163,9 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "chain.rebuild_unbound": ("windowed",
                               "ops.production_evidence.stale_rebuilds counts the last 7 days"),
     "ops.rebuild_propagated": ("latest", "ops.production_evidence reads the newest propagation"),
+    # ENG-SUPPLY-FEED: factory_visibility.supply reads the newest admit_ready result.
+    "concept_pool.admit_result": ("latest", "ops.production_evidence.supply_visibility "
+                                  "reads the newest admit_ready result"),
     # ENG-MOTIF-BACKLOG: the recovery report reads only the newest sweep row, to know that the
     # backlog was measured at all (never-swept is UNKNOWN, never 0); counts come from the
     # motif_recovery table, not from audit rows.

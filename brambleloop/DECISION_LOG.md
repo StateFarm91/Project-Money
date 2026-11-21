@@ -4184,3 +4184,29 @@ Report: `w6/review_requests/HALT-380-MARKETING.md`.
 ## D-OWNER-DEPLOY-19h9 — 2026-11-21T14:32:10Z
 
 Batch 19h9 (code d136042a9) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 94daf054e693dd8fc7b402eba7332cb286a35f81 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+## D-ENG-SUPPLY-FEED — 2026-11-21 (builder)
+**Decision.** A corroborated watchlist arena that we already sell in is demand evidence for new
+original concepts, and is linked to the same gap -> research -> answer path as an uncovered arena.
+1. `watchlist.compare` keeps `validated_arenas` / `unknown_arenas` exactly as before (uncovered
+   pods only) and adds `demand_arenas` / `demand_unknown_arenas`: the pods in `_our_pods`, judged
+   by the same `_judge_arenas` rules (fresh reads, >= 3 live listings, >= 2 shops, stale/withdrawn
+   majority = UNKNOWN), each marked `covered`.
+2. `record_comparison` gives each demand arena a `watchlist` coverage gap (`covered_by_us`), moved
+   `uncovered -> concepting` so Laura's summary, `review` and the proposal writer (all
+   `uncovered`-only) never read it as an open opportunity. Its research question is opened and
+   answered by the unchanged `watchlist_research.answer` (durability, freshness, medium
+   confidence). Findings say "an arena we already sell in"; never "uncovered".
+3. `concept_pool.research_for_pod` accepts a gap in any state but `not_pursuing` (one promoted
+   concept no longer closes the arena to the pool's other concepts), and refuses an answer that
+   expires within `FRESH_MARGIN` (2 h): intake would refuse it as expired.
+4. `radar.concept_pool` enqueues `radar.concept_intake` when it admits, so intake judges while the
+   one-day `market_radar` answer is fresh.
+5. factory_visibility.supply adds `allowance`, `ready_by_pod` (research present / absent /
+   unanswered + a fixed reason), `ready_by_research` and `last_admit`, from a
+   `concept_pool.admit_result` audit row written by every admit pass.
+**Why.** Every research task the earlier suites used was built by hand
+(`test_concepts100._answered_task`). With the real scans, `compare` dropped every pod we sell in,
+so the READY concepts the pool ranks first (cushions, wall panels, baskets, totes) had no gap and
+no question and waited forever. Not changed: the CA$100 cap, the allowance bounds, every intake,
+originality, #108, child-safety and publication gate. No research is fabricated: no
+corroboration, no answer, nothing admitted (tested).
