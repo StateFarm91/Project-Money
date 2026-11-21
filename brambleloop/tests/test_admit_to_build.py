@@ -67,6 +67,67 @@ def _state(*, vision: bool):
     return db
 
 
+class _OpenAITransport:
+    """FIXTURE transport for `OpenAIProvider._post`: never a network call. Counts requests."""
+
+    def __init__(self, *, status: int = 200, answer: str =
+                 '{"thumbnail_reads_small": true, "craft_impression": 4.3}'):
+        self.status, self.answer, self.calls = status, answer, 0
+
+    def __call__(self, provider, body, headers, timeout):
+        self.calls += 1
+        if self.status != 200:
+            return self.status, '{"error": {"message": "fixture provider error"}}'
+        return 200, json.dumps({
+            "id": f"fixture-{self.calls}", "model": provider.model,
+            "choices": [{"message": {"content": self.answer}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 900, "completion_tokens": 30}})
+
+
+def _state_openai(transport, *, cycles: int = 3):
+    """Production's activations: openai-vision only (no Anthropic vision), a FIXTURE transport."""
+    import _paid_activation as paid
+
+    from brambleloop.gateway import openai_chat
+    from brambleloop.gateway import paid_provider_gate as G
+
+    orig_open = NPF._open_vision
+    NPF._open_vision = lambda db: paid.activate(db, G.OPENAI_VISION, G.VISION,
+                                                daily=2.0, monthly=10.0, per_gallery=1.0)
+    saved_post = openai_chat.OpenAIProvider._post
+    saved_key = os.environ.get(openai_chat.KEY_VAR)
+    openai_chat.OpenAIProvider._post = lambda self, body, headers, timeout: transport(
+        self, body, headers, timeout)
+    os.environ[openai_chat.KEY_VAR] = "fixture-key-not-a-secret"
+    try:
+        db = SR._pre_deploy_state()
+        SF._drain(db, cycles=cycles)
+    finally:
+        NPF._open_vision = orig_open
+        openai_chat.OpenAIProvider._post = saved_post
+        if saved_key is None:
+            os.environ.pop(openai_chat.KEY_VAR, None)
+        else:
+            os.environ[openai_chat.KEY_VAR] = saved_key
+    return db
+
+
+def _redrive(db, tag: str, *, cycles: int = 1) -> None:
+    """A later cadence pass (fresh cadence keys, unlike SF._drain's fixture-0..n)."""
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime.worker import Worker
+
+    for c in range(cycles):
+        q = JobQueue(db)
+        for agent, job_type in SF.CADENCE_JOBS:
+            q.enqueue(agent, job_type, {"cadence": f"redrive-{tag}-{c}"},
+                      idempotency_key=f"fixture-cadence:{job_type}:redrive-{tag}-{c}", priority=0)
+        w = Worker(db, f"redrive-{tag}-{c}")
+        for _ in range(SF.MAX_JOBS_PER_CYCLE):
+            if not w.run_once():
+                break
+
+
 def _pool_drafts(db) -> list[Job]:
     admitted = {r.slug for r in SF._admitted_pool(db)}
     with db.session() as s:
@@ -98,6 +159,47 @@ def test_with_vision_admitted_concepts_pass_and_are_drafted():
     vis = PE.after_admission(db, now=SF.NOW)
     assert vis["gate_passed"] > 0 and vis["scored"]["promoted"] > 0, vis
     assert vis["offered"] > 0 and vis["admitted_to_engineering"] > 0, vis
+
+
+def test_openai_vision_alone_judges_and_admitted_concepts_are_drafted():
+    from brambleloop.gateway import anthropic as A
+    from brambleloop.gateway import paid_provider_gate as G
+
+    transport = _OpenAITransport()
+    db = _state_openai(transport)
+    assert not A.vision_usable(db), "Anthropic vision stays closed, as in production"
+    assert transport.calls > 0, "the owner-activated openai-vision judge was asked"
+    drafts = _pool_drafts(db)
+    assert drafts, "openai-vision judgements let admitted concepts be engineered"
+    assert any(j.status == JobStatus.DONE for j in drafts), [j.status for j in drafts]
+    vis = PE.after_admission(db, now=SF.NOW)
+    assert vis["gate_passed"] > 0 and vis["offered"] > 0, vis
+    # spend stayed inside openai-vision's activation ceilings, every call billed through the gate
+    with db.session() as s:
+        rows = list(s.scalars(select(G.PaidProviderCall).where(
+            G.PaidProviderCall.provider == G.OPENAI_VISION)))
+    assert rows and all(r.status == G.BILLED for r in rows), [r.status for r in rows]
+    assert sum(r.actual_cad or r.estimate_cad for r in rows) <= 2.0, rows
+    # idempotent per board image: a redrive sends nothing new for boards already judged
+    before = transport.calls
+    _redrive(db, "ok")
+    assert transport.calls == before, (before, transport.calls)
+
+
+def test_a_provider_error_never_passes_and_is_not_repeated():
+    transport = _OpenAITransport(status=500)
+    db = _state_openai(transport)
+    assert transport.calls > 0, "the judge was asked"
+    assert _pool_drafts(db) == [], "a failed judgement drafts nothing"
+    vis = PE.after_admission(db, now=SF.NOW)
+    assert vis["gate_passed"] == 0 and vis["offered"] == 0, vis
+    assert vis["gate_waiting"] > 0, vis
+    from brambleloop.creative import concept_judge as CJ
+    assert not CJ.openai_vision_usable(db), "a failing provider closes the route"
+    before = transport.calls
+    _redrive(db, "err", cycles=2)
+    assert transport.calls == before, "a redrive never repeats the failed paid call"
+    assert _pool_drafts(db) == []
 
 
 def test_privacy_counts_and_gate_keys_only():

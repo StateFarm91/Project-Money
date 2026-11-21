@@ -1018,7 +1018,23 @@ def judge_held(ctx, *, slug: str, board: str, provider=None) -> dict:
     if not shown:
         return {"judged": False, "why": f"the board's bytes cannot be shown to a judge: "
                                         f"{missing}"[:200]}
-    provider = provider or gw.provider_for(JUDGE_TASK)
+    if provider is None:
+        # ENG-ADMIT-TO-BUILD: whichever owner-activated vision provider is usable
+        # (`creative.concept_judge.choose`); none means no judgement, so the concept waits.
+        from . import concept_judge
+
+        _vendor, provider = concept_judge.choose(ctx.db)
+        if provider is None:
+            return {"judged": False, "why": "no owner-activated vision provider is usable"}
+    from . import concept_judge
+
+    provider_name = str(getattr(provider, "name", "") or type(provider).__name__)[:40]
+    if concept_judge.attempted(ctx.db, board_sha, provider_name):
+        # Idempotent per board image: one paid attempt per bytes and provider per window.
+        return {"judged": False, "why": "this board was already sent to this judge within "
+                                        "the retry window; not sent again"}
+    concept_judge.record_attempt(ctx, slug=slug, board_sha=board_sha,
+                                 provider_name=provider_name, model=provider.model)
     held = None
     try:
         reservation = gw.check_budget(
@@ -1070,7 +1086,15 @@ def regate_held(ctx, *, today: date | None = None, provider=None) -> dict:
     for row_id, slug, detail in latest_per_slug(ctx.db):
         latest.setdefault(slug, {"id": row_id, **detail})
     presented, queued, held = [], [], []
-    vision_ok = gw.vision_usable(ctx.db)
+    # ENG-ADMIT-TO-BUILD: vision is usable when ANY owner-activated vision provider is
+    # (`creative.concept_judge.choose`): Anthropic vision as before, else openai-vision.
+    from . import concept_judge
+
+    if provider is None:
+        _vendor, provider = concept_judge.choose(ctx.db)
+        vision_ok = provider is not None
+    else:
+        vision_ok = gw.vision_usable(ctx.db) or concept_judge.openai_vision_usable(ctx.db)
     stopped = False
     asked_n = 0
     for slug, detail in list(latest.items()):
@@ -1230,7 +1254,12 @@ def judge_radar_waiting(ctx, *, today: date | None = None, provider=None,
     from . import toy_board
 
     today = today or date.today()
-    vision_ok = gw.vision_usable(ctx.db) if vision_ok is None else vision_ok
+    if vision_ok is None:
+        from . import concept_judge
+
+        if provider is None:
+            _vendor, provider = concept_judge.choose(ctx.db)
+        vision_ok = provider is not None
     judged_now, held = [], []
     asked_n = 0
     renders_n = 0
