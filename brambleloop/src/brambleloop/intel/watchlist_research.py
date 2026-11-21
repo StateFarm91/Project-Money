@@ -133,6 +133,100 @@ def durability(readings: list[tuple[str, dict]], pod: str) -> tuple[int, dict[st
     return days, {k: sorted(v) for k, v in sorted(by_shop.items())}
 
 
+SCAN_HISTORY = "benchmark_listings+scan_audit"
+
+
+def scan_history(db, pod: str, *, now: datetime) -> dict[str, list[str]]:
+    """ENG-SUPPLY-RESEARCH: per shop alias, the distinct dates in the durability window on
+    which a SUCCESSFUL official-API read of that shop happened (audit `intel.watchlist_scan`
+    with ran=True; audit `mjs.scanned` for the anchor) AND the stored catalogue then held at
+    least MIN_LISTINGS_FOR_ARENA live listings of the shop in this pod (first_seen <= day <=
+    last_seen, never a withdrawn row).
+
+    Why: `durability` reads only the daily comparison readings. Before ENG-SUPPLY-FEED those
+    readings dropped every pod we already sell in, so a covered arena had no recorded
+    observation days at all and its question could not become durable for three more days,
+    although the scans that observed it are recorded. This reads the same observations from
+    their primary records. It never infers a read that did not happen and never counts a
+    withdrawn listing; a date with too few live listings does not corroborate."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog, BenchmarkListing
+    from ..runtime.intel_ops import _aware, _label, benchmark_alias
+    from .benchmarks import MJS_KEY
+    from .pods import POD_KEYS
+    from .watchlist import MIN_LISTINGS_FOR_ARENA, WATCHLIST
+
+    until = now.date()
+    since = until - timedelta(days=DURABILITY_WINDOW_DAYS - 1)
+    key_by_alias = {benchmark_alias(m.key): m.key for m in WATCHLIST}
+    read_days: dict[str, set] = {}
+    with db.session() as s:
+        for r in s.execute(select(AuditLog.at, AuditLog.action, AuditLog.detail).where(
+                AuditLog.action.in_(("intel.watchlist_scan", "mjs.scanned")),
+                AuditLog.at >= datetime.combine(since, datetime.min.time(),
+                                                tzinfo=timezone.utc))).all():
+            at = _aware(r.at)
+            if at is None or at > now:
+                continue
+            if r.action == "mjs.scanned":
+                read_days.setdefault(benchmark_alias(MJS_KEY), set()).add(at.date())
+                continue
+            for sh in (r.detail or {}).get("shops") or []:
+                if sh.get("ran") is True and sh.get("alias") in key_by_alias:
+                    read_days.setdefault(sh["alias"], set()).add(at.date())
+        spans: dict[str, list[tuple]] = {}
+        for r in s.execute(select(BenchmarkListing.benchmark_key, BenchmarkListing.pod,
+                                  BenchmarkListing.audit_state, BenchmarkListing.first_seen,
+                                  BenchmarkListing.last_seen)).all():
+            if r.audit_state == "withdrawn":
+                continue
+            if _label(r.pod or "unclassified", frozenset(POD_KEYS)) != pod:
+                continue
+            a, b = _aware(r.first_seen), _aware(r.last_seen)
+            if a is None or b is None:
+                continue
+            spans.setdefault(r.benchmark_key, []).append((a.date(), b.date()))
+    out: dict[str, list[str]] = {}
+    for alias, days in read_days.items():
+        rows = spans.get(key_by_alias.get(alias, ""), [])
+        ok = sorted(d.isoformat() for d in days
+                    if since <= d <= until
+                    and sum(1 for a, b in rows if a <= d <= b) >= MIN_LISTINGS_FOR_ARENA)
+        if ok:
+            out[alias] = ok
+    return out
+
+
+def durability_with_history(db, readings, pod: str, *, now: datetime
+                            ) -> tuple[int, dict[str, list[str]], bool]:
+    """`durability` over the comparison readings, joined per shop with `scan_history` (the
+    same observations from their primary records). The rule is unchanged: the arena's durable
+    days are what at least MIN_SHOPS_FOR_ARENA shops each reached. Returns whether the
+    history added a date."""
+    from .watchlist import MIN_SHOPS_FOR_ARENA
+
+    days, dates = durability(readings, pod)
+    # Only the days whose reading was written before ENG-SUPPLY-FEED (no `demand_arenas`
+    # key: covered arenas were never recorded) are filled from the primary records. A day
+    # with a current reading is decided by that reading alone.
+    pre_feed = {day for day, payload in readings if "demand_arenas" not in payload}
+    if not pre_feed:
+        return days, dates, False
+    try:
+        hist = scan_history(db, pod, now=now)
+    except Exception:  # noqa: BLE001 - the readings alone still decide
+        return days, dates, False
+    hist = {k: [d for d in v if d in pre_feed] for k, v in hist.items()}
+    merged = {k: set(v) for k, v in dates.items()}
+    for k, v in hist.items():
+        merged.setdefault(k, set()).update(v)
+    added = any(set(v) - set(dates.get(k, [])) for k, v in hist.items())
+    counts = sorted((len(v) for v in merged.values()), reverse=True)
+    mdays = counts[MIN_SHOPS_FOR_ARENA - 1] if len(counts) >= MIN_SHOPS_FOR_ARENA else 0
+    return mdays, {k: sorted(v) for k, v in sorted(merged.items())}, added
+
+
 def _ids(ids: list[str], n: int = 10) -> str:
     return ", ".join(ids[:n]) + (f" (+{len(ids) - n} more)" if len(ids) > n else "")
 
@@ -192,7 +286,7 @@ def answer(db, *, gap_id: int, task_id: int, pod: str, now: datetime | None = No
         return not_yet(f"the {latest_day} comparison holds {len(obs)} fresh per-shop "
                        f"observation(s) with listing ids for the {pod} arena; "
                        f"{MIN_SHOPS_FOR_ARENA} are needed")
-    days, dates = durability(readings, pod)
+    days, dates, from_history = durability_with_history(db, readings, pod, now=now)
     if days < DURABLE_DAYS:
         return not_yet(f"not yet durable: {days} of {DURABLE_DAYS} distinct observation "
                        f"days per shop", days=days, observation_dates=dates)
@@ -212,6 +306,14 @@ def answer(db, *, gap_id: int, task_id: int, pod: str, now: datetime | None = No
                   f"#validated_arenas/{pod}/observations (observation dates: "
                   f"{'; '.join(a + ': ' + ', '.join(d) for a, d in dates.items())})"),
         retrieval="internal", read_on=read_on)
+    series_refs = [s_series]
+    if from_history:
+        series_refs.append("S%d" % research.add_source(
+            db, task_id, source=SCAN_HISTORY,
+            citation=(f"benchmark_listings(first_seen..last_seen, live) x audit_log("
+                      f"intel.watchlist_scan ran, mjs.scanned)#pod/{pod} (successful read "
+                      f"dates: {'; '.join(a + ': ' + ', '.join(d) for a, d in dates.items())})"),
+            retrieval="internal", read_on=read_on))
     # ENG-SUPPLY-FEED: an arena we already sell in says so; it is never called uncovered.
     shops_word = "watchlist shops" if entry.get("covered") else "uncovered watchlist shops"
     where = (f"the {pod} arena (one we already sell in)" if entry.get("covered")
@@ -222,7 +324,7 @@ def answer(db, *, gap_id: int, task_id: int, pod: str, now: datetime | None = No
                    f"each had at least {MIN_LISTINGS_FOR_ARENA} live (not withdrawn) listings "
                    f"in {where}: {per_shop}."))
     f_durable = research.add_finding(
-        db, task_id, claim_class="fact", rests_on=[s_series], confidence="high",
+        db, task_id, claim_class="fact", rests_on=series_refs, confidence="high",
         statement=(f"At least {MIN_SHOPS_FOR_ARENA} {shops_word} each "
                    f"corroborated the {pod} arena on {days} or more distinct observation dates "
                    f"in the last {DURABILITY_WINDOW_DAYS} days: "

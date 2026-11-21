@@ -4469,3 +4469,7 @@ instructions.
 ## D-OWNER-DEPLOY-19h12 — 2026-11-21T18:34:12Z
 
 Batch 19h12 (code 093bb69a1) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 5188badb0006ca0030925523ec23162d0510ac7b was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-DEPLOY-19h13 — 2026-11-21T19:50:19Z
+
+Batch 19h13 (code d3edf96bc) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to f860904d16a7f8716ebf3b0b9e09c7e3d7bdecc8 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
