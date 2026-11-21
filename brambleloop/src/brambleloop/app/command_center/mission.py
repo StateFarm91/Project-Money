@@ -202,6 +202,18 @@ def view(db, *, now: datetime | None = None) -> dict:
     except Exception as exc:  # noqa: BLE001
         queue = {"eligible": None, "never_bulk": None,
                  "why": f"owner queue unreadable: {type(exc).__name__}", "href": "#/approvals"}
+    # APPROVE-ALL-V2: what "Approve everything I can decide" would act on now (UNKNOWN, never
+    # 0, when unreadable), and the owner-row counts the Approvals view shows.
+    try:
+        from . import approve_everything
+
+        pv2 = approve_everything.preview(db, now=now, include_cards=False)
+        queue.update({"can_decide": pv2["count"],
+                      "owner_rows_open": pv2["counts"]["owner_rows_open"],
+                      "stays_with_reason": pv2["counts"]["stays_with_reason"]})
+    except Exception as exc:  # noqa: BLE001
+        queue.update({"can_decide": None, "owner_rows_open": None,
+                      "can_decide_why": f"unreadable: {type(exc).__name__}"})
     tally = {k: sum(1 for c in conditions if c["verdict"] == k) for k in (PASS, FAIL, UNKNOWN)}
     return {"tab": "MISSION", "read_only": True, "generated_at": now.isoformat(),
             "conditions": conditions, "tally": tally,

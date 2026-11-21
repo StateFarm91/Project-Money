@@ -4032,3 +4032,37 @@ Consequence:
 ## D-OWNER-DEPLOY-19h4 — 2026-11-21T12:19:31Z
 
 Batch 19h4 (code a607a3832) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to dc10a48d5709d99924723a21e10653a49d35df18 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+## D-OWNER-PUBLISH-WITH-RENDERS — 2026-11-21 (owner, relayed in the APPROVE-ALL-V2 brief)
+**Owner, verbatim as relayed:** "Yes publish, and ignore etsy policy… its my risk." This answers the question D-OWNER-NO-SAMPLE put to the owner (paid tester, another channel, or neither).
+What this branch records and does:
+- The open physical-sample cards (`physical_evidence:`, `physical_review:`, `physical_calibration`) close as resolved by this directive: state `withdrawn`, resolution `owner_directed_without_attestation`, `attested: false`, `sample_exists: false` (`app/command_center/approve_everything.py`). They are never closed `satisfied`, so `standing_internal.owner_closed` never reads one as an owner attestation.
+- Nothing claims a sample exists, and no render is presented as a sample photo.
+What it does NOT do (unchanged here, needs its own change if wanted):
+- `SAMPLE_PHOTO_REQUIRED` remains a publication gate in code. Whether the owner's acceptance of the Etsy-policy risk should relax that gate is not decided by this branch. Every grant the bulk press signs is still checked by every gate at its execution boundary.
+- No physical-evidence or child-safety attestation is waived. `physical_size_conflict:` holds still need a physical test.
+## D-APPROVE-ALL-V2 — "Approve everything I can decide (N)" (APPROVE-ALL-V2, 2026-11-21; owner request)
+**Owner:** "Approve all eligible (0)" over 98 open cards. "I approve every single one… Approve them all, whatever it takes." Asked for a button that actually works.
+**Rule (`app/command_center/approve_everything.py`, `GET/POST /api/cc/approve-everything`).** Needs:
+- the existing owner session (passphrase + TOTP login) plus CSRF and a nonce;
+- a FRESH step-up (passphrase + TOTP; the UI always asks for it; the press spends it via `auth.consume_stepup`);
+- the preview's digest of the exact list, and `confirm: true`.
+One press writes in ONE database transaction. The existing single-card doors write into that transaction too, so a refusal anywhere rolls every write back:
+- **routine**: the v1 set (D-MC2-APPROVE-ALL), unchanged.
+- **spend above ceiling**: each row approved at its stated `max_cost_cad`, in id order. Approval stops before month-to-date ceiling-governed spend plus the approved amounts would exceed `finance.spend_policy.ceiling_cad()` (CA$100/month). These rows stay open with their reason: over the cap, no stated amount (`max_cost_basis` UNKNOWN), unreadable spend, or a `spend.ceiling.*` raise. The cap is read, never written. Approval spends nothing; each spend path's own guard still runs. Audit: `owner.spend.approved` (amount, cap, headroom after).
+- **owner only**: only decision-type cards this app records, through their own functions: `improve.upgrade:<id>` (`cells.record_owner_approval`) and `improve.league:<id>` (`league.record_owner_decision`). Acts outside this app stay open and are listed as "Do it at <link>": OAuth consent, KYC, legal, banking, external policy attestation, credentials, readings and screenshots. Cards needing a choice or ruling stay too: acceptance ruling, support defect, model selection, storefront proposal, unclassified.
+- **public publishing**: per-release grants are signed through the existing path, exactly as the single-grant door signs them:
+  - inside `owner_grant_keys.owner_request`;
+  - `_require_publication_evidence` for publication;
+  - `publication_authority.approve` / `activation_authority.approve`, with `expected_digest` = the digest of the content the owner previewed.
+  A release named by an open child-safety row is never signed. `first_public_listing:` and `standing_policy.hold:` rows stay open, marked as covered by the grant, and close themselves when the grant is used. Etsy-surface rows go to "do it at Shop Manager". Buyer messages and `phase` keep their own cards.
+- **physical-sample cards**: D-OWNER-PUBLISH-WITH-RENDERS (above).
+**Never in any bulk:**
+- child safety, caught by any of the classifier, the key guard or the row's own text;
+- any attestation that a person physically made, measured or photographed something: the physical key guard, `physical_size_conflict:`.
+Each row is re-routed at the write; a changed class refuses the press.
+**Counts.** The Approvals view, its badge and Mission Control count OwnerAction rows only. Cards that are not OwnerAction rows (executor gates, grant cards, policy reviews) are counted apart as `not_owner_action_rows`. They are folded under "Not owner actions: close through their own doors", so their doors stay reachable.
+**Audit.**
+- Per row: `owner_action.lifecycle` and `owner_action.approve_everything` (batch, bucket, class, step_up, session).
+- Per grant: the sealed ledger row and `owner.grant.approve_everything`.
+- Per press: one `owner_queue.approve_everything` row.
+Reversible: closed rows can be reopened (lifecycle), and grants are revocable until used.

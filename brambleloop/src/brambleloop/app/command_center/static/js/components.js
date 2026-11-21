@@ -266,8 +266,8 @@ export async function stepUpDialog({ totpRequired = false } = {}) {
  * toast. Returns the response body or null when cancelled/refused.
  */
 export async function guardedAction({ title, lines, confirmLabel, danger, requiresStepUp, reasonLabel,
-  reasonRequired, run, success = "Done." }) {
-  const needStepUp = !!requiresStepUp && !stepUpValid();
+  reasonRequired, run, success = "Done.", freshStepUp }) {
+  const needStepUp = !!requiresStepUp && (!!freshStepUp || !stepUpValid());
   const r = await confirmDialog({ title, lines, confirmLabel, danger, stepUp: needStepUp,
     totpRequired: authState().totpRequired, reasonLabel, reasonRequired });
   if (!r.confirmed) { toast("Cancelled. Nothing changed."); return null; }
