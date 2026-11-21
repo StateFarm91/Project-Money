@@ -18,7 +18,10 @@ held row, so the daily retry stays stopped and halt 380 can never close.
   cannot complete after 3 attempts per build.
 - These are never re-armed:
   - parked holds (a real gate refused, e.g. listing.seo_blocked);
-  - `refused_by` and `failed_attempts` (DEAD) holds, which keep their cleared-cause release;
+  - `failed_attempts` (DEAD) holds, and holds refused by anything other than the
+    publication halt (#173) itself, which keep their cleared-cause release. In production
+    all 12 holds were "refused by: halted (#173)", the halt these rows feed. That is the
+    symptom of the rebuild never completing, so a deploy may re-arm through it.
   - any hold whose wording names child safety or the owner;
   - anything when the deploy is unknown.
 - The row stays open and halting. Only a verified rebuild closes it.

@@ -467,7 +467,18 @@ def held_without_own_stage(db, slug: str, detail, *, final_check: int,
 REDEPLOY_REARM_REASON = "attempt_cap_previous_deploy"
 # Hold wording that is never re-armed by a deploy: these are not "the code could not finish
 # the rebuild" holds, and a new build is no evidence they cleared.
-_NEVER_REARM_WORDS = ("child", "safety", "owner", "parked on", "refused by", "went dead")
+_NEVER_REARM_WORDS = ("child safety", "child_safety", "childrens", "children's",
+                      "owner hold", "owner_hold", "parked on", "went dead")
+# The one refusal a deploy may re-arm through: the publication halt (#173) itself. Production
+# 2026-11-21: every one of the 12 holds recorded "refused by: halted (#173): N open
+# publication-halting incident(s)" -- the halt these very rebuild-incomplete rows feed, i.e.
+# the symptom of the rebuild never completing, not an independent cause. Any other refusal
+# (a policy, a gate, a withheld release) keeps the hold.
+_HALT_REFUSAL_PREFIX = "halted (#173)"
+
+
+def _only_halt_refusals(refused) -> bool:
+    return all(str(r).strip().startswith(_HALT_REFUSAL_PREFIX) for r in (refused or []))
 
 
 def held_before_deploy(db, detail):
@@ -481,13 +492,16 @@ def held_before_deploy(db, detail):
     recorded budget per such hold; a hold reached under the running commit stays held, so a
     rebuild that cannot complete still stops after REBUILD_MAX_ATTEMPTS per build.
 
-    Never re-armed: a parked hold (a real gate refused it), a refused or DEAD-attempt hold
-    (`refused_by` / `failed_attempts`, which have their own cleared-cause release), and any
-    hold whose wording names child safety or the owner. An unknown deploy re-arms nothing."""
+    Never re-armed: a parked hold (a real gate refused it), a DEAD-attempt hold
+    (`failed_attempts`), a hold refused by anything other than the publication halt (#173)
+    these rows themselves feed (those keep their cleared-cause release), and any hold whose
+    wording names child safety or an owner hold. An unknown deploy re-arms nothing."""
     d = detail or {}
     if not d.get("held"):
         return None
-    if d.get("parked") or d.get("failed_attempts") or d.get("refused_by"):
+    if d.get("parked") or d.get("failed_attempts"):
+        return None
+    if not _only_halt_refusals(d.get("refused_by")):
         return None
     text = _hold_text(d).lower()
     if any(w in text for w in _NEVER_REARM_WORDS):

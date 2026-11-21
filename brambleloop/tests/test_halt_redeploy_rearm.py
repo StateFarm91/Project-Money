@@ -88,6 +88,26 @@ def test_legacy_hold_without_a_recorded_build_is_rearmed():
         build.identity = real
 
 
+def test_a_hold_refused_only_by_the_publication_halt_is_rearmed():
+    """Production 2026-11-21: all 12 holds were 'refused by: halted (#173)' -- the halt these
+    rows feed. That is the symptom, so a deploy re-arms it; any other refusal does not."""
+    db = _db()
+    real = _running("newsha")
+    try:
+        _boot(db, "newsha", NOW - timedelta(minutes=10))
+        halted = ["halted (#173): 11 open publication-halting incident(s): stale-artefact:x"]
+        with db.session() as s:
+            d = _detail(held=CAP_HELD.replace("no refusal was recorded -- the stage ran and "
+                                              "did not rewrite them",
+                                              "refused by: " + halted[0]),
+                        refused_by=halted, held_commit="oldsha")
+            assert RG.held_before_deploy(s, d) is not None, d
+            mixed = dict(d, refused_by=halted + ["#39 unreviewed policy change"])
+            assert RG.held_before_deploy(s, mixed) is None
+    finally:
+        build.identity = real
+
+
 def test_hold_under_the_running_build_stands():
     db = _db()
     real = _running("newsha")
