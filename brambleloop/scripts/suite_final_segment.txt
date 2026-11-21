@@ -292,3 +292,7 @@ tests/test_eng_vis_identity.py
 tests/test_eng_demand_supply.py
 tests/test_eng_autocoder.py
 tests/test_autopromote.py
+tests/test_clothing_e2e.py
+tests/test_eng_animals.py
+tests/test_image_ad.py
+tests/test_image_e2e_worker.py
