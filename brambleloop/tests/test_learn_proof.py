@@ -604,40 +604,38 @@ def _joined_friend():
 
 
 def test_the_techniques_appendix_explains_joining_as_you_go_once_learned():
-    """MM-L2: a piece crocheted into a stated round gets a 'Joining as you go' entry."""
+    """MM-L2: a piece crocheted into a stated round. Both layouts print a 'Joining as you
+    go' entry for it (whatever the snapshot, so bytes never depend on the process); the
+    stored lesson makes the standard require it. Same document text before and after."""
+    import fixture_amigurumi as F
+
+    from brambleloop.cir.compiler import compile_cir
+    from brambleloop.cir.twin import build_twin
     from brambleloop.publish import technique_appendix as TA
 
     cir = _joined_friend()
     assert B.join_as_you_go_seams(cir)
-    off = [e.name for e in TA.entries(cir, "US", lessons=frozenset())]
-    on = [e.name for e in TA.entries(cir, "US", lessons=frozenset({B.PDF_JOIN_AS_YOU_GO}))]
-    assert "Joining as you go" not in off and "Joining as you go" in on, on
-    assert set(off) < set(on)
-    # A fully sewn toy is not given the entry.
-    import fixture_amigurumi as F
-
-    sewn = [e.name for e in TA.entries(F.pebble_friend(), "US",
-                                       lessons=frozenset({B.PDF_JOIN_AS_YOU_GO}))]
-    assert "Joining as you go" not in sewn
-    # The audit: the same document text (rendered without the lesson) passes the base
-    # standard and is refused by the learned one, for both rules that read the appendix.
-    from brambleloop.cir.compiler import compile_cir
-    from brambleloop.cir.twin import build_twin
-
+    assert "Joining as you go" in [e.name for e in TA.entries(cir, "US")]
+    assert "Joining as you go" not in [e.name for e in TA.entries(F.pebble_friend(), "US")]
     result = compile_cir(cir)
     twin = build_twin(cir, result)
     name, how = TA.JOIN_AS_YOU_GO_HOW
-    text = (f"{TA.HEADING} " + " ".join(f"{e.name} {e.how}" for e in TA.entries(
-        cir, "US", lessons=frozenset())))
+    full = f"{TA.HEADING} " + " ".join(f"{e.name} {e.how}" for e in TA.entries(cir, "US"))
+    stripped = full.replace(name, "").replace(" ".join(how.split())[:60], "")
     before_ctx = S.context(cir, twin, result, "US", childrens=True, lessons=frozenset())
     after_ctx = S.context(cir, twin, result, "US", childrens=True,
                           lessons=frozenset({B.PDF_JOIN_AS_YOU_GO}))
-    assert "techniques_appendix" not in S.audit_text(text, before_ctx).failures
-    a = S.audit_text(text, after_ctx)
-    assert "join_as_you_go" in a.required and "join_as_you_go" in a.failures, a.failures
-    with_entry = text + f" {name} {how}"
-    a2 = S.audit_text(with_entry, after_ctx)
-    assert "join_as_you_go" not in a2.failures and "techniques_appendix" not in a2.failures
+    assert "join_as_you_go" not in S.audit_text(full, before_ctx).required
+    a = S.audit_text(full, after_ctx)
+    assert "join_as_you_go" in a.required and "join_as_you_go" not in a.failures, a.failures
+    assert "join_as_you_go" not in S.audit_text(stripped, before_ctx).failures
+    assert "join_as_you_go" in S.audit_text(stripped, after_ctx).failures
+    # A fully sewn toy is not asked for it.
+    sewn = F.pebble_friend()
+    r2 = compile_cir(sewn)
+    ctx2 = S.context(sewn, build_twin(sewn, r2), r2, "US", childrens=True,
+                     lessons=frozenset({B.PDF_JOIN_AS_YOU_GO}))
+    assert "join_as_you_go" not in S.audit_text(full, ctx2).required
 
 
 def test_the_delivered_file_must_be_the_pdf_itself_never_a_link_page():

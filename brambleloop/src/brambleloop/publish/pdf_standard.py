@@ -654,7 +654,7 @@ def _techniques_appendix(text, ctx):
     from . import technique_appendix as TA
 
     try:
-        entries = TA.entries(ctx.cir, ctx.terminology, lessons=ctx.lessons)
+        entries = TA.entries(ctx.cir, ctx.terminology)
     except TA.AppendixIncomplete as e:
         return [f"the techniques appendix cannot be generated from the CIR: {e}"]
     i = _find(text, TA.HEADING)
