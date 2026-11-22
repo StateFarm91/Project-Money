@@ -208,14 +208,29 @@ def spent_this_month_cad(db, *, now: datetime | None = None) -> float:
     It read only `routing.COST_KIND` rows, so image renders -- which the policy puts inside this same
     CA$ month -- were invisible to it (RC1 audit B2).
     """
-    from sqlalchemy import select
+    from sqlalchemy import and_, or_, select
 
     from ..core.models import CostEntry
     from . import routing
 
     now = now or datetime.now(timezone.utc)
+    # Audit F-06: this runs on every budget decision, inside the budget lock, and it read
+    # every ledger row ever written. The SQL window below is a strict SUPERSET of the month:
+    # one day of margin either side covers any storage/session timezone (SQLite keeps the
+    # naive wall clock; Postgres returns timestamptz in the session zone, at most +/-15h from
+    # UTC). The (year, month) rule below is unchanged and still decides membership, so which
+    # rows count -- and which invalid amounts refuse -- is exactly what it was. A NULL `at` is
+    # still fetched and still fails on `.tzinfo` as before. `ORDER BY id` keeps the summation
+    # order the old full table scan gave.
+    month_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+    next_month = datetime(now.year + (now.month == 12), now.month % 12 + 1, 1, tzinfo=timezone.utc)
+    window = and_(CostEntry.at >= month_start - timedelta(days=1),
+                  CostEntry.at < next_month + timedelta(days=1))
     with db.session() as s:
-        rows = list(s.scalars(select(CostEntry).where(routing.ceiling_kind_filter())))
+        rows = list(s.execute(
+            select(CostEntry.at, CostEntry.amount_cad)
+            .where(routing.ceiling_kind_filter(), or_(CostEntry.at.is_(None), window))
+            .order_by(CostEntry.id)))
     total = 0.0
     for row in rows:
         at = row.at if row.at.tzinfo else row.at.replace(tzinfo=timezone.utc)
