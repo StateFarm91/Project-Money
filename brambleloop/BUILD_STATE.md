@@ -7,7 +7,9 @@
 > (`release._outcome_price`): an on-sale row is read at its effective price or left out, never at its strike price.
 > MM-L6 now earns the no/low-sew tag in `seo.proposals` for a multi-piece amigurumi that really is no/low sew. Every
 > run now records relevance apart from application, and the readback's `why_zero` says which kind of zero it is.
-> Tests: `tests/test_learning_apply.py` (12). Report: `LEARNING-APPLY.md` at the repo root.
+> Tests: `tests/test_learning_apply.py` (12). 26 related suites: 370 passing; the only failure left after pinning
+> the venv is pre-existing (`test_eng_daily` retention.unknown_read_actions, identical on the base). Full suite not
+> run. Report: `LEARNING-APPLY.md` at the repo root.
 > **2026-11-21 — BATCH19D-SALE2 on `claude/batch19d-sale2` (batch19d 76d0525 + `w6-release-19d1` 7b250d61 +
 > `w6-release-19h1`, production 1bb7c4f5, merged at 80bc28b with halt-380/H3/H4 and every boot step kept. Run
 > 20261121T082202Z-785 @ 80bc28b, clean tree, 27 suites: 326 passing, 2 suites failing, the same pre-existing two

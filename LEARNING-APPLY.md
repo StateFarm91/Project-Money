@@ -75,4 +75,12 @@ The note → flush → `record` mechanism works. The quality department's 22 MM-
 - **PDF:** an amigurumi applies MM-L4; a catalogue blanket does not ("no relevant product"); no Launch-0 product is relevant.
 - **Creative assets:** hand scale applies to a toy campaign and not to a blanket.
 
-Suite results are in the commit message for this file's commit and in `BUILD_STATE.md`.
+## Suite results (commit a6c01f7, clean tree)
+
+**Run 20261122T002403Z-1082: 26 related suites, including `test_vacuity.py`, `test_learn_proof.py` and `test_learning_apply.py`.** Result: 370 passing, 4 suites failing.
+
+- **Three of the failures came from my local environment:** the venv had an unpinned starlette that wants `httpx2`. These were `test_cert_mjs`, `test_cert_wiring` and `test_fb4_lc`.
+- **Rerun with the lockfile's pinned versions** (`test_cert_mjs`, `test_cert_wiring`, `test_eng_daily`, `test_fb4_lc`, `test_ws2_r1_competitor_scans`): 91 passing, 1 suite failing.
+- **The one remaining failure is pre-existing:** `test_eng_daily::test_the_job_is_wired_free_and_records_the_ledger` asserts `retention.unknown_read_actions() == []`. It returns the same five entries on the base `origin/claude/w6-release-19h17`, checked in a separate worktree. This change adds no audit action. It is not fixed here.
+
+The full suite was not run.
