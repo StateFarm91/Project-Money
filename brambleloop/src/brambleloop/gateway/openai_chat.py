@@ -37,6 +37,25 @@ from .model_gateway import ModelResponse
 NAME = "openai"
 CHAT_URL = "https://api.openai.com/v1/chat/completions"
 KEY_VAR = "OPENAI_API_KEY"
+# KEYS-19i4: the same OpenAI account's key is held on Railway as the image provider's
+# per-account variable (`gateway.images.key_var("openai")`). One account, one secret: the chat
+# and vision calls read it when OPENAI_API_KEY itself is absent, so the owner never has to copy
+# a secret into a second variable (a copy is a secret that gets rotated in only one place).
+FALLBACK_KEY_VARS = ("BRAMBLELOOP_IMAGE_KEY_OPENAI",)
+
+
+def api_key(env=None) -> str:
+    """This account's OpenAI key, or empty. Never logged; callers report presence only."""
+    e = env if env is not None else os.environ
+    for var in (KEY_VAR, *FALLBACK_KEY_VARS):
+        v = (e.get(var) or "").strip()
+        if v:
+            return v
+    return ""
+
+
+def key_present(env=None) -> bool:
+    return bool(api_key(env))
 TIMEOUT_SECONDS = 60.0
 VISION_TIMEOUT_SECONDS = 120.0
 MAX_IMAGES_PER_CALL = 4
@@ -199,7 +218,7 @@ class OpenAIProvider:
 
     @staticmethod
     def key() -> str:
-        return (os.environ.get(KEY_VAR) or "").strip()
+        return api_key()
 
     # ---- requests --------------------------------------------------------------------------
 

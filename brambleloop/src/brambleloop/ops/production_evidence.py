@@ -491,12 +491,70 @@ _DECLINE_CLASSES = (("paidcallrefused", "gate_refused"), ("budgetexceeded", "bud
                     ("timeout", "timeout"), ("timed out", "timeout"))
 
 
+# KEYS-19i4: a declined render's HTTP status and the provider's own reason, as fixed codes. The
+# 52 production declines all read "auth" (a 401/403 somewhere in the text); which part refused
+# (bad format, rejected key, no access to the model, credit) decides the fix.
+_DECLINE_DETAILS = (("invalid api key format", "key_format"), ("not authenticated", "not_authenticated"),
+                    ("invalid authentication", "key_rejected"), ("invalid api key", "key_rejected"),
+                    ("insufficient", "credit"), ("credits", "credit"),
+                    ("permission", "no_model_access"), ("not enabled", "no_model_access"),
+                    ("not available", "no_model_access"), ("access", "no_model_access"),
+                    ("moderat", "content"), ("forbidden", "forbidden"))
+
+
+def _decline_http(error: str) -> str:
+    import re
+
+    m = re.search(r"\b([1-5]\d\d): ", error or "")
+    return m.group(1) if m else "none"
+
+
+def _decline_detail(error: str) -> str:
+    e = (error or "").lower()
+    for needle, cls in _DECLINE_DETAILS:
+        if needle in e:
+            return cls
+    return "other"
+
+
 def _decline_class(error: str) -> str:
     e = (error or "").lower()
     for needle, cls in _DECLINE_CLASSES:
         if needle in e:
             return cls
     return "other"
+
+
+def _credential_health(db) -> dict:
+    """KEYS-19i4: the latest free credential reading per provider (fixed statuses, the HTTP
+    status and its time only; never a key, a fingerprint or the provider's text)."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+    from ..gateway import credentials as C
+
+    out: dict = {}
+    with db.session() as s:
+        for prov in ("bfl", "anthropic", "venice"):
+            row = s.execute(select(AuditLog.at, AuditLog.detail).where(
+                AuditLog.action == C.ACTION, AuditLog.artifact == prov)
+                .order_by(desc(AuditLog.id)).limit(1)).first()
+            if row is None:
+                out[prov] = {"status": "UNREAD"}
+                continue
+            d = row[1] or {}
+            st = str(d.get("status") or "")
+            hs = d.get("http_status")
+            out[prov] = {"status": st if st in C.STATUSES else "other",
+                         "http_status": int(hs) if isinstance(hs, int) else None,
+                         "at": _aware(row[0]).isoformat() if row[0] else None}
+    return out
+
+
+def _openai_key_present() -> bool:
+    from ..gateway.openai_chat import key_present
+
+    return bool(key_present())
 
 
 def _paid_refusals(db, *, now: datetime, since: datetime) -> dict:
@@ -527,6 +585,9 @@ def _paid_refusals(db, *, now: datetime, since: datetime) -> dict:
                 row = out["declined_by_provider_class"].setdefault(prov, {})
                 cls = _decline_class(err)
                 row[cls] = row.get(cls, 0) + 1
+                det = out.setdefault("declined_by_provider_http_detail", {}).setdefault(prov, {})
+                k = f"{_decline_http(err)}:{_decline_detail(err)}"
+                det[k] = det.get(k, 0) + 1
             day0 = now.replace(hour=0, minute=0, second=0, microsecond=0)
             for (prov, scope) in sorted(OD.ACTIVATIONS):
                 st = G.activation_state(db, prov, scope, now=now)
@@ -557,6 +618,7 @@ def _paid_refusals(db, *, now: datetime, since: datetime) -> dict:
                 AuditLog.action == "creative.regate").order_by(AuditLog.id.desc())
                 .limit(1)).first()
         reg = ((last[1] or {}).get("regated") or {}) if last else {}
+        out["credential_health"] = _credential_health(db)
         from ..creative import concept_judge as CJ
 
         vendor, _p = CJ.choose(db)
@@ -567,7 +629,7 @@ def _paid_refusals(db, *, now: datetime, since: datetime) -> dict:
             "last_regate_radar_held": len(reg.get("radar_held") or []),
             "route_now": vendor or "none",
             "openai_route_usable": bool(CJ.openai_vision_usable(db, now=now)),
-            "openai_key_present": bool(os.environ.get("OPENAI_API_KEY"))}
+            "openai_key_present": _openai_key_present()}
     except Exception as exc:  # noqa: BLE001 - visibility never breaks the readback
         out["refusals_error"] = type(exc).__name__
     return out

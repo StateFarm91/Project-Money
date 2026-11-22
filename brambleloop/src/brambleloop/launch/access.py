@@ -317,7 +317,8 @@ def _model_env(env: dict[str, str] | None = None) -> dict[str, str]:
     """
     e = dict(env if env is not None else os.environ)
     present = any((e.get(v) or "").strip()
-                  for v in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "BRAMBLELOOP_MODEL_KEY"))
+                  for v in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "BRAMBLELOOP_MODEL_KEY",
+                            "BRAMBLELOOP_IMAGE_KEY_OPENAI"))
     e["BRAMBLELOOP_MODEL_KEY_PRESENT"] = "1" if present else ""
     return e
 
