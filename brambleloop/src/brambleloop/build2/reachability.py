@@ -499,8 +499,12 @@ class _Analysis:
                 self._queue.append((mod, f"<expr:{id(v)}>", "full", why))
 
     def _rescan_methods(self) -> None:
-        for key in list(self.live):
-            _yield_to_requests()
+        # This loop runs once per visit over every live key (~2e8 iterations a full walk), so
+        # the F-11 yield is offered once per _RESCAN_YIELD_EVERY keys, not per key: the same
+        # cadence page_cache's own counter gave, without a call per iteration.
+        for i, key in enumerate(list(self.live)):
+            if not i % _RESCAN_YIELD_EVERY:
+                _yield_to_requests(every=1)
             mod, qual = key
             t = self.mods[mod]
             if qual not in t.classes:
@@ -753,14 +757,25 @@ class _Analysis:
                        + (f"; imported by {imported_by[0]}" if imported_by else "")), []
 
 
-def _yield_to_requests() -> None:
+_RESCAN_YIELD_EVERY = 200   # page_cache.yield_to_requests' default `every`
+_YIELD_FN: list = []       # resolved once: [function] or [None] when there is no web app
+
+
+def _yield_to_requests(every: int = 200) -> None:
     """eng/mc-perf (F-11): this walk is pure-Python CPU and runs on a background thread of
-    the web process; hand the GIL to a request being served. Timing only."""
-    try:
-        from ..app.command_center.page_cache import yield_to_requests
-    except Exception:  # noqa: BLE001 - no web app in this process: nothing to yield to
-        return
-    yield_to_requests()
+    the web process; hand the GIL to a request being served. Timing only.
+
+    The import is resolved once. Re-importing on every call cost more than the walk itself
+    (cert_wiring: ops.maturity_disagreements took 560-930 s against about 80 s before)."""
+    if not _YIELD_FN:
+        try:
+            from ..app.command_center.page_cache import yield_to_requests
+        except Exception:  # noqa: BLE001 - no web app in this process: nothing to yield to
+            yield_to_requests = None
+        _YIELD_FN.append(yield_to_requests)
+    fn = _YIELD_FN[0]
+    if fn is not None:
+        fn(every)
 
 
 @lru_cache(maxsize=2)
