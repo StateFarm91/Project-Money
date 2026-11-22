@@ -4716,3 +4716,7 @@ Asked whether sizes may come from gauge maths instead of a physical sample, the 
 - "Class C requires physical testing that does not exist yet" and UNCALIBRATED_PRIMITIVE (e.g. heirloom-cable-blanket@1.2.0: 'bpdc', 'cable2x2', 'fpdc') no longer block. Sizes are computed from standard gauge and stitch-dimension maths, with documented, conservative published defaults per primitive, recorded as standard-gauge defaults and never as sample-calibrated.
 - The listing and the PDF state that sizes are calculated from standard gauge. Nothing claims a sample was tested or physically made.
 - Deterministic pattern validation must still pass; it is unchanged.
+
+## D-OWNER-DEPLOY-19i17 — 2026-11-22T19:58:51Z
+
+Batch 19i17 (code 9bb44cdaf) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to 9c18ab5e0e3cf7e0a5abd1d798364e8381468365 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
