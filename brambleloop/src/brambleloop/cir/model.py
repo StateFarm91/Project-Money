@@ -71,10 +71,19 @@ class Op:
     # against the compiled rounds and the twin. None (the default) is omitted from `to_dict`,
     # so no existing CIR's digest moves.
     joins: str | None = None
+    # D2 (catalogue unblock, 2026-11-22): a drop-down stitch, the primitive overlay mosaic is
+    # defined by. The op's stitches are worked into the stitches `below` rows down (2 = over
+    # the previous row, into the row before it), covering the rows in between; the stitch of
+    # the row below that each one stands in front of is skipped, so the op stays count-neutral
+    # (one consumed, one made). None (the default) is the ordinary row below and is omitted
+    # from `to_dict`, so no existing CIR's digest moves.
+    below: int | None = None
 
     def __post_init__(self) -> None:
         if self.count < 1:
             raise ValueError(f"op count must be >= 1, got {self.count}")
+        if self.below is not None and (not isinstance(self.below, int) or self.below < 2):
+            raise ValueError(f"a drop-down op works at least 2 rows below, got {self.below!r}")
         stitches.get(self.stitch)  # validate eagerly
 
     @property
@@ -138,6 +147,8 @@ def _drop_null_op_colour(nodes: list) -> None:
                 node.pop("color", None)
             if node.get("joins") is None:
                 node.pop("joins", None)
+            if node.get("below") is None:
+                node.pop("below", None)
         else:
             _drop_null_op_colour(node.get("ops", []))
 
@@ -832,7 +843,8 @@ class CIR:
             if "stitch" in x:
                 return Op(stitch=x["stitch"], count=x.get("count", 1), note=x.get("note"),
                           loop=x.get("loop", "both"), spans=x.get("spans", 0),
-                          color=x.get("color"), joins=x.get("joins"))
+                          color=x.get("color"), joins=x.get("joins"),
+                          below=x.get("below"))
             return Repeat(
                 ops=[node(o) for o in x["ops"]], times=x.get("times"), note=x.get("note")
             )

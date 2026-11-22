@@ -362,6 +362,21 @@ def compile_component(comp: Component, cir: CIR, findings: list[Finding]) -> lis
                     comp.name, row.index))
         # OPUS2H H2-3: a colour on an op that makes no stitch (a skip) is a modelling error.
         for op in _ops_flat(row.ops):
+            # D2: a drop-down must land on fabric that exists: `below` rows under this one,
+            # inside this component, and it must be a stitch (a chain or skip cannot drop).
+            drop = getattr(op, "below", None)
+            if drop:
+                if stitches.get(op.stitch).produces == 0 or op.stitch == "ch":
+                    findings.append(Finding(
+                        ERROR, "DROP_ON_NON_STITCH",
+                        f"{op.stitch} is not a stitch that can be dropped {drop} rows down",
+                        comp.name, row.index))
+                elif row.index - drop < min(r.index for r in comp.rows):
+                    findings.append(Finding(
+                        ERROR, "DROP_BELOW_FABRIC",
+                        f"{op.stitch} dropped {drop} rows down from row {row.index} lands "
+                        f"below the first row of {comp.name}",
+                        comp.name, row.index))
             if getattr(op, "color", None) and stitches.get(op.stitch).produces == 0:
                 findings.append(Finding(
                     ERROR, "COLOUR_ON_NON_STITCH",

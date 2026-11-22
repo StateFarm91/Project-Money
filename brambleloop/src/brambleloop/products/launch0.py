@@ -461,13 +461,96 @@ def colourwork_motif(grid) -> dict:
             "min_contrast_run": min(runs) if runs else 0}
 
 
+# D2 (catalogue unblock, 2026-11-22): overlay mosaic is worked ONE colour per row, so "two
+# colours in a row" is the wrong test for it. It is defined by drop-down stitches (`Op.below`)
+# worked over the rows beneath into a row of their own colour, covering the other colour.
+# `mosaic_structure` measures that from the CIR; the thresholds reuse the motif rule's
+# (COLOURWORK_MIN_ROWS rows, COLOURWORK_MIN_ROW_SHARE of all rows), a stated design rule.
+_MOSAIC_CLAIMS = ("mosaic", "overlay")
+
+
+def _flat_ops(nodes):
+    for node in nodes:
+        if isinstance(node, Op):
+            yield node
+        else:
+            yield from _flat_ops(getattr(node, "ops", ()) or ())
+
+
+def mosaic_structure(cir) -> dict:
+    """Whether the CIR works overlay mosaic, measured from its rows (not its words).
+
+    A drop-down row counts when it has at least one op with `below`, every op in it is the
+    row's own colour (mosaic is one colour per row), the row it lands on is that colour, and
+    at least one row it covers is another colour -- a drop-down over its own colour is a
+    relief, not mosaic.
+    """
+    rows_total = 0
+    drop_rows = 0
+    bad: list[str] = []
+    colours: set[str] = set()
+    for comp in getattr(cir, "components", None) or ():
+        by_index = {r.index: r for r in comp.rows}
+        for row in comp.rows:
+            rows_total += 1
+            if row.color:
+                colours.add(row.color)
+            ops = list(_flat_ops(row.ops))
+            drops = [o for o in ops if getattr(o, "below", None)]
+            if not drops:
+                continue
+            where = f"{comp.name} row {row.index}"
+            if not row.color:
+                bad.append(f"{where}: drop-downs in a row with no stated colour")
+                continue
+            if any(o.color and o.color != row.color for o in ops):
+                bad.append(f"{where}: two colours in one row is not mosaic")
+                continue
+            ok = True
+            for o in drops:
+                landing = by_index.get(row.index - o.below)
+                covered = [by_index.get(i) for i in range(row.index - o.below + 1, row.index)]
+                if landing is None or landing.color != row.color:
+                    bad.append(f"{where}: a drop-down lands on a row of another colour")
+                    ok = False
+                    break
+                if not any(c is not None and c.color and c.color != row.color
+                           for c in covered):
+                    bad.append(f"{where}: a drop-down covers only its own colour (a relief)")
+                    ok = False
+                    break
+            if ok:
+                drop_rows += 1
+    share = round(drop_rows / rows_total, 3) if rows_total else 0.0
+    backed = (len(colours) >= 2 and drop_rows >= COLOURWORK_MIN_ROWS
+              and share >= COLOURWORK_MIN_ROW_SHARE)
+    return {"rows": rows_total, "drop_down_rows": drop_rows, "drop_down_row_share": share,
+            "row_colours": sorted(colours), "problems": bad[:5], "backed": backed}
+
+
 def technique_backed(claim: str, motif: dict) -> tuple[bool, str]:
-    """(backed, why) for one colourwork technique claim against the measured motif."""
+    """(backed, why) for one colourwork technique claim against the measured motif.
+
+    `motif` may carry `mosaic` (`mosaic_structure(cir)`); without it a mosaic claim is
+    refused, because the drop-down structure has not been measured.
+    """
+    if claim in _MOSAIC_CLAIMS:
+        m = motif.get("mosaic")
+        if m is None:
+            return False, ("needs drop-down stitches over earlier rows (overlay mosaic); the "
+                           "CIR's drop-down structure was not measured")
+        if m["backed"]:
+            return True, (f"{m['drop_down_rows']} of {m['rows']} rows drop down over the "
+                          f"other colour, one colour per row ({', '.join(m['row_colours'])})")
+        return False, (f"overlay mosaic needs drop-down stitches over the other colour in >= "
+                       f"{COLOURWORK_MIN_ROWS} rows and >= {COLOURWORK_MIN_ROW_SHARE:.0%} of "
+                       f"rows, with >= 2 row colours; the CIR has {m['drop_down_rows']} of "
+                       f"{m['rows']} rows and colours {m['row_colours']}"
+                       + (f" ({'; '.join(m['problems'][:2])})" if m["problems"] else ""))
     if claim in _NEEDS_REACH_DOWN:
-        if per_stitch_reach_down_expressible():
-            return False, "reach-down is expressible but no rule judges it yet"
-        return False, ("needs stitches that reach past the previous row, which no CIR can "
-                       "express (per-stitch colour alone is not mosaic)")
+        # graphghan: a pixel picture (C2C or charted sc with bobbins), not modelled.
+        return False, ("a pixel picture (graphghan) needs corner-to-corner tiles or bobbins, "
+                       "which the CIR does not model")
     if claim in _NEEDS_BOBBINS:
         return False, "needs separate colour blocks with no carried strand, not modelled"
     if claim == "two colours":
@@ -516,7 +599,7 @@ def fabric_truth(cir: CIR, twin) -> dict:
 
     text = f"{cir.title} {cir.designer_notes or ''}".lower()
     claims = colourwork_claims(text)
-    motif = colourwork_motif(grid)
+    motif = {**colourwork_motif(grid), "mosaic": mosaic_structure(cir)}
     verdicts = {c: technique_backed(c, motif) for c in claims}
     backed = (not claims) or all(ok for ok, _why in verdicts.values())
     return {

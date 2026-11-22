@@ -21,6 +21,8 @@ def _term(code: str, terminology: str) -> str:
 
 
 JOIN_PHRASE = "through both layers of the"
+# D2: a drop-down (overlay mosaic) stitch, in a fixed grammar the reverse compiler reads.
+DROP_PHRASE = "dropped {n} rows down"
 
 
 def write_op(op: Op, terminology: str = "US") -> str:
@@ -30,6 +32,9 @@ def write_op(op: Op, terminology: str = "US") -> str:
     if joins:
         # ENG-AMIGURUMI-BREADTH: a low-sew join, in a fixed grammar the reverse compiler reads.
         text += f" {JOIN_PHRASE} {joins}"
+    below = getattr(op, "below", None)
+    if below:
+        text += " " + DROP_PHRASE.format(n=below)
     colour = getattr(op, "color", None)
     return f"{text} with {colour}" if colour else text
 
