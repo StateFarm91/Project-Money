@@ -259,9 +259,17 @@ def publishing_halt(db, *, now: datetime) -> dict:
             "incident_id": last_resolved.id, "opened_at": _iso(last_resolved.at),
             "resolved_at": (last_resolved.detail or {}).get("resolved_at")}
         families: dict[str, set] = {}
+        # Audit F-02: an open halting incident bound to NO product (e.g. the boot guard's
+        # `release.unproven_build`) halts the company, not one product. It used to land in
+        # the per-product families with `products: 0` and leave the verdict untouched.
+        # Counted here by detector family only (never the signature, summary or detail).
+        global_families: dict[str, int] = {}
         for i in halting:
             if i.signature == SYSTEMIC_SIGNATURE:
                 continue
+            if not i.product_slug:
+                fam = kind_of(i.signature or "")
+                global_families[fam] = global_families.get(fam, 0) + 1
             families.setdefault(kind_of(i.signature), set()).add(i.product_slug or "")
     reading_ok = isinstance(systemic_reading, dict) and "error" not in systemic_reading
     halted = halted_releases(db)
@@ -280,6 +288,8 @@ def publishing_halt(db, *, now: datetime) -> dict:
             fam: {"products": len({x for x in slugs if x}),
                   "slugs": sorted(x for x in slugs if x)[:SLUGS_PER_STAGE]}
             for fam, slugs in sorted(families.items())},
+        "global_halting_open": sum(global_families.values()),
+        "global_halting_by_family": dict(sorted(global_families.items())),
         "stale_artefact_family": SENTINEL_SIGNATURE,
         "halted_certifications": len(halted),
         "halted_certification_artefacts": [h["artifact"] for h in halted][:SLUGS_PER_STAGE],
@@ -1250,9 +1260,20 @@ def first_listing_readiness(db, *, now: datetime) -> dict:
             # reason text, no ids of grants).
             "section_diagnostics": _section_diagnostics(ev),
         })
+    # Audit F-02: `draft_candidate` describes the release; whether the runtime would accept
+    # the draft NOW is a separate reading (phase, boot guard, company-wide halting incident).
+    path = publication_path(db, now=now)
+    refusal = path["refusal_reasons"]
+    for r in releases:
+        r["runtime_refuses_draft_now"] = bool(refusal)
+        r["runtime_refusal_reasons"] = list(refusal)
     return {"readable": True, "launch0_slugs": list(LAUNCH0_SLUGS),
             "certified_with_listing": len(releases),
             "draft_candidates": [r["release"] for r in releases if r["draft_candidate"]],
+            "runtime_refuses_draft_now": bool(refusal),
+            "runtime_refusal_reasons": list(refusal),
+            "draft_candidates_actionable_now": [r["release"] for r in releases
+                                                if r["draft_candidate"] and not refusal],
             "releases": releases[:30]}
 
 
@@ -1823,6 +1844,130 @@ def motif_backlog_recovery(db, *, now: datetime) -> dict:
             "recheck_spend_cad": rep.get("recheck_spend_cad")}
 
 
+# ---- runtime phase and the publication path (audit F-02) --------------------------------
+#
+# The readback could say the publishing halt was clear and a release was a draft candidate
+# while every `store.publish` would be refused: on an unproven hosted build the boot guard
+# forces SHADOW (`ops.release_record.apply_at_import`), and in SHADOW `store.publish` raises
+# before any Etsy request, a private draft included. No section named the phase at all.
+#
+# Emitted: fixed phase vocabulary (`core.phase.ORDER`), booleans, the boot guard's fixed
+# action word and a COUNT of its reasons (its reason strings interpolate paths and digests,
+# so none is emitted), and the fixed refusal codes below. Never the raw environment value.
+
+PHASE_UNPARSEABLE = "unparseable"
+PHASE_UNVERIFIABLE = "unverifiable"
+_BOOT_ACTIONS = ("none", "forced_shadow")
+#: The fixed refusal vocabulary, in the order the runtime meets them.
+REFUSAL_CODES = ("runtime_phase_unreadable", "boot_guard_not_run", "boot_guard_unproven_build",
+                 "shadow_phase", "phase_forbids_publication", "global_halting_incident",
+                 "publishing_halt_unreadable")
+
+
+def phase_permits_publication(phase) -> bool:
+    """The phase half of what `store.publish` enforces before any Etsy request.
+
+    `handle_store_publish` refuses SHADOW first (`ShadowModeRefusal`), and past it the client
+    refuses every phase outside `integrations.etsy.PHASES_THAT_MAY_PUBLISH`
+    (`EtsyClient.refusal`, also re-checked by `_revalidate_publish_effect`). The release's
+    private draft (createDraftListing) comes after both, so it needs the same phase."""
+    from ..integrations.etsy import PHASES_THAT_MAY_PUBLISH
+
+    return phase in PHASES_THAT_MAY_PUBLISH
+
+
+def runtime_phase(db, *, now: datetime) -> dict:
+    """The effective runtime phase and the boot guard verdict, read-only (no incident written).
+
+    `effective_phase` is `core.phase.effective(..., record_incident=False)` -- the reading
+    `runtime.worker.protected_phase` resolves at every effect boundary (a worker started in
+    a lower phase is lower still, never higher). `private_draft_possible` and
+    `publication_possible` cover the release-publication path (`store.publish`) only, and
+    only its phase and boot-guard conditions: credentials and the owner's sealed grant are
+    separate gates not read here, so True means "not refused by the phase", never "will
+    publish"."""
+    from ..core import phase as P
+    from . import release_record as RR
+
+    eff = P.effective(db, record_incident=False)
+    eff = eff if eff in P.ORDER else P.DEFAULT
+    r = P.resolve(db)
+    env_phase = r.get("env_phase") if r.get("env_phase") in P.ORDER else PHASE_UNPARSEABLE
+    rec = r.get("record") or {}
+    recorded = (r.get("recorded_phase") if r.get("recorded_phase") in P.ORDER
+                else PHASE_UNVERIFIABLE)
+    boot = dict(RR.BOOT or {})
+    if boot:
+        action = boot.get("action") if boot.get("action") in _BOOT_ACTIONS else "other"
+        guard = {"ran": True, "enforced": bool(boot.get("enforced")),
+                 "ok": boot.get("ok") is True, "action": action,
+                 "reason_count": len(boot.get("reasons") or []),
+                 "record_present": bool(boot.get("record"))}
+        guard["ok_or_not_enforced"] = bool(guard["ok"] or not guard["enforced"])
+    else:
+        guard = {"ran": False, "enforced": None, "ok": None, "action": None,
+                 "reason_count": None, "record_present": None, "ok_or_not_enforced": False}
+    phase_ok = phase_permits_publication(eff)
+    return {"readable": True, "effective_phase": eff, "env_phase": env_phase,
+            "recorded_phase": recorded,
+            "transition_recorded": rec.get("recorded") if isinstance(rec.get("recorded"),
+                                                                     bool) else None,
+            "env_and_recorded_agree": r.get("agree") is True,
+            "phases_permitting_publication": [p for p in P.ORDER
+                                              if phase_permits_publication(p)],
+            "boot_guard": guard,
+            "draft_path": "store.publish",
+            "private_draft_possible": bool(phase_ok and guard["ok_or_not_enforced"]),
+            "publication_possible": bool(phase_ok and guard["ok_or_not_enforced"])}
+
+
+def publication_refusal_reasons(phase_ev: dict, halt_ev: dict) -> list[str]:
+    """Why the runtime would refuse a release's draft/publication now (fixed codes; empty
+    only when every reading needed is present and permits it). Unreadable is a reason."""
+    out: list[str] = []
+    if not isinstance(phase_ev, dict) or phase_ev.get("readable") is not True:
+        out.append("runtime_phase_unreadable")
+    else:
+        guard = phase_ev.get("boot_guard") or {}
+        if guard.get("ran") is not True:
+            out.append("boot_guard_not_run")
+        elif guard.get("ok_or_not_enforced") is not True:
+            out.append("boot_guard_unproven_build")
+        phase = phase_ev.get("effective_phase")
+        if phase == "shadow":
+            out.append("shadow_phase")
+        elif not phase_permits_publication(phase):
+            out.append("phase_forbids_publication")
+    if not isinstance(halt_ev, dict) or halt_ev.get("readable") is not True \
+            or not isinstance(halt_ev.get("global_halting_open"), int):
+        out.append("publishing_halt_unreadable")
+    elif halt_ev["global_halting_open"] > 0:
+        out.append("global_halting_incident")
+    return [c for c in REFUSAL_CODES if c in out]
+
+
+_SHARED_SECTIONS = ("runtime_phase", "publishing_halt")
+
+
+def publication_path(db, *, now: datetime) -> dict:
+    """{phase section, refusal codes} for readers outside `_evidence` (one memo per request
+    when called inside `evidence`)."""
+    from ..core import request_memo
+
+    phase_ev = request_memo.memo(("evidence.section", "runtime_phase", id(db)),
+                                 lambda: _section("runtime_phase", db, now))
+    halt_ev = request_memo.memo(("evidence.section", "publishing_halt", id(db)),
+                                lambda: _section("publishing_halt", db, now))
+    return {"runtime_phase": phase_ev,
+            "refusal_reasons": publication_refusal_reasons(phase_ev, halt_ev)}
+
+
+def judge_publication_path(phase_ev: dict, halt_ev: dict) -> bool:
+    """True only when the phase permits publication, the boot guard ran and is ok (or not
+    enforced) and no company-wide halting incident is open. False without evidence."""
+    return not publication_refusal_reasons(phase_ev, halt_ev)
+
+
 SECTIONS = {
     "dead_letters_24h": dead_letters,
     "publishing_halt": publishing_halt,
@@ -1840,6 +1985,7 @@ SECTIONS = {
     "visual_pipeline": visual_pipeline,
     "learning": learning,
     "sale_pipeline": sale_pipeline,
+    "runtime_phase": runtime_phase,
 }
 CHECK_NAMES = ("publishing_halt_clear", "stale_artefacts_rebuilding",
                "no_repeated_paid_call_in_24h", "weekly_jobs_completing")
@@ -1891,7 +2037,10 @@ def judge_publishing_halt(ev: dict) -> bool:
                 and age <= TRUTH_SWEEP_FRESH.total_seconds() / 3600
                 and ev.get("truth_sweep_systemic_evaluated") is True
                 and ev.get("truth_sweep_systemic") is False
-                and ev.get("systemic_halt_open") == 0)
+                and ev.get("systemic_halt_open") == 0
+                # Audit F-02: an open product-less halting incident is a company-wide halt.
+                # Absent (an older body) is no evidence of clear, never a pass.
+                and ev.get("global_halting_open") == 0)
 
 
 def judge_stale_rebuilds(ev: dict) -> bool:
@@ -1946,7 +2095,7 @@ def _checks(db, *, now: datetime | None = None) -> list[dict]:
         {"check": "publishing_halt_clear", "ok": judge_publishing_halt(halt),
          "evidence": short(halt, ("readable", "error_class", "truth_sweep_last_at",
                                   "truth_sweep_systemic", "systemic_halt_open",
-                                  "halted_certifications"))},
+                                  "global_halting_open", "halted_certifications"))},
         {"check": "stale_artefacts_rebuilding", "ok": judge_stale_rebuilds(stale),
          "evidence": short(stale, ("readable", "error_class", "sentinel_last_at",
                                    "sentinel_stale_artefacts", "rebuilds_verified_48h",
@@ -2053,7 +2202,15 @@ def _evidence(db, *, now: datetime | None = None, deploy_handlers: dict | None =
         finally:
             timing[name] = int((_time.perf_counter() - t0) * 1000)
 
-    sections = {name: _timed(name, lambda n=name: _section(n, db, now)) for name in SECTIONS}
+    from ..core import request_memo
+
+    def _read(n):
+        if n in _SHARED_SECTIONS:   # also read by first_listing_readiness (audit F-02)
+            return request_memo.memo(("evidence.section", n, id(db)),
+                                     lambda: _section(n, db, now))
+        return _section(n, db, now)
+
+    sections = {name: _timed(name, lambda n=name: _read(n)) for name in SECTIONS}
     try:  # not a judged section: visibility only (no readback row, no verdict)
         sections["factory_visibility"] = _timed(
             "factory_visibility", lambda: factory_visibility(db, now=now))
@@ -2078,6 +2235,10 @@ def _evidence(db, *, now: datetime | None = None, deploy_handlers: dict | None =
     # release left unrecorded; judged beside the dead letters so it can never pass silently.
     judged["no_unrecorded_listing_releases_in_24h"] = judge_listing_package_releases(
         sections["listing_package_releases"])
+    # Audit F-02: whether a release could reach Etsy at all right now (phase, boot guard,
+    # company-wide halting incident). False without evidence.
+    judged["publication_path_open"] = judge_publication_path(sections["runtime_phase"],
+                                                             sections["publishing_halt"])
     return {"as_of": now.isoformat(), "read_only": True,
             "never_included": ["job inputs/outputs", "error text", "incident text",
                                "paid-call payloads", "conversations", "owner data",

@@ -576,7 +576,7 @@ def test_readback_evidence_cli_never_prints_the_token_and_keeps_unknown_apart():
         advisory = ("competitor_scans", "scheduler", "first_listing_readiness",
                     "motif_backlog_recovery", "visual_pipeline", "learning", "daily_ledger",
                     "engine_demand", "autocoder",
-                    "sale_pipeline")
+                    "sale_pipeline", "runtime_phase")
         assert all(i["verdict"] in (readback.PASS, readback.FAIL, readback.UNKNOWN)
                    for i in out["items"] if i.get("section") not in advisory)
         assert by["competitor shops scanned (nine-shop research network)"]["verdict"] in (
@@ -607,7 +607,9 @@ def test_readback_evidence_cli_never_prints_the_token_and_keeps_unknown_apart():
             readback.WARN, by
         # Batch 19: 20 rows + engine demand (ENG-DEMAND-SUPPLY) + autocoder (ENG-AUTOCODER)
         # + the sale pipeline row (ENG-SALE-PIPELINE).
-        assert len(out["items"]) == 23, out["items"]
+        # Audit F-02: the runtime-phase row (SHADOW here: an advisory WARN, never a FAIL).
+        assert by["runtime phase and publication path"]["verdict"] == readback.WARN, by
+        assert len(out["items"]) == 24, out["items"]
         # ENG-DAILY: the daily row never PASSes on UNKNOWN.
         for sec in (None, {"readable": False, "error_class": "OperationalError"}):
             assert readback._judge_section("daily_ledger", sec, None)[0] == readback.UNKNOWN
@@ -836,7 +838,8 @@ def test_l1_error_class_never_carries_a_word_of_error_text():
 def test_l2_systemic_reading_without_a_bool_is_not_judged_clear():
     """READBACK review L2: a missing or non-bool `systemic` key never reads as "not systemic"."""
     base = {"readable": True, "truth_sweep_age_hours": 0.5,
-            "truth_sweep_systemic_evaluated": True, "systemic_halt_open": 0}
+            "truth_sweep_systemic_evaluated": True, "systemic_halt_open": 0,
+            "global_halting_open": 0}  # audit F-02: absent is not clear
     assert pe.judge_publishing_halt({**base, "truth_sweep_systemic": False}) is True
     for bad in (None, {}, 0, "false"):
         assert pe.judge_publishing_halt({**base, "truth_sweep_systemic": bad}) is False, bad
@@ -847,7 +850,8 @@ def test_l2_systemic_reading_without_a_bool_is_not_judged_clear():
 def test_l3_future_dated_evidence_is_never_fresh():
     """READBACK review L3: a timestamp from the future fails both freshness judges."""
     halt = {"readable": True, "truth_sweep_systemic_evaluated": True,
-            "truth_sweep_systemic": False, "systemic_halt_open": 0}
+            "truth_sweep_systemic": False, "systemic_halt_open": 0,
+            "global_halting_open": 0}  # audit F-02: absent is not clear
     assert pe.judge_publishing_halt({**halt, "truth_sweep_age_hours": -24 * 365}) is False
     assert pe.judge_publishing_halt({**halt, "truth_sweep_age_hours": -0.05}) is True  # skew
     stale = {"readable": True, "sentinel_stale_artefacts": 0, "open_stale_artefact_incidents": 0}
