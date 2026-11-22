@@ -8606,6 +8606,7 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         redeploy_restart: list[tuple[str, int, list[str], str, dict]] = []
         redeploy_rearmed: list[str] = []
         rearm_verdicts: dict[str, int] = {}
+        refusal_categories: dict[str, int] = {}
         for r in list(session.scalars(_select(_Incident).where(
                 _Incident.signature.like(f"{REBUILD_INCOMPLETE_SIGNATURE}:%"),
                 _Incident.resolved == False))):  # noqa: E712
@@ -8652,6 +8653,11 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
             except Exception:  # noqa: BLE001 - visibility only
                 _v = "unreadable"
             rearm_verdicts[_v] = rearm_verdicts.get(_v, 0) + 1
+            if _v == "other_refusal":
+                from ..ops.rebuild_graph import refusal_category as _rc
+                for _ref in ((r.detail or {}).get("refused_by") or []):
+                    _c = _rc(_ref)
+                    refusal_categories[_c] = refusal_categories.get(_c, 0) + 1
             redeploy = held_before_deploy(session, r.detail)
             if redeploy is not None:
                 fps_ = dict((r.detail or {}).get("fingerprints") or {})
@@ -8818,6 +8824,7 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         "rebuild_incomplete_holds_released": holds_released[:50],
         "rebuild_incomplete_redeploy_rearmed": redeploy_rearmed[:50],
         "rebuild_incomplete_rearm_verdicts": rearm_verdicts,
+        "rebuild_incomplete_refusal_categories": refusal_categories,
         "rebuild_incomplete_retired_closed": [s_.split(":", 1)[1] for s_ in retired_close][:50],
         "rebuild_incomplete_obsolete_release_closed": [s_.split(":", 1)[1]
                                                        for s_ in obsolete_close][:50],

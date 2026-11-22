@@ -157,6 +157,33 @@ def test_the_verdict_vocabulary_matches_the_decision():
         build.identity = real
 
 
+def test_curable_refusals_are_exactly_the_chains_own_staleness_reasons():
+    from brambleloop.runtime import release as R
+    from brambleloop.ops import production_evidence as PE
+    assert tuple(RG.CURABLE_REFUSAL_PREFIXES) == tuple(R._STALENESS_REASONS)
+    assert {c for _, c in RG.REFUSAL_CATEGORIES} | {"unknown_product", "other"} \
+        == set(PE._REFUSAL_VOCAB)
+    db = _db()
+    real = _running("newsha")
+    try:
+        _boot(db, "newsha", NOW - timedelta(minutes=10))
+        both = ["halted (#173): 11 open publication-halting incident(s): x",
+                "rebuild outstanding (#172): 3 descendants still built from a moved input"]
+        with db.session() as s:
+            assert RG.held_before_deploy(s, _detail(refused_by=both, held_commit="o"))
+            for bad in ("missed window (#297): pivot -- out of season",
+                        "release withheld (#163/#228): owner ruling",
+                        "no stored release for this product"):
+                d = _detail(refused_by=both + [bad], held_commit="o")
+                assert RG.held_before_deploy(s, d) is None, bad
+                assert RG.rearm_verdict(s, d) == "other_refusal"
+        assert RG.refusal_category(both[1]) == "rebuild_outstanding_172"
+        assert RG.refusal_category("missed window (#297): x") == "missed_window_297"
+        assert RG.refusal_category("something new") == "other"
+    finally:
+        build.identity = real
+
+
 def test_unknown_deploy_rearms_nothing():
     db = _db()
     real = _running("dev")

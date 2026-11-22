@@ -111,6 +111,9 @@ _CLASS = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\
 _CLASS_NAME = re.compile(r"^[A-Z][A-Za-z0-9_]{1,63}$")
 
 
+_REFUSAL_VOCAB = frozenset(("halted_173", "rebuild_outstanding_172", "missed_window_297",
+                            "release_withheld", "no_stored_release", "unknown_slugs",
+                            "unknown_product", "other"))
 _REARM_VOCAB = frozenset(("rearmed", "not_held", "parked", "failed_attempts", "other_refusal",
                           "protected_wording", "no_deploy", "same_build",
                           "already_this_deploy", "unreadable"))
@@ -370,6 +373,10 @@ def stale_rebuilds(db, *, now: datetime) -> dict:
                                     (sd.get("rebuild_incomplete_rearm_verdicts") or {}).items()
                                     if k in _REARM_VOCAB and isinstance(v, int)},
         "sentinel_redeploy_rearmed": len(sd.get("rebuild_incomplete_redeploy_rearmed") or []),
+        "sentinel_refusal_categories": {k: int(v) for k, v in
+                                        (sd.get("rebuild_incomplete_refusal_categories")
+                                         or {}).items()
+                                        if k in _REFUSAL_VOCAB and isinstance(v, int)},
         "last_propagation_at": _iso(propagated.at) if propagated is not None else None,
         "last_propagation_enqueued": len(pd.get("rebuild_enqueued") or []),
         "last_propagation_retried": len(pd.get("rebuild_retried") or []),
