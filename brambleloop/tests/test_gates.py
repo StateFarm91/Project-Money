@@ -580,8 +580,9 @@ def test_every_primitive_carries_a_calibration_status_and_new_ones_start_uncalib
     assert set(table) == set(st.known_codes())
     assert st.CALIBRATED not in table.values(), "calibration comes from evidence, not the table"
     assert table["sc"] == st.CONVENTION and table["dc"] == st.CONVENTION
+    # D-OWNER-NO-SAMPLE-SIZING: documented primitives size from standard gauge (not calibrated).
     for novel in ("fpdc", "bpdc", "bob", "cable2x2", "star_st"):
-        assert table[novel] == st.UNCALIBRATED, novel
+        assert table[novel] == st.STANDARD_GAUGE, novel
     assert st.calibration_status("a-stitch-added-tomorrow") == st.UNCALIBRATED
 
     cert = certify(_in_band(fixtures.good_sphere()))
@@ -643,10 +644,18 @@ def test_a_pattern_using_an_uncalibrated_primitive_is_restricted_until_evidence(
     """F-074: a bobble no sample has measured does not carry unrestricted claims."""
     from brambleloop.cir.model import Op, Row
 
+    from brambleloop.cir import stitches as st
+
     cir = fixtures.good_mosaic_panel()
     cir.components[0].rows.append(Row(index=5, ops=[Op("sc", 19), Op("bob"), Op("sc", 20)],
                                       declared_count=40, color="forest", turning_chain=1))
-    cert = certify(cir)
+    # A primitive with no documented standard-gauge default is still restricted (fail closed);
+    # `bob` has one since D-OWNER-NO-SAMPLE-SIZING, so it is taken out of the table here.
+    saved = st.STANDARD_GAUGE_DEFAULTS.pop("bob")
+    try:
+        cert = certify(cir)
+    finally:
+        st.STANDARD_GAUGE_DEFAULTS["bob"] = saved
     assert "UNCALIBRATED_PRIMITIVE" in {f.code for f in cert.errors}, cert.blocking_reasons
     assert cert.primitives["uncalibrated"] == ["bob"]
     assert cert.primitives["unrestricted"] is False

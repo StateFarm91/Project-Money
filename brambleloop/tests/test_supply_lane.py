@@ -322,7 +322,7 @@ def test_child_safety_still_withholds_a_toy_certified_under_the_publication_hold
     assert not cert.get("halted_by_incident"), cert           # QA ran under the hold ...
     assert cert["granted"] is False                            # ... and child safety held it
     codes = sorted({r.split(":")[0].split()[-1] for r in cert["reasons"]})
-    assert codes == ["CHILD_SAFETY_PHYSICAL_EVIDENCE_UNKNOWN", "PHYSICAL_TEST_REQUIRED"], \
+    assert codes == ["CHILD_SAFETY_PHYSICAL_EVIDENCE_UNKNOWN"], \  # D-OWNER-NO-SAMPLE-SIZING: Class C sizes from standard gauge; child safety still holds
         cert["reasons"]
 
 

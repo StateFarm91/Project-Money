@@ -248,9 +248,13 @@ def test_a_research_cushion_is_physical_gated_not_flattened():
     assert out["drafted"]["construction"] == FC.PANEL_PAIR
     assert [c["name"] for c in out["cir"]["components"]] == ["front", "back"]
     assert out["compiled"]["compiled"] is True
-    reasons = out["certified"]["reasons"]
-    assert out["certified"]["granted"] is False and reasons, out["certified"]
-    assert all("PHYSICAL_TEST_REQUIRED" in r for r in reasons), reasons
+    # D-OWNER-NO-SAMPLE-SIZING (owner, 2026-11-22: "Yes, sizes from math"): the only hold
+    # here was PHYSICAL_TEST_REQUIRED (Class C from the closed form), a sizing/shape hold the
+    # ruling lifts: sizes are calculated from standard gauge. Child safety is a separate gate
+    # and is not lifted (the children's decision still holds the PDF below, where asserted).
+    reasons = out["certified"].get("reasons") or []
+    assert out["certified"]["granted"] is True, out["certified"]
+    assert not any("PHYSICAL_TEST_REQUIRED" in r for r in reasons), reasons
 
 
 # ---- holds: never mislabelled, never flattened ------------------------------------------------

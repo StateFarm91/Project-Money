@@ -73,11 +73,13 @@ def test_protected_title_and_class_c_block_the_experiment():
     f = C._feasibility(quoted)
     assert f["lane"] == "original_concept" and not f["may_reach_customers"]
     assert "Son of a nutcracker" in f["protected"] and not f["feasible"]
+    # D-OWNER-NO-SAMPLE-SIZING (2026-11-22): Class C is sized from standard gauge, so it no
+    # longer blocks the experiment; certification decides.
     seed = SimpleNamespace(slug="x", title="granny square amigurumi", risk_class="C")
     f = C._feasibility(seed)
-    assert not f["feasible"] and any("Class C" in b for b in f["blockers"])
+    assert f["feasible"] and not any("Class C" in b for b in f["blockers"]), f
     assert f["filed_as_cultural_signal"] is False
-    nxt = C._next_experiment(main.db, "x", {"open": True}, f)
+    nxt = C._next_experiment(main.db, "q", {"open": True}, C._feasibility(quoted))
     assert nxt["step"] == "resolve_blockers"
     clean = C._feasibility(SimpleNamespace(slug="y", title="granny square blanket",
                                            risk_class="A"))

@@ -32,6 +32,11 @@ import re
 ESTIMATE_NOTE = ("Measured gauge not yet verified on a physical sample; finished size is "
                  "calculated from the stated gauge. Check your gauge.")
 
+#: D-OWNER-NO-SAMPLE-SIZING (owner, 2026-11-22: "Yes, sizes from math"): with no sample, the
+#: PDF gauge section and the listing copy also state where every size comes from. Written
+#: beside ESTIMATE_NOTE by the same writers; it claims arithmetic, never a test or a make.
+STANDARD_GAUGE_NOTE = "Sizes are calculated from standard gauge and stitch dimensions."
+
 #: The rule's identifier, carried in every check detail it produces.
 RULE = "gates.estimate_claims/1"
 
@@ -54,6 +59,7 @@ _PHYSICAL = re.compile(
 # disclosure this rule asks for, not a claim of one.
 _NEGATED = (
     re.compile(re.escape(ESTIMATE_NOTE), re.IGNORECASE),
+    re.compile(re.escape(STANDARD_GAUGE_NOTE), re.IGNORECASE),
     re.compile(r"\bnot\s+yet\s+(?:been\s+)?(?:measured|verified|tested)\b[^.;)]*",
                re.IGNORECASE),
     re.compile(r"\bnot\s+(?:been\s+)?(?:measured|tested|verified)\b[^.;)]*", re.IGNORECASE),

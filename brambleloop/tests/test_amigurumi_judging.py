@@ -295,7 +295,7 @@ def test_the_toy_is_still_withheld_at_certification_for_its_physical_evidence():
     out = outs[-1]
     assert out.get("granted") is False, out
     codes = sorted({r.split(":")[0].split()[-1] for r in out["reasons"]})
-    assert codes == ["CHILD_SAFETY_PHYSICAL_EVIDENCE_UNKNOWN", "PHYSICAL_TEST_REQUIRED"], \
+    assert codes == ["CHILD_SAFETY_PHYSICAL_EVIDENCE_UNKNOWN"], \  # D-OWNER-NO-SAMPLE-SIZING: Class C sizes from standard gauge; child safety still holds
         out["reasons"]
 
 

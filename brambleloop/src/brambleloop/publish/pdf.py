@@ -2789,9 +2789,11 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         # D-OWNER-ESTIMATE-CLAIMS: the owner's template -- "where physical calibration is
         # absent, the pattern must state estimates truthfully". Read back off the bytes by
         # gates.estimate_claims; replaced by measured values once a sample is bound.
-        from ..gates.estimate_claims import ESTIMATE_NOTE
+        from ..gates.estimate_claims import ESTIMATE_NOTE, STANDARD_GAUGE_NOTE
 
         doc.para(ESTIMATE_NOTE, size=10)
+        # D-OWNER-NO-SAMPLE-SIZING: where the sizes come from, said on the page.
+        doc.para(STANDARD_GAUGE_NOTE, size=10)
     if cir.gauge:
         stitch = _gauge_stitch(cir, terminology)
         g = cir.gauge

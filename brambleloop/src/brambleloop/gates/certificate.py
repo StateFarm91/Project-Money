@@ -524,7 +524,19 @@ def certify(
             f"{[f['key'] for f in matrix['features']]} set a floor of {matrix['derived']}; "
             f"class {matrix['effective']} evidence applies (F-073)")))
     physical_required = matrix["effective"] == "C"
-    if physical_required and not full_make_bound:
+    if physical_required and not full_make_bound and sized_from_standard_gauge(cir, twin):
+        # D-OWNER-NO-SAMPLE-SIZING (owner, 2026-11-22: "Yes, sizes from math"): with no
+        # sample ever to be made (D-OWNER-NO-SAMPLE), a Class C design whose every size is
+        # stitch-dimension arithmetic from a stated, yarn-evidenced gauge is released on that
+        # arithmetic. Recorded, never hidden; the documents say sizes are calculated from
+        # standard gauge, and nothing claims a test or a made sample (`listing_claims`,
+        # `estimate_claims` and the child-safety gate are untouched).
+        findings.append(Finding(
+            WARNING, "SIZES_FROM_STANDARD_GAUGE",
+            f"risk class {matrix['effective']} with no physical test: every size is "
+            f"calculated from the stated standard gauge and stitch dimensions "
+            f"(D-OWNER-NO-SAMPLE-SIZING); nothing was tested or physically made"))
+    elif physical_required and not full_make_bound:
         held = _risk_matrix.bound_classes(binding)
         findings.append(Finding(
             ERROR, "PHYSICAL_TEST_REQUIRED",
@@ -746,12 +758,42 @@ def gauge_findings(cir: CIR, *, physically_evidenced: bool = False) -> list[Find
         f"bind a physical test of this content"))]
 
 
+def sized_from_standard_gauge(cir: CIR, twin) -> bool:
+    """D-OWNER-NO-SAMPLE-SIZING: every size of this design is arithmetic from standard gauge.
+
+    True only when the CIR states a gauge against a recognisable standard yarn weight, every
+    stitch it uses is a convention or has a documented standard-gauge default (no
+    UNCALIBRATED primitive), and the twin computed a finished size from it. A gauge outside
+    the yarn's band is refused on its own (`gauge_findings`), so it is not re-judged here.
+    """
+    from ..cir.stitches import UNCALIBRATED, calibration_status
+    from ..publish.substitution import normalise
+
+    if cir.gauge is None or not normalise(declared_weight(cir) or ""):
+        return False
+    if twin is None or not (getattr(twin, "width_cm", None) and getattr(twin, "height_cm", None)):
+        return False
+    used: set[str] = set()
+
+    def walk(nodes):
+        for n in nodes:
+            if hasattr(n, "stitch"):
+                used.add(n.stitch)
+            else:
+                walk(n.ops)
+
+    for _, row in cir.iter_rows():
+        walk(row.ops)
+    return not any(calibration_status(c) == UNCALIBRATED for c in used)
+
+
 # ---- new primitives (F-074) -------------------------------------------------
 
 def primitive_findings(cir: CIR, *, physically_evidenced: bool,
                        calibrated_primitives=frozenset()) -> tuple[dict, list[Finding]]:
     """Every stitch this pattern uses, with its calibration status, and what that blocks."""
-    from ..cir.stitches import CALIBRATED, UNCALIBRATED, calibration_status
+    from ..cir.stitches import (CALIBRATED, STANDARD_GAUGE, UNCALIBRATED, calibration_status,
+                                standard_gauge_default)
 
     used: set[str] = set()
 
@@ -767,9 +809,18 @@ def primitive_findings(cir: CIR, *, physically_evidenced: bool,
     status = {code: (CALIBRATED if code in calibrated_primitives
                      else calibration_status(code)) for code in sorted(used)}
     uncalibrated = sorted(c for c, st in status.items() if st == UNCALIBRATED)
+    # D-OWNER-NO-SAMPLE-SIZING: sized from standard gauge with a documented default. Never
+    # recorded as calibrated; the documents carry the standard-gauge statement.
+    standard = sorted(c for c, st in status.items() if st == STANDARD_GAUGE)
     view = {"status": status, "uncalibrated": uncalibrated,
+            "standard_gauge_default": {c: standard_gauge_default(c) for c in standard},
             "unrestricted": not uncalibrated or physically_evidenced}
     if not uncalibrated or cir.authored == "benchmark":
+        if standard and cir.authored != "benchmark":
+            return view, [Finding(WARNING, "PRIMITIVE_STANDARD_GAUGE_DEFAULT", (
+                f"{standard} are sized from standard gauge with documented published "
+                f"stitch-dimension defaults (source standard_gauge_default, not sample "
+                f"calibrated); sizes are stated as calculated from standard gauge"))]
         return view, []
     if physically_evidenced:
         return view, [Finding(WARNING, "UNCALIBRATED_PRIMITIVE_EVIDENCED", (

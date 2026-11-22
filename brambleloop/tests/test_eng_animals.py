@@ -100,7 +100,7 @@ def test_a_research_animal_is_physical_gated_end_to_end():
     assert cert["granted"] is False
     codes = sorted({r.split(":")[0].split()[-1] for r in cert["reasons"]})
     # Withheld ONLY for physical evidence: every computable check passed.
-    assert codes == ["CHILD_SAFETY_PHYSICAL_EVIDENCE_UNKNOWN", "PHYSICAL_TEST_REQUIRED"], \
+    assert codes == ["CHILD_SAFETY_PHYSICAL_EVIDENCE_UNKNOWN"], \  # D-OWNER-NO-SAMPLE-SIZING: Class C sizes from standard gauge; child safety still holds
         cert["reasons"]
     stages = out["certificate"].get("stages_run") or []
     for stage in ("compile", "twin", "assembly", "reverse", "child_safety"):
@@ -412,7 +412,7 @@ def test_a_research_lamb_lovey_is_physical_gated_end_to_end():
     assert out["drafted"]["construction"] == FC.LOVEY, out["drafted"]
     cir = CIR.from_dict(out["cir"])
     codes = sorted({r.split(":")[0].split()[-1] for r in out["certified"]["reasons"]})
-    assert codes == ["CHILD_SAFETY_PHYSICAL_EVIDENCE_UNKNOWN", "PHYSICAL_TEST_REQUIRED"], \
+    assert codes == ["CHILD_SAFETY_PHYSICAL_EVIDENCE_UNKNOWN"], \  # D-OWNER-NO-SAMPLE-SIZING: Class C sizes from standard gauge; child safety still holds
         out["certified"]["reasons"]
     lovey = ("lovey", "under_3")                         # a TEST assignment
     result = compile_cir(cir)

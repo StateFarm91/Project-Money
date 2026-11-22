@@ -224,10 +224,13 @@ class UnknownStitch(KeyError):
 #   CONVENTION   -- a basic stitch whose height and yarn behaviour are published craft
 #                   conventions the twin already carries inside its stated tolerance. Its
 #                   figures are estimates, which the documents say, but they are not new.
-#   UNCALIBRATED -- a new stitch or construction primitive: post stitches, bobbles, cable
-#                   crossings, the star family. Its real height and yarn draw decide size and
-#                   yardage claims, and no sample has measured them, so a pattern using one
-#                   is not released for unrestricted use until a physical test of it passes.
+#   STANDARD_GAUGE -- (D-OWNER-NO-SAMPLE-SIZING) a primitive with a documented, published
+#                   stitch-dimension default (post stitches, bobbles, cable crossings, the
+#                   star family): sized from standard gauge with that default, and the
+#                   documents say sizes are calculated from standard gauge. Not calibrated.
+#   UNCALIBRATED -- a new stitch or construction primitive with no documented default. Its
+#                   real height and yarn draw decide size and yardage claims, so a pattern
+#                   using one is not released for unrestricted use until evidence exists.
 #
 # A code absent from CONVENTION is UNCALIBRATED. Failing closed is the point: a primitive
 # added to the registry tomorrow starts restricted, and someone has to bring evidence -- not
@@ -241,9 +244,70 @@ CONVENTION_PRIMITIVES: frozenset[str] = frozenset({
 })
 
 
+# D-OWNER-NO-SAMPLE-SIZING (owner, 2026-11-22: "Yes, sizes from math"). Nobody will crochet a
+# sample (D-OWNER-NO-SAMPLE), so a primitive with a documented, conservative published
+# stitch-dimension default is sized from standard gauge with that default, and says so. It is
+# NOT calibrated: `source` is always "standard_gauge_default", never "sample_calibrated", and
+# the documents state that sizes are calculated from standard gauge. The figures are the
+# registry's own `row_height` (sc units; the one figure the twin computes height from, so the
+# stated default and the computed size can never disagree) and stitch width (one stitch of
+# the stated gauge per stitch produced); each default says which published convention it
+# rests on, and `CONVENTION_BAND` bounds it (a default outside its band fails the test suite).
+#   - Craft Yarn Council "Standards & Guidelines for Crochet and Knitting" (stitch heights:
+#     sc 1, hdc ~1.5, dc ~2, tr ~2.8 sc rows), and the stitch abbreviations master list.
+#   - The universal post-stitch convention: a post stitch is the base stitch it names, worked
+#     around the post; its height is that stitch's height (FPdc/BPdc = a dc row).
+#   - A cable crossing is worked in the post stitches it crosses: height = those stitches'.
+#   - A bobble/cluster is closed dc legs: a dc row tall; the twin's _YARN_FACTOR carries its
+#     extra yarn.
+#   - The star family is worked with hdc-height eyes over sc anchors: between sc and hdc.
+STANDARD_GAUGE = "standard_gauge_default"
+STANDARD_GAUGE_SOURCE = "standard_gauge_default"
+
+# Published row-height range (sc units) for each base the defaults rest on (CYC: hdc ~1.5,
+# dc ~2; post dc reads a touch shorter than a plain dc; a star row sits between sc and hdc).
+CONVENTION_BAND: dict[str, tuple[float, float]] = {
+    "dc": (1.8, 2.2), "hdc": (1.4, 1.6), "star": (1.2, 1.6)}
+
+STANDARD_GAUGE_DEFAULTS: dict[str, dict] = {
+    "fpdc": {"base": "dc", "convention": "post stitch = its base stitch (dc) height"},
+    "bpdc": {"base": "dc", "convention": "post stitch = its base stitch (dc) height"},
+    "cable2x2": {"base": "dc", "convention": "cable crossing = the post dc stitches it crosses"},
+    "cable1x1": {"base": "dc", "convention": "cable crossing = the post dc stitches it crosses"},
+    "bob": {"base": "dc", "convention": "bobble = closed dc legs: a dc row"},
+    "beg_star_st": {"base": "star", "convention": "star row: hdc eyes over sc anchors, between sc and hdc"},
+    "star_st": {"base": "star", "convention": "star row: hdc eyes over sc anchors, between sc and hdc"},
+    "end_star_st": {"base": "star", "convention": "star row: hdc eyes over sc anchors, between sc and hdc"},
+    "hdc_inc": {"base": "hdc", "convention": "hdc worked twice: an hdc row"},
+    "hdc3": {"base": "hdc", "convention": "hdc worked three times: an hdc row"},
+}
+
+
+def standard_gauge_default(code: str) -> dict | None:
+    """The documented standard-gauge dimension default for a primitive, or None.
+
+    Width is one stitch of the stated gauge per stitch produced (the compiler's counts), and
+    height is the registry's row height (what the twin sizes with)."""
+    d = STANDARD_GAUGE_DEFAULTS.get(code)
+    if d is None:
+        return None
+    st = _STITCHES.get(code)
+    return {"code": code, "source": STANDARD_GAUGE_SOURCE,
+            "row_height_sc": float(st.row_height) if st else None,
+            "band_sc": CONVENTION_BAND[d["base"]],
+            "width": "one stitch of the stated gauge per stitch produced",
+            "convention": d["convention"]}
+
+
 def calibration_status(code: str) -> str:
-    """CONVENTION for a basic stitch, UNCALIBRATED for anything new. Never CALIBRATED here."""
-    return CONVENTION if code in CONVENTION_PRIMITIVES else UNCALIBRATED
+    """CONVENTION for a basic stitch, STANDARD_GAUGE for a primitive with a documented
+    standard-gauge default (D-OWNER-NO-SAMPLE-SIZING), UNCALIBRATED for anything else.
+    Never CALIBRATED here: that comes from evidence at certification time."""
+    if code in CONVENTION_PRIMITIVES:
+        return CONVENTION
+    if code in STANDARD_GAUGE_DEFAULTS:
+        return STANDARD_GAUGE
+    return UNCALIBRATED
 
 
 def calibration_table() -> dict[str, str]:
