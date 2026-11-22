@@ -95,12 +95,21 @@ def propose(db, facts, *, evidence_rows: list[dict] | None = None,
         if p not in must and p not in vanity and truthful(p, "intent.listing_language"):
             must.append(p)
     must = must[:6]   # evidence earns slots; it does not take the whole set
+    # LEARNING-APPLY (benchmark MM-L6): the "no sew" / "low sew" modifier is a high-intent
+    # search term the certified construction can earn. A multi-piece amigurumi whose seams
+    # really are none (or at most one sewn) carries it; everything else never does.
+    from ..learning import benchmark_lessons as _bench
+
+    earned = [t for t in _bench.earned_sew_tags(facts.cir)
+              if t not in must and truthful(t, "benchmark:MM-L6 construction")]
+    must = (must + earned[:1])[:7]
 
     pool = [q for q in queries + list(buyer.get("queries") or [])
             if q.phrase not in vanity and truthful(q.phrase, f"query:{q.provenance}")]
     tags = search_mod.choose_tags(pool, must_include=must)
     # Belt and braces: whatever choose_tags trimmed must still be true.
     tags = [t for t in tags if truth.check_term(t, facts, competitors=competitors).ok]
+    _bench.note_sew_tags(facts.cir, facts.slug, earned, tags)
 
     title = seo_mod.build_title(facts.cir_title, facts.category, list(facts.qualifiers),
                                 facts.season, sizes=1)

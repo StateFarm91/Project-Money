@@ -287,6 +287,13 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
                           "when_made": listing.get("when_made"),
                           # WS2 R3: Etsy's own modification time for this listing.
                           "source_modified_at": source_modified_at(listing)}
+            # LEARNING-APPLY (HC-L1): the effective price the payload states, when it is
+            # below the listed one, kept beside it so price research can read it.
+            from ..learning.benchmark_lessons import observed_effective_price
+
+            _eff = observed_effective_price(listing, row.price_cad)
+            if _eff is not None:
+                row.detail["effective_price_cad"] = _eff
             if history:
                 # Review M1: a changed listing's facts are re-read, its withdrawals are not
                 # forgotten.

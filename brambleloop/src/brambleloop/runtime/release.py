@@ -1162,8 +1162,21 @@ def _outcome_price(ctx: JobContext, inputs: dict, seed, category: str,
         return None
     pod = DEPARTMENT_OF.get(category)
     with ctx.db.session() as s:
-        prices = [float(r.price_cad) for r in s.scalars(select(BenchmarkListing).where(
-            BenchmarkListing.pod == pod)) if r.price_cad and r.price_cad > 0] if pod else []
+        rows = [SimpleNamespace(price_cad=r.price_cad, on_sale=bool(r.on_sale),
+                                detail=dict(r.detail or {}))
+                for r in s.scalars(select(BenchmarkListing).where(
+                    BenchmarkListing.pod == pod))] if pod else []
+    prices = [float(r.price_cad) for r in rows if r.price_cad and r.price_cad > 0]
+    if rows:
+        # LEARNING-APPLY (benchmark HC-L1): the anchor reads effective prices, never a
+        # strike price, on the pricing department's own cadence. Unreadable lessons price
+        # as before.
+        try:
+            from ..learning import benchmark_lessons as _bench
+
+            prices = _bench.anchor_prices(ctx.db, rows, subject=f"price:{seed.slug}:{pod}")
+        except Exception:  # noqa: BLE001 - an unreadable lesson store anchors as before
+            pass
     if len(prices) >= OUTCOME_ANCHOR_MIN_LISTINGS:
         anchor, basis = median(prices), f"observed median of {len(prices)} {pod} listings"
     else:
