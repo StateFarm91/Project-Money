@@ -541,13 +541,16 @@ def _credential_health(db) -> dict:
     from sqlalchemy import desc, select
 
     from ..core.models import AuditLog
-    from ..gateway import credentials as C
+    # Not `as C`: this module also imports `ImageCandidate as C`, and the retention scan
+    # (`ops.read_actions`) keeps one import table per module, so the shared alias left this
+    # read unresolvable (audit F-04).
+    from ..gateway import credentials as CRED
 
     out: dict = {}
     with db.session() as s:
         for prov in ("bfl", "anthropic", "venice"):
             row = s.execute(select(AuditLog.at, AuditLog.detail).where(
-                AuditLog.action == C.ACTION, AuditLog.artifact == prov)
+                AuditLog.action == CRED.ACTION, AuditLog.artifact == prov)
                 .order_by(desc(AuditLog.id)).limit(1)).first()
             if row is None:
                 out[prov] = {"status": "UNREAD"}
@@ -555,7 +558,7 @@ def _credential_health(db) -> dict:
             d = row[1] or {}
             st = str(d.get("status") or "")
             hs = d.get("http_status")
-            out[prov] = {"status": st if st in C.STATUSES else "other",
+            out[prov] = {"status": st if st in CRED.STATUSES else "other",
                          "http_status": int(hs) if isinstance(hs, int) else None,
                          "at": _aware(row[0]).isoformat() if row[0] else None}
     return out
@@ -2567,8 +2570,8 @@ def rebuild_outcomes(db, *, now: datetime) -> dict:
         artifacts = [sl for sl in slugs]
         audits = s.execute(select(AuditLog.id, AuditLog.action, AuditLog.artifact,
                                   AuditLog.job_id, AuditLog.detail)
-                           .where(AuditLog.action.in_(_OUTCOME_ACTIONS
-                                                      + ("chain.rebuild_verified",)),
+                           .where(AuditLog.action.in_((*_OUTCOME_ACTIONS,
+                                                       "chain.rebuild_verified")),
                                   AuditLog.job_id >= floor,
                                   or_(AuditLog.artifact.in_(artifacts),
                                       *[AuditLog.artifact.like(f"{sl}@%") for sl in slugs],
@@ -2753,17 +2756,19 @@ def supply_visibility(db, *, now: datetime) -> dict:
 
 
 # ENG-ADMIT-TO-BUILD: the actions between a pool admission and `cir.draft`, in order.
-AFTER_ADMISSION_STEPS = (
-    ("intake_approved", "concept.intake_approved"),
-    ("intake_refused", "concept.intake_refused"),
-    ("intake_withdrawn", "concept.intake_withdrawn"),
-    ("score_handoff", "concept.intake_handoff"),
-    ("gate_passed", "concept.gate_passed"),
-    ("gate_waiting", "concept.gate_waiting"),
-    ("gate_refused", "concept.gate_refused"),
-    ("offered", "supply.offered"),
-    ("admitted_to_engineering", "supply.admitted"),
-)
+# A dict (step -> action), read through `.values()`, so the retention scan can resolve which
+# actions `after_admission` reads (a tuple-unpacking comprehension it cannot; audit F-04).
+AFTER_ADMISSION_STEPS = {
+    "intake_approved": "concept.intake_approved",
+    "intake_refused": "concept.intake_refused",
+    "intake_withdrawn": "concept.intake_withdrawn",
+    "score_handoff": "concept.intake_handoff",
+    "gate_passed": "concept.gate_passed",
+    "gate_waiting": "concept.gate_waiting",
+    "gate_refused": "concept.gate_refused",
+    "offered": "supply.offered",
+    "admitted_to_engineering": "supply.admitted",
+}
 
 
 def after_admission(db, *, now: datetime) -> dict:
@@ -2781,7 +2786,7 @@ def after_admission(db, *, now: datetime) -> dict:
     from ..core.models import AuditLog, Job
 
     since = now - timedelta(hours=24)
-    actions = [a for _k, a in AFTER_ADMISSION_STEPS]
+    actions = list(AFTER_ADMISSION_STEPS.values())
     with db.session() as s:
         counts = dict(s.execute(select(AuditLog.action, func.count()).where(
             AuditLog.action.in_(actions), AuditLog.at >= since).group_by(AuditLog.action)).all())
@@ -2796,7 +2801,7 @@ def after_admission(db, *, now: datetime) -> dict:
                 needs[n if n in executor.GATE_BY_KEY else "unrecognised"] += 1
         drafts = int(s.scalar(select(func.count()).select_from(Job).where(
             Job.job_type == "cir.draft", Job.created_at >= since)) or 0)
-    return {**{k: int(counts.get(a, 0)) for k, a in AFTER_ADMISSION_STEPS},
+    return {**{k: int(counts.get(a, 0)) for k, a in AFTER_ADMISSION_STEPS.items()},
             "scored": {"promoted": scored["promoted"], "not_promoted": scored["not_promoted"]},
             "gate_waiting_on": dict(sorted(needs.items())),
             "drafts_enqueued": drafts}
