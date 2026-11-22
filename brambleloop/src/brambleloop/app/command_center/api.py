@@ -12,6 +12,7 @@ from starlette.concurrency import run_in_threadpool
 
 from . import approvals, ask as ask_mod, auth, emergency, notifications, providers, tabs
 from . import company as company_mod
+from . import page_cache
 from . import private_context
 
 
@@ -152,7 +153,7 @@ def make_router(db) -> APIRouter:
 
     @router.get("/home")
     def home(request: Request):
-        return ok(tabs.home(db))
+        return ok(page_cache.get("home", lambda: tabs.home(db)))
 
     @router.post("/home/seen")
     def home_seen(request: Request):
@@ -176,7 +177,7 @@ def make_router(db) -> APIRouter:
 
     @router.get("/store")
     def store(request: Request):
-        return ok(tabs.store(db))
+        return ok(page_cache.get("store", lambda: tabs.store(db)))
 
     @router.get("/customers")
     def customers(request: Request):
@@ -235,7 +236,7 @@ def make_router(db) -> APIRouter:
             w = tabs.money_window((window or period)[:20])
         except ValueError as exc:
             return ok({"error": str(exc), "code": "BAD_PERIOD"}, 400)
-        return ok(tabs.money(db, w))
+        return ok(page_cache.get(f"money:{w}", lambda: tabs.money(db, w)))
 
     @router.get("/money/drill")
     def money_drill(request: Request, metric: str = "", period: str = "", window: str = ""):
@@ -247,12 +248,12 @@ def make_router(db) -> APIRouter:
 
     @router.get("/operations")
     def operations(request: Request):
-        return ok(tabs.operations(db))
+        return ok(page_cache.get("operations", lambda: tabs.operations(db)))
 
     @router.get("/truth")
     def truth(request: Request):
         # wave-3 K7: the ops-truth provider (owner inventory, tester roster, controls, ...).
-        return ok(providers.call("ops_truth", db))
+        return ok(page_cache.get("truth", lambda: providers.call("ops_truth", db)))
 
     @router.get("/drill")
     def drill(request: Request, provider: str = "", index: int = 0):
@@ -266,13 +267,17 @@ def make_router(db) -> APIRouter:
     def operations_drill(request: Request, kind: str = "", id: str = ""):  # noqa: A002
         return ok(tabs.operations_drill(db, kind, id))
 
+    # eng/mc-perf: autonomy re-runs every department's work planner (~17k statements on a
+    # production-shaped DB); company aggregates autonomy, approvals, finance and the store
+    # gate. Both are served from a page snapshot that carries its age and is dropped on any
+    # owner write (page_cache). /learn is the same body as /autonomy and shares it.
     @router.get("/autonomy")
     def autonomy(request: Request):
-        return ok(tabs.autonomy(db))
+        return ok(page_cache.get("autonomy", lambda: tabs.autonomy(db)))
 
     @router.get("/learn")
     def learn(request: Request):
-        return ok(tabs.autonomy(db))
+        return ok(page_cache.get("autonomy", lambda: tabs.autonomy(db)))
 
     # ENG-AUTOCODER: the coding team's panel (read-only, owner session; the same /api/cc/*
     # default-deny gate as every route here).
@@ -285,7 +290,7 @@ def make_router(db) -> APIRouter:
     # W4-CC: the company overview and the completion-effort board (read-only, owner session).
     @router.get("/company")
     def company_view(request: Request):
-        return ok(company_mod.company(db))
+        return ok(page_cache.get("company", lambda: company_mod.company(db)))
 
     # W4-CCPACKET (F-878): the Launch-0 launch packet, read-only, owner session (the same
     # `/api/cc/*` default-deny gate as every route here; no new auth logic).

@@ -218,6 +218,9 @@ if __name__ == "__main__":
     args = sys.argv[1:]
     dest = args[args.index("--json") + 1] if "--json" in args else None
     only = [a for a in args if a.startswith("/api/")]
+    skip = [a[len("--skip="):] for a in args if a.startswith("--skip=")]
+    if skip:
+        only = [p for p in routes() if p not in skip]
     if "--profile" in args:
         seed()
         _install_counters()

@@ -82,6 +82,14 @@ def install(app, db) -> None:
     security.register_owner_session_gate(lambda request, path: auth.gate(db, request, path))
     app.add_exception_handler(auth.CCRefused, auth.refused_handler)
     app.include_router(make_router(db))
+    # eng/mc-perf: counts requests in flight (background CPU work yields to them, F-11) and
+    # drops the Mission Control page snapshots after any successful owner write.
+    from .page_cache import RequestsInFlight
+
+    try:
+        app.add_middleware(RequestsInFlight)
+    except RuntimeError:  # noqa: PERF203 - app already started (re-install in a test)
+        pass
     # Before the static mount, so the route wins; owner-session gated (security.py).
     from .api import STORE_PREVIEW_PATH, store_preview_handler
 
