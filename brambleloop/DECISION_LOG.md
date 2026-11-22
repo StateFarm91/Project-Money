@@ -4623,3 +4623,19 @@ A Laura gallery approved by this directive is recorded with `step_up: false` und
 ## D-OWNER-DEPLOY-19i9 — 2026-11-22T06:30:05Z
 
 Batch 19i9 (code 8c95cf114) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to 6a127f45da3356b213ce912dc914714e22f6c3a7 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-ENG-OWNER-GRANT-DERIVED-KEY — 2026-11-22T06:55Z
+
+Production has never had `BRAMBLELOOP_OWNER_GRANT_SIGNING_KEY` or `BRAMBLELOOP_OWNER_GRANT_VERIFY_KEY` (Railway variable names, read 2026-11-22; no value was read). So every owner press that signs a publication or activation grant raised "owner grant signing key unavailable", and no per-release Etsy grant could ever be signed, by the owner's own passphrase-and-TOTP press included.
+
+`core/owner_grant_keys` now derives the Ed25519 pair from `BRAMBLELOOP_SECRET_KEY` with HKDF-SHA256, domain separated (`brambleloop/owner-grant/ed25519/v1`), when no explicit pair is set and the service runs in Mode S (embedded worker). The module already documents that Mode S holds every secret in one process, so this is no weaker than an explicit pair there. Unchanged:
+- Mode T never derives; the worker must hold only an explicit verify key.
+- A job process never signs.
+- A grant or rebase is still signed only inside the owner's Command Center request (session, CSRF/nonce and step-up).
+- An explicit pair, when set, always wins.
+
+The readback reports which source is in use (`owner_grant_key_source`: explicit, derived_mode_s or absent), never the key. The approve-all-3 readback also gains `still_listed_by_kind`: bucket plus the card's code identifier, with slugs and free text dropped. Tests: `tests/test_owner_grant_derived.py` (7) and `tests/test_approve_all_kinds.py` (1).
+
+## D-OWNER-DEPLOY-19i10 — 2026-11-22T06:51:55Z
+
+Batch 19i10 (code a71b80b88) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to eb941ffe74f1817df93ee9143a890ec202288499 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.

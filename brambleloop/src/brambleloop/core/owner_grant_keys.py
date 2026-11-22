@@ -76,6 +76,69 @@ def _b64key(var: str) -> bytes:
     return key
 
 
+SECRET_VAR = "BRAMBLELOOP_SECRET_KEY"
+_DERIVE_INFO = b"brambleloop/owner-grant/ed25519/v1"
+
+
+def _mode_s() -> bool:
+    return os.environ.get(EMBEDDED_VAR, "1") == "1"
+
+
+def _derived_seed() -> bytes | None:
+    """D-ENG-OWNER-GRANT-DERIVED-KEY: when no explicit key pair is set, Mode S derives the
+    owner-grant Ed25519 seed from the web secret with HKDF (domain separated, so the seed is
+    unrelated to every other use of that secret). Mode S already holds every secret in one
+    process (`deployment_note`), so this is no weaker than an explicit pair there. Mode T never
+    derives: the worker must hold only an explicit verify key, or the separation is lost."""
+    if not _mode_s():
+        return None
+    secret = os.environ.get(SECRET_VAR, "").strip()
+    if len(secret) < 16:
+        return None
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+
+    return HKDF(algorithm=hashes.SHA256(), length=32, salt=b"brambleloop-owner-grant",
+                info=_DERIVE_INFO).derive(secret.encode())
+
+
+def key_source() -> str:
+    """Which key material grants use here, for the readback (never the key): explicit,
+    derived_mode_s or absent."""
+    if os.environ.get(SIGNING_KEY_VAR, "").strip() or os.environ.get(VERIFY_KEY_VAR, "").strip():
+        return "explicit"
+    return "derived_mode_s" if _derived_seed() is not None else "absent"
+
+
+def _private_key():
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    if os.environ.get(SIGNING_KEY_VAR, "").strip():
+        return Ed25519PrivateKey.from_private_bytes(_b64key(SIGNING_KEY_VAR))
+    if os.environ.get(VERIFY_KEY_VAR, "").strip():
+        raise ValueError(f"{SIGNING_KEY_VAR} is not set in this process (an explicit verify "
+                         "key is, so the pair is not derived)")
+    seed = _derived_seed()
+    if seed is None:
+        raise ValueError(f"{SIGNING_KEY_VAR} is not set and no key can be derived here")
+    return Ed25519PrivateKey.from_private_bytes(seed)
+
+
+def _public_key():
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+    if os.environ.get(VERIFY_KEY_VAR, "").strip():
+        return Ed25519PublicKey.from_public_bytes(_b64key(VERIFY_KEY_VAR))
+    if os.environ.get(SIGNING_KEY_VAR, "").strip():
+        raise ValueError(f"{VERIFY_KEY_VAR} is not set in this process")
+    seed = _derived_seed()
+    if seed is None:
+        raise ValueError(f"{VERIFY_KEY_VAR} is not set and no key can be derived here")
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    return Ed25519PrivateKey.from_private_bytes(seed).public_key()
+
+
 def mark_job_process() -> bool:
     """Called at a dedicated worker's startup: this process runs jobs and may never sign an
     owner grant. Scrubs the signing key from the environment. Returns whether one was set."""
@@ -136,8 +199,6 @@ def _granting(detail: dict) -> bool:
 
 def sign(domain: str, detail: dict) -> str:
     """Ed25519 signature (hex) over the domain and the canonical JSON of `detail`."""
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
     why = signing_refusal()
     if why:
         raise ValueError(f"owner grant signing refused: {why}")
@@ -146,7 +207,7 @@ def sign(domain: str, detail: dict) -> str:
                          "Center request (session, CSRF/nonce and step-up), never through the "
                          "operator bearer route")
     try:
-        key = Ed25519PrivateKey.from_private_bytes(_b64key(SIGNING_KEY_VAR))
+        key = _private_key()
     except Exception as exc:  # noqa: BLE001
         raise ValueError(f"owner grant signing key unavailable: {exc}") from None
     return key.sign(f"{domain}\n{_json(detail)}".encode()).hex()
@@ -156,10 +217,9 @@ def verify(domain: str, detail: dict, seal: str) -> bool:
     """True only for a valid Ed25519 signature by the configured key over this domain.
     A missing or malformed verify key raises ValueError (callers refuse)."""
     from cryptography.exceptions import InvalidSignature
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
     try:
-        pub = Ed25519PublicKey.from_public_bytes(_b64key(VERIFY_KEY_VAR))
+        pub = _public_key()
     except Exception as exc:  # noqa: BLE001
         raise ValueError(f"owner grant verify key unavailable: {exc}") from None
     if not is_signature(seal):
