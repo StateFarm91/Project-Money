@@ -156,6 +156,15 @@ def test_judge_held_records_an_unbilled_refusal_and_never_passes():
                 slug = row.slug
                 break
     assert slug, "the fixture state has a boarded concept"
+    # AUDIT 19i7: a recorded verdict on the same board bytes by the same model is reused at no
+    # cost, so the earlier fixture judgement of this board would answer without asking the
+    # provider. Remove it (and any attempt row) so this case reaches the refusing provider.
+    sha = intake.board_digest_for(db, slug)
+    with db.session() as s:
+        for r in s.scalars(select(AuditLog).where(AuditLog.action.in_(
+                (intake.JUDGED_ACTION, CJ.ATTEMPT_ACTION)))).all():
+            if (r.detail or {}).get("board_sha256") == sha:
+                s.delete(r)
 
     class _Job:
         id = None
