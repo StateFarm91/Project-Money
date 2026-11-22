@@ -722,12 +722,27 @@ def record_simulated_taxonomy(rec: Recorder, db, state: dict, *, fake_base: str)
                     (j.inputs or {}).get("version") == version:
                 seo_inputs = dict(j.inputs)
                 break
-    seo = (_run_job(db, "listing", "listing.seo", seo_inputs, Phase.LIMITED_PRODUCTION)
-           if seo_inputs is not None else None)
-    try:
-        chosen = category.publish_inputs(db, slug=slug, version=version)
-    except Exception as e:  # noqa: BLE001 - recorded as it is
-        chosen = {"status": "ERROR", "why": f"{type(e).__name__}: {e}"[:300]}
+    def _chosen():
+        try:
+            return category.publish_inputs(db, slug=slug, version=version)
+        except Exception as e:  # noqa: BLE001 - recorded as it is
+            return {"status": "ERROR", "why": f"{type(e).__name__}: {e}"[:300]}
+
+    # READY-FIXTURE F1: a release whose category is already CHOSEN and whose certification
+    # the refresh did not drift (no taxonomy drift held for it) is not re-run through
+    # listing.seo. That is the production order: taxonomy, then listing.seo, then the
+    # gallery. A re-run after a certified generated gallery would re-certify the search
+    # profile without its hero and leave it PENDING. A release with no chosen category, or one
+    # the refresh drifted, gets the re-run, so category selection reads the new snapshot.
+    from brambleloop.integrations.taxonomy_drift import held_drift
+
+    chosen = _chosen()
+    seo = None
+    if not (chosen.get("status") == category.CHOSEN and chosen.get("taxonomy_id")) \
+            or held_drift(db, slug):
+        seo = (_run_job(db, "listing", "listing.seo", seo_inputs, Phase.LIMITED_PRODUCTION)
+               if seo_inputs is not None else None)
+        chosen = _chosen()
     refreshed = [a for a in _audits(db, "etsy.taxonomy_refreshed")
                  if a.get("job_id") == refresh["id"]]
     unmeasured = [a for a in _audits(db, "etsy.taxonomy_unmeasured")

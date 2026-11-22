@@ -38,8 +38,12 @@ from brambleloop.runtime import pipeline  # noqa: E402,F401 (registers handlers)
 from brambleloop.runtime.worker import Worker  # noqa: E402
 
 BAND_GRAMS, BAND_METRES = 50.0, 77.0
+# D-OWNER-GALLERY-COMPLETE (19f): a listing-set certificate counts toward publication only when
+# it names the whole gallery (shot_plans.CAMPAIGN_MIN_FRAMES = 7), so six renders plus the
+# sample photo make the smallest gallery the gate can accept.
 RENDERS = (("hero", "DIGITAL_TWIN_RENDER"), ("chart", "DIGITAL_TWIN_RENDER"),
-           ("pattern_preview", "DIGITAL_TWIN_RENDER"))
+           ("pattern_preview", "DIGITAL_TWIN_RENDER"), ("materials", "DIGITAL_TWIN_RENDER"),
+           ("size", "DIGITAL_TWIN_RENDER"), ("whats_included", "DIGITAL_TWIN_RENDER"))
 
 
 def _db() -> Database:

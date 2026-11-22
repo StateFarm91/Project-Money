@@ -30,6 +30,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tests"))
 
 import test_search_hero_publish as SH  # noqa: E402  (sets its env and loopback-only sockets)
+import ready_release_fixture as RF  # noqa: E402  (a READY release, real sale pipeline)
 
 _spec = importlib.util.spec_from_file_location("shadow_rehearsal",
                                                ROOT / "scripts" / "shadow_rehearsal.py")
@@ -70,7 +71,7 @@ def _held_gates():
 
 
 def test_the_past_shadow_publish_pass_path_creates_exactly_one_draft_under_the_grant():
-    path, version, rh = SH._chain()
+    path, version, rh = RF.ready_chain("past-shadow")
     db = Database(f"sqlite:///{path}")
     with db.session() as s:          # the evidence the transition cites (fmend's pattern)
         s.add(AuditLog(actor="orchestrator", action="launch.rollback_rehearsed",
