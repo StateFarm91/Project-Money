@@ -32,6 +32,8 @@ statuses, counts, ages, UTC timestamps, product slugs and `slug@version` artefac
 """
 from __future__ import annotations
 
+import os
+
 import re
 from datetime import datetime, timedelta, timezone
 
@@ -453,7 +455,105 @@ def paid_calls(db, *, now: datetime, hours: int = PASS_WINDOW_HOURS) -> dict:
         "replay_audits_in_window": replay_audits,
         "repeated_billed_requests": len(repeated),
         "repeated": repeated[:20],
+        # ENG-PAID-REFUSALS: why paid calls were refused before sending, and the state of each
+        # owner activation (counts, fixed codes and provider names only).
+        **_paid_refusals(db, now=now, since=since),
     }
+
+
+_REFUSAL_CODES = frozenset((
+    "not_activated_by_owner", "activation_expired", "activation_revoked",
+    "accounting_store_missing", "accounting_store_unreadable", "unknown_paid_provider",
+    "invalid_estimate", "no_budget_reservation", "reservation_underfunded",
+    "reservation_already_used", "company_monthly_budget", "provider_daily_ceiling",
+    "provider_monthly_ceiling", "per_gallery_limit", "already_billed", "retry_ceiling",
+    "run_call_ceiling"))
+_DECLINE_CLASSES = (("paidcallrefused", "gate_refused"), ("budgetexceeded", "budget"),
+                    ("no api key", "no_key"), ("api_key", "no_key"), ("not set", "no_key"),
+                    ("401", "auth"), ("403", "auth"), ("429", "rate_limited"),
+                    ("timeout", "timeout"), ("timed out", "timeout"))
+
+
+def _decline_class(error: str) -> str:
+    e = (error or "").lower()
+    for needle, cls in _DECLINE_CLASSES:
+        if needle in e:
+            return cls
+    return "other"
+
+
+def _paid_refusals(db, *, now: datetime, since: datetime) -> dict:
+    from sqlalchemy import func, select
+
+    from ..core.models import AuditLog
+    from ..gateway import paid_provider_gate as G
+    from ..gateway.paid_calls import DECLINED, PaidCallRecord
+    from . import owner_directives as OD
+
+    known = {p for p, _sc in OD.ACTIVATIONS} | {G.OPENAI_VISION}
+    out: dict = {"refusals_by_provider_code": {}, "declined_by_provider_class": {},
+                 "activations": {}}
+    try:
+        with db.session() as s:
+            for art, d in s.execute(select(AuditLog.artifact, AuditLog.detail).where(
+                    AuditLog.action == G.ACTION_REFUSED, AuditLog.at >= since)):
+                prov = str(art or "").split(":", 1)[0]
+                prov = prov if prov in known else "other"
+                code = str((d or {}).get("code") or "")
+                code = code if code in _REFUSAL_CODES else "other"
+                row = out["refusals_by_provider_code"].setdefault(prov, {})
+                row[code] = row.get(code, 0) + 1
+            for prov, err in s.execute(select(PaidCallRecord.provider, PaidCallRecord.error)
+                                       .where(PaidCallRecord.outcome == DECLINED,
+                                              PaidCallRecord.at >= since)):
+                prov = prov if prov in known else ("other" if prov else "unnamed")
+                row = out["declined_by_provider_class"].setdefault(prov, {})
+                cls = _decline_class(err)
+                row[cls] = row.get(cls, 0) + 1
+            day0 = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            for (prov, scope) in sorted(OD.ACTIVATIONS):
+                st = G.activation_state(db, prov, scope, now=now)
+                act = st.get("activation") or {}
+                mine = G.PaidProviderCall.provider == prov
+                today = float(s.scalar(select(func.coalesce(func.sum(func.coalesce(
+                    G.PaidProviderCall.actual_cad, G.PaidProviderCall.estimate_cad)), 0.0))
+                    .where(mine, G.PaidProviderCall.at >= day0,
+                           G.PaidProviderCall.status.in_(G.COUNTED))) or 0.0)
+                stale = int(s.scalar(select(func.count()).select_from(G.PaidProviderCall)
+                                     .where(mine, G.PaidProviderCall.status == G.RESERVED,
+                                            G.PaidProviderCall.at < now - timedelta(hours=1)))
+                            or 0)
+                by_status = dict(s.execute(select(G.PaidProviderCall.status, func.count())
+                                           .where(mine, G.PaidProviderCall.at >= since)
+                                           .group_by(G.PaidProviderCall.status)).all())
+                out["activations"][f"{prov}:{scope}"] = {
+                    "active": bool(st.get("active")),
+                    "reason": str(st.get("reason") or "")[:40],
+                    "status": act.get("status"), "expires_at": act.get("expires_at"),
+                    "directive_sunset_at": OD.SUNSET.isoformat(),
+                    "daily_ceiling_cad": act.get("daily_ceiling_cad"),
+                    "spent_or_reserved_today_cad": round(today, 4),
+                    "reserved_older_than_1h": stale,
+                    "calls_in_window_by_status": {str(k): int(v) for k, v in by_status.items()}}
+        with db.session() as s:
+            last = s.execute(select(AuditLog.at, AuditLog.detail).where(
+                AuditLog.action == "creative.regate").order_by(AuditLog.id.desc())
+                .limit(1)).first()
+        reg = ((last[1] or {}).get("regated") or {}) if last else {}
+        from ..creative import concept_judge as CJ
+
+        vendor, _p = CJ.choose(db)
+        out["concept_judge"] = {
+            "last_regate_at": _aware(last[0]).isoformat() if last else None,
+            "last_regate_vision_usable": bool(reg.get("vision_usable")) if last else None,
+            "last_regate_radar_judged": len(reg.get("radar_judged") or []),
+            "last_regate_radar_held": len(reg.get("radar_held") or []),
+            "route_now": vendor or "none",
+            "openai_route_usable": bool(CJ.openai_vision_usable(db, now=now)),
+            "openai_key_present": bool(os.environ.get("OPENAI_API_KEY"))}
+    except Exception as exc:  # noqa: BLE001 - visibility never breaks the readback
+        out["refusals_error"] = type(exc).__name__
+    return out
 
 
 def weekly_jobs(db, *, now: datetime) -> dict:
