@@ -1280,6 +1280,25 @@ def _gate_waits_on_vision(db, slug: str) -> bool:
                                                                     or [])
 
 
+BOARD_WHY_CODES = ("concept_incomplete", "prototype_refused", "prototype_not_compiling",
+                   "hero_not_verified", "hero_render_refused", "not_stored", "other")
+
+
+def board_why_code(made: dict) -> str:
+    """CONCEPT-BOARDS: why `make_board` drew no board, as one fixed code (no free text), so
+    the readback can say which step stops concepts at `board_missing`."""
+    if made.get("board_image") and not made.get("sha256"):
+        return "not_stored"
+    why = str(made.get("why") or "")
+    if why.startswith("no prototype to render"):
+        return "prototype_refused"
+    if why.startswith("the prototype does not compile"):
+        return "prototype_not_compiling"
+    if why.startswith("the design's verified hero could not be drawn"):
+        return ("hero_not_verified" if "did not verify" in why else "hero_render_refused")
+    return "other"
+
+
 def file_radar_board(db, slug: str) -> dict:
     """Render and file the concept board for an approved radar concept, or say why not.
 
@@ -1294,11 +1313,13 @@ def file_radar_board(db, slug: str) -> dict:
 
     built, _brief, problem = concept_from(radar_intake.gate_inputs(db, slug, {}))
     if built is None:
-        return {"board": "", "why": f"no concept to draw: {problem}"[:200]}
+        return {"board": "", "why": f"no concept to draw: {problem}"[:200],
+                "why_code": "concept_incomplete"}
     made = make_board(db, built)
     sha = _sha256_hex(made.get("sha256"))
     if not made.get("board_image") or not sha:
-        return {"board": "", "why": str(made.get("why") or "no board was drawn")[:200]}
+        return {"board": "", "why": str(made.get("why") or "no board was drawn")[:200],
+                "why_code": board_why_code(made)}
     record = {"slug": slug, "kind": made.get("kind"), "image": {"sha256": sha},
               "image_ref": f"sha256:{sha}", "disclosure": made.get("disclosure"),
               "source": RADAR_BOARD_SOURCE, "board_source": made.get("source")}
@@ -1372,7 +1393,8 @@ def judge_radar_waiting(ctx, *, today: date | None = None, provider=None,
                     held.append(entry)
                     continue
             if not board:
-                held.append({"slug": slug, "code": "board_missing", "waiting_on": [
+                held.append({"slug": slug, "code": "board_missing",
+                             "board_why": filed.get("why_code") or "other", "waiting_on": [
                     f"board_image (no board could be drawn: {filed['why']})"[:240]]})
                 continue
         asked_n += 1

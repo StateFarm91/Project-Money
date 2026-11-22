@@ -1972,7 +1972,7 @@ def restartable(db, key: str) -> dict:
         return {"restartable": False, "why": f"already restarted {run['restarts']} times "
                                              f"(cap {MAX_RESTARTS})"}
     reason = str(run.get("blocked_reason") or "")
-    if reason.startswith("budget stop"):
+    if reason.startswith("budget stop") and not daily_ceiling_reset(run):
         return {"restartable": False, "why": "a budget stop is final for this run: " + reason}
     failed = _run_candidates_failed(db, key, run["listing"])
     if failed:
@@ -2066,6 +2066,38 @@ CAPABILITY_GATES = (("image_generation gate closed", "image_generation"),)
 REDRIVE_BY = "capability_redrive"
 
 
+# A budget stop whose only cause is the provider's DAILY ceiling is a window, not a verdict:
+# nothing was billed (the gate refused before sending) and the ceiling resets at the next UTC
+# day. Every other budget stop (the per-gallery cap, a monthly ceiling, a reservation) stays
+# final. The run's spend, calls and attempts are never reset; the ceiling still applies on the
+# new day, so a restarted run that meets it again simply blocks again.
+DAILY_CEILING_CODE = "(provider_daily_ceiling)"
+DAILY_REDRIVE_BY = "daily_ceiling_redrive"
+
+
+def _utc_day(iso: str | None):
+    if not iso:
+        return None
+    try:
+        d = datetime.fromisoformat(iso)
+        if d.tzinfo is None:
+            d = d.replace(tzinfo=timezone.utc)
+        return d.astimezone(timezone.utc).date()
+    except ValueError:
+        return None
+
+
+def daily_ceiling_reset(run: dict, now=None) -> bool:
+    """True when `run` is a budget stop caused only by the provider's daily ceiling and the
+    UTC day has changed since it blocked."""
+    reason = str(run.get("blocked_reason") or "")
+    if not (reason.startswith("budget stop") and DAILY_CEILING_CODE in reason):
+        return False
+    blocked_day = _utc_day(run.get("updated_at"))
+    today = (now or _now()).astimezone(timezone.utc).date()
+    return blocked_day is not None and today > blocked_day
+
+
 def _gate_of(reason: str) -> str | None:
     for needle, gate in CAPABILITY_GATES:
         if needle in (reason or ""):
@@ -2097,6 +2129,27 @@ def redrive_capability_blocked(db, *, follow) -> dict:
     for key, reason, stages in rows:
         gate = _gate_of(reason)
         if gate is None:
+            if DAILY_CEILING_CODE in reason and reason.startswith("budget stop"):
+                run = get_run(db, key) or {}
+                if not daily_ceiling_reset(run):
+                    waiting.append({"run_key": key, "why": "provider daily ceiling; resets "
+                                                           "at the next UTC day"})
+                    continue
+                day = str(_now().date())
+                history = (stages.get(RESTART_KEY) or {}).get("history") or []
+                if any(h.get("by") == DAILY_REDRIVE_BY and day in str(h.get("reason", ""))
+                       for h in history):
+                    refused.append({"run_key": key, "why": f"already re-driven on {day}"})
+                    continue
+                try:
+                    out = restart(db, key, follow=follow, by=DAILY_REDRIVE_BY,
+                                  reason=f"provider daily ceiling reset on {day}")
+                except Exception as exc:  # noqa: BLE001 - restart rolled back; stays blocked
+                    out = {"restarted": False,
+                           "why": f"restart not enqueued ({type(exc).__name__})"}
+                (restarted if out.get("restarted") else refused).append(
+                    {"run_key": key, **{k: out[k] for k in ("epoch", "resume_at", "why")
+                                        if k in out}})
             continue
         history = (stages.get(RESTART_KEY) or {}).get("history") or []
         if any(h.get("by") == REDRIVE_BY and gate in str(h.get("reason", ""))
