@@ -316,8 +316,10 @@ export const api = {
   mission: () => get(ENDPOINTS.mission()),
   approveAllPreview: () => get(ENDPOINTS.approveAll()),
   approveAll: (digest) => post(ENDPOINTS.approveAll(), { expected_digest: digest }),
-  approveEverythingPreview: () => get(ENDPOINTS.approveEverything()),
-  approveEverything: (digest) => post(ENDPOINTS.approveEverything(), { expected_digest: digest, confirm: true }),
+  approveEverythingPreview: () => get(`${ENDPOINTS.approveEverything()}?cards=0`),
+  // APPROVE-FIX: the press names the exact previewed items; each is approved on its own, and
+  // a refusal is reported for that item instead of undoing the rest.
+  approveEverything: (digest, items) => post(ENDPOINTS.approveEverything(), { expected_digest: digest, items: items || [], confirm: true }),
   demand: () => get(ENDPOINTS.demand()),
   catalogue: (p) => get(ENDPOINTS.catalogue(p)),
   operatingEvidence: () => get(ENDPOINTS.operatingEvidence()),

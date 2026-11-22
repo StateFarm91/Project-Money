@@ -11301,3 +11301,8 @@ etsy_api/benchmark_observation read CLOSED today; /api/verify reads 11/12. Repor
 - LOW 4: not-ready PUBLICATION cards are class PUBLICATION (flag `not_ready`), not ROUTINE-labelled `publication_not_ready`.
 - LOW 5: `routine_superseded_nothing_approved_24h` counts `improve.challenger_run:` / `taxonomy_drift:` supersedes apart from `routine_auto_approved_24h`.
 - Known, not from this change: `test_first_listing_doors` fails the same way at eb0f062 ("listing search profile not certified PASS").
+
+## APPROVE-FIX — 2026-11-22 (branch eng/approve-fix; NOT deployed)
+- Root cause of "approve does nothing": the press re-ran a 2-minute preview, and the browser closed the request (HTTP 499, production log 00:19 and 00:22 UTC). Fixed by `approve_everything.execute_items`, which writes each previewed item in its own savepoint, reports per-item failures and stores the outcome as `last_press`. The page sends the items and keeps the result on screen. D-APPROVE-FIX.
+- Approve-all now also covers unclassified owner cards that need no choice (`owner_approved_step_up`). The rest are listed with their reason.
+- Tests: tests/test_approve_fix.py (8 passing, including a 173-row queue) plus the related suites, 144 passing. NOT verified: the preview's own GET is still slow (it now reports `timings_ms` to find the cost), and whether producers re-raise approved rows in production.
