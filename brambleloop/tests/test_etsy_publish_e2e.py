@@ -1,4 +1,5 @@
-"""ENG-ETSY-PUBLISH, end to end on FakeEtsy with the real certified release fixture.
+"""ENG-ETSY-PUBLISH, end to end on FakeEtsy with a release READY for sale
+(tests/ready_release_fixture.py; READY-FIXTURE.md says what is faked and what is real).
 
 package -> draft -> images (gallery order, alt text) and BOTH PDFs uploaded -> read back
 (every byte that left hashes to the certified release, Etsy's sizes and dimensions match) ->
@@ -308,6 +309,17 @@ def test_package_to_draft_rollback_adoption_and_refusals():
                         "full_width": w, "full_height": h})
                 assert not fake.received_images.get(seeded_id)
                 creates_before = _creates(fake)
+                # D-OWNER-SALE-PIPELINE: the rollback rewrote the local listing, so the
+                # package fence invalidated the reviewed listing package ("listing or
+                # certified release changed after package review") and the release is not
+                # READY until it is re-assembled. The real packager re-assembles it.
+                pk = SH._run(db, "listing", "listing.package", {"slug": slug,
+                                                                "version": version})
+                assert pk.status is JobStatus.DONE, pk.last_error
+                from brambleloop.publish import sale_pipeline as SPL
+
+                assert SPL.ready_for_sale(db, slug, version, rh)["ready"] is True, \
+                    SPL.ready_for_sale(db, slug, version, rh)
                 gid2 = _grant(db, slug, version, rh, "after rollback")
                 #    No button: the hourly scheduler sees the owner's grant and queues the
                 #    one store.publish for it; a second tick queues nothing more.
@@ -317,6 +329,7 @@ def test_package_to_draft_rollback_adoption_and_refusals():
                 FL._run_all(db, ["store.publish"])
                 job = FL._job(db, tick["queued"][0]["job_id"])
                 assert _creates(fake) == creates_before, "a second listing was created"
+                assert "etsy_listing_id" in job["outputs"], job
                 assert str(job["outputs"]["etsy_listing_id"]) == seeded_id, job
                 assert job["outputs"].get("adopted_existing_draft") is True, job
                 assert FL._audits(db, draft_adoption.ADOPTED), "adoption is audited"
