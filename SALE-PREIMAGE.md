@@ -105,7 +105,7 @@ Command: `cd brambleloop && JOBS=4 SUITE_REGISTRY=0 SUITES="..." bash run_tests.
 
 **Batch 1** (run record `20261122T002416Z-1203`, at SHA f60e4ab, tree clean, 11 suites): **TOTAL PASSING 227, suites failing 0.** Suites: test_sale_preimage, test_sale_pipeline, test_sale_pipeline_e2e, test_image_ad, test_pdf_standard, test_w4_ownerimg, test_w5_v0_paid_provider_gate, test_vacuity, test_search_hero_publish, test_etsy_readback_observe, test_w4_readback_evidence.
 
-**Batch 2** (slow end-to-end): test_vis_gallery_e2e, test_visual_factory_e2e. BATCH2_PLACEHOLDER
+**Batch 2** (slow end-to-end): test_vis_gallery_e2e, test_visual_factory_e2e. Run record `20261122T005057Z-4017`, at SHA f60e4ab: **TOTAL PASSING 21, suites failing 0.**
 
 Not run: the full suite. This branch is not release-eligible until the coordinator's full run passes.
 
