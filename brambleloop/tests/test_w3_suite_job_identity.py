@@ -43,7 +43,10 @@ GATE = ('import os, sys, time\n'
         'print("OK   test_gated")\n')
 _KNOBS = ("SUITES", "REQUIRE_CLEAN", "THEN_FULL", "ALLOW_PARALLEL", "SUITE_RECORD_DIR", "JOBS",
           "ATTACH", "ATTACH_TIMEOUT", "SUITE_REGISTRY", "SUITE_REGISTRY_CLI",
-          "BRAMBLELOOP_JOB_REGISTRY", "_BRAMBLELOOP_SUITE_JOB")
+          "BRAMBLELOOP_JOB_REGISTRY", "_BRAMBLELOOP_SUITE_JOB",
+          # W4-B1 knobs: inherited from a CHECKPOINT/SHARD parent run, they made the sandbox
+          # shard its own suite list and refuse to start (see test_run_tests_script._KNOBS).
+          "CHECKPOINT", "CHECKPOINT_TOOL", "RESUME", "SHARD")
 
 
 def _git(repo: Path, *args: str) -> str:

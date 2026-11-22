@@ -4,7 +4,8 @@ Not a hand-written table: every link is read from the live roots the runtime boo
 `runtime.worker.CADENCES` (what the scheduler enqueues), `runtime.worker.handlers` after
 `runtime.pipeline` is imported (what a worker can execute), `agents.registry.DEFAULT_AGENTS`
 and `FORBIDDEN_COMBINATIONS` (what each agent may run), the follow-on `enqueue(...)` calls in
-handler source (parsed with `ast`, literal job types only), and this package's charters and
+handler source (parsed with `ast`; statically known job types only: literals and module-level
+string constants), and this package's charters and
 generators. A link the code does not wire is reported as broken; a docstring that claims it is
 not evidence.
 
@@ -140,17 +141,104 @@ def _pkg_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
 
+def _module_str_constants(path: Path) -> dict[str, str]:
+    """Module-level `NAME = "literal"` assignments of one source file (and only those: a
+    name assigned twice at module level is ambiguous and dropped)."""
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError):
+        return {}
+    out: dict[str, str] = {}
+    seen: set[str] = set()
+    for node in tree.body:
+        targets = []
+        if isinstance(node, ast.Assign):
+            targets, value = node.targets, node.value
+        elif isinstance(node, ast.AnnAssign) and node.value is not None:
+            targets, value = [node.target], node.value
+        for t in targets:
+            if not isinstance(t, ast.Name):
+                continue
+            if t.id in seen:
+                out.pop(t.id, None)
+                continue
+            seen.add(t.id)
+            if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                out[t.id] = value.value
+    return out
+
+
+def _module_aliases(tree: ast.AST, rel: str, root: Path) -> dict[str, Path]:
+    """`from <pkg> import mod as ALIAS` / `import brambleloop.x.mod as ALIAS` anywhere in a
+    file, resolved to the package source file. An alias bound to two different modules in
+    one file is ambiguous and dropped."""
+    here = rel.split("/")[:-1]
+    out: dict[str, Path] = {}
+    bad: set[str] = set()
+
+    def bind(alias: str, parts: list[str]) -> None:
+        cand = root.joinpath(*parts).with_suffix(".py") if parts else None
+        if cand is None or not cand.is_file():
+            return
+        if alias in out and out[alias] != cand:
+            bad.add(alias)
+        out[alias] = cand
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            if node.level:
+                base = here[:len(here) - (node.level - 1)] if node.level > 1 else list(here)
+            elif (node.module or "").split(".")[0] == root.name:
+                base = []
+            else:
+                continue
+            mod = [p for p in (node.module or "").split(".") if p]
+            if not node.level:
+                mod = mod[1:]
+            for a in node.names:
+                bind(a.asname or a.name, base + mod + [a.name])
+        elif isinstance(node, ast.Import):
+            for a in node.names:
+                parts = a.name.split(".")
+                if parts[0] == root.name and a.asname:
+                    bind(a.asname, parts[1:])
+    for b in bad:
+        out.pop(b, None)
+    return out
+
+
 def follow_on_edges() -> list[dict]:
-    """Literal `X.enqueue(agent, "job.type", ...)` calls, attributed to the handler (job type)
-    or helper function that contains them."""
+    """`X.enqueue(agent, job_type, ...)` calls whose agent and job type are statically known
+    strings -- a literal, a module-level string constant of the same file, or a module-level
+    string constant of an imported package module (`SPL.JOB_TYPE`) -- attributed to the
+    handler (job type) or helper function that contains them. Anything computed at run time
+    is not read (and so never claimed as an edge)."""
     edges: list[dict] = []
     root = _pkg_root()
+    consts_cache: dict[Path, dict[str, str]] = {}
+
+    def consts(p: Path) -> dict[str, str]:
+        if p not in consts_cache:
+            consts_cache[p] = _module_str_constants(p)
+        return consts_cache[p]
+
     for path in sorted(root.rglob("*.py")):
         rel = path.relative_to(root).as_posix()
         text = path.read_text(encoding="utf-8")
         if rel in _EDGE_SKIP or ".enqueue(" not in text:
             continue
         tree = ast.parse(text)
+        aliases = _module_aliases(tree, rel, root)
+
+        def static_str(arg, _path=path, _aliases=aliases):
+            if isinstance(arg, ast.Constant):
+                return arg.value if isinstance(arg.value, str) else None
+            if isinstance(arg, ast.Name):
+                return consts(_path).get(arg.id)
+            if isinstance(arg, ast.Attribute) and isinstance(arg.value, ast.Name) \
+                    and arg.value.id in _aliases:
+                return consts(_aliases[arg.value.id]).get(arg.attr)
+            return None
         for fn in ast.walk(tree):
             if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
@@ -162,10 +250,11 @@ def follow_on_edges() -> list[dict]:
                     origin = str(dec.args[0].value)
             for node in ast.walk(fn):
                 if isinstance(node, ast.Call) and getattr(node.func, "attr", "") == "enqueue" \
-                        and len(node.args) >= 2 and isinstance(node.args[1], ast.Constant) \
-                        and isinstance(node.args[0], ast.Constant):
-                    edges.append({"from": origin, "agent": node.args[0].value,
-                                  "to": node.args[1].value, "file": rel,
+                        and len(node.args) >= 2:
+                    agent, to = static_str(node.args[0]), static_str(node.args[1])
+                    if agent is None or to is None:
+                        continue
+                    edges.append({"from": origin, "agent": agent, "to": to, "file": rel,
                                   "line": node.lineno})
     uniq = {(e["from"], e["agent"], e["to"]): e for e in edges}
     return sorted(uniq.values(), key=lambda e: (e["from"], e["to"]))
