@@ -310,11 +310,16 @@ def reset_snapshot() -> None:
 
 
 def note(effect: str, *, applied: bool, subject: str, lessons=(), detail: dict | None = None,
-         ) -> None:
-    """A pure hook ran (and, if `applied`, changed its output because of `lessons`)."""
+         relevant: bool | None = None) -> None:
+    """A pure hook ran (and, if `applied`, changed its output because of `lessons`).
+
+    `relevant` (LEARNING-APPLY): the subject met the lesson's applicability predicate, whether
+    or not the output then changed. Defaults to `applied` (an application is always relevant).
+    It is counted apart from applications and never turned into one."""
     with _LOCK:
         _PENDING.append({"effect": effect, "applied": applied, "subject": subject[:200],
-                         "lessons": tuple(lessons), "detail": dict(detail or {})})
+                         "lessons": tuple(lessons), "detail": dict(detail or {}),
+                         "relevant": bool(applied if relevant is None else relevant)})
 
 
 def pending() -> list[dict]:
@@ -323,7 +328,8 @@ def pending() -> list[dict]:
 
 
 def record(db, effect: str, *, applied: bool, subject: str, lessons=(),
-           detail: dict | None = None, evaluations: int = 1) -> int:
+           detail: dict | None = None, evaluations: int = 1,
+           relevant: bool | None = None) -> int:
     """Write one hook run: an `evaluated` count per department, and an `applied` row per
     lesson and department when the output changed. Returns applied rows written."""
     from sqlalchemy import select
@@ -345,6 +351,19 @@ def record(db, effect: str, *, applied: bool, subject: str, lessons=(),
             else:
                 row.count = int(row.count or 0) + evaluations
                 row.last_at = now
+            # LEARNING-APPLY: how many runs met the lesson's applicability predicate, so a
+            # zero "applied" can be told apart: no relevant subject, or relevant and unchanged.
+            if evaluations and (applied if relevant is None else relevant):
+                rk = f"relevant:{effect}:{dept}"
+                rrow = s.scalar(select(LessonEffect).where(LessonEffect.key == rk))
+                if rrow is None:
+                    s.add(LessonEffect(key=rk, kind="relevant", lesson_key="", department=dept,
+                                       hook=effect, subject="", count=evaluations,
+                                       first_at=now, last_at=now, detail={}))
+                    s.flush()
+                else:
+                    rrow.count = int(rrow.count or 0) + evaluations
+                    rrow.last_at = now
         if applied:
             for lk in lessons:
                 lesson = BY_KEY.get(lk)
@@ -373,7 +392,7 @@ def flush(db) -> int:
     for n in batch:
         try:
             record(db, n["effect"], applied=n["applied"], subject=n["subject"],
-                   lessons=n["lessons"], detail=n["detail"])
+                   lessons=n["lessons"], detail=n["detail"], relevant=n.get("relevant"))
         except Exception:  # noqa: BLE001 - a lost note under-counts; it never fails a job
             continue
     return len(batch)
@@ -515,10 +534,51 @@ def seo_check(cir, slug: str, terms: list[str],
         return []
     claims = [t for t in terms if NO_SEW_CLAIM.search(t) or LOW_SEW_CLAIM.search(t)]
     found = low_sew_findings(cir, claims)
-    note(SEO_LOW_SEW, applied=bool(claims), subject=f"listing:{slug}",
-         lessons=effects[SEO_LOW_SEW],
+    note(SEO_LOW_SEW, applied=bool(found), subject=f"listing:{slug}",
+         lessons=effects[SEO_LOW_SEW], relevant=bool(claims),
          detail={"claims": len(claims), "refused": len(found)})
     return found
+
+
+# MM-L6 on the generator side (LEARNING-APPLY). The validator above only refuses a false
+# claim, and the listing builder never makes one, so on its own the lesson could never change
+# a listing. Here the certified construction earns the modifier for the tag set.
+SEW_TAG_FAMILY = "amigurumi"
+
+
+def sew_modifier_relevant(cir) -> bool:
+    """MM-L6 is about multi-piece toys: an amigurumi CIR with more than one component. A
+    one-piece blanket or basket has no assembly to speak of, so the modifier says nothing."""
+    if cir is None or len(getattr(cir, "components", None) or ()) < 2:
+        return False
+    from ..publish.premium_standard import family_of
+
+    try:
+        return family_of(cir) == SEW_TAG_FAMILY
+    except Exception:  # noqa: BLE001 - an unplaceable CIR earns nothing
+        return False
+
+
+def earned_sew_tags(cir, effects: dict[str, tuple[str, ...]] | None = None) -> list[str]:
+    """The sew modifiers (as tags) the certified construction earns, when MM-L6 is stored."""
+    effects = active_effects() if effects is None else effects
+    if SEO_LOW_SEW not in effects or not sew_modifier_relevant(cir):
+        return []
+    return [f"{m} amigurumi" for m in low_sew_modifiers(cir)]
+
+
+def note_sew_tags(cir, slug: str, earned: list[str], final_tags: list[str],
+                  effects: dict[str, tuple[str, ...]] | None = None) -> bool:
+    """Record the generator-side MM-L6 run. Applied only when an earned modifier is in the
+    final tag set (the lesson changed the listing)."""
+    effects = active_effects() if effects is None else effects
+    if SEO_LOW_SEW not in effects:
+        return False
+    added = [t for t in earned if t in final_tags]
+    note(SEO_LOW_SEW, applied=bool(added), subject=f"listing:{slug}:tags",
+         lessons=effects[SEO_LOW_SEW], relevant=sew_modifier_relevant(cir),
+         detail={"earned": list(earned), "added": added})
+    return bool(added)
 
 
 # ---- hook (b): PDF standard ----------------------------------------------------------------
@@ -640,6 +700,59 @@ def effective_price(listing: dict, listed: float | None,
     return out
 
 
+# HC-L1 on the pricing department's own cadence (LEARNING-APPLY). The live SERP capture is
+# not the only place price research reads competitor prices: every `pricing.decide` job
+# anchors on the benchmark catalogue's observed prices (`release._outcome_price`). A listing
+# observed on sale carries its listed price as `price_cad`; that is the strike price, which
+# the lesson says research never reads. With the lesson, an on-sale row is read at the
+# effective price the observation recorded (`detail.effective_price_cad`), or left out of
+# the anchor when no effective price was observed. A row not on sale is read as before.
+
+def anchor_prices(db, rows, *, subject: str,
+                  effects: dict[str, tuple[str, ...]] | None = None) -> list[float]:
+    """The prices a pricing anchor reads from `rows` (BenchmarkListing-shaped). Records one
+    hook run, and an application only when an on-sale row's strike price was replaced or
+    dropped, which changes what the anchor is computed from."""
+    rows = list(rows)
+    base = [float(r.price_cad) for r in rows if r.price_cad and r.price_cad > 0]
+    if effects is None:
+        effects = refresh(db)
+    if PRICE_EFFECTIVE not in effects:
+        return base
+    out: list[float] = []
+    replaced = dropped = 0
+    for r in rows:
+        listed = float(r.price_cad or 0)
+        if listed <= 0:
+            continue
+        if not getattr(r, "on_sale", False):
+            out.append(listed)
+            continue
+        eff = _money((getattr(r, "detail", None) or {}).get("effective_price_cad"))
+        if eff is not None and 0 < eff < listed:
+            out.append(eff)
+            replaced += 1
+        else:
+            dropped += 1
+    on_sale = sum(1 for r in rows if getattr(r, "on_sale", False) and (r.price_cad or 0) > 0)
+    record(db, PRICE_EFFECTIVE, applied=bool(replaced or dropped), subject=subject,
+           lessons=effects[PRICE_EFFECTIVE], relevant=bool(on_sale),
+           detail={"read": len(out), "strike_replaced": replaced, "strike_dropped": dropped})
+    return out
+
+
+def observed_effective_price(listing: dict, listed: float | None) -> float | None:
+    """The effective (sale) price a catalogue payload states below its listed price, or None.
+    A fact of the observation, stored whatever lessons are active; only the lesson reads it."""
+    if listed is None or listed <= 0:
+        return None
+    for k in EFFECTIVE_KEYS:
+        eff = _money(listing.get(k))
+        if eff is not None and 0 < eff < listed:
+            return eff
+    return None
+
+
 # HC-L3 (creative assets): without a physical sample there is no progress photo, so listing
 # copy may not promise photos of the making. Our diagrams are labelled diagrams.
 PHOTO_CLAIM = re.compile(r"\b(?:photo|picture)\s+tutorial\b|\bstep[- ]by[- ]step\s+"
@@ -685,7 +798,8 @@ def front_load_findings(title: str, *, slug: str = "",
         found.append(f"TITLE_NOT_FRONT_LOADED: the title opens with {first.split()[0]!r}, "
                      f"not the object (benchmark lesson HC-L7)")
     note(SEO_FRONT_LOAD, applied=bool(found), subject=f"listing:{slug}",
-         lessons=effects[SEO_FRONT_LOAD], detail={"findings": len(found)})
+         lessons=effects[SEO_FRONT_LOAD], relevant=bool(title.strip()),
+         detail={"findings": len(found)})
     return found
 
 
@@ -776,6 +890,7 @@ def readback(db) -> dict:
         ingested = [x for x in ours if x.key in stored]
         wired = [x for x in ingested if x.effects]
         runs = sum(c for kind, _lk, dept, _h, c in effects if kind == "evaluated" and dept == d)
+        relevant = sum(c for kind, _lk, dept, _h, c in effects if kind == "relevant" and dept == d)
         applied_keys = sorted({lk for kind, lk, dept, _h, _c in effects
                                if kind == "applied" and dept == d})
         applications = sum(1 for kind, _lk, dept, _h, _c in effects
@@ -792,7 +907,14 @@ def readback(db) -> dict:
                        why="the department's hook has not run since ingestion")
         else:
             rec.update(applied=len(applied_keys), applications=applications,
-                       hook_runs=runs, lessons_applied=applied_keys)
+                       hook_runs=runs, relevant_runs=relevant, lessons_applied=applied_keys)
+            if not applied_keys:
+                # LEARNING-APPLY: a measured zero says which kind of zero it is.
+                rec["why_zero"] = (
+                    "no evaluated subject was recorded as meeting the lessons' "
+                    "applicability predicate (no relevant product)" if not relevant else
+                    "relevant subjects were evaluated and already satisfied the lessons; "
+                    "no output changed")
         departments[d] = rec
     return {"readable": True, "ingested": len(stored), "of": len(LESSONS),
             "departments": departments}
