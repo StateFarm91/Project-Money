@@ -6,6 +6,9 @@ import { h } from "../dom.js";
 import { api } from "../api.js";
 import { card, statusPill } from "../components.js";
 
+// A GET resolves {data, stale, fetchedAt} (api.get): read the body, never the envelope.
+const body = (res) => (res && typeof res === "object" && "data" in res && "fetchedAt" in res ? (res.data || {}) : (res || {}));
+
 function rate(y) {
   if (!y || y.state === "ABSENT") return "Unknown";
   return `${Math.round((y.rate || 0) * 100)}% of ${y.judged}`;
@@ -33,7 +36,7 @@ function evidenceBlock(p) {
 
 export async function visualStudioCard(slugs) {
   let v;
-  try { v = await api.visualStudio(); } catch (e) {
+  try { v = body(await api.visualStudio()); } catch (e) {
     return card({ title: "Visual Studio", actions: statusPill("UNKNOWN") }, h("p", { class: "muted" }, "Could not load the Visual Studio view."));
   }
   const c = v.canonical || {};
@@ -45,9 +48,9 @@ export async function visualStudioCard(slugs) {
   const out = h("div", { aria: { live: "polite" } });
   const pick = h("select", { id: "vs-slug", onchange: async () => {
     out.replaceChildren(h("p", { class: "muted" }, "Loading…"));
-    try { out.replaceChildren(evidenceBlock(await api.visualEvidence(pick.value))); }
+    try { out.replaceChildren(evidenceBlock(body(await api.visualEvidence(pick.value)))); }
     catch (e) { out.replaceChildren(h("p", { class: "muted" }, "Could not load the evidence panel.")); }
-  } }, h("option", { value: "" }, "Choose a product…"), (slugs || []).map((s) => h("option", { value: s }, s)));
+  } }, h("option", { value: "" }, "Choose a product…"), [...new Set((slugs || []).filter(Boolean))].map((s) => h("option", { value: s }, s)));
   return card({ title: "Visual Studio", subtitle: "Canonical model, provider evidence and per-image gates. Read-only.",
     actions: statusPill(c.verified ? "OK" : "BAD", c.verified ? "Registry verified" : "Registry not verified") },
     h("p", null, `Canonical model: ${c.identity_id || "Unknown"} (revision ${c.revision ?? "?"})`),

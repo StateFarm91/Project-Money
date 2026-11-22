@@ -34,7 +34,10 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-VERSION = "pattern-refs/3.1.3"   # 3.1: layout rows at compiled heights (W4-WRAPTEST)
+VERSION = "pattern-refs/3.1.4"   # 3.1: layout rows at compiled heights (W4-WRAPTEST)
+# 3.1.4 (IMAGES-DIALIN): a vessel's layout adds its side elevation (the wall's colour bands at
+# their round shares, bottom to top) beside the top-down rounds, and the rules carry the wall
+# model the fidelity gate measures (`visual.vessel.vessel_models`).
 # 3.1.1 (W5-V1): ribbing needs a repeating loop/post pattern (one back-loop crease round is not
 # ribbing); fabric facts add colour bands, the polygon side count and the final round/rim.
 # 3.1.2: separated unpaired post stitches do not establish a repeating rib.
@@ -468,7 +471,42 @@ def technical_rules(cir, parts=None, *, release_hash: str) -> dict:
         "finished_size_note": cir.finished_size_note, "garment": garment,
         "assembly": assembly, "prohibited_additions": list(PROHIBITED_ADDITIONS),
         "fabric": (facts := fabric_facts(cir, parts)), "negatives": negatives(facts),
+        "vessel": vessel_spec(cir),
     }
+
+
+def vessel_spec(cir) -> dict | None:
+    """IMAGES-DIALIN: the vessel wall the fidelity gate measures, from the gate's own model.
+
+    `visual.vessel.vessel_models` is the rule `visual.vessel.verify` judges a basket by: the
+    side count from the twin, the wall as the trailing rounds that repeat the round before
+    them, and its colour bands bottom to top with the rounds in each. Stated here so the
+    prompt and the layout reference say exactly what the gate will count. None when the
+    design has no modelled vessel component."""
+    from ..visual import vessel as V
+
+    models = [m for m in V.vessel_models(cir) if m.modelled]
+    if not models:
+        return None
+    m = models[0]
+    comp = next(c for c in cir.components if c.name == m.component)
+    base_cols = []
+    for r in comp.rows[:m.base_rows]:
+        c = getattr(r, "color", None) or ""
+        if c and c not in base_cols:
+            base_cols.append(c)
+    first = m.base_rows + 1
+    bands = []
+    for cid, n in zip(m.wall_bands, m.wall_rows):
+        bands.append({"colour": cid, "hex": m.palette.get(cid), "rounds": n,
+                      "span": [first, first + n - 1],
+                      "share": round(n / m.wall_total_rows, 3)})
+        first += n
+    return {"component": m.component, "sides": m.sides, "base_rounds": m.base_rows,
+            "base_colours": base_cols, "wall_rounds": m.wall_total_rows,
+            "wall_bands": bands, "rim_colour": m.rim_colour,
+            "palette": {k: v for k, v in m.palette.items()},
+            "basis": "visual.vessel.vessel_models (the fidelity gate's own wall model)"}
 
 
 def _render_layout(cir, parts):
@@ -477,8 +515,26 @@ def _render_layout(cir, parts):
 
     from ..publish import charts
 
+    vspec = vessel_spec(cir)
     drawn = []
     for comp, twin, is_round in parts:
+        if vspec and is_round and comp.name == vspec["component"]:
+            # IMAGES-DIALIN: the side elevation first -- what the gate's side view counts --
+            # then the rounds from above, at one shared scale.
+            # The rounds chart draws every round piece as a circle, so a hexagon basket's
+            # only shape reference was round (5 of 9 production rejections were the corner
+            # count). A vessel's top view is its rim outline with the twin's side count.
+            top = top_outline(vspec, size_px=900)
+            side = side_elevation(vspec, width_px=top.size[0],
+                                  height_cm=twin.height_cm, width_cm=twin.width_cm)
+            pad = 40
+            img = Image.new("RGB", (side.size[0] + pad + top.size[0],
+                                    max(side.size[1], top.size[1])), BACKGROUND)
+            img.paste(side, (0, (img.size[1] - side.size[1]) // 2))
+            img.paste(top.convert("RGB"), (side.size[0] + pad, (img.size[1] - top.size[1]) // 2))
+            copies = min(int(getattr(comp, "make", 1) or 1), MAX_COPIES_DRAWN)
+            drawn.append((img, twin, copies, "vessel"))
+            continue
         img = (charts.render_round_fabric(cir, twin) if is_round
                else _weighted_rows(cir, comp, twin,
                                    charts.render_fabric(cir, twin, cell_px=12).convert("RGB")))
@@ -492,12 +548,17 @@ def _render_layout(cir, parts):
         # across-points x across-flats for a polygon, not a bounding box, so it is scaled
         # uniformly to its width rather than stretched into an ellipse.
         w = max(1, round(float(t.width_cm) * ppc))
+        if rnd == "vessel":
+            # side elevation + top view side by side: about twice the footprint wide
+            w = max(1, round(2 * float(t.width_cm) * ppc))
+            return w, max(1, round(img.size[1] * w / float(img.size[0])))
         if rnd:
             return w, max(1, round(img.size[1] * w / float(img.size[0])))
         return w, max(1, round(float(t.height_cm) * ppc))
 
     if have_cm:
-        total_w = sum(float(t.width_cm) * n for _, t, n, _ in drawn)
+        total_w = sum(float(t.width_cm) * n * (2 if rnd == "vessel" else 1)
+                      for _, t, n, rnd in drawn)
         tall = max(float(t.height_cm) for _, t, _, _ in drawn)
         gaps = gap * (sum(n for _, _, n, _ in drawn) + 1)
         ppc = min((CANVAS_PX - gaps) / total_w, (CANVAS_PX - 2 * gap) / tall)
@@ -516,6 +577,74 @@ def _render_layout(cir, parts):
             canvas.paste(im.convert("RGB"), (x, gap + (height - 2 * gap - im.size[1]) // 2))
             x += im.size[0] + gap
     return canvas, basis
+
+
+def top_outline(vspec: dict, *, size_px: int):
+    """A vessel standing on its base seen from directly above: the rim outline with exactly
+    the twin's side count (a circle when it has none), the rim in its colour and the inside a
+    shade darker. One flat side faces the bottom edge, as in `side_elevation`."""
+    import math
+
+    from PIL import Image, ImageDraw
+
+    from ..publish import charts
+
+    s = max(128, int(size_px))
+    img = Image.new("RGB", (s, s), BACKGROUND)
+    d = ImageDraw.Draw(img)
+    pal = vspec.get("palette") or {}
+    rim = charts._hex_to_rgb(pal.get(vspec.get("rim_colour")) or "#C8C8C8")
+    inside = tuple(int(v * 0.8) for v in rim)
+    c, r = s / 2, s * 0.46
+    n = int(vspec.get("sides") or 0)
+    if n >= 3:
+        # a vertex at the bottom would put a corner toward the camera; rotate half a side
+        pts = [(c + r * math.cos(math.radians(90 + 180 / n + 360 * k / n)),
+                c + r * math.sin(math.radians(90 + 180 / n + 360 * k / n))) for k in range(n)]
+        d.polygon(pts, fill=rim)
+        d.polygon([(c + (x - c) * 0.88, c + (y - c) * 0.88) for x, y in pts], fill=inside)
+    else:
+        d.ellipse((c - r, c - r, c + r, c + r), fill=rim)
+        d.ellipse((c - r * .88, c - r * .88, c + r * .88, c + r * .88), fill=inside)
+    return img
+
+
+def side_elevation(vspec: dict, *, width_px: int, height_cm, width_cm):
+    """A vessel standing, seen from the side with one flat side toward the camera.
+
+    Deterministic, no text: the wall's colour bands bottom to top at their round shares
+    (`vessel_spec`), the front face full-toned and the two flanking faces of a polygon a shade
+    darker and foreshortened, the plain rim the top band's own colour. Proportion is the
+    twin's height over its width when both are known."""
+    from PIL import Image, ImageDraw
+
+    from ..publish import charts
+
+    w = max(64, int(width_px))
+    ratio = (float(height_cm) / float(width_cm)) if height_cm and width_cm else 0.55
+    h = max(32, int(round(w * ratio)))
+    margin = 24
+    img = Image.new("RGB", (w + 2 * margin, h + 2 * margin), BACKGROUND)
+    d = ImageDraw.Draw(img)
+    n = int(vspec.get("sides") or 0)
+    # a polygon with a flat face toward the camera shows that face at half its across-points
+    # width and the two faces beside it foreshortened; a round vessel is one shaded cylinder
+    face = 0.5 if n >= 3 else 1.0
+    x0, x1 = margin, margin + w
+    fx0, fx1 = margin + w * (1 - face) / 2, margin + w * (1 + face) / 2
+    total = sum(b["rounds"] for b in vspec["wall_bands"]) or 1
+    y = margin + h
+    for b in vspec["wall_bands"]:
+        bh = h * b["rounds"] / total
+        rgb = charts._hex_to_rgb(b["hex"]) if b.get("hex") else (200, 200, 200)
+        shade = tuple(int(v * 0.86) for v in rgb)
+        top_y = y - bh
+        if face < 1.0:
+            d.rectangle((x0, top_y, fx0, y), fill=shade)
+            d.rectangle((fx1, top_y, x1, y), fill=shade)
+        d.rectangle((fx0, top_y, fx1, y), fill=rgb)
+        y = top_y
+    return img
 
 
 def _weighted_rows(cir, comp, twin, im):
@@ -644,6 +773,18 @@ def _render_rules(rules: dict):
         text(f"{c['letter']}  {c['id']}  {c['hex'] or ''}  {c['yarn']}, {c['weight']}  "
              f"{('~' + str(c['metres']) + ' m') if c['metres'] else 'metres UNKNOWN'}",
              swatch=charts._hex_to_rgb(c["hex"]) if c["hex"] else None)
+    v = rules.get("vessel")
+    if v:
+        text("")
+        text("WALL, BOTTOM TO TOP (seen from the side)", head_f)
+        for b in v["wall_bands"]:
+            text(f"{b['rounds']} round{'s' if b['rounds'] != 1 else ''} {b['colour']} "
+                 f"{b['hex'] or ''} ({b['share']:.0%} of the wall)",
+                 swatch=charts._hex_to_rgb(b["hex"]) if b.get("hex") else None)
+        shape = (f"{v['sides']} flat sides, {v['sides']} corners from above" if v["sides"]
+                 else "round from above, no corners")
+        text(f"Base: {v['base_rounds']} rounds, flat underneath. {shape}. Rim: plain "
+             f"{v['rim_colour']} last round")
     if rules["assembly"]:
         text("")
         text("ASSEMBLY", head_f)
