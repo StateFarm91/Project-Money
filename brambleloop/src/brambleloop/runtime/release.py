@@ -6056,7 +6056,7 @@ def _attempt_gate_refusal(s, slug: str, version: str, since_job) -> dict | None:
     except (TypeError, ValueError):
         return None
     rows = list(s.scalars(select(AuditLog).where(
-        AuditLog.action.in_(GATE_REFUSALS + ("launch.pivot_queued",)),
+        AuditLog.action.in_((*GATE_REFUSALS, "launch.pivot_queued")),
         AuditLog.artifact.in_((f"{slug}@{version}", slug)),
         AuditLog.job_id >= since).order_by(desc(AuditLog.id)).limit(50)))
     pivoted = any(a.action == "launch.pivot_queued" for a in rows)

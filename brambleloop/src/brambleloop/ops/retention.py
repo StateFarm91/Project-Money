@@ -688,6 +688,63 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "preproduction.validated": ("lifetime_total",
                                 "creative.ideation reads validated interest into every "
                                 "brief, and the cycle acts on an observation once"),
+    # Audit F-04 (2026-11-22): six actions read through constants with no decision, which
+    # left the guard red on the production tree.
+    #
+    # ENG-APPROVALS: the record of the owner's stepped-up bulk approval
+    # (`approve_everything`): the batch, the ids it moved and the spend it approved. Its
+    # only reader (`last_press`) wants the newest row, but this is owner-authority evidence
+    # like `owner_action.standing_authority`, and the owner's words were "Preserve the audit
+    # trail", so it is kept for life rather than left to keep-per-action.
+    "owner_queue.approve_everything": ("lifetime_total",
+        "app.command_center.approve_everything.last_press reads the newest press; the "
+        "owner's stepped-up bulk approval record (ids, spend) is kept for life"),
+    # The two paid-call idempotency guards on the openai-vision route. Each reads only rows
+    # inside its own RETRY_AFTER (24 h) -- by design a repeat is allowed after that -- and the
+    # horizon is 90 days, so no row a guard still reads is ever deletable. Were RETRY_AFTER
+    # ever raised toward the horizon these must become lifetime_total (a test pins it).
+    "concept.judge_attempt": ("windowed",
+        "creative.concept_judge.attempted: one paid judgement per (concept, board sha, "
+        "provider) per RETRY_AFTER (24 h)"),
+    "asset_inspection.openai_attempt": ("windowed",
+        "visual.vision_route.kept_answer: an attempt inside RETRY_AFTER (24 h) blocks a "
+        "repeat paid call"),
+    "asset_inspection.openai_answer": ("windowed",
+        "visual.vision_route.kept_answer: a stored answer inside RETRY_AFTER (24 h) is "
+        "served with nothing sent"),
+    # Spend-safety evidence for the readback only: `_paid_refusals` counts refusals since the
+    # paid-calls pass window (PASS_WINDOW_HOURS). Nothing gates on an older refusal; the gate
+    # itself decides from `paid_provider_calls`, which retention does not touch.
+    "paid_provider.refused": ("windowed",
+        "ops.production_evidence._paid_refusals counts the paid-calls pass window"),
+    # Not an idempotency record (the cadence's job key is): the readback shows the newest
+    # regate only.
+    "creative.regate": ("latest",
+        "ops.production_evidence._paid_refusals reads the newest regate (concept_judge)"),
+    # Audit F-04: made visible by resolving five read sites the scan could not follow
+    # (`A + (x,)` -> `(*A, x)`, a tuple-unpacking comprehension -> a dict, and a module-wide
+    # `C` alias collision). The rebuild readers are bounded: `rebuild_outcomes` reads rows
+    # whose job is newer than a chain.rebuild of the last 7 days, and
+    # `runtime.release._attempt_gate_refusal` reads one rebuild attempt's own rows (hours).
+    # A pruned refusal there could only un-park a product, which keeps it counting toward the
+    # staleness halt (fail closed). `after_admission` counts the last 24 h.
+    "chain.rebuild_verified": ("windowed",
+        "ops.production_evidence.rebuild_outcomes: rows of the last 7 days' rebuilds"),
+    "launch.pivot_queued": ("windowed",
+        "rebuild_outcomes (7 days) and runtime.release._attempt_gate_refusal (one attempt)"),
+    "childrens.decision_required": ("windowed",
+        "rebuild_outcomes (7 days) and runtime.release._attempt_gate_refusal (one attempt); "
+        "the children's hold itself is enforced by the release chain, not by this row"),
+    "listing.release_withheld": ("windowed",
+        "ops.production_evidence.rebuild_outcomes: rows of the last 7 days' rebuilds"),
+    "release_withheld": ("windowed",
+        "ops.production_evidence.rebuild_outcomes: rows of the last 7 days' rebuilds"),
+    "concept.intake_approved": ("windowed",
+        "ops.production_evidence.after_admission counts the last 24 h"),
+    "concept.intake_handoff": ("windowed",
+        "ops.production_evidence.after_admission counts the last 24 h"),
+    "concept.intake_withdrawn": ("windowed",
+        "ops.production_evidence.after_admission counts the last 24 h"),
 }
 
 # W4-FMBATCH1 (retention guard, 2026-10-26): actions the code reads through constants,
@@ -1011,10 +1068,9 @@ UNRESOLVED_READ_SITES: dict[str, str] = {
         "chain family is classified lifetime_total by its owner above"),
     "core/sealed_chain.py::refusal": (
         "GrantLedger.revoked of each sealed chain; lifetime_total above"),
-    # INTEG7 (LISTREADY x FMBATCH1): the scan cannot resolve `(HALTED,) + OUTCOMES`.
-    "runtime/release_recovery.py::halted_releases": (
-        "AuditLog.action in (gate.halted, gate.certified, gate.blocked, "
-        "gate.version_conflict); all four lifetime_total above"),
+    # (INTEG7's `runtime/release_recovery.py::halted_releases` entry was removed by audit
+    # F-04: the read moved to `_halted_releases` and is now written `(HALTED, *OUTCOMES)`,
+    # which the scan resolves.)
     # INTEG8 (CLOSE6b F-666): the scan cannot resolve `ADVANCED + REJECTED`, `IMAGE`, `ETSY`.
     "app/command_center/brief.py::_audits": (
         "AuditLog.action in brief.ADVANCED + REJECTED, IMAGE and ETSY, counted since the "

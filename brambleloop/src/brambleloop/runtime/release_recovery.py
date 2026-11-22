@@ -53,7 +53,7 @@ def _halted_releases(db) -> list[dict]:
     with db.session() as s:
         for row_id, action, artifact, job_id in s.execute(
                 select(AuditLog.id, AuditLog.action, AuditLog.artifact, AuditLog.job_id)
-                .where(AuditLog.action.in_((HALTED,) + OUTCOMES))):
+                .where(AuditLog.action.in_((HALTED, *OUTCOMES)))):
             if not artifact or "@" not in artifact:
                 continue
             if action == HALTED:
