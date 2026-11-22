@@ -721,7 +721,9 @@ def promotion_verdict(db, seed, c: dict, today: date) -> dict:
                      if l["direction"]]
     lesson_adjustment = consume.score_adjustment(radar_lessons)
     adjusted = round(evidence_score + lesson_adjustment, 4)
-    promote = adjusted >= PROMOTION_THRESHOLD and seed.risk_class in ("A", "B")
+    # D-OWNER-NO-SAMPLE-SIZING: Class C is sized from standard gauge; certification
+    # (gates.certificate.sized_from_standard_gauge) decides, not the radar.
+    promote = adjusted >= PROMOTION_THRESHOLD and seed.risk_class in ("A", "B", "C")
     # The pre-engineering gate (#83, #87, #88, #108, #110, #115, #125, #126). An opportunity
     # score says a slot is worth filling; it says nothing about whether *this idea* deserves
     # engineering. A design the catalogue already has is a rebuild and passes as one; anything
@@ -738,8 +740,6 @@ def promotion_verdict(db, seed, c: dict, today: date) -> dict:
             gate = preengineering.gate_concept(db, c, today=today)
             promote = gate["engineer"]
     why = None if promote else (
-        "Class C requires physical testing that does not exist yet"
-        if seed.risk_class == "C" else
         gate["consequence"] if gate is not None else
         f"score {evidence_score} below promotion threshold {PROMOTION_THRESHOLD}"
         + (f" after the evidence discount ({evidence['why']})"

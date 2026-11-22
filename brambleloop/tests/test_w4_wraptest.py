@@ -103,17 +103,28 @@ def opened(db, *, live=False):
                               released_on=H.RELEASED_ON, budget_cad=5.0, live=live)
 
 
+# D-OWNER-NO-SAMPLE-SIZING (2026-11-22): the wrap's cable2x2/fpdc/bpdc now size from
+# documented standard-gauge defaults, so in production it certifies. This suite tests
+# EXPERIMENT mode, which exists only for a REFUSED release, so it withdraws those defaults
+# for this process to keep a refused release to test against (fail-closed path: a primitive
+# with no documented default is still UNCALIBRATED_PRIMITIVE).
+from brambleloop.cir import stitches as _st  # noqa: E402
+
+for _code in ("cable2x2", "cable1x1", "fpdc", "bpdc"):
+    _st.STANDARD_GAUGE_DEFAULTS.pop(_code, None)
+
 # ---- certification ------------------------------------------------------------------------
 
 def test_certification_refuses_the_wrap_through_the_real_chain():
     from brambleloop.creative.pattern_refs import release_hash_of
 
     cir, cert, pdfs = certified_reading()
-    # D-OWNER-NO-SAMPLE-SIZING (2026-11-22): cable2x2/fpdc/bpdc size from documented
-    # standard-gauge defaults, so the wrap is no longer refused as an uncalibrated primitive.
-    check("cert_granted_from_standard_gauge", cert["granted"] is True, cert)
-    check("cert_no_uncalibrated_primitive",
-          not any("UNCALIBRATED_PRIMITIVE" in r for r in cert["reasons"]), cert["reasons"])
+    check("cert_refused", cert["granted"] is False, cert)
+    check("cert_reason_is_uncalibrated_cable2x2",
+          any("UNCALIBRATED_PRIMITIVE" in r and "cable2x2" in r for r in cert["reasons"]),
+          cert["reasons"])
+    check("cert_only_that_reason", all("UNCALIBRATED_PRIMITIVE" in r for r in cert["reasons"]),
+          cert["reasons"])
     check("cert_content_hash_is_the_cirs", cert["content_hash"] == release_hash_of(cir))
     check("cert_ran_as_a_queued_job", isinstance(cert["job_id"], int) and cert["job_id"] > 0)
     check("pdfs_us_and_uk", set(pdfs) == {"US", "UK"} and all(

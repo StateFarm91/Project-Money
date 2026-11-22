@@ -295,8 +295,10 @@ def test_the_toy_is_still_withheld_at_certification_for_its_physical_evidence():
     out = outs[-1]
     assert out.get("granted") is False, out
     codes = sorted({r.split(":")[0].split()[-1] for r in out["reasons"]})
-    assert codes == ["CHILD_SAFETY_PHYSICAL_EVIDENCE_UNKNOWN"], \  # D-OWNER-NO-SAMPLE-SIZING: Class C sizes from standard gauge; child safety still holds
-        out["reasons"]
+    # D-OWNER-NO-SAMPLE-SIZING: PHYSICAL_TEST_REQUIRED remains only where the toy is not sized
+    # from standard gauge (gates.certificate.sized_from_standard_gauge); child safety always holds.
+    assert "CHILD_SAFETY_PHYSICAL_EVIDENCE_UNKNOWN" in codes and set(codes) <= {
+        "CHILD_SAFETY_PHYSICAL_EVIDENCE_UNKNOWN", "PHYSICAL_TEST_REQUIRED"}, out["reasons"]
 
 
 # ---- no paid call repeats on redrive -----------------------------------------------------------

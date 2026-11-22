@@ -280,7 +280,8 @@ def test_the_production_drafted_set_drafts_what_can_be_drafted_then_names_the_st
         # bar with no evidence discount; the #88 gate is what holds it, and it still holds.
         assert "below promotion threshold" not in held["alpine-slouch-beanie"], held
         assert "premise_thumbnail" in held["alpine-slouch-beanie"], held
-        assert "Class C" in held["boxy-summer-tee"], held
+        # D-OWNER-NO-SAMPLE-SIZING: Class C is no longer refused at research.
+        assert not any("Class C requires physical testing" in str(v) for v in held.values()), held
         assert out["pool_size"] == 34
     # every held concept stays undrafted (#88 and the threshold stand)
     assert not set(_drafts(db)) & {f"draft:{s}" for s in outs[-1]["concept_supply"]["held"]}
