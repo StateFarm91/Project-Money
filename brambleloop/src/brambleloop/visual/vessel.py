@@ -36,7 +36,7 @@ import numpy as np
 
 from . import fidelity as F
 
-CHECKER = "visual.vessel 1.0.0"
+CHECKER = "visual.vessel 1.1.0"   # 1.1: illumination-corrected palette and bands (IMAGES-DIALIN)
 SEP_DE = 12.0               # product pixel: at least this far (dE76) from the fitted surface
 PEAK_WINDOW_DEG = 18        # a corner is a radius maximum over +- this many degrees
 PEAK_PROMINENCE = 0.035     # ... standing this far (fraction of the mean radius) above the
@@ -201,15 +201,69 @@ def corner_count(mask: np.ndarray) -> tuple[int, dict]:
                         "points_to_flats": round(float(prof.max() / max(prof.min(), 1e-9)), 3)}
 
 
+def _palette_arrays(palette: dict[str, str]):
+    ids = list(palette)
+    rgb = np.array([[F._hex_rgb(palette[i]) for i in ids]], dtype=np.float64)
+    return ids, F._lab(rgb)[0], F._lin(rgb)[0]
+
+
+def _wall_pixels(mask: np.ndarray) -> np.ndarray:
+    """The wall's centre column (CENTRE_COLUMN of each row's span) inside the product mask."""
+    sel = np.zeros_like(mask, dtype=bool)
+    for y in np.nonzero(mask.any(axis=1))[0]:
+        row = np.nonzero(mask[y])[0]
+        x0, x1 = row.min(), row.max()
+        a, b = int(x0 + CENTRE_COLUMN[0] * (x1 - x0)), int(x0 + CENTRE_COLUMN[1] * (x1 - x0))
+        sel[y, a:b + 1] = mask[y, a:b + 1]
+    return sel
+
+
+def illumination_corrected(rgb: np.ndarray, mask: np.ndarray, palette: dict[str, str]):
+    """IMAGES-DIALIN: the side view in Lab after the gate's own bounded illumination correction.
+
+    Every other colour check in the stack corrects for the light before it compares a pixel
+    with a declared hex: the flat and round anchor paths and the lifestyle region
+    (`fidelity._illumination`, per-channel gain clamped to `fidelity.GAIN_RANGE`), and the
+    owner-frame stripe check (`owner_frames.bands_in_column`). This check compared raw pixels
+    with the hex, so the shaded side of a correctly coloured cream wall read off-palette. The
+    same bounded gain is fitted here on the wall's centre column; a substituted colour needs
+    more than the clamp allows and still reads off the palette."""
+    from types import SimpleNamespace
+
+    ids, pal_lab, pal_lin = _palette_arrays(palette)
+    lin = F._lin(rgb)
+    wall = _wall_pixels(mask)
+    exp = SimpleNamespace(palette_lab=pal_lab, palette_lin=pal_lin)
+    ill = F._illumination(lin[wall], exp)
+    lin_c = lin * ill["gain"]
+    return F._lab_from_lin(lin_c), {"gain": [round(float(g), 3) for g in ill["gain"]],
+                                    "gain_clamped": bool(ill["clamped"])}
+
+
+def colour_centres(lab_c: np.ndarray, mask: np.ndarray, palette: dict[str, str]) -> dict:
+    """Each declared colour's measured cluster centre on the wall (after correction), as
+    `fidelity._palette_check` measures it. Evidence only (see `verify_side`)."""
+    ids, pal_lab, _ = _palette_arrays(palette)
+    px = lab_c[_wall_pixels(mask)]
+    if px.size == 0:
+        return {}
+    lbl = F._de(px[:, None, :], pal_lab[None, :, :]).argmin(axis=1)
+    out = {}
+    for j, cid in enumerate(ids):
+        sel = lbl == j
+        if sel.sum() < 0.005 * len(lbl):
+            continue
+        out[cid] = round(float(F._de(px[sel].mean(axis=0), pal_lab[j])), 1)
+    return out
+
+
 def _bands(mask: np.ndarray, lab: np.ndarray, palette: dict[str, str], rows_total: int = 1):
     ys, xs = np.nonzero(mask)
     top, bottom = ys.min(), ys.max()
     # An "off" run thinner than half a wall row is the edge blending into the surface
     # (blur, rotation, JPEG), not a band: it is merged like any too-short run.
     min_off = OFF_MIN_ROWS * (bottom - top + 1) / max(rows_total, 1)
-    ids = list(palette)
-    pal = np.array([F._lab(np.array([[F._hex_rgb(palette[i])]], dtype=np.float64))[0, 0]
-                    for i in ids])
+    ids, pal, _ = _palette_arrays(palette)
     labels, widths = [], []
     on_px = total_px = 0
     for y in range(bottom, top - 1, -1):                  # bottom to top
@@ -224,8 +278,12 @@ def _bands(mask: np.ndarray, lab: np.ndarray, palette: dict[str, str], rows_tota
             labels.append(None)
             continue
         dist = F._de(px[:, None, :], pal[None, :, :])
-        cls, near = dist.argmin(axis=1), dist.min(axis=1)
-        ok = near <= F.OFF_PALETTE_DE
+        cls = dist.argmin(axis=1)
+        # IMAGES-DIALIN: on the palette means what it means everywhere else in the gate --
+        # within OFF_PALETTE_DE of a declared colour or of a two-colour mix
+        # (`fidelity._seg_distance`), the blend where a stitch of one colour shadows or
+        # meets the next. The row's label is still the nearest declared colour.
+        ok = F._seg_distance(px, pal) <= F.OFF_PALETTE_DE
         on_px += int(ok.sum())
         total_px += int(ok.size)
         # Review V2 F1: a pixel is only a palette colour if it is near one. A row mostly
@@ -297,16 +355,26 @@ def verify_side(data: bytes, model: VesselModel) -> list[dict]:
                          f"the side view is not a decodable image ({exc})")]
     if mask is None:
         return [F._check(f"{name}:wall_bands", F.UNKNOWN, why, code="UNVERIFIABLE_COUNT")]
+    lab, light = illumination_corrected(F._load(data), mask, model.palette)
     runs, widths, height, coverage = _bands(mask, lab, model.palette, model.wall_total_rows)
     if height / max(model.wall_total_rows, 1) < MIN_PX_PER_ROW:
         return [F._check(f"{name}:wall_bands", F.UNKNOWN,
                          f"{height} px for {model.wall_total_rows} wall rows",
                          code="UNVERIFIABLE_COUNT")]
     seen = [r[0] for r in runs]
-    out = [F._check(f"{name}:palette", F.PASS if coverage >= PALETTE_COVERAGE_MIN else F.FAIL,
-                    f"{coverage:.0%} of the wall is within {F.OFF_PALETTE_DE:g} dE of the "
-                    f"CIR's colours (needs {PALETTE_COVERAGE_MIN:.0%})",
-                    code="OFF_PALETTE_COLOUR", coverage=round(coverage, 3))]
+    # Recorded, not judged: on a textured photograph the nearest-colour cluster of a dark
+    # yarn also collects the shadow between pale stitches, so a centre test there reads the
+    # stitch gaps rather than the yarn (measured on the owner's hero frame: "wine" raw centre
+    # #5F3F3A). The coverage rule below is the check; a substituted colourway reads ~0 %.
+    centres = colour_centres(lab, mask, model.palette)
+    pal_check = F._check(f"{name}:palette",
+                         F.PASS if coverage >= PALETTE_COVERAGE_MIN else F.FAIL,
+                         f"{coverage:.0%} of the wall is within {F.OFF_PALETTE_DE:g} dE of "
+                         f"the CIR's colours or their mixes after illumination correction "
+                         f"(needs {PALETTE_COVERAGE_MIN:.0%})",
+                         code="OFF_PALETTE_COLOUR", coverage=round(coverage, 3),
+                         centre_de=centres, **light)
+    out = [pal_check]
     expected = list(model.wall_bands)
     extra_top = len(seen) == len(expected) + 1 and seen[:-1] == expected
     rim_w = np.median(widths[-max(1, int(RIM_STRIP * len(widths))):])

@@ -2588,22 +2588,91 @@ def readiness(db, listing: str, *, run_key_: str | None = None, plan: dict | Non
 
 # ---- Command Center ---------------------------------------------------------------------
 
+MAX_FRAMES_PER_LISTING = 300
+
+
+def _frame_view(c) -> dict:
+    """One candidate frame for the owner's Images page: thumbnail route, verdict, codes."""
+    from ..creative import failure_codes as FC
+
+    checks = c.checks if isinstance(c.checks, dict) else {}
+    pt = checks.get("product_truth") if isinstance(checks.get("product_truth"), dict) else {}
+    fid = pt.get("fidelity") if isinstance(pt.get("fidelity"), dict) else {}
+    codes = {x for x in (fid.get("codes") or []) if isinstance(x, str)}
+    codes |= {x for x in (c.failure_categories or []) if isinstance(x, str)}
+    failed = sorted({k.get("check") for k in (fid.get("checks") or [])
+                     if isinstance(k, dict) and k.get("status") == "FAIL"
+                     and isinstance(k.get("check"), str)})
+    return {"candidate_id": c.id, "run_key": c.run_key, "role": c.role, "stage": c.stage,
+            "attempt": c.attempt, "method": c.method,
+            "technical_status": c.technical_status, "outcome": c.outcome,
+            "codes": sorted(k if k in FC.ALL_CODES else k for k in codes),
+            "failed_checks": failed, "width": c.width, "height": c.height,
+            "image_url": f"/api/cc/images/candidates/{c.id}/image",
+            "created_at": c.created_at.isoformat() if c.created_at else None}
+
+
 def status_board(db) -> dict:
+    """The owner's Images page: every Launch-0 listing AND every listing that has image runs
+    or candidates (IMAGES-DIALIN: production runs for products outside LAUNCH0_SLUGS were
+    invisible), each with its latest run, all of its runs and every candidate frame."""
     from sqlalchemy import select
 
     from ..products import launch0
-    from .image_records import ImageProductionRun, ensure_tables
+    from .image_records import ImageCandidate, ImageProductionRun, ensure_tables
 
     ensure_tables(db)
     out = []
     with db.session() as s:
-        for listing in launch0.LAUNCH0_SLUGS:
-            r = s.scalar(select(ImageProductionRun).where(ImageProductionRun.listing == listing)
-                         .order_by(ImageProductionRun.updated_at.desc()))
-            out.append(_run_view(r) if r else {
-                "listing": listing, "state": "awaiting_certified_pattern",
-                "status": "awaiting_certified_pattern",
-                "why": "no certified release has triggered image production yet"})
+        runs = list(s.scalars(select(ImageProductionRun)
+                              .order_by(ImageProductionRun.updated_at.desc(),
+                                        ImageProductionRun.id.desc())))
+        cands = list(s.scalars(select(ImageCandidate).order_by(ImageCandidate.id.desc())))
+        by_listing: dict[str, list] = {}
+        for r in runs:
+            by_listing.setdefault(r.listing or r.slug, []).append(r)
+        frames_by_run: dict[str, list] = {}
+        cand_listing: dict[str, str] = {}
+        for c in cands:
+            frames_by_run.setdefault(c.run_key or "", []).append(c)
+            cand_listing.setdefault(c.run_key or "", c.listing or c.slug)
+        listings = list(launch0.LAUNCH0_SLUGS)
+        for name in list(by_listing) + list(cand_listing.values()):
+            if name and name not in listings:
+                listings.append(name)
+        known = {r.run_key for r in runs}
+        for listing in listings:
+            rs = by_listing.get(listing, [])
+            run_views = []
+            shown = 0
+            for r in rs:
+                v = _run_view(r)
+                fr = frames_by_run.get(r.run_key, [])[:max(0, MAX_FRAMES_PER_LISTING - shown)]
+                shown += len(fr)
+                v["frames"] = [_frame_view(c) for c in fr]
+                run_views.append(v)
+            # candidates whose run key has no run row (owner-submitted `<run>#owner` sets, or
+            # a run row since removed): shown, never hidden
+            for key, l in cand_listing.items():
+                if l != listing or key in known:
+                    continue
+                fr = frames_by_run.get(key, [])[:max(0, MAX_FRAMES_PER_LISTING - shown)]
+                shown += len(fr)
+                run_views.append({"run_key": key or None, "listing": listing,
+                                  "state": "owner_submitted" if key.endswith("#owner")
+                                  else "no_run_record",
+                                  "status": "owner_submitted" if key.endswith("#owner")
+                                  else "no_run_record", "frames": [_frame_view(c) for c in fr]})
+            if rs:
+                head = _run_view(rs[0])
+            else:
+                head = {"listing": listing, "state": "awaiting_certified_pattern",
+                        "status": "awaiting_certified_pattern",
+                        "why": "no certified release has triggered image production yet"}
+            head["runs"] = run_views
+            head["frame_count"] = sum(len(v["frames"]) for v in run_views)
+            head["slug"] = head.get("slug") or (rs[0].slug if rs else listing)
+            out.append(head)
     return {"products": out, "states": list(STATES),
             "learning": learning_summary(db)}
 

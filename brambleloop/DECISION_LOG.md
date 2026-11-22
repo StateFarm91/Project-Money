@@ -4672,3 +4672,33 @@ Batch 19i14 (code 8feb01036) is deployed under D-OWNER-AUTODEPLOY-24H-2, the own
 ## D-OWNER-DEPLOY-19i15 — 2026-11-22T14:03:15Z
 
 Batch 19i15 (code 07ce62efd) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to 83d05dbfcd370773d718639d24300ebf78fb863a was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-ENG-IMAGES-DIALIN — 2026-11-22 (routine engineering; owner "dial in the images", TOP PRIORITY)
+
+**Evidence.** Production 5297dbba: 22 candidates, 9 verified, 11 failed; fidelity rejections 9 frames, every one `basket:palette` (OFF_PALETTE_COLOUR) and `basket:wall_bands` (WRONG_COLOUR_LAYOUT), 5 also `basket:sides` (WRONG_REPEAT_COUNT). The owner's method (the pattern sent to FLUX 3 as a reference, several times) "had 0 issues".
+
+**Verdict on each check (`visual/vessel.py`).**
+- `basket:palette` — **provably wrong, fixed.** It compared raw side-view pixels with the CIR hex. Every other colour check in the stack corrects for the light first: the flat and round anchors and the lifestyle region (`fidelity._illumination`, per-channel gain clamped to 0.6–1.6) and the owner-frame stripe check (`owner_frames.bands_in_column`). Every other check also counts a two-colour mix as on-palette (`fidelity._seg_distance`). On the owner's own hero frame (5fc4ac77, cream + wine, visibly the CIR's colours), the old check read **47 %** coverage and FAILed against an 85 % floor. Now it applies the same bounded gain and the same mix rule, and the same frame reads 94 % (PASS). The thresholds are unchanged: OFF_PALETTE_DE 22 and coverage 85 %. A substituted colourway still FAILs: yellow/navy reads 0 % coverage, and wine replaced by green FAILs (tests). The per-colour centre distance is now recorded as evidence, not judged. On a textured photo the dark colour's nearest-colour cluster also collects the shadows between pale stitches: the owner's frame "wine" centre measured #5F3F3A. So that test would be measuring stitch gaps, not yarn colour.
+- `basket:wall_bands` — **the rule is correct, but its input was wrong, so it is fixed by the same change.** It labels rows by the nearest palette colour. Shaded rows fell outside 22 dE and were labelled `off`, so a correct wall read `[off, cream, off, wine, cream, wine, cream, off]`. After correction, the same frame reads `[cream, wine, cream, wine, cream]`, the CIR's order. It still FAILs on share: that frame's cream between the stripes is about three rounds where the CIR works one, and it is a 3/4 view. That FAIL is correct. The order and the 35 % share tolerance are unchanged.
+- `basket:sides` — **correct, unchanged.** The defect was the reference. The only shape image FLUX got was `charts.render_round_fabric`, which draws every round piece as a circle, including a hexagon basket.
+- `basket:rim` — correct, unchanged.
+- Correct reference? Yes. Each check compares against `vessel_models(cir)`, from the certified CIR and twin, with the palette `cir.colors`.
+
+**Generation (mirrors the owner's method).**
+- `pattern_refs` 3.1.4: a vessel's `layout` reference (images[0] in the FLUX 3 request) is now a side elevation and a top outline. The side elevation shows the wall's bands bottom to top at their round shares, a front face plus foreshortened flanks for a polygon. The top outline has the twin's exact side count (a circle when it has none). `technical_rules["vessel"]` carries the gate's own wall model (`vessel_spec`, built from `vessel_models`), and the rules sheet lists it.
+- `flux_prompt` 2.3.0: the COUNTS section, used for every frame built from the certified rules (anchors and lifestyle), now states the vessel facts:
+  - the palette as id → hex;
+  - the side count, or round;
+  - the base rounds;
+  - the wall rounds;
+  - the band order with rounds and share per band;
+  - the number of contrast bands;
+  - the plain rim;
+  - a pointer to the side elevation.
+  Flat pieces are unchanged.
+- **Resolution.** Listing frames already request `2048x2048` at the 2k tier, about 2048 px, which meets the 2000 px floor (`image_stages.PRODUCT_SIZE`; the floor is enforced in `_run`). It costs US$0.10 a frame, and 16 frames (the per-gallery image cap) cost US$1.60, under the US$2.50 cap. The 896–1024 px frames were the owner's dashboard renders at 1k. The factory route does not request 1k for listing frames; only the stage-A identity anchor, an intermediate, does. Nothing changed here.
+- **Paid calls.** No new call. The number of renders, the replay keys, the attempt cap and the budget caps are unchanged.
+
+**Images page.** `api.get` resolves `{data, stale, fetchedAt}`, but `views/images.js` and `_visual_studio.js` read `.products`, `.canonical` and `.frames` off that envelope. So the dropdown, Gallery production and every gallery card were always empty. Both views now unwrap the envelope. `status_board` now also lists listings outside LAUNCH0_SLUGS that have runs or candidates (market-basket-small is not a Launch-0 slug). Each product has all of its runs, and every candidate frame has a thumbnail (the existing `/api/cc/images/candidates/{id}/image`), its verdict, its codes and its failed checks. Owner `#owner` sets are listed too. The service-worker shell version moves to v48.
+
+**Not changed.** No threshold, no gate, no publication rule, no deploy. Tests: `tests/test_images_dialin.py`. Report: `IMAGES-DIALIN.md`.

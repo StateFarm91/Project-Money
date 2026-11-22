@@ -8,7 +8,7 @@
 // never intercepted. Cross-origin requests are never intercepted.
 // Bump VERSION whenever a SHELL file changes or two shells merge; the per-version history is
 // in `git log -p -- sw.js`.
-const VERSION = "cc-shell-v47";
+const VERSION = "cc-shell-v48";
 const SHELL = [
   "./",
   "index.html",
