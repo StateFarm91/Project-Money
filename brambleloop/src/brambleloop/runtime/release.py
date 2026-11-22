@@ -6114,6 +6114,22 @@ def _marketing_followup(ctx: JobContext, slug: str, stale: list, i: dict, verify
                             and not (r.inputs or {}).get("fix_only")), None)
     if plan_inputs is None:
         return None
+    # Published content is never retired or rewritten by marketing.schedule (it is kept and
+    # listed `published_out_of_plan`, halting the product until someone decides about public
+    # content), so a pass whose outstanding names published content asks for nothing.
+    try:
+        from ..core.models import ContentPiece
+        from ..ops import artefacts as _prov
+
+        with ctx.db.session() as s:
+            published = {f"marketing_asset:{_prov.marketing_key(slug, c.channel, c.title)}"
+                         for c in s.scalars(select(ContentPiece).where(
+                             ContentPiece.product_slug == slug))
+                         if _prov.content_published(c.state, c.detail)}
+        if any(k in published for k in stale):
+            return None
+    except Exception:  # noqa: BLE001 - unreadable content asks for nothing
+        return None
     # Only when the marketing gate's own rebuild exception holds NOW (nothing but this
     # product's own stale marketing, window open): a follow-up the gate would refuse anyway
     # (e.g. published content kept out of plan, another halting row) is not enqueued.
