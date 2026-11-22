@@ -132,4 +132,41 @@ These are not hidden. Each one was held the same way before this change.
 
 ## Suites run
 
-See the result section below. It was filled in from the `run_tests.sh` run record.
+The command:
+
+```
+cd brambleloop && JOBS=4 SUITE_REGISTRY=0 SUITES="tests/test_etsy_publish_e2e.py \
+  tests/test_first_listing_doors.py tests/test_vacuity.py tests/test_sale_pipeline.py \
+  tests/test_sale_pipeline_e2e.py tests/test_sale_preimage.py tests/test_search_hero_publish.py \
+  tests/test_rehearsal_past_shadow_success.py tests/test_vis_gallery_e2e.py \
+  tests/test_owner_gallery_complete.py tests/test_image_bf.py" bash run_tests.sh
+```
+
+The run was on SHA 69e362a with the tree clean at start, using a venv installed from
+`requirements.lock` and `requirements-test.lock`. It took 910 s and finished at
+2026-11-22T12:00:55Z.
+
+**TOTAL PASSING: 93; suites failing: 1; environment failures: 0.** Run record:
+`brambleloop/artifacts/suite_runs/20261122T114545Z-2885.json`.
+
+**Passed (10 suites):**
+- test_etsy_publish_e2e (restored: draft, rollback, adoption, refusals)
+- test_first_listing_doors (restored: draft through activation)
+- test_vacuity
+- test_sale_pipeline
+- test_sale_pipeline_e2e
+- test_sale_preimage
+- test_search_hero_publish
+- test_vis_gallery_e2e
+- test_owner_gallery_complete
+- test_image_bf
+
+**Failed (1 suite, already failing before this change):** test_rehearsal_past_shadow_success,
+in `test_the_past_shadow_publish_pass_path_creates_exactly_one_draft_under_the_grant`.
+- I re-ran it on a clean worktree of `origin/claude/record-candidate-2`, and it fails the same
+  way there: `store.publish[past-shadow]` makes 0 creates.
+- The cause is the same 19f one. That suite still builds on the non-READY `SH._chain()`, and this
+  branch does not modify it.
+- The likely next step is to move it onto `RF.ready_chain()`. Because `reh.run_past_shadow`
+  re-runs the taxonomy and `listing.seo`, it will need F1 fixed, or the same
+  production-order treatment the two restored suites got.
