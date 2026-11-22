@@ -360,6 +360,16 @@
    "override": "D-OWNER-DEPLOY-19h16",
    "authorization": "D-OWNER-AUTODEPLOY-TONIGHT",
    "rollback_to": "caf262e7c77ce5c035901366d9a33c7220710e9c"
+  },
+  {
+   "sha": "5f3b171e2c99362fd50c9be68229d43ee793c998",
+   "batch": "19h17",
+   "code": "765abfd15",
+   "at": "2026-11-22T00:03:48Z",
+   "verify_deploy": "DEPLOYED",
+   "override": "D-OWNER-DEPLOY-19h17",
+   "authorization": "D-OWNER-AUTODEPLOY-TONIGHT",
+   "rollback_to": "af101898e1b85eb8ab8f7a6d8c0f851aedc383ed"
   }
  ]
 }
