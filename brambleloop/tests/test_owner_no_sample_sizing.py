@@ -124,5 +124,5 @@ if __name__ == "__main__":
              if n.startswith("test_") and inspect.isfunction(f)]
     for n, f in tests:
         f()
-        print(f"  ok  {n}")
+        print(f"OK   {n}")
     print(f"{len(tests)} passed")
