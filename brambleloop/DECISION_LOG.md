@@ -4604,3 +4604,14 @@ Batch 19i6 (code 78ee14f94) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owne
 ## D-OWNER-DEPLOY-19i7 — 2026-11-22T06:00:14Z
 
 Batch 19i7 (code ff9f99793) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to b829caf7516bb5f91cee9f0f26c291f1b570f8b7 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-AUDIT-APPROVALS — 2026-11-22T06:10Z (owner)
+
+**Owner, verbatim** (to the coordinating session, after it listed the Fable audit items that needed them: F-01's phase transition out of SHADOW, F-07's signed standing grant for the sample-photo waiver, and F-11's separate worker service): "I approve my stuff. Fix the rest. Get p0 done. Goodnight".
+
+**How it is applied.** The same way as D-OWNER-APPROVE-ALL: by the system, through fixed tables in `ops/owner_directives.py`, recorded as `owner_directed_without_attestation`. No step-up, TOTP, passphrase or signature happened, and nothing records or presents one.
+- **F-07:** `owner_directives.WAIVERS` grants D-OWNER-PUBLISH-WITH-RENDERS standing for exactly `SAMPLE_PHOTO_REQUIRED`. `sample_photo.publish_with_renders` now needs the table entry AND the decision-index heading, so a heading alone no longer waives a publication gate.
+- **F-01:** the release ships with an honest full-suite release record, and only after a full, clean, unresumed run on the exact tree. The phase transition out of SHADOW is NOT recorded by the system: a system-written move into a publishing phase without the owner's credential was drafted and withdrawn. The transition stays the owner's own action (operator credential, `core.phase.record_transition`, every readiness gate), with the exact steps left for the owner.
+- **F-11:** the separate worker service is approved, inside the CA$20/month infrastructure ceiling.
+
+**Unchanged:** child safety, spend ceilings, the signed publication grant, copy truth, and every other gate.

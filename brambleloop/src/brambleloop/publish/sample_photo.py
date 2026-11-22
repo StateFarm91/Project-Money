@@ -45,12 +45,15 @@ WAIVER = f"owner_directed_without_attestation: {PUBLISH_WITH_RENDERS}"
 
 
 def publish_with_renders() -> bool:
-    """Whether the owner's directive is recorded in the shipped decision index."""
+    """Whether the owner's waiver stands: recorded in the shipped decision index AND granted in
+    `ops.owner_directives.WAIVERS` (AUDIT F-07: a heading alone no longer waives a gate)."""
     try:
         from ..core import decision_index
+        from ..ops import owner_directives
 
-        return decision_index.recorded(PUBLISH_WITH_RENDERS)
-    except Exception:  # noqa: BLE001 - an unreadable index waives nothing
+        return (decision_index.recorded(PUBLISH_WITH_RENDERS)
+                and owner_directives.waiver_granted(PUBLISH_WITH_RENDERS, CODE))
+    except Exception:  # noqa: BLE001 - an unreadable index or table waives nothing
         return False
 PHOTO_CLASS = "PHYSICAL_PRODUCT_PHOTO"
 
