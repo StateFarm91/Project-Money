@@ -55,14 +55,73 @@ packages and drives the chain, and restored before it returns.
 """
 from __future__ import annotations
 
+import os
 import shutil
 import time
+from pathlib import Path
 
 import test_search_hero_publish as SH
 import test_rehearsal_past_shadow_success as RP
 
 _BUILT: dict = {}
 OWNER_ACTOR = "owner:cc:ready-fixture"
+TAXONOMY_STEP = "taxonomy[simulated]"
+
+
+def _rehearsal():
+    """scripts/shadow_rehearsal.py, loaded as the suites load it."""
+    import importlib.util
+    import sys
+
+    name = "shadow_rehearsal_ready_fixture"
+    if name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(
+            name, Path(__file__).resolve().parents[1] / "scripts" / "shadow_rehearsal.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        sys.modules[name] = mod
+    return sys.modules[name]
+
+
+def _simulated_taxonomy(db, version: str, rh: str) -> dict:
+    """The rehearsal's simulated taxonomy step (the REAL listing.taxonomy_refresh on
+    FakeEtsy's seller taxonomy, then the release's own listing.seo), run in production order:
+    BEFORE the gallery. See READY-FIXTURE.md, finding F1: a listing.seo re-run after a
+    generated gallery is certified is refused (POLICY_CLASSIFICATION), so the suites assert
+    this recorded step instead of re-running it after the fixture."""
+    from unittest.mock import patch
+
+    from fake_etsy import FakeEtsy
+
+    reh = _rehearsal()
+    sim_tree, sim_craft = reh.simulated_taxonomy()
+    rec = reh.Recorder()
+    with FakeEtsy(taxonomy_nodes=sim_tree, required_property=sim_craft,
+                  create_refuses_required_property=False) as fake:
+        env = {"ETSY_API_KEY": fake.keystring, "ETSY_ACCESS_TOKEN": "111.live-token",
+               "ETSY_SHOP_ID": fake.shop_id, "ETSY_SHARED_SECRET": fake.shared_secret}
+        with patch.dict(os.environ, env):
+            for k in ("ETSY_KEYSTRING", "ETSY_REFRESH_TOKEN"):
+                os.environ.pop(k, None)
+            reh.record_simulated_taxonomy(rec, db, {"slug": SH.SLUG, "version": version,
+                                                    "release": rh}, fake_base=fake.base)
+        assert not [r for r in fake.requests if r.get("operation") == "createDraftListing"]
+    step = {s["step"]: s for s in rec.steps}[TAXONOMY_STEP]
+    assert step["outcome"] == reh.PASS, step
+    return step
+
+
+def assert_taxonomy_recorded(db, slug: str, version: str) -> dict:
+    """What `record_simulated_taxonomy` establishes, read back from the READY database: the
+    simulated seller taxonomy is the snapshot on file and the release's category is CHOSEN
+    from it, and the search certificate is PASS on the certified gallery."""
+    from brambleloop.commerce import category
+
+    chosen = category.publish_inputs(db, slug=slug, version=version)
+    assert chosen.get("status") == category.CHOSEN and chosen.get("taxonomy_id"), chosen
+    row = SH._profile(db, slug)
+    assert row.verdict == "PASS", (row.verdict, (row.certificate or {}).get("reasons"))
+    return chosen
 
 
 def _gallery(db, version: str, rh: str) -> dict:
@@ -117,6 +176,26 @@ def _approve_laura(db, key: str) -> dict:
     return {"needed": True, "requirement_key": req, "decision": out}
 
 
+def _run_pending_publish_in_shadow(db) -> list[dict]:
+    from sqlalchemy import select
+
+    from brambleloop.core.models import Job, JobStatus, Phase
+    from brambleloop.runtime.worker import Worker
+
+    w = Worker(db, "ready-fixture-shadow", phase=Phase.SHADOW, job_types=["store.publish"],
+               lease_seconds=900)
+    for _ in range(5):
+        if not w.run_once():
+            break
+    with db.session() as s:
+        rows = list(s.scalars(select(Job).where(Job.job_type == "store.publish")))
+        out = [{"id": r.id, "status": r.status.value,
+                "published": (r.outputs or {}).get("published")} for r in rows]
+    assert all(r["status"] not in (JobStatus.PENDING.value, JobStatus.RUNNING.value)
+               and r["published"] is not True for r in out), out
+    return out
+
+
 def _build() -> tuple[str, str, str, dict]:
     import test_vis_gallery_e2e as VG
     from sqlalchemy import select
@@ -132,6 +211,8 @@ def _build() -> tuple[str, str, str, dict]:
     db = Database(f"sqlite:///{path}")
     restore = RP._held_gates()
     try:
+        # 0. The simulated seller taxonomy and the release's listing.seo, before the gallery.
+        taxonomy = _simulated_taxonomy(db, version, rh)
         # 1. The listing package for the release, so the for-sale admission has a reading.
         job = SH._run(db, "listing", "listing.package", {"slug": slug, "version": version})
         assert job.status is JobStatus.DONE, job.last_error
@@ -155,10 +236,15 @@ def _build() -> tuple[str, str, str, dict]:
         assert ready["ready"] is True, ready
         pkg = LP.latest(db, slug, version) or {}
         assert SPL.package_ready_for_sale(pkg, rh), pkg.get("blockers")
+        # 5. launch.plan enqueued its own store.publish (G1 in test_first_listing_doors). In
+        #    production the worker runs it in SHADOW, where it is refused and dead-lettered;
+        #    the fixture does exactly that, so no Etsy request is possible and nothing is
+        #    left pending for a door to collide with.
+        shadow_publish = _run_pending_publish_in_shadow(db)
     finally:
         restore()
         db.engine.dispose()
-    info = {"premium": premium, "ready": ready, "laura": laura, "gallery_run": g["key"],
+    info = {"shadow_publish": shadow_publish, "taxonomy": taxonomy, "premium": premium, "ready": ready, "laura": laura, "gallery_run": g["key"],
             "frames": len(rec.certificate["frames"])}
     return path, version, rh, info
 
@@ -180,4 +266,4 @@ def info() -> dict:
     return dict(_BUILT["base"][3])
 
 
-__all__ = ["ready_chain", "info", "OWNER_ACTOR"]
+__all__ = ["ready_chain", "info", "assert_taxonomy_recorded", "OWNER_ACTOR"]

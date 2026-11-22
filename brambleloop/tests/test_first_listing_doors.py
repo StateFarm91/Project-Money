@@ -42,6 +42,7 @@ sys.path.insert(0, str(ROOT.parent / "ops"))
 
 import test_search_hero_publish as SH  # noqa: E402  (sets its env and loopback-only sockets)
 import test_rehearsal_past_shadow_success as RP  # noqa: E402
+import ready_release_fixture as RF  # noqa: E402  (a READY release, real sale pipeline)
 
 _spec = importlib.util.spec_from_file_location("shadow_rehearsal_fl",
                                                ROOT / "scripts" / "shadow_rehearsal.py")
@@ -104,7 +105,10 @@ def test_the_grant_reaches_a_draft_and_then_a_public_listing_through_the_owner_d
     from brambleloop.ops import production_evidence as pe
     from brambleloop.ops import publication_authority as pa
 
-    path, version, rh = SH._chain()
+    # A release READY for sale (D-OWNER-SALE-PIPELINE): the seven-frame certified gallery, both
+    # premium PDFs certified, the package READY -- built through the real sale chain on fake
+    # image / vision providers only (tests/ready_release_fixture.py, READY-FIXTURE.md).
+    path, version, rh = RF.ready_chain("doors")
     copy = path + ".doors.sqlite"
     shutil.copyfile(path, copy)
     db = Database(f"sqlite:///{copy}")
@@ -138,7 +142,12 @@ def test_the_grant_reaches_a_draft_and_then_a_public_listing_through_the_owner_d
                 etsy_mod.EtsyClient.BASE = fake.base
                 rec = reh.Recorder()
                 state = {"slug": slug, "version": version, "release": rh}
-                reh.record_simulated_taxonomy(rec, db, state, fake_base=fake.base)
+                # The simulated seller taxonomy and the release's listing.seo were recorded by
+                # the READY fixture in production order, before the gallery
+                # (ready_release_fixture._simulated_taxonomy, the same
+                # reh.record_simulated_taxonomy step); read back here. Re-running listing.seo
+                # after a certified generated gallery is refused (READY-FIXTURE.md, F1).
+                RF.assert_taxonomy_recorded(db, slug, version)
 
                 # G4: the readback names this release and what still blocks it.
                 rb = pe.first_listing_readiness(db, now=pe.datetime.now(pe.timezone.utc))
@@ -228,21 +237,6 @@ def test_the_grant_reaches_a_draft_and_then_a_public_listing_through_the_owner_d
 
                 _run_all(db, ["store.publish"])
                 j = _job(db, out["job_id"])
-                # D-OWNER-GALLERY-COMPLETE + D-OWNER-SALE-PIPELINE (19f, HARD RULE): this
-                # fixture's certified disclosed set is six frames, one short of the whole
-                # gallery, and the release is truthfully not READY for sale, so the door's
-                # store.publish is refused at the image gate with no Etsy request. Faking a
-                # seven-frame READY release is refused here, as in test_search_hero_publish.
-                # The draft -> read-back -> activation leg below needs a READY release; it is
-                # the integration item w6/review_requests/FIX-SALE-PIPELINE.md names, so this
-                # test proves the doors (G1-G4) up to that refusal and stops there.
-                if j["outputs"].get("published") is not True:
-                    assert j["status"] == "done" and j["outputs"].get("blocked") is True, j
-                    assert any("D-OWNER-GALLERY-COMPLETE" in r
-                               for r in j["outputs"].get("reasons") or []), j
-                    assert len(fake.listings) == 0, fake.listings
-                    assert _fees(db) == [], "a refused publish reserves no listing fee"
-                    return
                 assert j["status"] == "done" and j["outputs"].get("published") is True, j
                 assert j["outputs"].get("read_back_verified") is True, j
                 assert len(fake.listings) == 1, fake.listings
