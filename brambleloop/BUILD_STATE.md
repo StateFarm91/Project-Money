@@ -1,3 +1,44 @@
+## PRODUCTION NOW (verified 2026-11-22T05:29Z)
+
+Keep this block first and current: `tests/test_audit_build_state_current.py` fails when it names a SHA
+older than the last two entries of `release/DEPLOYED_HISTORY.json`, or when its `release-record:` line
+disagrees with `release_record.verify_build` for the checked-out tree.
+
+**Verified from git** (tree `claude/w6-release-19h22` f9011cf9):
+
+- production-sha: 67efe8ebe863a1e7fbc8b0ae33ce213639ebaa41
+- Batch 19h22, code f4650c648, deployed 2026-11-22T03:23:15Z (`verify_deploy` DEPLOYED, override
+  D-OWNER-DEPLOY-19h22, authorization D-OWNER-AUTODEPLOY-TONIGHT); rollback target
+  f90289ed923c1323c497e47a20d70c2125782579 (Batch 19i5). This is entry 57 of 57 in
+  `release/DEPLOYED_HISTORY.json`; f9011cf9 on top of it only appends that history entry.
+- release-record: NONE. No committed release record names this tree: with `PYTHONPATH=src`,
+  `release_record.verify_build(env={'RAILWAY_ENVIRONMENT':'production'})` returns `ok: False`
+  ("no committed release record names this build's tree digest"). On Railway the boot guard
+  therefore forces SHADOW and opens the P1 incident `release.unproven_build`.
+- Last release-eligible full-suite run on file: `release/suite_runs/20261119T135927Z-1739` on
+  a35ad302 (finished 2026-11-19T16:55:33Z): 982 suites, 11,679 passing, 0 failing. All 37
+  DEPLOYED_HISTORY entries dated after it (Batch 19a 2026-11-21T00:15Z through 19h22) were deployed
+  without a full-suite certification: 34 are labelled D-OWNER-AUTODEPLOY-TONIGHT (extended by
+  D-OWNER-EXTENSION-24H) on changed+overlap suites, 2 were owner per-SHA approvals, 1 (19a) has no
+  authorization field.
+- The auto-deploy window of D-OWNER-EXTENSION-24H closed at 2026-11-22T05:00Z. Every further
+  deploy needs the owner's per-SHA approval.
+
+**As REPORTED BY THE OPERATOR READBACK at 2026-11-22T05:15Z** (not verified by this record):
+systemic publishing halt clear; 11 products with per-product marketing-rebuild holds; FLUX renders
+fail 403 `not_authenticated` (BFL key rejected; owner checking); OpenAI vision works; concept gate
+passed 0 (15 waiting on image_vision, 8 refused, 5 held); 0 drafts; sale pipeline 13 eligible,
+0 galleries; no listing published to Etsy; 9 competitor shops scanning; 3 learning lessons applied.
+
+**Full audit 2026-11-22:** `research/audit/AUDIT-REPORT.md` on branch `eng/audit-report` (that
+branch was not on origin when this block was written: UNVERIFIED).
+
+**Entries below dated 2026-11-20..22** that say "NOT merged / NOT deployed" carry a bracketed
+`[2026-11-22 audit: ...]` note: 61 of 69 branch tips are ancestors of 67efe8eb (merged and
+deployed); 6 are not; 2 name no resolvable branch.
+
+---
+
 > **2026-11-22 — LEARNING-APPLY on `eng/learning-apply` (from `origin/claude/w6-release-19h17`; NOT merged, NOT
 > deployed; production unchanged).** Why benchmark lessons ran thousands of times with 0 applied: (1) the
 > pattern_engineering predicates (amigurumi, chunky/chenille, join-as-you-go, multi-component) are false for all
@@ -8,6 +49,7 @@
 > MM-L6 now earns the no/low-sew tag in `seo.proposals` for a multi-piece amigurumi that really is no/low sew. Every
 > run now records relevance apart from application, and the readback's `why_zero` says which kind of zero it is.
 > Tests: `tests/test_learning_apply.py` (12). Report: `LEARNING-APPLY.md` at the repo root.
+> [2026-11-22 audit: branch tip e123575 (`eng/learning-apply`) is not an ancestor of production 67efe8eb -- still not deployed / UNVERIFIED]
 > **2026-11-22 — FIRST-LISTING on `eng/first-listing` (from `claude/w6-release-19h17` e1ff7be; NOT merged, NOT deployed;
 > production unchanged, no production row read).** Three code defects found that kept the publication sections from
 > passing: (1) search `attributes` FAILed for every Launch-0 release because Etsy's variation-only properties
@@ -17,6 +59,7 @@
 > redeploy wiped disk. The certification evidence now names `withheld_kinds` and `competitive_now` (fixed vocabulary,
 > numbers). listing_set (no FLUX gallery; a withdrawn listing reads RETIRED, so no image admission) waits on the
 > chain re-draft owned by the halt-380 lane. No gate weakened. Report and owner actions: `/FIRST-LISTING.md`.
+> [2026-11-22 audit: this branch tip 298a75b (`eng/first-listing`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-21 — BATCH19D-SALE2 on `claude/batch19d-sale2` (batch19d 76d0525 + `w6-release-19d1` 7b250d61 +
 > `w6-release-19h1`, production 1bb7c4f5, merged at 80bc28b with halt-380/H3/H4 and every boot step kept. Run
 > 20261121T082202Z-785 @ 80bc28b, clean tree, 27 suites: 326 passing, 2 suites failing, the same pre-existing two
@@ -32,6 +75,7 @@
 > `test_w6_listing_chain_e2e` C/D (expected blocker sets predate the `pdf_standard` blocker, so this came in with batch19d; it passes on production 7b250d61, where test_w4_launchfix fails the same way). They are not fixed yet.
 > No listing is published: publication still needs a real unedited sample photo, which is an owner action. Report:
 > `w6/review_requests/SALE2.md`.
+> [2026-11-22 audit: this branch tip bfdbdc4 (`claude/batch19d-sale2`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-21 — BATCH19D on `claude/batch19d` (batch19c d8751850 + `claude/batch19-sale` 61b508b4; NOT merged to
 > the main branch, NOT deployed; production unchanged).** The sale pipeline is merged onto the Batch 19 fixers. The
 > premium standard now lives in `publish/premium_standard.py`, and `publish/pdf_standard.py` is the sale checker;
@@ -46,6 +90,7 @@
 > sample photo exists, and READY needs every listing gate to PASS; this needs an owner action, not code. Run
 > 20261121T020920Z-4751 @ 5151529: 288 passing, 1 suite failing. Decision D-BATCH19D-FLAT-DIAGRAMS. Report:
 > `research/final_build/w6/review_requests/BATCH19D.md`.
+> [2026-11-22 audit: this branch tip 76d0525 (`claude/batch19d`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-21 — PRODUCT-RUN-PERF on `eng/product-run-perf` (from `claude/batch19c-etsy`; NOT merged, NOT deployed;
 > test-only, no `src/` change).** `tests/test_product_run.py` now completes: **36 passed / 0 failed, 1544 s** on a
 > 4-CPU host (with other processes using the CPU). cProfile of the shared cycle (1336 s profiled, 957 s plain):
@@ -57,6 +102,7 @@
 > a SQLite backup copy (`_cycle_copy`). No assertion, budget or production file changed. Decision D-PRODUCT-RUN-PERF.
 > Report: `w6/review_requests/PRODUCT-RUN-PERF.md`. The DECISION_LOG entry the brief cited
 > (D-MAIN-19B-PRODUCT-RUN-INCOMPLETE) does not exist in this branch.
+> [2026-11-22 audit: this branch tip b4cc9b0 (`eng/product-run-perf`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-21 — IMAGE-BF on `eng/image-bf` (from `claude/batch19c` 9757c1d + `eng/image-e2e` 45a012be; NOT merged,
 > NOT deployed; production unchanged, still 0 images).** IMAGE-E2E findings B and F fixed. **B:** Laura publication
 > approval now has a production path (`visual.laura_approval`, D-IMAGE-BF-LAURA). A generated gallery verified in every
@@ -71,6 +117,7 @@
 > card; OWNER ACTION when one appears (review + approve/reject in Mission Control, CA$0, ~3 min). CC static bundle
 > 399,984 / 400,000 B. Findings A, C, D, E of IMAGE-E2E not addressed. Report:
 > `research/final_build/w6/review_requests/IMAGE-BF.md`.
+> [2026-11-22 audit: this branch tip 483f3d3 (`eng/image-bf`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-21 — IMAGE-E2E on `eng/image-e2e` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT deployed;
 > production unchanged, still 0 images).** New `tests/test_image_e2e_worker.py`: from a production-like DB (certified
 > Launch-0 blanket, certified PDFs, D-OWNER-APPROVE-ALL applied) the real Worker, unaided, with a stub BFL transport
@@ -85,6 +132,7 @@
 > production -- OWNER decision; the first-customer `imagery` area FAILs a generated 7-frame certificate (judges it
 > as the 3-frame disclosed set), blocking publish; PDFs do not embed the gallery while `PDF_LAYOUT="engine"`. Report:
 > `research/final_build/w6/review_requests/IMAGE-E2E.md`.
+> [2026-11-22 audit: this branch tip 45a012b (`eng/image-e2e`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-21 — IMAGE-AD on `eng/image-ad` (from `claude/batch19c` 9757c1d + `eng/image-e2e` 45a012be; NOT merged,
 > NOT deployed; production unchanged, still 0 images; Laura untouched).** IMAGE-E2E findings A and D closed.
 > A: a vessel's FLUX anchor is now a pair: a side view (`product_only(view="side")`, its own paid call inside the
@@ -102,6 +150,7 @@
 > re-certified, no release reaches READY and D-OWNER-SALE-PIPELINE step 2 is still unmet end to end. Also open:
 > inventory `premium_pdf_completed` still counts an interim PDF; findings B, C, F unchanged. Decision D-IMAGE-AD.
 > Report: `research/final_build/w6/review_requests/IMAGE-AD.md` (results there).
+> [2026-11-22 audit: this branch tip c8e3bbe (`eng/image-ad`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-21 — SUPPLY-FEED on `eng/supply-feed` (from `claude/w6-release-19h8` 94daf05; NOT merged, NOT deployed;
 > production unchanged, no production row read).** Production admitted 0 of 32 READY pool concepts. Cause:
 > `watchlist.compare` dropped every pod we already sell in (`_our_pods`), so those pods never got a watchlist gap or a
@@ -115,6 +164,7 @@
 > **Amigurumi (no toy board) and baby (no READY concept: #108 / raglan engine) did NOT reach cir.draft.** CA$100 cap
 > unchanged. New `test_supply_feed` 7/7; touched suites green; `test_w4_fmbatch1_retention_guard` fails identically on
 > base. **UNVERIFIED** on production. Report: `w6/review_requests/SUPPLY-FEED.md`.
+> [2026-11-22 audit: this branch tip b2a86ef (`eng/supply-feed`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-21 — AMIGURUMI-JUDGING on `eng/amigurumi-judging` (from `claude/w6-release-19h8` a117ed2; NOT merged,
 > NOT deployed; production unchanged, no production row read).** SUPPLY-LANE row 4 fixed in the fixture: amigurumi
 > concepts waited on `board_image` forever because a toy has no prototype geometry. New `creative.toy_board`
@@ -131,6 +181,7 @@
 > - needs a BFL key in the environment;
 > - no real FLUX render of a toy has been seen.
 > Report: `w6/review_requests/AMIGURUMI-JUDGING.md`.
+> [2026-11-22 audit: this branch tip bc06822 (`eng/amigurumi-judging`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-21 — APPROVE-ALL-V2 on `eng/approve-all-v2` (from `claude/w6-release-19h3` 2eb0222; NOT merged, NOT
 > deployed; production unchanged, no production row read).** The owner's screenshot showed "Approve all eligible (0)"
 > over 98 open cards. New "Approve everything I can decide (N)" (`GET/POST /api/cc/approve-everything`,
@@ -146,6 +197,7 @@
 > the Approvals counts and badge. New suite `test_approve_all_v2` 15/15; targeted run 20261121T111632Z-5788 (24 suites).
 > `test_first_listing_doors` and `test_w4_launchfix` fail identically on base. **UNVERIFIED** on production data;
 > `SAMPLE_PHOTO_REQUIRED` still gates publication. Report: `research/final_build/w6/review_requests/APPROVE-ALL-V2.md`.
+> [2026-11-22 audit: this branch tip 82fa763 (`eng/approve-all-v2`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-21 — OWNER-GALLERY on `eng/owner-gallery` (from `claude/owner-assets-basket` a981e97; NOT merged, NOT
 > deployed; production unchanged, no production row read).** The owner supplied 7 FLUX 3 frames of the hexagonal basket
 > (locked Laura model laura-r2-a42aeac7) as listing photos. Owner direct order (D-OWNER-NO-RENDER-LABELS): "NO FLUX
@@ -175,6 +227,7 @@
 > These were targeted per-file runs on a dirty tree, not a release-eligible full run.
 > Flagged for main: the factory FLUX route's alt text still opens with CONCEPT_LABEL (no "rendering" in it, but it is
 > a label). Report: `w6/review_requests/OWNER-GALLERY.md`.
+> [2026-11-22 audit: this branch tip 7984fc3 (`eng/owner-gallery`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-21 — SUPPLY-LANE on `eng/supply-lane` (from `claude/w6-release-19h4` b42f89d = deployed 17f17c20;
 > NOT merged, NOT deployed; production unchanged, no production row read).** Readback: 16 products, 0 certified in 7
 > d, loop 11/12, halt #380 open. Two defects stopped all new supply while the publication halt was open, both
@@ -190,6 +243,7 @@
 > amigurumi concepts cannot get a radar board (no toy renderer), so they are never judged; radar judge needs the
 > anthropic-vision activation. UNVERIFIED in production until deployed. Decision D-ENG-SUPPLY-LANE. Report:
 > `w6/review_requests/SUPPLY-LANE.md` (repo root).
+> [2026-11-22 audit: branch tip 2e21167 (`eng/supply-lane`) is not an ancestor of production 67efe8eb -- still not deployed / UNVERIFIED]
 > **2026-11-21 — EVIDENCE-PERF on `eng/evidence-perf` (from `claude/w6-release-19h4` b42f89d; NOT merged, NOT
 > deployed; production unchanged, no production row read).** `GET /api/readback/evidence` took 45-91 s in production and
 > `ops/readback.py` (60 s) timed out. Profiled on seeded production-shaped DBs: whole `PatternVersion` rows (CIR and
@@ -199,6 +253,7 @@
 > byte-identical before/after on 3 seeds; worst seed 9.6 s -> 6.5 s at a simulated 5 ms RTT. 45-91 s NOT reproduced
 > locally, so the production effect is UNVERIFIED until deployed (read `timing_ms`). New suite
 > `tests/test_evidence_perf.py` 7/7 (3 fail on base). Report: `w6/review_requests/EVIDENCE-PERF.md`.
+> [2026-11-22 audit: this branch tip 1fda17c (`eng/evidence-perf`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-21 — HALT-380-MARKETING on `eng/halt-380-marketing` (from `claude/w6-release-19h3` 52aa7ae = deployed
 > dc10a48d; NOT merged, NOT deployed; production unchanged, no production row read).** Readback 10:35Z: 102 of 111
 > halting stale rows are marketing_asset (94 from an older release), plus 2 products' 9 current-release core rows.
@@ -211,6 +266,7 @@
 > only. (3) A superseded piece back in the plan is restored to drafted. New suite `tests/test_halt_380_marketing.py`
 > 4/4; all 4 fail on base. UNVERIFIED in production until deployed AND a retry has run (read after about 15:00Z).
 > Decision D-HALT-380-MARKETING. Report: `w6/review_requests/HALT-380-MARKETING.md`.
+> [2026-11-22 audit: this branch tip c5695c3 (`eng/halt-380-marketing`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-21 — HALT-380-VERIFY on `eng/halt-380-verify` (from `claude/w6-release-19h1` 90403e5 = deployed 1bb7c4f5;
 > NOT merged, NOT deployed; production unchanged, no production row read).** Readback 08:20Z: done 199, unfinished 0,
 > no artefact completed since 2026-11-20T13:12Z, 14 retry-waiting, 12 rebuild-incomplete. Clean-slate rebuilds verify
@@ -224,6 +280,7 @@
 > endpoint: parked_admission is about 40 ms locally (NOT shown to be the 45 s); it was made cheaper, and `timing_ms`
 > was added. New suite `tests/test_halt_380_verify.py` 4/4; 3 fail on base. UNVERIFIED in production until deployed.
 > Decision D-HALT-380-VERIFY. Report: `w6/review_requests/HALT-380-VERIFY.md`.
+> [2026-11-22 audit: this branch tip e41b156 (`eng/halt-380-verify`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-21 — HALT-380 on `eng/halt-380` (from `claude/w6-release-19d1` 9216d33 = deployed 7b250d61; NOT merged,
 > NOT deployed; production unchanged, no production row read).** Readback 03:29Z: systemic halt #380 open, 12 products
 > stale + rebuild-incomplete, 12 rebuilds pending with the oldest 0.13 h, no verified rebuild since 2026-11-20T13:12Z.
@@ -241,6 +298,7 @@
 > 1 suite failing: `test_w4_autonomy_idle_departments::test_a_wide_rebuild_fits_the_varchar_200_key_column`, failing
 > identically on base (expects 14 enqueued; PUBLISH-UNHALT U2 skips the 2 retired slugs; NOT fixed here). UNVERIFIED in
 > production until deployed. Decision D-HALT-380. Report: `w6/review_requests/HALT-380.md`.
+> [2026-11-22 audit: this branch tip 0aeea73 (`eng/halt-380`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-21 — HALT-380 H4 on `eng/halt-380-h4` (from `claude/w6-release-19d1`; NOT merged, NOT deployed; production
 > unchanged, no production row read).** Readback 7b250d61: 12 pending chain.rebuild, none verified for ~15 h. New suite
 > `tests/test_halt380_h4_rebuild_drain.py` drains the real worker on 12 stale products. It refutes the four named
@@ -250,6 +308,7 @@
 > 32 holds, 0 verified. Fix: `share_decision` yields a job only to waiting work of its own or a higher claim tier. The mix
 > still binds ordinary work and work within one protected tier; the agent-lane limit and every gate are unchanged. **UNVERIFIED:** that this hold caused the
 > production gap (oldest unfinished 0.13 h argues against chronic holding). Report: `w6/review_requests/HALT-380-H4.md`.
+> [2026-11-22 audit: this branch tip e412f9c (`eng/halt-380-h4`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-21 — NEW-PRODUCT-FLOW on `eng/new-product-flow` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT
 > deployed; production unchanged, no production row read).** Readback prod 2f7da291: 0 certified in 7 d (only the 9
 > Launch-0 at LISTING_READY), loop 11/12 with no `original_product`. Cause, reproduced on the real handlers: with
@@ -265,6 +324,7 @@
 > activated openai-vision only. If anthropic-vision is closed in production the stall remains, now named per concept
 > under `regated.radar_held`. Decision D-NEW-PRODUCT-FLOW. Report:
 > `research/final_build/w6/review_requests/NEW-PRODUCT-FLOW.md`.
+> [2026-11-22 audit: branch tip 001f926 (`eng/new-product-flow`) is not an ancestor of production 67efe8eb -- still not deployed / UNVERIFIED]
 > **2026-11-21 — MISSION-CONTROL-2 on `eng/mission-control-2` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT
 > deployed; production unchanged).** The owner: Mission Control "is a mess"; "approve all button". Home is now one screen
 > (`GET /api/cc/mission`): six P0 verdicts PASS/FAIL/UNKNOWN from existing readers (p0_board sections and the
@@ -278,6 +338,7 @@
 > identically on base 8204c93 (pre-existing gallery/amigurumi). Browser proof on the real backend at 390 px. Open: CC static
 > bundle 399,958 of 400,000 bytes (42 B headroom); not run on production.
 > Report: `research/final_build/w6/review_requests/MISSION-CONTROL-2.md`.
+> [2026-11-22 audit: this branch tip de9e753 (`eng/mission-control-2`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-21 — ENG-AMIGURUMI-BREADTH on `eng/amigurumi-breadth` (cut from `claude/batch19-fixers`; NOT merged, NOT
 > deployed; production unchanged; SHADOW).** Shaped low-sew animals and the lamb lovey head are now routable to a
 > physical-gated engine. New CIR primitive `Op.joins` (CIR v3 -> v4, declared): a limb, ear, tail or fin is worked
@@ -297,6 +358,7 @@
 > `test_concepts100` (2 tests): failing identically on base `claude/batch19-fixers` (pre-existing; NOT fixed here).
 > `test_eng_demand_supply`: failing on base (cosy-round-bear held by `outline_round`, fixed here), then hit a harness
 > DuplicateJob (`_run` keyed by id(inputs)), fixed in the test; re-run alone: 0 failed. Contracts suites pass.
+> [2026-11-22 audit: this branch tip 88fed49 (`eng/amigurumi-breadth`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-21 — LEARN-PROOF-2 on `eng/learn-proof-2` (from `claude/batch19c-etsy` c5d6df2; NOT merged, NOT deployed;
 > no lesson applied in production).** All 14 benchmark lessons now switch on a deterministic hook (was 6): HC-L1 effective
 > vs strike price (`intel/serp.capture`), HC-L2 cosy-farm concept cluster + MM-L1 chenille trait (radar, cap +0.06), HC-L3
@@ -308,6 +370,7 @@
 > price. Targeted run 20261121T023222Z-3239 on 55f4e9c (33 suites incl. test_learn_proof, test_vacuity, PDF, SEO, Etsy,
 > SERP, gallery, readback): 601 passing, 0 failing. Full suite not run. Decision D-LEARN-PROOF-2. Report:
 > `research/final_build/w6/review_requests/LEARN-PROOF-2.md`.
+> [2026-11-22 audit: this branch tip 364865e (`eng/learn-proof-2`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-21 — LEARN-PROOF on `eng/learn-proof` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT deployed;
 > production unchanged).** Both benchmark teardowns' department lessons (HC-L1..7, MM-L1..7) are now 14 structured records
 > (department, lesson class, effect hook) in the learning store (`learning_derived_lessons`, loop `benchmark`), ingested
@@ -319,6 +382,7 @@
 > applied per department, UNKNOWN (never 0) when not measured. No lesson has been applied in production.
 > Targeted run 20261121T003727Z-2203: 20 suites, 345 passing; 1 failing (test_w4_readback_evidence
 > `improve.weekly:TypeError`), which fails identically on the base 8204c93. Full suite not run. Decision D-LEARN-PROOF. Report: `research/final_build/w6/review_requests/LEARN-PROOF.md`.
+> [2026-11-22 audit: this branch tip 1d79685 (`eng/learn-proof`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-21 — CLOTHING-E2E on `eng/clothing-e2e` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT
 > deployed; production unchanged; no clothing product exists in production).** New `tests/test_clothing_e2e.py` drives
 > scan evidence -> demand originals -> intake -> radar.score -> supply admit -> cir.draft (wearable engine, every size
@@ -330,6 +394,7 @@
 > crashed assets.build; the kids tank (neck cannot pass a child's head) was certified then refused at the PDF (now held).
 > Status of the last stages (pricing -> listing package) is in the review request; read it before claiming the chain.
 > Decisions D-CLOTHING-E2E-1..8. Report: `w6/review_requests/CLOTHING-E2E.md` (repo root).
+> [2026-11-22 audit: this branch tip 3b7f27a (`eng/clothing-e2e`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-21 — IMAGE-E2E on `eng/image-e2e` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT deployed;
 > production unchanged, still 0 images).** New `tests/test_image_e2e_worker.py`: from a production-like DB (certified
 > Launch-0 blanket, certified PDFs, D-OWNER-APPROVE-ALL applied) the real Worker, unaided, with a stub BFL transport
@@ -344,6 +409,7 @@
 > production -- OWNER decision; the first-customer `imagery` area FAILs a generated 7-frame certificate (judges it
 > as the 3-frame disclosed set), blocking publish; PDFs do not embed the gallery while `PDF_LAYOUT="engine"`. Report:
 > `research/final_build/w6/review_requests/IMAGE-E2E.md`.
+> [2026-11-22 audit: this branch tip 45a012b (`eng/image-e2e`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — CERTFIX-3 on `certfix/3` (cut from `claude/w6-INTEG8-wip` 511a8c6; NOT merged, NOT deployed;
 > production unchanged).** Real fixes for nine Batch 18 certification failures; no gate, assertion or child-safety
 > rule weakened. Teen garments grade at CYC 14/16 only (a teen drop-shoulder was drafted at size 2 and held by the
@@ -353,6 +419,7 @@
 > a non-Mode-T deployment no longer reads as a stopped policy (it would have allowed automatic withdrawals). The
 > provenance and shadow single-product harnesses leave the ENG-SUPPLY admission pass queued. Decisions
 > D-CERTFIX3-*. Report: `research/final_build/w6/review_requests/CERTFIX-3.md`.
+> [2026-11-22 audit: this branch tip 1498b00 (`certfix/3`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — FIX-CYCLE-PROOF-BILLING on `eng/fix-cycle-proof-billing` (from `claude/w6-INTEG8-wip`; NOT deployed;
 > production unchanged; fix 264def0).** Production a4952711 failed `paid_call_dedupe` (cycle_proof request billed 6x
 > across 4 jobs; model.probe 2x) and dead-lettered cycle_proof `unclassified` x7. Cause: paid-call replay was per job,
@@ -362,6 +429,7 @@
 > checkpoint not redriven, probe not re-billed by another job's 429/timeout. New suite 16 OK / 0 FAIL (SQLite + Postgres).
 > The production trigger is inferred from code and error text; production rows were not read. Review request:
 > `research/final_build/w6/review_requests/FIX-CYCLE-PROOF-BILLING.md`.
+> [2026-11-22 audit: this branch tip 5366eed (`eng/fix-cycle-proof-billing`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — FIX-B19C unit A on `eng/concepts-100` (NOT merged to main, NOT deployed; production unchanged).**
 > Merged `claude/batch19-approve-all` (13585c4f). b19-c A1 fixed: `test_concepts100` now asserts the real held keys
 > (`construction_unsupported:{amigurumi,hat,mosaic,c2c,cable}` each present and held per family; garments held under
@@ -369,6 +437,7 @@
 > visible in `by_family`). sw.js -> v45 (p0_board.js changed on both sides). `test_research_flow` M1 test pinned to
 > the scan's clock (it failed after ~18:00 UTC by wall-clock staleness). A2/A3 (b17-a C3/C4) remain open.
 > Report: `research/final_build/w6/review_requests/FIX-B19C.md`.
+> [2026-11-22 audit: this branch tip eea7d3a (`eng/concepts-100`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — CERTFIX-1 on `certfix/1` (from `claude/w6-INTEG8-wip`; NOT deployed; production unchanged).**
 > Fixed 13 of the Batch 18 cert failures with real fixes; 22 suites, 266 passing, 0 failing (run 20261120T230421Z-5923,
 > py3.11 lockfile venv).
@@ -382,13 +451,16 @@
 >   environment-only.
 > - Open risk: the test_cert_wiring drain is about 1240 s of its 1525 s limit on a 4-core host.
 > - Report: `research/final_build/w6/review_requests/CERTFIX-1.md`.
+> [2026-11-22 audit: this branch tip 0563e14 (`certfix/1`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — FIX-B19C unit B on `eng/homedecor` (NOT merged to main, NOT deployed; production unchanged).**
 > Merged `claude/batch19-approve-all` (13585c4f). b19-c B1 fixed (`honest_fams` in test_eng_families). B2 fixed:
 > the lidded basket had no renderable hero and no schematic once PremiumStandard existed; `schematic_for` now draws
 > separately worked pieces (no seams) when every piece has a measured footprint, giving the labelled cover hero and
 > FINISHED MEASUREMENTS. Cover: `makes_words` for one component, "In 2 pieces: 1 basket, 1 lid" for several.
 > PremiumStandard unchanged. Report: `research/final_build/w6/review_requests/FIX-B19C.md`.
+> [2026-11-22 audit: this branch tip bbbbd78 (`eng/homedecor`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — ENG-HOMEDECOR fix for review b17-b (finding 1 and the `spans` survivor, finding 5), merged with claude/w6-INTEG6 dde3ea62; NOT reviewed again, NOT deployed.** `creative/homedecor.findings` now emits `VESSEL_GEOMETRY_UNKNOWN` when a vessel title has no readable twin geometry, and when a round, bowl or lid claim sits on a base not worked from a magic ring. Before this, both cases passed silently. New tests in test_eng_homedecor pin that error and the `spans` exclusion in `cir/geometry._increase_and_parentage`. Each mutant (`return []`, and dropping `not spans`) now fails a test.
+> [2026-11-22 audit: no branch tip named in the header / tip not resolvable -- still not deployed / UNVERIFIED]
 >
 > **2026-11-20 — ENG-HOMEDECOR slice 1 (`eng/homedecor`, builder branch; NOT reviewed, NOT integrated, NOT deployed; production unchanged, SHADOW).** Vessels in the round.
 > - **Defect found first.** Five basket titles were each granted a certificate as the plain hexagon basket, reproduced through the real handlers: "Round …", "Oval …", "… Yarn Bowl", "… Plant Pot Cozy" and "Moss Stitch …". They are now refused at intake, at draft and at certify.
@@ -402,17 +474,20 @@
 >   - Every size and fit figure is computed, not measured. Lid fit assumes a fabric thickness; `HANDLE_MIN_CM` is a design choice.
 >   - Nothing ran against production.
 > - Review request: `research/final_build/w6/review_requests/homedecor_slice1.md`.
+> [2026-11-22 audit: this branch tip bbbbd78 (`eng/homedecor`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 
 > **2026-11-20 — ENG-SALE-PIPELINE fix round for review b19-a Unit A (`eng/sale-pipeline`; NOT reviewed, NOT integrated, NOT deployed).**
 > - All 5 findings are fixed. Certificates are bound to the current checker, standard and gallery record, and any mismatch is UNKNOWN. The stall clock advances only on a forward move. There is a test where everything is PASS except one UNKNOWN. `test_search_hero_publish` runs its merits on the real 8-frame basket, and a separate test keeps the 6-frame blanket blocked. All 6 mutants are killed.
 > - `claude/batch19-approve-all` (13585c4f) is merged. There are 22 readback items, sw v44, and the map is 150/183/95.
 > - **New HIGH finding, open:** the gallery rule accepts >=7 frames but `slot:gallery7` requires exactly 7, so the disclosed 8-frame basket's premium PDFs FAIL and the release can never be READY. A product decision is needed. Details are in `research/final_build/w6/review_requests/FIX-SALE-PIPELINE.md`.
+> [2026-11-22 audit: this branch tip 666fbcc (`eng/sale-pipeline`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — ENG-SALE-PIPELINE slices 1-3 (`eng/sale-pipeline`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
 > D-OWNER-SALE-PIPELINE (hard rule), D-OWNER-SPEND-ORDER, D-OWNER-PDF-STANDARD, D-OWNER-PDF-LOGO, D-OWNER-PDF-TEMPLATE, D-OWNER-GALLERY-COMPLETE.
 > - **Chain (`publish/sale_pipeline.py`, job `sale.pipeline`):** admission (value order, per-listing cap, CA$100/month ceiling, reservation) -> certified 7-photo gallery -> US+UK premium PDFs built in the owner template (`publish/pdf_template.py`) with the same seven certified frames -> `publish/pdf_standard.py` certifies the bytes (layout, canonical logo on the cover, 7 gallery slots in order, template audit, licence, stitch counts) -> listing images attached -> READY. A stall is a named-blocker incident (board, Mission Control, readback row).
 > - **Merged here:** `claude/w6-INTEG6` (dde3ea62), `eng/gallery-complete` (20e81839), `eng/pdf-template` (309522a3; its family module renamed `publish.premium_standard`, D-ENG-SALE-PIPELINE-1).
 > - **Proven only with test doubles** (stub generator and judges, labelled `test_double`): the e2e reaches READY with no owner step. No real gallery, PDF, listing or spend exists from this branch. Production counts are UNKNOWN until deployed and read.
 > - **Known gap:** the engine layout (the release chain's `PDF_LAYOUT`, still "engine") has no logo on the cover; only template builds can certify.
+> [2026-11-22 audit: this branch tip 666fbcc (`eng/sale-pipeline`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — FIX-DEMAND-STALL on `claude/w6-INTEG8-wip` (Batch 18 integration; NOT deployed; production
 > unchanged).** A promoted concept waiting in the supply queue for an uncertified engine (on the production pool:
 > `cottage-wall-hanging`, flat_panel refusal) was counted as `promotable_undrafted`/`supply_selected` on every scan
@@ -421,6 +496,7 @@
 > on an engine), and it stays queued and drafts automatically once its engine certifies (tested). Review b18-a B-1:
 > core families are the owner's three; garments carry `SECONDARY_BOOST` and `core: False`. B-2: a missing market
 > score orders as `demand.PRIOR`. Report: `research/final_build/w6/review_requests/FIX-DEMAND-STALL.md`.
+> [2026-11-22 audit: this branch tip 511a8c6 (`claude/w6-INTEG8-wip`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 
 > **2026-11-20 — ENG-DEMAND-SUPPLY (`eng/demand-supply`, NOT merged, NOT deployed; production unchanged).** Owner
 > TOP PRIORITY: "production agents should be automatically making things that sell" (D-ENG-DEMAND-SUPPLY).
@@ -442,11 +518,13 @@
 > - NOT MEASURED against production: no production reading was taken, and per-listing review counts, bestseller and
 >   baskets are UNKNOWN until a scan stores them. Review request:
 >   `research/final_build/w6/review_requests/ENG-DEMAND-SUPPLY.md`.
+> [2026-11-22 audit: this branch tip 2a85f4f (`eng/demand-supply`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — ENG-ETSY-PUBLISH review b17-d fixes (`eng/etsy-publish`, merged with `claude/w6-INTEG6` dde3ea62; NOT deployed; no real Etsy call).**
 > - **A1 fixed.** Image read-back hashes only bytes actually uploaded in this job, per rank (`PublishOutcome.image_sha256_by_rank`, `_complete_draft(..., force_images=True)` returns `sent_ranks`). An adopted draft has every rank re-sent with `overwrite`. A rank not uploaded in this job, or a missing Etsy dimension, is a problem, never a skipped check. E2e seeds a draft with matching alt text and different bytes and asserts every rank was overwritten with our bytes.
 > - **A2 fixed (escalation route).** The client has no file delete, so an adopted draft already holding a file named like ours is escalated (`store.draft_adoption_escalated`, PermanentError), never verified on name and size.
 > - **A3 fixed.** After `MAX_CONSECUTIVE_UNREAD = 5` unread duplicate checks for one release the job dead-letters behind one P2 incident `store.draft_adoption:unread:<slug>@<version>`. Still fails closed.
 > - **A4 (owner action, when this lands):** publication grants recorded before the `ROLLBACK_PATH.remove_draft` text change are void; the owner must re-sign the publication grant. Without it the scheduler shows `waiting_for_owner_grant`.
+> [2026-11-22 audit: this branch tip 04e1200 (`eng/etsy-publish`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — ENG-ETSY-PUBLISH slice 1 (`eng/etsy-publish`, base 307c7e62; NOT reviewed, NOT integrated, NOT deployed; nothing ran against production or real Etsy).**
 > - **Rollback FAIL, root cause fixed.**
 >   - The rehearsal read PDFs from only the newest 200 build jobs catalogue-wide, and frames from every ListingAsset. It now reads this release's certified PDFs and the valid listing-set certificate's frames.
@@ -473,6 +551,7 @@
 >     - `test_w6_listing_chain_e2e` (3 cases);
 >     - `test_ws4_stage_a_withdrawal` (3 cases).
 >   - Review: `research/final_build/w6/review_requests/etsy_publish_slice1.md`.
+> [2026-11-22 audit: this branch tip 04e1200 (`eng/etsy-publish`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 
 > **2026-11-20 — ENG-VIS-GALLERY image-admission fix (`eng/vis-gallery`; review request `w6/review_requests/FIX-IMAGE-ADMISSION.md`, tested at aa663b53: 235 passing, 0 failing suites; NOT integrated, NOT deployed).**
 > - **D-MAIN-IMAGE-ADMISSION (main's decision):** `gauge_and_size_claims` and `etsy_remote_state` are publish-time / store-wide gates. They are named in an explicit allow-list, `release_gates.PUBLISH_TIME_AREAS`, and read from the structured `area`, never from the text. A release whose only blockers are image ones plus these two is ADMITTED for paid images. Both gates still block publishing. Any other non-image blocker still prevents admission.
@@ -480,6 +559,7 @@
 > - **Review b18-a A-1:** fixed by the concurrent commit 46c1b0c on this branch (publish test on the complete-gallery key basket; the 6-frame blanket's store.publish stays blocked `gallery incomplete`). My equivalent fix was merged onto it, keeping 46c1b0c's version.
 > - Batch 17 (eng/colourwork @ b098fcce) merged; the concurrent merge 3ab2441 on this branch was merged in too, with identical resolutions (docs and retention.py as unions). autonomy_map.json regenerated (149 cadences / 181 handlers).
 > - **Honest status:** production still has 0 generated galleries. With FLUX activated, Launch-0 releases with no other non-image blocker would now be admitted, so image spend becomes possible, within the unchanged ceilings.
+> [2026-11-22 audit: this branch tip 670d699 (`eng/vis-gallery`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — ENG-VIS-GALLERY fix round (review request: `w6/review_requests/ENG-VIS-GALLERY-FIX.md`; fixes tested at c8d534bb, 371 passing, 0 failing suites) (review b17-c Unit A; `eng/vis-gallery` merged with claude/w6-INTEG6 dde3ea62 and eng/gallery-complete; NOT integrated, NOT deployed).**
 > - **A1 fixed:** the ENG-VIS-IDENTITY `gate_status` rule reads any `verdict` key as an identity consumer verdict and demoted motif_fidelity PASS (`verdict="match"`) to UNKNOWN, so every frame read UNMEASURED on the merged line. `candidate_gates.motif_reading` now files `motif_verdict`; the identity rule is unchanged. `test_vis_gallery_e2e` passes on the merged tree.
 > - **A2 fixed:** `assert rows` / `assert cases` / `assert want` before the three loops `test_vacuity` flagged.
@@ -487,6 +567,7 @@
 > - **A4 fixed:** eng/gallery-complete merged: `etsy_ops.certified_frames` refuses a certificate with fewer than `CAMPAIGN_MIN_FRAMES` ("gallery incomplete"); `test_visual_factory_e2e` b0 holds a 6-frame gallery BLOCKED before Etsy.
 > - Also fixed: the first merge left conflict markers in this file; resolved as the union.
 > - **Honest consequence:** Launch-0 releases currently carry non-image FIRST_CUSTOMER blockers (physical sample `gauge_and_size_claims`; `etsy_remote_state` UNVERIFIABLE), so admission holds them and production still makes 0 FLUX images until those pass. UNKNOWN never admits.
+> [2026-11-22 audit: this branch tip 670d699 (`eng/vis-gallery`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — ENG-ESTIMATE-CLAIMS (`eng/estimate-claims` from eng/colourwork b098fcce, NOT merged, NOT deployed;
 > production unchanged).** D-OWNER-ESTIMATE-CLAIMS: production refused every listing with `gauge_and_size_claims:
 > no physical sample`, and no sample exists. With no passed sample bound to the content, the area now PASSES only
@@ -507,6 +588,7 @@
 > chain e2e test_a/test_b, cert_rebuild_chain, opus2_size_claims, physfix and platform also fail on base. product_run
 > timed out (incomplete). CHAIN_VERSION 9 forces every v8 PDF and listing to rebuild.
 > Results: `research/final_build/w6/review_requests/ENG-ESTIMATE-CLAIMS.md`.
+> [2026-11-22 audit: this branch tip aacabf8 (`eng/estimate-claims`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — ENG-GARMENT-2: seven new clothing families (`eng/garment-2`, NOT merged, NOT deployed).**
 > Built on claude/w6-INTEG7-wip c6d4400. One framework, `products/wearables.py` (Engine registry), with
 > `gates/wearable_fit.py`, `publish/wearable_writer.py` and `publish/wearable_pdf.py`. Every family certifies
@@ -534,6 +616,7 @@
 >   `test_eng_plush` 3 (amigurumi PDF "Rnd 16 has no stitch count"), `test_s1_fix_size_families` 1 (Baby Lovey).
 > - NOT done: nothing physically made or photographed, no listings; neckbands on tops, sleeves for child tees,
 >   baby socks, crescent shawl, mesh market bag, granny-square cardigan are named holds.
+> [2026-11-22 audit: this branch tip a93888f (`eng/garment-2`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — ENG-PLUSH-FIX round 2 (`eng/plush`, builder branch; NOT re-reviewed, NOT integrated, NOT deployed).**
 > - Merged `claude/w6-INTEG6` dde3ea62. Union-resolved DECISION_LOG and suite_final_segment (kept test_research_flow and test_motif_backlog), and regenerated autonomy_map.
 > - Attachments are now an allow-list (ATTACHMENTS_KNOWN). An attachment that is not a piece of the pattern, yarn or embroidery is UNKNOWN and holds the item.
@@ -541,6 +624,7 @@
 > - Every reviewer probe is its own test. There are 7 new mutants, and the one that survived ("pdf ignores the age band") is now killed.
 > - Counts: `research/final_build/w6/review_requests/ENG-PLUSH-FIX.md`.
 > - `research/benchmarks/TEARDOWN_*.md` is not in this tree or in INTEG6, so no claim about benchmark safety guidance is made in code or docs.
+> [2026-11-22 audit: this branch tip de1669c (`eng/plush`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — ENG-PLUSH-FIX (`eng/plush`, builder branch; fixes the DO NOT SHIP review of 2763340b; NOT re-reviewed, NOT integrated, NOT deployed).**
 > - Merged `claude/w6-INTEG4` 259e47c4. Union-resolved DECISION_LOG and suite_final_segment, and regenerated autonomy_map.
 > - H1: added non-emptiness asserts before the four loops. H2: declared `tests/test_eng_plush.py` in the final segment. H3: `plush_results.md` now exists with measured counts.
@@ -550,6 +634,7 @@
 > - L2: all 7 quotes were re-read, and an unread quote makes the citations UNKNOWN. L3: an uncompiled closure produces a finding. L4: an asset may show only the colours of the pieces it depicts.
 > - Every reviewer probe is a test. D-ENG-PLUSH-FIX.
 > - Honest state: every stuffed or sewn toy is still HELD on physical evidence, and cushions stay held for the owner's decision. Counts: `research/final_build/w6/review_requests/plush_results.md`.
+> [2026-11-22 audit: this branch tip de1669c (`eng/plush`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — ENG-PLUSH slices 1-3 (`eng/plush`, NOT merged, NOT deployed; Track 2 of D-OWNER-CORE-FAMILIES).**
 > - Base: INTEG2 809107b5 + eng/families 777a66f3 (independent review SHIP). opus2/p0-amigurumi 98d216b ported;
 >   OPUS2T-4/T-5 and OPUS2P P-1..P-9 fixed (details: `research/final_build/w6/review_requests/plush_slice1.md`).
@@ -572,6 +657,7 @@
 > - Suites: `research/final_build/w6/review_requests/plush_results.md` (pre-existing and inherited failures attributed
 >   against base 809107b and INTEG3). Mutation: 44 of 44 killed after the shadowed survivor got a direct test.
 > - OWNER ACTION (batched in plush_results.md): a standing decision for adult cushion covers (A1-R holds each one).
+> [2026-11-22 audit: this branch tip de1669c (`eng/plush`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — ENG-COMPOSER (`eng/composer` from `claude/w6-INTEG7-wip`; NOT merged, NOT deployed; production
 > unchanged).** `creative/composer.py` composes ORIGINAL items from a declarative plan of 20 proven primitives:
 > - shapes: flat circle, sphere, ovoid, cylinder, cone, tube, rectangle, trapezoid, triangle;
@@ -597,11 +683,13 @@
 > - **Open gap reported, not changed.** `risk_matrix` does not re-check "W x H cm" size notes.
 > Tests: `tests/test_eng_composer.py` (21, including 7 killed mutants). Results:
 > `research/final_build/w6/review_requests/ENG-COMPOSER.md`.
+> [2026-11-22 audit: branch tip 730006d (`eng/composer`) is not an ancestor of production 67efe8eb -- still not deployed / UNVERIFIED]
 > **2026-11-20 — ENG-SEO-PRICE review b17-a fixes (`eng/seo-price`, merged with `claude/w6-INTEG6` dde3ea62; NOT deployed).**
 > - **B1 fixed.** `market_fit.originality` on an empty research shelf is UNKNOWN (`ok` None), `seo_package` adds `TITLE_ORIGINALITY_UNKNOWN`, `CATEGORY_` problems now block, and `search_certificate` fails `market_fit` unless originality is True. Test: empty shelf -> certificate `market_fit.ok is False`.
 > - **B2 fixed.** Killing test for the trigram-Jaccard copy rule (no long shared run, Jaccard 0.667 -> copied; the rule disabled -> passes).
 > - **B3 fixed.** `discount_problems` (B-376) runs on both live price paths via `release._refuse_deceptive_discount`; with `was_price=None` only a deceptive price can refuse today.
 > - **B4 fixed.** Originality evidence records `scope` (`pod` or `all`).
+> [2026-11-22 audit: this branch tip c87d8d3 (`eng/seo-price`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — ENG-SEO-PRICE slice 1 (`eng/seo-price`, NOT merged, NOT deployed; production unchanged).**
 > - Production "search: FAIL, category UNKNOWN", root-caused from the code (production audit rows were not readable
 >   without the ops token). Taxonomy drift runs only when a refresh stores a NEW snapshot, and its re-queue switch is
@@ -624,6 +712,7 @@
 >   - `market_fit` is not a REQUIRED certificate check, so legacy profiles are not refused on its account.
 >   - There are no separate bundle-vs-single bands.
 >   - No cadence runs `market_fit.learn`.
+> [2026-11-22 audit: this branch tip c87d8d3 (`eng/seo-price`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — B19-FIX on `eng/autocoder` (security review review-results/b19-b, findings A1–A5; NOT merged,
 > NOT deployed).** Model-written code no longer runs in the production worker: rails -> reviewer SHIP -> push
 > `auto/ecr-<id>`; tests run in the new `autocoder-ci` GitHub Actions sandbox (no secrets, contents: read) and
@@ -632,6 +721,7 @@
 > over every module. Test-weakening and source-deletion gaps closed; per-ECR spend from the ledger. Merged
 > production (eng/colourwork). The CI workflow has **never run** on GitHub yet. Fix record:
 > `w6/review_requests/FIX-SECURITY-B19.md`.
+> [2026-11-22 audit: this branch tip 8174821 (`eng/autocoder`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — ENG-AUTOCODER (`eng/autocoder` from claude/w6-INTEG7-wip c6d4400; NOT reviewed, NOT merged, NOT
 > deployed; production unchanged; kill switch OFF by default).** D-OWNER-AUTOCODER: the in-production coding team.
 > - **Job.** `improve.code` (agent `autocoder`, CA$8/day, 6-hourly, BUILD class, build plane) takes one engineering
@@ -652,12 +742,14 @@
 >   `BRAMBLELOOP_AUTOCODER_ENABLED=1` -- OWNER_ACTIONS_AUTOCODER.md. Without the token: UNKNOWN with the named
 >   blocker, CA$0. **No live run has happened; no auto/* branch exists; the GitHub API path is tested only against
 >   a fake API.** Review request: `w6/review_requests/ENG-AUTOCODER.md`.
+> [2026-11-22 audit: this branch tip 8174821 (`eng/autocoder`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — B19-FIX on `eng/autopromote` (security review review-results/b19-b, findings B1–B7; NOT merged,
 > NOT deployed).** The pre-deploy backup gate now fails the job on REFUSE (pipefail + verdict check, tested by
 > executing the step); certify is one-at-a-time and read-only, a separate record job pushes with hooks off;
 > promote refuses a non-descendant release; the workflow is dispatch-only from the default branch; the
 > dispatch board runs a pinned commit; test_autopromote declared in the final segment. Merged production
 > (eng/colourwork). The workflow has **never run** on GitHub. Fix record: `w6/review_requests/FIX-SECURITY-B19.md`.
+> [2026-11-22 audit: this branch tip 288da96 (`eng/autopromote`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — ENG-DAILY-FIX (`eng/daily`, NOT merged, NOT deployed; production unchanged).** Fixes every Unit B
 > finding of the independent review of a795be17 (BLOCK). Merged `origin/claude/w6-INTEG4` (259e47c4) first, so
 > learn and improve with `improve.ecr` are present; change requests now go through `ecr.file`. (1) BLOCKER: a
@@ -671,6 +763,7 @@
 > rows follow their reading. (5) the retention-horizon day is UNKNOWN (`<=`). (6) the review request carries its
 > run table. `sw.js` `cc-shell-v43`; autonomy map regenerated (148 cadences / 180 handlers). Bundle: INTEG4 plus the Daily view came to 403,169 bytes (over 400 KB); the two PWA icons were re-encoded with zopfli, pixel-identical (verified), the Daily row labels are served with the panel and sw.js drops its per-version changelog (in git): 393,345 bytes. Results:
 > `research/final_build/w6/review_requests/ENG-DAILY-FIX.md`.
+> [2026-11-22 audit: this branch tip bd44b18 (`eng/daily`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 
 > **2026-11-20 — ENG-DAILY slice 1 (`eng/daily`, NOT merged, NOT deployed; production unchanged).** The owner's P0
 > daily counts. `ops/daily_ledger.py` gives per-UTC-day counts for 14 days from persisted rows only: the 9 shops'
@@ -687,16 +780,19 @@
 > - Honest gaps (no per-event timestamp exists for these, so each counts the nearest row): stage moves, the moment
 >   an Etsy id is set, image verification time, "image recovered". Details:
 >   `research/final_build/w6/review_requests/daily_slice1.md`.
+> [2026-11-22 audit: this branch tip bd44b18 (`eng/daily`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 
 > **2026-11-20 — ENG-VIS-IDENTITY slice 2 (`eng/vis-identity`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
 > - Review fixes: F1 v3 production test no longer assumes the models are absent; F2 calibration now fixes thresholds on a calibration subset and measures FAR/FRR (exact 95% bounds) only on a disjoint held-out subset, floors apply to held-out counts, `qualification()` refuses in-sample evidence; F3 outfit race settles to exactly one outfit per listing (a loser with uses is retired, never orphaning frames); F4 vision reads reserved at the provider's own image figure (OpenAI read CA$0.092 -> CA$0.029 reserved, equal to the gate's own estimate); F5 unused `transports_independent` removed.
 > - Re-measured held-out (evidence sha 1854ae98): **held-out FAR 2/6 (upper bound 72.9%)**, FRR 0/10. The slice-1 "FAR 0/10" was in-sample and is withdrawn. Still NOT production-ready; needs ~450 impostor faces and >=36 genuine in total.
 > - Deploy path: `onnxruntime==1.29.0` in the hash-pinned lock; Dockerfile fetches the sha-pinned models best-effort. Image built and booted in this session (models verified, `/health` ok, floor loads embedder with no qualification -> HOLD; tampered model refused). ~110 MB RAM over the worker.
 > - Decision 2 tooling: `visual/identity_labelling.py` + `scripts/identity_contact_sheet.py` (24 frames on all three references, US$1.16 cap, refuses without BFL key + owner activation; owner labelling page/command). Nothing generated or spent.
+> [2026-11-22 audit: this branch tip 4965dda (`eng/vis-identity`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — ENG-VIS-IDENTITY slice 1 (`eng/vis-identity`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
 > - Built: `visual/face_embedder.py` (YuNet+SFace ONNX on CPU, Apache-2.0/MIT, weights pinned by sha256), `visual/identity_calibration.py` (measured thresholds, FAR/FRR with exact 95% bounds, production floors >=30 genuine / >=300 impostors / FAR-UB <=1% / FRR <=10%), `visual/identity_records.py` (durable per-image identity records), `outfits.claim` (idempotent compare-and-set outfit claim), blind outfit-vs-approved-reference check, OpenAI gpt-4.1 second judge via the existing `GatewayVisionJudge` reservation path, `identity_gate.assess` consumer `verdict` PASS/HOLD/REFUSE and all-three-references rule.
 > - Measured (committed evidence, sha 6884612e): Laura worst 0.696 vs best look-alike 0.582; FAR 0/10, FRR 0/12; **FAR 95% upper bound 25.9% -> NOT production-ready**. 0.08 CPU-s/frame, ~120 MB RAM.
 > - Honest state: `PRODUCTION_QUALIFICATIONS` still empty, so Laura identity HOLDs in production. Needs: ~306 generated impostor faces (US$1.63, standing authority; not run: no BFL key in this session), 18+ owner-confirmed genuine frames, OpenAI key + `openai-vision` activation, owner decisions in `research/final_build/w6/IDENTITY_OWNER_DECISIONS.md`. Nothing generated or spent in this session.
+> [2026-11-22 audit: this branch tip 4965dda (`eng/vis-identity`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-19 — ENG-VISUAL (branch `eng/visual-factory`, not deployed).**
 > - Audit: `research/final_build/w6/visual_factory_audit.md`, covering every stage from certified pattern to Etsy read-back, with file:line and blockers.
 > - Read-only evidence: the `visual_pipeline` section on `/api/readback/evidence`, plus an advisory readback row. Unreadable parts are UNKNOWN, never 0.
@@ -739,6 +835,7 @@
 >   - Nothing has run against production, so every real trend is UNKNOWN.
 >   - No producer calls `prompt_for` yet, so no arm has production evidence.
 >   - Review notes: `research/final_build/w6/review_requests/learn_slice{1,2,3}.md`.
+> [2026-11-22 audit: this branch tip d62208d (`eng/learn`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — ENG-IMPROVE slice 1 (`eng/improve` from w6-INTEG3 39b92619; NOT reviewed, NOT integrated, NOT deployed).**
 > Owner directive: every department improves with experience; a lesson counts only if it changes behaviour.
 > - **Department loops.** `improve.department_loops` covers 11 departments, each with a KPI (useful yield from `jobs` rows,
@@ -761,6 +858,7 @@
 >   arrived. A promotion could wait up to 32 days for its rollback monitor. `orchestrate.INPUT_PROBES` now lift it.
 >   This was derived from code: the production suspension list was not readable from this session.
 > - Review: `research/final_build/w6/review_requests/improve_slice1.md`.
+> [2026-11-22 audit: branch tip b03cf31 (`eng/improve`) is not an ancestor of production 67efe8eb -- still not deployed / UNVERIFIED]
 > **2026-11-20 — ENG-PDF-TEMPLATE (`eng/pdf-template`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
 > - `publish.pdf_template` renders the owner's master template (spec/07), with:
 >   - the canonical logo on the cover, in every header and in the thank-you block;
@@ -782,6 +880,7 @@
 >   gallery certification to come before PDF certification in the pipeline, and fixtures that carry a certified gallery.
 > - Proofs (test-double images, NOT customer-ready): `research/final_build/w6/pdf_template_proofs/`.
 >   Review request: `research/final_build/w6/review_requests/ENG-PDF-TEMPLATE.md`.
+> [2026-11-22 audit: this branch tip 137abfa (`eng/pdf-template`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — ENG-PDF-PREMIUM slice 1 (`eng/pdf-premium`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
 > - `publish.pdf_standard`: family-aware premium standard (small home goods, blanket, basket, garment, pillow, amigurumi),
 >   22 rules + running header/footer, audited on the finished PDF bytes; `build_pattern_pdf` refuses a PDF that fails
@@ -794,6 +893,7 @@
 > - Measured: all 13 catalogue documents (11 Launch-0/proposed + a garment size + a pillow) pass in US and UK.
 > - NOT built: one multi-size garment edition with sizes in parentheses (each size is still its own PDF); garment
 >   inline diagrams; amigurumi (no engine exists). Review request: `research/final_build/w6/review_requests/pdf_premium_slice1.md`.
+> [2026-11-22 audit: this branch tip de81ce8 (`eng/pdf-premium`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 
 
 > **2026-11-20 — ENG-VIS-FLUX slice 1 (`eng/vis-flux`, builder branch; NOT reviewed, NOT integrated, NOT deployed; no BFL request made).**
@@ -814,12 +914,14 @@
 >   - Cost: CA$0.142 per 2k frame; about CA$1.06 per Laura gallery; about CA$53–70/month at 50 galleries.
 > - Open: no live render yet. It is UNKNOWN whether the 2k tier at 1:1 delivers exactly 2048 px, and whether 4:5 at 4k works with references.
 > - Also fixed: this branch's own merge commit (439d17e5) left conflict markers at the top of this file. They are now resolved, and both entries are kept.
+> [2026-11-22 audit: this branch tip 047c210 (`eng/vis-flux`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — ENG-VIS-GALLERY slices 2–3 (`eng/vis-gallery`; NOT reviewed, NOT integrated, NOT deployed).**
 > - Recovery first (`visual.gallery_recovery`): before buying a frame, prior generated images of the same release/role (Laura and outfit matching) are re-judged under the route and recovered at no image cost; a retried job never re-buys. Complements eng/motif-backlog (photography renders), does not duplicate it.
 > - `assets.build` now also triggers the FLUX-gallery run; a route run's card is certified automatically (`gallery_persist.certify_gallery`) or its blockers recorded. New frame gate `cir_references`: conditioned on the release's exact deterministic CIR renders, in order.
 > - `ops.production_evidence.visual_pipeline.generated_galleries`: images generated/recovered, independently verified vs test-double PASS, Laura identity passes/holds, completed 7-image galleries, blocked-by-gate, awaiting publication, verified Etsy drafts, spend and cost per completed gallery — rows only, UNKNOWN when nothing is completed.
 > - Proof: `test_vis_gallery_e2e` 8/8 (adds recovery, evidence, tamper), `test_vis_gallery_gates` 14/14, unit mutants 24/24, chain-level mutants 6/6.
 > - **Honest status unchanged:** zero generated galleries in production; independent identity/motif verification needs ENG-VIS-IDENTITY's qualified method and a funded vision transport; Laura per-image approvals are empty.
+> [2026-11-22 audit: this branch tip 670d699 (`eng/vis-gallery`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — ENG-VIS-GALLERY slice 1 (`eng/vis-gallery`, builder branch; NOT reviewed, NOT integrated, NOT deployed; production unchanged, SHADOW).**
 > P0 "PERFECT FLUX 3 LISTING IMAGES". Decision `D-OWNER-FLUX-GALLERY` recorded (coordinator-relayed; owner/main may veto the F-853/hero scope inside the route).
 > - **H1 built:** a seven-frame generated gallery (`IP.trigger(..., route="generated_gallery")`, its own run key `~gallery`) is judged by `gallery_persist.gallery_status` on a fixed gate matrix (identity, body, outfit, Laura publication, product fidelity on exact bytes, motif fidelity, anatomy, realism, quality, role, provenance, the route's exception; set: slots, 7-frame standard, #65, consistency, naturalism, the deterministic CONTENTS frame). Each blocker names gate, reason, owning agent and a bounded next action (repair / measure / hold). `certify_gallery` writes listing assets and selects the gallery only with zero blockers; `release_gates.generated_listing_set` certifies it (one set, one certificate, one upload path).
@@ -827,6 +929,7 @@
 > - Motif fidelity on the generated path through `publish.motif_fidelity.check` (reserved call). Etsy AI-policy gate removed (owner order). Owner-lowerable per-gallery cap (`visual.gallery_budget`).
 > - **Proof (stub FLUX, labelled stub judges, FakeEtsy):** `test_vis_gallery_e2e` — certified CIR → US/UK PDFs → CIR references → Laura + outfit → 7 frames → QA → certified gallery → listing.package → Etsy draft, read back byte for byte (7 images, both PDFs); a failing frame blocks with a reason and bounded repair; UNMEASURED never PASS. `test_vis_gallery_gates` + `_vis_gallery_mutants.py` 21/21 killed.
 > - **Honest status:** no generated gallery exists in production. Production has no qualified identity method, no funded vision transport for motif/identity, and Laura's per-image publication approvals are empty, so a real gallery would hold on those gates (named, owned by ENG-VIS-IDENTITY). The FLUX route is not yet triggered by `assets.build` (slice 2). Production evidence counts are slice 3.
+> [2026-11-22 audit: this branch tip 670d699 (`eng/vis-gallery`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — ENG-PDF-PREMIUM slice 1 (`eng/pdf-premium`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
 > - `publish.pdf_standard`: family-aware premium standard (small home goods, blanket, basket, garment, pillow, amigurumi),
 >   22 rules + running header/footer, audited on the finished PDF bytes; `build_pattern_pdf` refuses a PDF that fails
@@ -839,6 +942,7 @@
 > - Measured: all 13 catalogue documents (11 Launch-0/proposed + a garment size + a pillow) pass in US and UK.
 > - NOT built: one multi-size garment edition with sizes in parentheses (each size is still its own PDF); garment
 >   inline diagrams; amigurumi (no engine exists). Review request: `research/final_build/w6/review_requests/pdf_premium_slice1.md`.
+> [2026-11-22 audit: this branch tip de81ce8 (`eng/pdf-premium`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 
 > **2026-11-20 — ENG-WARDROBE-SCENES slice 1 (`eng/wardrobe-scenes`, NOT reviewed, NOT merged, NOT deployed; no provider called).**
 > - **Built, new files only:**
@@ -853,6 +957,7 @@
 >   - No outfit reference image exists: they are HELD until the owner's FLUX activation.
 >   - Library outfits are approved by code, not by the owner.
 >   - The cream + ink palette admits only 5 outfits.
+> [2026-11-22 audit: this branch tip b974a6d (`eng/wardrobe-scenes`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-19 — ENG-APPROVALS slice 1 (`eng/approvals`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
 > - The owner directive `D-OWNER-STANDING-INTERNAL` is recorded in DECISION_LOG.
 > - Code: `authority.standing_internal` (classifier and directive), `ops.owner_queue_consolidate` (idempotent sweep, the one
@@ -866,6 +971,7 @@
 >     listing-set issuance) is slice 2.
 
 > **2026-11-20 — ENG-CONCEPTS-100 fix for review b17-a (C1, C2), merged with claude/w6-INTEG6 dde3ea62; NOT reviewed again, NOT deployed.** C1: removed the duplicate `benchmark_shopping` registration from `intel/research_flow.sources()` (INTEG6 already registers it), so `test_research_flow` passes on the integrated tree. C2: `concept_pool.originality()` now HOLDS a concept whose pod has no benchmark cards (`HELD_NO_CARDS`: originality UNKNOWN is not READY), and three new tests kill the `twin = ""` mutant and the no-cards mutant. A test also pins the core-family demand weighting. sw.js is cc-shell-v44, and the autonomy map was regenerated (149 cadences / 181 handlers). C3 and C4 remain open. Production effect: pods whose observed titles state no feeling now yield HELD concepts, not READY ones.
+> [2026-11-22 audit: no branch tip named in the header / tip not resolvable -- still not deployed / UNVERIFIED]
 >
 > **2026-11-20 — ENG-CONCEPTS-100 slice 1 (`eng/concepts-100`, NOT reviewed, NOT merged, NOT deployed; production unchanged, SHADOW).** The concept pool: 100+ evidence-backed ORIGINAL concepts from the watchlist scans, replenished continuously (P0 item 4).
 > - **Built.** `radar/concept_pool.py` (D-ENG-CONCEPTS-100):
@@ -884,6 +990,7 @@
 >   - Pool cushions are physical-gated: certification withholds them for the class-C sample.
 >   - Every admitted concept still WAITS on `image_vision` at the pre-engineering gate, so engineered is 0 until a vision verdict exists.
 > - Tests: `tests/test_concepts100.py`, 14 tests; 14 of 14 mutants killed. Review request: `research/final_build/w6/review_requests/concepts100_slice1.md`.
+> [2026-11-22 audit: this branch tip eea7d3a (`eng/concepts-100`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 
 > **2026-11-20 — ENG-BENCHBUY (`eng/benchbuy`, NOT merged, NOT deployed; production unchanged, SHADOW).** The benchmark shopping list across all nine watchlist shops.
 > - **Built.** `purchase_selection.shopping_list`: pattern digital downloads only, quota 3 per shop (MadelineMaeCo 5), capability-gap facet then owner-demand facet (baby, stuffed animal, pillow), favourites as a tie-break only, no pick without a new facet. Budget in code: `SET_BUDGET_CAD` less recorded BenchmarkProduct spend, every price at x1.158. Owned items (both MJ benchmarks, any BenchmarkProduct) never offered. Empty or never-scanned shops are listed with their reason; no scan data is UNKNOWN.
@@ -891,6 +998,7 @@
 > - **Safety.** Nothing buys: no purchase path, no buy control, metadata only. Intake (`teardown.intake.receive`) now accepts a pick from any watchlist shop into the quarantined library.
 > - **Not verified.** Nothing here ran against production scan data (this checkout has no production database), so the real number of picks, shops with picks and total are UNKNOWN until the first production run. Whether the observed listings carry `options.listing_type` for every shop is also UNKNOWN: listings without it are excluded and counted as `digital_status_unknown`.
 > - Tests: `tests/test_benchbuy.py`, the benchbuy check in `check.mjs`. Review request: `research/final_build/w6/review_requests/benchbuy.md`.
+> [2026-11-22 audit: branch tip 8d7e63c (`eng/benchbuy`) is not an ancestor of production 67efe8eb -- still not deployed / UNVERIFIED]
 > **2026-11-20 — ENG-GARMENT slices 2-3 (`eng/garment`, NOT merged, NOT deployed).**
 > - Slice 2, `publish/garment_pdf.py` + `publish/garment_schematic.py`: one PDF per edition (US, UK) for all sizes,
 >   with:
@@ -909,6 +1017,7 @@
 >   version bump), so child-table tournament drop-shoulder garments are held by the child gate.
 > - NOT done: no garment physically made, no photos, side-to-side/drop-shoulder not admitted at intake, no
 >   listing/product-row work for a multi-size release beyond the per-size certified releases.
+> [2026-11-22 audit: this branch tip 376a604 (`eng/garment`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 > **2026-11-20 — ENG-GARMENT slice 1 (`eng/garment`, NOT merged, NOT deployed).** Garments as a family that
 > certifies end to end, every size. Built on INTEG2 64146306 + eng/plush d4aaf9b6 (which carries eng/families).
 > - `products/garment_families.py`: four constructions (top-down raglan, flat one-piece with built-in sleeves,
@@ -926,6 +1035,7 @@
 >   bands measured, not "sewn"; worked-into chains are fabric. Nothing that failed before passes now.
 > - NOT yet: the garment PDF (schematic, size chart, licence page), concept intake routing (PAIR_PROOFS) - slices 2-3.
 >   No real garment has been made; physical fit is unproven (class B relaxed designs only; fitted is refused).
+> [2026-11-22 audit: this branch tip 376a604 (`eng/garment`) is an ancestor of production 67efe8eb -- MERGED AND DEPLOYED. The 'NOT merged, NOT deployed' wording above is historical. Production effect still UNVERIFIED unless stated elsewhere.]
 
 > **2026-11-19 — ENG-RECOVERY fix round 1 (`eng/recovery`, NOT merged, NOT deployed).** Main's review was DO NOT SHIP.
 > - H1: the spend classifier now FAILS CLOSED. `swarm.orchestrate.FREE_JOB_TYPES` is an explicit allow-list
