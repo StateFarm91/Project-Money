@@ -1800,8 +1800,14 @@ def function_quality(db, name: str, *, now: datetime | None = None) -> dict:
 
     def outs(job_types: tuple[str, ...] | None = None) -> list[dict]:
         with db.session() as s:
-            q = select(Job).where(Job.agent == name, Job.status == _TERMINAL_OK_STATUS())
-            return [dict(j.outputs or {}) for j in s.scalars(q)
+            # F-14: the two columns read, never the entity (inputs JSON stays unread), and
+            # the job-type filter also in SQL (exact string equality, as in Python) so only
+            # the matching rows' outputs are read; every caller only counts these rows.
+            q = select(Job.job_type, Job.outputs).where(
+                Job.agent == name, Job.status == _TERMINAL_OK_STATUS())
+            if job_types is not None:
+                q = q.where(Job.job_type.in_(job_types))
+            return [dict(j.outputs or {}) for j in s.execute(q)
                     if job_types is None or j.job_type in job_types]
 
     value, sample = None, 0
@@ -1900,8 +1906,11 @@ def agent_quality(db, *, now: datetime | None = None) -> dict:
     scheduled = _scheduled_job_types()
 
     with db.session() as s:
+        # F-14: the five columns read, never the entity (inputs/outputs JSON stay unread).
         jobs = [(j.agent, j.job_type, _status(j), _aware(j.finished_at),
-                 (j.last_error or "")[:40]) for j in s.scalars(select(Job))]
+                 (j.last_error or "")[:40]) for j in s.execute(
+                     select(Job.agent, Job.job_type, Job.status, Job.finished_at,
+                            Job.last_error))]
 
     report, cells = {}, []
     for agent in agents:
@@ -2483,7 +2492,8 @@ def work_items(db) -> list[dict]:
     agents = {a.name: a for a in Registry(db).all()}
     out: list[dict] = []
     with db.session() as s:
-        for job in s.scalars(select(Job).where(
+        # F-14: the columns read, never the entity (inputs/outputs JSON stay unread).
+        for job in s.execute(select(Job.id, Job.agent, Job.job_type, Job.status).where(
                 Job.status.in_((JobStatus.PENDING, JobStatus.RUNNING, JobStatus.FAILED)))):
             problem = _owner_problem(agents.get(job.agent), job.job_type)
             item = WorkItem(key=f"job:{job.id}", kind=band_for(job.job_type)["kind"],
