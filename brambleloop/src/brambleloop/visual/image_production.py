@@ -2070,30 +2070,23 @@ def _stable_pdf_page_refs_version() -> str:
     return str(pdf_page_refs.RENDER_VERSION).split(";", 1)[0]
 
 
-def _default_owner_flag() -> bool:
-    try:
-        from ..creative import flux3_generator
-
-        return bool(flux3_generator.ACCEPTS_OWNER_METHOD)
-    except Exception:  # noqa: BLE001 - unimportable generator: the method is not in force
-        return False
-
-
 def generation_method(gen=None) -> dict:
     """The generation method by stable identifiers: the FLUX prompt builder, the pattern
-    reference renderer (references 4-7 and the certified-PDF pages) and whether the owner's
-    two-step method is in force. With `gen`, the owner flag is what that generator declares;
-    without, what the production FLUX 3 generator declares."""
+    reference renderer (references 4-7 and the certified-PDF pages) and the owner's two-step
+    method identifier this pipeline implements (`OWNER_METHOD`). Only code changes move the
+    version. With `gen`, what that generator declares is recorded beside it
+    (`generator_owner_method`) as provenance; it is not part of the version."""
     from ..creative import flux_prompt, pattern_refs
 
-    owner = (bool(getattr(gen, "accepts_owner_method", False)) if gen is not None
-             else _default_owner_flag())
     parts = {"prompt_builder": str(flux_prompt.BUILDER_VERSION),
              "pattern_refs": str(pattern_refs.VERSION),
              "pdf_page_refs": _stable_pdf_page_refs_version(),
-             "owner_method": OWNER_METHOD if owner else "none"}
-    return {**parts, "version": "|".join(parts[k] for k in (
+             "owner_method": OWNER_METHOD}
+    out = {**parts, "version": "|".join(parts[k] for k in (
         "prompt_builder", "pattern_refs", "pdf_page_refs", "owner_method"))}
+    if gen is not None:
+        out["generator_owner_method"] = bool(getattr(gen, "accepts_owner_method", False))
+    return out
 
 
 def current_method_version() -> str:

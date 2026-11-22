@@ -101,8 +101,10 @@ def test_every_generated_candidate_is_stamped_with_stable_identifiers():
     assert m["pattern_refs"] == pattern_refs.VERSION
     assert m["pdf_page_refs"].startswith("pdf-page-refs/") and "pdfium" not in m["pdf_page_refs"]
     assert m["owner_method"] == IP.OWNER_METHOD and m["version"] == IP.current_method_version()
-    assert IP.generation_method(object())["owner_method"] == "none"
-    assert IP.generation_method(object())["version"] != m["version"]
+    assert m["generator_owner_method"] is True
+    # what a generator declares is provenance, not the version: only code moves the version
+    assert IP.generation_method(object())["generator_owner_method"] is False
+    assert IP.generation_method(object())["version"] == m["version"]
     # recorded on the row by record_candidate, and an unstamped row reads as pre-method
     db = _db()
     verdict = {"sha256": "ab" * 32, "technical_status": "FAIL", "publishable": False,

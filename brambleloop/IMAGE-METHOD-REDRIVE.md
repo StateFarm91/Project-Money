@@ -16,7 +16,10 @@ them with "FAIL on [role]: attempts were spent", so the new method never got to 
 
 1. **The method version is stamped on each candidate.** `generation_method(gen)` builds the
    version from fixed identifiers:
-   `flux_prompt.BUILDER_VERSION | pattern_refs.VERSION | pdf-page-refs/<ver> | owner_two_step/1 or none`.
+   `flux_prompt.BUILDER_VERSION | pattern_refs.VERSION | pdf-page-refs/<ver> | OWNER_METHOD`.
+   Only code changes move the version. What the generator declares
+   (`accepts_owner_method`) is kept beside it as `generator_owner_method`, as provenance, and
+   is not part of the version.
    The pdfium build is stripped from the page-reference version because it says which
    environment ran the code, not which method. `_generate` puts the stamp on every candidate,
    including provider-error rows. `record_candidate` saves it as `checks._generation_method`,
@@ -65,10 +68,6 @@ them with "FAIL on [role]: attempts were spent", so the new method never got to 
 - A run whose failures were made under the 19i16 method before this stamp existed reads as
   `pre-method` and gets one restart. That restart is bounded by the existing caps and happens
   once per version.
-- The "current" owner flag comes from `flux3_generator.ACCEPTS_OWNER_METHOD`. If production
-  switched to a generator that does not declare the owner method, its candidates would carry
-  a different version from the one the sweep computes. Each version still gets at most one
-  redrive.
 - Live effect on the three named runs is not verified. That needs a deploy, and this branch
   deploys nothing.
 
