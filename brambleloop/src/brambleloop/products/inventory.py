@@ -155,7 +155,9 @@ def chain_evidence(db, slug: str, version: str | None = None, *, today=None) -> 
         product = s.scalar(select(Product).where(Product.slug == slug))
         if product is None:
             out["release"] = None
-            jobs = [j for j in s.scalars(select(Job)) if (j.inputs or {}).get("slug") == slug]
+            # F-14: the three columns read; the slug filter stays in Python (JSON dialects).
+            jobs = [j for j in s.execute(select(Job.job_type, Job.status, Job.inputs))
+                    if (j.inputs or {}).get("slug") == slug]
             out["jobs"] = sorted({f"{j.job_type}:{j.status.value if hasattr(j.status, 'value') else j.status}"
                                   for j in jobs})
             return out

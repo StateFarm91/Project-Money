@@ -557,7 +557,11 @@ def summary(db) -> dict:
     try:
         ensure_table(db)
         with db.session() as s:
-            all_rows = list(s.scalars(select(PaidCallRecord)))
+            # F-14: the columns read, never the entity (the payload JSON stays unread).
+            all_rows = list(s.execute(select(
+                PaidCallRecord.key, PaidCallRecord.effect, PaidCallRecord.job_id,
+                PaidCallRecord.outcome, PaidCallRecord.orphan_billed,
+                PaidCallRecord.replays)))
     except Exception as exc:  # noqa: BLE001 - never raise on an empty or odd DB
         return {"status": "UNKNOWN", "as_of": None, "basis": "unknown", "items": [],
                 "sources": ["paid_call_records"], "reason": f"{type(exc).__name__}"}

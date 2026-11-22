@@ -445,10 +445,11 @@ def _signals(db) -> dict:
     engine = db.engine.dialect.name if hasattr(db, "engine") else "unknown"
     cutoff = datetime.now(timezone.utc) - timedelta(days=OBSERVED_WITHIN_DAYS)
     with db.session() as s:
-        rows = [(j.id, j.job_type, j.status, j.finished_at)
-                for j in s.scalars(select(Job))]
-        audited_job_ids = {a.job_id for a in s.scalars(select(AuditLog))
-                           if a.job_id is not None}
+        # F-14: four columns, and the distinct audited job ids, never whole entities.
+        rows = [(j.id, j.job_type, j.status, j.finished_at) for j in s.execute(
+            select(Job.id, Job.job_type, Job.status, Job.finished_at))]
+        audited_job_ids = set(s.scalars(select(AuditLog.job_id).where(
+            AuditLog.job_id.is_not(None)).distinct()))
 
     seen = {t for _, t, _, _ in rows}
     done = {jid: t for jid, t, status, _ in rows if status == JobStatus.DONE}

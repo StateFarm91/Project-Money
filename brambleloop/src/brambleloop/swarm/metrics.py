@@ -172,8 +172,10 @@ def parallel_window(db, *, hours: int = 24, now: datetime | None = None) -> dict
     since = now - timedelta(hours=hours)
     spans, conflicts, attempts = [], 0, 0
     with db.session() as s:
-        for j in s.scalars(select(Job).where(Job.finished_at.is_not(None),
-                                             Job.finished_at >= since)):
+        # F-14: the columns read, never the entity (inputs/outputs JSON stay unread).
+        for j in s.execute(select(Job.started_at, Job.finished_at, Job.attempts,
+                                  Job.last_error, Job.status).where(
+                Job.finished_at.is_not(None), Job.finished_at >= since)):
             if j.started_at is None:
                 continue
             a, b = _aware(j.started_at), _aware(j.finished_at)
