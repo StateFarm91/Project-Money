@@ -6076,6 +6076,57 @@ def _attempt_gate_refusal(s, slug: str, version: str, since_job) -> dict | None:
     return None
 
 
+def _marketing_followup(ctx: JobContext, slug: str, stale: list, i: dict, verify: int):
+    """19h22: re-run this attempt's marketing.schedule once the rest of the chain delivered.
+
+    Production 2026-11-22 (halt 380, after 19h20): every re-armed rebuild ran the whole
+    chain, but marketing.schedule runs BEFORE listing.package and assets.build, so at that
+    moment the product's bundle, PDF and support rows were still outstanding. The marketing
+    rebuild exception (`release_gates.staleness`: only marketing outstanding) did not apply
+    and marketing was refused on the product's own staleness (#173, #172). By the verify pass
+    everything else had been remade, leaving only marketing_asset outstanding, with nothing
+    asking marketing to run again -- so every attempt ended `rebuild-incomplete`.
+
+    When a verify pass finds ONLY marketing_asset outstanding, the attempt's own
+    marketing.schedule inputs (same release, launch decision and rebuild token, as launch.plan
+    handed them) are run again once per pass.
+    The marketing gate is unchanged and judges it as before; a job enqueued after the
+    attempt's stage job is what the binding rule already accepts. CA$0, internal drafts only."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import Job, JobStatus
+
+    if not stale or not all(str(k).startswith("marketing_asset:") for k in stale):
+        return None
+    try:
+        since = int(i.get("stage_job") or 0)
+    except (TypeError, ValueError):
+        return None
+    if not since:
+        return None
+    with ctx.db.session() as s:
+        rows = list(s.scalars(select(Job).where(
+            Job.job_type == "marketing.schedule", Job.status == JobStatus.DONE,
+            Job.id >= since).order_by(desc(Job.id)).limit(200)))
+        plan_inputs = next((dict(r.inputs or {}) for r in rows
+                            if str((r.inputs or {}).get("slug") or "") == slug
+                            and (r.inputs or {}).get("rebuild")
+                            and not (r.inputs or {}).get("fix_only")), None)
+    if plan_inputs is None:
+        return None
+    try:
+        job = ctx.enqueue("growth", "marketing.schedule", plan_inputs,
+                          idempotency_key=f"rebuild-mkt-followup:{slug}:{ctx.job.id}:{verify}")
+    except Exception as exc:  # noqa: BLE001 - a duplicate (re-delivered pass) is a no-op
+        ctx.audit("chain.rebuild_marketing_followup", artifact=slug,
+                  detail={"verify": verify, "skipped": type(exc).__name__})
+        return None
+    ctx.audit("chain.rebuild_marketing_followup", artifact=slug,
+              detail={"verify": verify, "outstanding": len(stale),
+                      "job": getattr(job, "id", None)})
+    return job
+
+
 def _rebuild_incomplete(ctx: JobContext, slug: str, version: str, *, stale: list,
                         reason: str, fingerprints: dict, checks: int) -> dict:
     """Open or restate `rebuild-incomplete:<slug>` after an attempt's verify checks ran out.
@@ -6331,6 +6382,7 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
                 "why": "the row reads fresh but was not produced by this attempt's stage "
                        "job, or its inputs are not the fingerprints the request named"})
         if stale and verify < REBUILD_VERIFY_ATTEMPTS:
+            _marketing_followup(ctx, slug, stale, i, verify)
             ctx.enqueue("listing", "chain.rebuild", {**i, "artefacts": stale,
                                                      "verify": verify + 1},
                         idempotency_key=(f"rebuild-verify:{slug}:{ctx.job.id}:"
