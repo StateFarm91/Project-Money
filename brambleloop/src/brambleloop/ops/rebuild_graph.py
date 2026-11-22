@@ -464,6 +464,65 @@ def held_without_own_stage(db, slug: str, detail, *, final_check: int,
                     f"{REBUILD_MAX_ATTEMPTS} attempts (eng/halt-380)")}
 
 
+REDEPLOY_REARM_REASON = "attempt_cap_previous_deploy"
+# Hold wording that is never re-armed by a deploy: these are not "the code could not finish
+# the rebuild" holds, and a new build is no evidence they cleared.
+_NEVER_REARM_WORDS = ("child safety", "child_safety", "childrens", "children's",
+                      "owner hold", "owner_hold", "parked on", "went dead")
+# The one refusal a deploy may re-arm through: the publication halt (#173) itself. Production
+# 2026-11-21: every one of the 12 holds recorded "refused by: halted (#173): N open
+# publication-halting incident(s)" -- the halt these very rebuild-incomplete rows feed, i.e.
+# the symptom of the rebuild never completing, not an independent cause. Any other refusal
+# (a policy, a gate, a withheld release) keeps the hold.
+_HALT_REFUSAL_PREFIX = "halted (#173)"
+
+
+def _only_halt_refusals(refused) -> bool:
+    return all(str(r).strip().startswith(_HALT_REFUSAL_PREFIX) for r in (refused or []))
+
+
+def held_before_deploy(db, detail):
+    """eng/halt-380-redeploy: an attempt-cap hold filed under an EARLIER deploy -- or None.
+
+    The cap (REBUILD_MAX_ATTEMPTS) bounds attempts by one build. A hold reached under code
+    that could not complete the rebuild (production 2026-11-21: 12 products held after three
+    attempts whose chain stopped at gate.certify, the bug 19h14 fixed) says nothing about the
+    build now running, and nothing else ever re-reads it, so the fix never ran. Counted per
+    deployed build, like RETRY_AFTER (`_current_deploy`): the running commit gets one fresh,
+    recorded budget per such hold; a hold reached under the running commit stays held, so a
+    rebuild that cannot complete still stops after REBUILD_MAX_ATTEMPTS per build.
+
+    Never re-armed: a parked hold (a real gate refused it), a DEAD-attempt hold
+    (`failed_attempts`), a hold refused by anything other than the publication halt (#173)
+    these rows themselves feed (those keep their cleared-cause release), and any hold whose
+    wording names child safety or an owner hold. An unknown deploy re-arms nothing."""
+    d = detail or {}
+    if not d.get("held"):
+        return None
+    if d.get("parked") or d.get("failed_attempts"):
+        return None
+    if not _only_halt_refusals(d.get("refused_by")):
+        return None
+    text = _hold_text(d).lower()
+    if any(w in text for w in _NEVER_REARM_WORDS):
+        return None
+    commit, _started = _current_deploy(db)
+    if not commit:
+        return None
+    if str(d.get("held_commit") or "") == commit:
+        return None
+    if str((d.get(HOLD_RELEASE_KEY) or {}).get("deploy") or "") == commit:
+        return None
+    digest = hashlib.sha256((_hold_text(d) + "|" + commit).encode()).hexdigest()[:16]
+    return {"sources": [], "held_digest": digest, "deploy": commit,
+            "reason": REDEPLOY_REARM_REASON,
+            "previous_held_commit": str(d.get("held_commit") or "unrecorded")[:40],
+            "why": (f"held at the attempt cap under an earlier build "
+                    f"({str(d.get('held_commit') or 'unrecorded')[:12]}); the running build "
+                    f"{commit[:12]} gets one fresh budget of {REBUILD_MAX_ATTEMPTS} attempts "
+                    "(eng/halt-380-redeploy)")}
+
+
 def release_cleared_hold(inc, cleared: dict, *, now: datetime | None = None) -> dict:
     """Give a hold whose cause cleared one fresh, recorded budget (the row stays OPEN and
     halting; only a verified rebuild or the sentinel's positive evidence closes it)."""
@@ -476,7 +535,8 @@ def release_cleared_hold(inc, cleared: dict, *, now: datetime | None = None) -> 
                   "the policy refusal this hold recorded has cleared (no named source is "
                   "unreviewed, stale or unread now); one fresh budget of "
                   f"{REBUILD_MAX_ATTEMPTS} attempts")}
-    for k in ("attempts_with_own_stage", "attempts_without_own_stage"):
+    for k in ("attempts_with_own_stage", "attempts_without_own_stage", "deploy", "reason",
+              "previous_held_commit"):
         if k in cleared:
             record[k] = cleared[k]
     detail.pop("held", None)
