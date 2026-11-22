@@ -147,7 +147,9 @@ def _blocker_key(b: dict) -> tuple[str, str]:
     why = b["why"]
     for pattern in (r"^(FIRST_CUSTOMER_BLOCKING: \w+)", r"^(SAMPLE_PHOTO_REQUIRED)",
                     r"^(listing-set certificate \(#70\))", r"^(search certificate \(F-004\))",
-                    r"^(ValueError: listing search profile not certified PASS)",
+                    # gallery-start: an image-curable hero refusal arrives as HeroUnjudged
+                    # (str(exc), image-tagged); any other as "ValueError: ..."
+                    r"^(?:ValueError: )?(listing search profile not certified PASS)",
                     r"^(no valid listing-set certificate for [\w.@-]+?):",
                     r"^(gallery incomplete):",
                     r"^(premium PDFs are not certified against the PDF standard)",
@@ -355,7 +357,7 @@ BLOCKERS_D = {
     ("release_gates.for_publish", "FIRST_CUSTOMER_BLOCKING: imagery"),
     ("release_gates.for_publish", "FIRST_CUSTOMER_BLOCKING: etsy_remote_state"),
     ("release_gates.for_publish", "SAMPLE_PHOTO_REQUIRED"),
-    ("certified_payload", "ValueError: listing search profile not certified PASS"),
+    ("certified_payload", "listing search profile not certified PASS"),
     ("certified_frames", "no valid listing-set certificate for hexagon-coaster-set@1.2.1"),
     ("pdf_standard", "premium PDFs are not certified against the PDF standard"),
     ("pdf_illustration", "PDF_NOT_ILLUSTRATED"),

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import _tmp; _tmp.install()  # noqa: E702
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -69,13 +69,20 @@ def test_paid_traffic_never_moves_a_buyer_lesson():
     assert (after.visits, after.orders) == (base.visits, base.orders)
 
 
+# The base score has a seasonal term read from the calendar (radar.opportunity.score_concept
+# `today`), so an unpinned pair drifted out of the nudge's reach as the date moved: red on
+# 2026-11-22 (gap 0.0204 against a 0.02 step), green when written. The question here is the
+# lesson nudge, not the season, so both helpers score on one pinned day.
+TODAY = date(2026, 11, 12)
+
+
 def _next_concept(db, slugs):
     """The order radar.scan now uses: base score plus the bounded lesson nudge."""
     from brambleloop.radar.opportunity import score_concept
 
     seeds = [s for s in POOL if s.slug in slugs]
     nudges = consume.rank_adjustments(db, seeds)
-    scored = sorted(((round(score_concept(s).score + nudges[s.slug], 4), s.slug)
+    scored = sorted(((round(score_concept(s, TODAY).score + nudges[s.slug], 4), s.slug)
                      for s in seeds), key=lambda x: (-x[0], x[1]))
     return scored[0][1], nudges
 
@@ -90,8 +97,12 @@ def _pair():
     best = None
     for b in baskets:
         for o in others:
-            gap = score_concept(o).score - score_concept(b).score
-            if 0 < gap < 0.05 and (best is None or gap < best[0]):
+            gap = score_concept(o, TODAY).score - score_concept(b, TODAY).score
+            # Within the reach of the nudge the chain produces: one buyer lesson moves a
+            # score by consume.STEP (capped at BUYER_CAP); a fixed 0.05 admitted pairs one
+            # lesson cannot reorder.
+            if 0 < gap < min(consume.STEP, consume.BUYER_CAP) and (
+                    best is None or gap < best[0]):
                 best = (gap, b.slug, o.slug)
     assert best is not None, "no concept pair within the nudge's reach"
     return best[1], best[2]
