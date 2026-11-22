@@ -2239,10 +2239,13 @@ def _diversify_tags(db, slug: str, queries, tags: list[str]) -> tuple[list[str],
     fresh = [q for q in queries if q.phrase.lower() not in others]
     diversified = search_mod.choose_tags(fresh)
     diversified = [t for t in diversified if t.lower() not in others]
+    # D1 (catalogue unblock): the top-up compared strings, so "coaster crochet" from the
+    # original set came back beside "crochet coaster" from the fresh one -- the same search,
+    # which the F-013 gate then (correctly) blocked. A top-up tag must be semantically new.
     for t in tags:
         if len(diversified) >= len(tags):
             break
-        if t not in diversified:
+        if t not in diversified and not search_mod.is_semantic_repeat(t, diversified):
             diversified.append(t)
     shared_after = sorted(t for t in diversified if t.lower() in others)
     if len(shared_after) < len(shared_before) and len(diversified) >= len(tags):
@@ -2284,7 +2287,7 @@ def _drop_vanity_tags(db, queries, tags: list[str]) -> tuple[list[str], dict]:
         if len(kept) >= len(tags):
             break
         if (phrase.lower() not in vanity and phrase.lower() not in {k.lower() for k in kept}
-                and len(phrase) <= 20):
+                and len(phrase) <= 20 and not search_mod.is_semantic_repeat(phrase, kept)):
             kept.append(phrase)
             if phrase in earning:
                 refilled_from_earning.append(phrase)

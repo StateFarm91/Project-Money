@@ -35,9 +35,14 @@ from ..integrations.etsy import EtsyClient as _StockEtsyClient
 _STOCK_PUBLISH = _StockEtsyClient.publish
 from .worker import CapabilityNotEnabled, JobContext, handlers, protected_phase
 
-PROMOTION_THRESHOLD = 0.55
-"""Below this a concept is not worth engineering time. Set from the pool: roughly the top
-third clears it, which is the intake rate the release chain can actually absorb."""
+PROMOTION_THRESHOLD = 0.45
+"""Below this a concept is not worth engineering time. D-OWNER-RESEARCH-BAR (2026-11-22):
+the owner lowered the bar from 0.55 to 0.45 ("Drop discount, bar 0.45"). Intake is still
+bounded by the supply admission controller's WIP limit, not by this number."""
+
+APPLY_EVIDENCE_DISCOUNT = False
+"""D-OWNER-RESEARCH-BAR: the #38 trend-evidence discount is still computed and recorded
+(`radar.evidence_discount`), but it no longer multiplies the opportunity score."""
 
 
 class ShadowModeRefusal(CapabilityNotEnabled):
@@ -705,7 +710,10 @@ def promotion_verdict(db, seed, c: dict, today: date) -> dict:
     # stale or foreign-population evidence lowers it, and the discounted score is the one
     # that decides promotion.
     evidence = trend_provenance.evidence_for(db, seed, today=today)
-    evidence_score = round(rescored.score * evidence["discount"], 4)
+    # D-OWNER-RESEARCH-BAR: recorded, not applied ("Drop discount, bar 0.45").
+    evidence = {**evidence, "applied": APPLY_EVIDENCE_DISCOUNT}
+    evidence_score = round(rescored.score * (evidence["discount"]
+                                             if APPLY_EVIDENCE_DISCOUNT else 1.0), 4)
     # #97 / #147: Market Radar reads its lesson inbox where it decides. A lesson whose words
     # match this concept nudges the score within a bound; `radar.score` records the act.
     concept_text = consume.concept_text(seed, c)
@@ -713,7 +721,9 @@ def promotion_verdict(db, seed, c: dict, today: date) -> dict:
                      if l["direction"]]
     lesson_adjustment = consume.score_adjustment(radar_lessons)
     adjusted = round(evidence_score + lesson_adjustment, 4)
-    promote = adjusted >= PROMOTION_THRESHOLD and seed.risk_class in ("A", "B")
+    # D-OWNER-NO-SAMPLE-SIZING: Class C is sized from standard gauge; certification
+    # (gates.certificate.sized_from_standard_gauge) decides, not the radar.
+    promote = adjusted >= PROMOTION_THRESHOLD and seed.risk_class in ("A", "B", "C")
     # The pre-engineering gate (#83, #87, #88, #108, #110, #115, #125, #126). An opportunity
     # score says a slot is worth filling; it says nothing about whether *this idea* deserves
     # engineering. A design the catalogue already has is a rebuild and passes as one; anything
@@ -730,12 +740,10 @@ def promotion_verdict(db, seed, c: dict, today: date) -> dict:
             gate = preengineering.gate_concept(db, c, today=today)
             promote = gate["engineer"]
     why = None if promote else (
-        "Class C requires physical testing that does not exist yet"
-        if seed.risk_class == "C" else
         gate["consequence"] if gate is not None else
         f"score {evidence_score} below promotion threshold {PROMOTION_THRESHOLD}"
         + (f" after the evidence discount ({evidence['why']})"
-           if evidence.get("measured") else ""))
+           if evidence.get("measured") and APPLY_EVIDENCE_DISCOUNT else ""))
     return {"rescored": rescored, "evidence": evidence, "evidence_score": evidence_score,
             "radar_lessons": radar_lessons, "lesson_adjustment": lesson_adjustment,
             "adjusted": adjusted, "promote": promote, "gate": gate, "exempt": exempt,
@@ -876,8 +884,8 @@ def handle_radar_score(ctx: JobContext) -> dict:
     return {"slug": seed.slug, "score": adjusted,
             "admission": admission if promote else None, "raw_score": rescored.score,
             "evidence_score": evidence_score,
-            "evidence": {k: evidence.get(k) for k in ("measured", "discount", "rows",
-                                                      "mean_weight", "why")},
+            "evidence": {k: evidence.get(k) for k in ("measured", "discount", "applied",
+                                                      "rows", "mean_weight", "why")},
             "promoted": promote,
             "lesson_adjustment": lesson_adjustment, "adjusted_score": adjusted,
             "components": rescored.components,

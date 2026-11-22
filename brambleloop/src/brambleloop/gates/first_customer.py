@@ -491,14 +491,16 @@ def colourwork_findings(cir, twin, *, title: str, tags=()) -> list[str]:
     Review OPUS2I I-2: every claim found is judged by the same technique rule as
     `launch0.fabric_truth` (`technique_backed` over the twin's measured `colourwork_motif`), so
     the listing a buyer reads can never be backed by fewer than the pattern's own gate needs.
-    Mosaic, overlay, graphghan and intarsia stay refused; tapestry, fair isle and colourwork
-    need a measured motif. On fabric with one colour per row the message is as before.
+    Mosaic and overlay are backed by the CIR's drop-down structure (`launch0.mosaic_structure`,
+    D2); graphghan and intarsia stay refused; tapestry, fair isle and colourwork need a
+    measured motif. On fabric with one colour per row the message is as before.
     """
     from ..products import launch0 as l0
 
     grid = twin.color_grid() if twin is not None else []
     per_row = max((len({c for c in row}) for row in grid), default=0)
-    motif = l0.colourwork_motif(grid)
+    # D2: mosaic is judged on the CIR's drop-down structure, not on colours per row.
+    motif = {**l0.colourwork_motif(grid), "mosaic": l0.mosaic_structure(cir)}
     out = []
     for where, text in [("title", title)] + [(f"tag {t!r}", t) for t in (tags or ())]:
         low = str(text or "").lower()
@@ -506,8 +508,10 @@ def colourwork_findings(cir, twin, *, title: str, tags=()) -> list[str]:
             ok, why = l0.technique_backed(hit, motif)
             if ok:
                 continue
+            # D2: "one colour per row" refutes tapestry and fair isle, never mosaic, which is
+            # worked one colour per row; a mosaic claim carries its own structural reason.
             reason = (f"the fabric puts at most {per_row} colour(s) in any one row"
-                      if per_row < 2 else why)
+                      if per_row < 2 and hit not in l0._MOSAIC_CLAIMS else why)
             out.append(f"LISTING_COLOURWORK_UNSUPPORTED: the {where} claims {hit!r}; {reason}")
     return out
 

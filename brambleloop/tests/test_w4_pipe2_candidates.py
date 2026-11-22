@@ -17,11 +17,11 @@ TODAY = date(2026, 10, 7)
 
 # The only certification errors an engineered candidate may carry: physical evidence a
 # maker supplies (an uncalibrated stitch, or a class C stuffed form needing a full make).
-PHYSICAL = {"reading-nook-cable-wrap": {"UNCALIBRATED_PRIMITIVE"},
-            # D-S1-SIZE-FAMILIES (Main 6958883678 M1): 15.9 x 7.4 cm is not the ring bearer's
+# D-OWNER-NO-SAMPLE-SIZING (2026-11-22): the wrap's cable and the kneeler's Class C size from
+# standard gauge now, so they certify; no maker is waited on.
+PHYSICAL = {# D-S1-SIZE-FAMILIES (Main 6958883678 M1): 15.9 x 7.4 cm is not the ring bearer's
             # cushion its name sells, so the ring-cushion band refuses it until it is redesigned.
-            "heart-row-ring-pillow": {"PHYSICAL_TEST_REQUIRED", "OBJECT_SIZE_OUT_OF_BAND"},
-            "spring-garden-kneeler": {"PHYSICAL_TEST_REQUIRED"}}
+            "heart-row-ring-pillow": {"OBJECT_SIZE_OUT_OF_BAND"}}
 
 
 def check(name, cond, detail=""):
@@ -148,8 +148,9 @@ def test_the_pipeline_board_carries_them():
     check("pipe_stocking_kept", pb.CREATIVE_ENGINEERED["first-christmas-stocking"]
           is pb.stocking_cir)
     k = by["spring-garden-kneeler"].stages["PRODUCT_TRUTH"]
-    check("class_c_waits_on_a_maker_not_a_rename",
-          k["status"] == pb.FAIL and k["clearer"] == "OWNER", k)
+    # D-OWNER-NO-SAMPLE-SIZING: Class C certifies from standard gauge; no maker is waited on.
+    check("class_c_sizes_from_standard_gauge_not_a_maker",
+          k["status"] == pb.PASS and k["evidence"]["certified"] is True, k)
 
 
 if __name__ == "__main__":

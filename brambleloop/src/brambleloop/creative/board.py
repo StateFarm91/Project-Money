@@ -6,7 +6,7 @@ the board, so `request_grid` never fired from the running system.
 
 The board is made deterministically, without any image provider: the concept's own prototype
 CIR (`creative.prototype.author`) is compiled, its digital twin is built, and the fabric is
-drawn stitch by stitch (`visual.render.fabric_raster`) into a square thumbnail. It is a
+drawn stitch by stitch in its own colours (`products.moment_candidates.board_png`) into a square thumbnail. It is a
 `DIGITAL_TWIN_RENDER` -- the company's own arithmetic, never presented as a photograph -- and
 it is exactly what a concept can honestly show before anybody has made it. A concept whose
 form has no prototype geometry gets no board, with the prototype's own reason.
@@ -17,6 +17,13 @@ import io
 
 BOARD_PX = 570
 KIND = "digital_twin_render"
+# D5 (CATALOGUE-UNBLOCK, 2026-11-22): the prototype board used to be a top-left 40x40-stitch
+# crop of the fabric drawn in `fabric_raster`'s default pink, whatever the concept's colours:
+# a texture swatch with no outline, which no judge can read at grid size. Version 2 draws the
+# whole piece in the CIR's own colours, letterboxed (never cropped), downscaled with Lanczos
+# (`products.moment_candidates.board_png`). A board filed by an older renderer is re-drawn
+# before its concept is judged again (`creative.intake.reboard_stale_radar`).
+BOARD_RENDERER = "twin-board/2"
 
 
 def _catalogue_cir(concept):
@@ -56,9 +63,7 @@ def make_board(db, concept) -> dict:
     from PIL import Image
 
     from ..cir.compiler import compile_cir
-    from ..cir.twin import build_twin
     from ..core.artifacts import ArtifactStore
-    from ..visual.render import fabric_raster
     from .prototype import PrototypeRefused, author
 
     cir = _catalogue_cir(concept)
@@ -87,11 +92,11 @@ def make_board(db, concept) -> dict:
         if not result.ok:
             return {"board_image": None,
                     "why": "the prototype does not compile, so there is no fabric to draw"}
-        twin = build_twin(cir, result)
-        image = fabric_raster(twin, cir.gauge, px_per_stitch=26, max_rows=40, max_cols=40,
-                              seed=0, fibre=True)
-        side = min(image.size)
-        image = image.crop((0, 0, side, side)).resize((BOARD_PX, BOARD_PX))
+        from ..products.moment_candidates import board_png
+
+        image = Image.open(io.BytesIO(board_png(cir))).convert("RGB")
+        if image.size != (BOARD_PX, BOARD_PX):
+            image = image.resize((BOARD_PX, BOARD_PX), Image.LANCZOS)
     buf = io.BytesIO()
     image.save(buf, format="PNG", optimize=True)
     stored = ArtifactStore().put(f"board/{concept.key}.png", buf.getvalue(), "image/png",
@@ -100,7 +105,8 @@ def make_board(db, concept) -> dict:
     what = {"prototype": "the concept's prototype fabric",
             "catalogue_cir_disclosed_hero": "the product's verified disclosed hero"}[source]
     return {"board_image": f"artifact:{stored.sha256}", "sha256": stored.sha256,
-            "kind": KIND, "slug": cir.slug, "source": source, **extra,
+            "kind": KIND, "slug": cir.slug, "source": source, "renderer": BOARD_RENDERER,
+            **extra,
             "disclosure": (f"a deterministic render of {what} from its compiled digital "
                            f"twin, not a photograph")}
 

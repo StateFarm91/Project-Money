@@ -4706,3 +4706,13 @@ Batch 19i15 (code 07ce62efd) is deployed under D-OWNER-AUTODEPLOY-24H-2, the own
 ## D-OWNER-DEPLOY-19i16 — 2026-11-22T16:22:28Z
 
 Batch 19i16 (code 648a33656) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to 5297dbbabc15e1861d2e69a65a272a5416e67d41 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+## D-OWNER-RESEARCH-BAR — 2026-11-22T15:15Z
+The owner looked at the Catalogue page in Mission Control and said: "These are the products I want and theyre all rejected." Asked how to treat the research bar, the owner chose: "Drop discount, bar 0.45".
+- The #38 trend-evidence discount (0.85 on the refused concepts) no longer multiplies the opportunity score. `radar.provenance.evidence_for` still computes it and `radar.score` still records it (`radar.evidence_discount`, `evidence.applied: false`); what may be presented as current Canadian demand is still decided there.
+- `runtime.pipeline.PROMOTION_THRESHOLD` is 0.45 (was 0.55).
+- Concepts whose newest `radar.score` refused them only on the score (or on the Class C rule, see D-OWNER-NO-SAMPLE-SIZING) and that have no build work are re-scored once per deployed commit by `ops.research_rescore` (boot). Each is an ordinary `radar.score` job: the pre-engineering gate, owner vetoes and the `products.supply` admission path with its WIP limit all still apply. Nothing is promoted or admitted directly.
+## D-OWNER-NO-SAMPLE-SIZING — 2026-11-22T15:15Z
+Asked whether sizes may come from gauge maths instead of a physical sample, the owner chose: "Yes, sizes from math".
+- "Class C requires physical testing that does not exist yet" and UNCALIBRATED_PRIMITIVE (e.g. heirloom-cable-blanket@1.2.0: 'bpdc', 'cable2x2', 'fpdc') no longer block. Sizes are computed from standard gauge and stitch-dimension maths, with documented, conservative published defaults per primitive, recorded as standard-gauge defaults and never as sample-calibrated.
+- The listing and the PDF state that sizes are calculated from standard gauge. Nothing claims a sample was tested or physically made.
+- Deterministic pattern validation must still pass; it is unchanged.

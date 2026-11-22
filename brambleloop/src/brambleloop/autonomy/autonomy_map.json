@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-22T15:40:58.527142+00:00",
+ "generated_at": "2026-11-22T16:52:05.915288+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -13,7 +13,7 @@
   "cadences": 153,
   "handlers": 186,
   "agents": 35,
-  "follow_on_edges": 125
+  "follow_on_edges": 126
  },
  "departments": [
   {
@@ -455,6 +455,7 @@
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
     "follow_on_from": [
      "app/command_center/etsy_connect.py:recheck",
+     "creative/intake.py:reboard_stale_radar",
      "intel/research_agent.py:request_architecture_review",
      "intel/research_agent.py:request_research",
      "owner/API route api_etsy_probe",

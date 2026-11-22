@@ -63,9 +63,15 @@ def main():
           {p.slug: by[p.slug]["highest_passed"] for p in pb.PROPOSALS})
     check("retired_concept_blocked_at_design", by["hexie-coaster-set"]["stage"] == "DESIGN"
           and by["hexie-coaster-set"]["stage_status"] == pb.BLOCKED)
-    check("uncalibrated_stitch_is_owner_gated",
-          by["heirloom-cable-blanket"]["stage"] == "PRODUCT_TRUTH"
-          and by["heirloom-cable-blanket"]["clearer"] == "OWNER")
+    # D-OWNER-NO-SAMPLE-SIZING (2026-11-22): cable/post stitches size from documented
+    # standard-gauge defaults, so the cable blanket is no longer held at PRODUCT_TRUTH for a
+    # stitch calibration the owner waived.
+    hcb = by["heirloom-cable-blanket"]
+    check("standard_gauge_stitch_is_not_owner_gated",
+          hcb["stages"].get("PRODUCT_TRUTH", {}).get("status") == pb.PASS
+          or not any("UNCALIBRATED_PRIMITIVE" in e for e in (hcb["stages"].get(
+              "PRODUCT_TRUTH", {}).get("evidence", {}).get("certificate_errors") or [])),
+          hcb["stages"].get("PRODUCT_TRUTH"))
     # Creative candidates (W4-CREATIVE briefs) sit at DESIGN with the exact engineering named.
     creative = [r for r in rows if r["source"] == "creative"]
     assert creative, "no creative candidates"
@@ -141,10 +147,13 @@ def main():
     check("pillow_release_is_name_true", name_truth(pillow) == [] and pillow.version == "1.5.0"
           and [c.name for c in pillow.components] == ["front", "back"], name_truth(pillow))
     bp = by["bobble-floor-pillow"]
-    check("pillow_only_owner_calibration_remains",
-          bp["stage"] == "PRODUCT_TRUTH" and bp["clearer"] == "OWNER"
-          and bp["stages"]["PRODUCT_TRUTH"]["evidence"]["name_truth"] == [], bp["stages"].get(
-              "PRODUCT_TRUTH"))
+    # D-OWNER-NO-SAMPLE-SIZING: the bobble sizes from its standard-gauge default, so no owner
+    # calibration remains; name truth (a claim check) still holds.
+    check("pillow_no_owner_calibration_remains",
+          bp["stages"]["PRODUCT_TRUTH"]["evidence"]["name_truth"] == []
+          and not any("UNCALIBRATED_PRIMITIVE" in e for e in (
+              bp["stages"]["PRODUCT_TRUTH"]["evidence"].get("certificate_errors") or [])),
+          bp["stages"].get("PRODUCT_TRUTH"))
     check("launch_scope_drafts_include_coasters",
           "hexagon-coaster-set" in pb.launch_scope_drafts())
 

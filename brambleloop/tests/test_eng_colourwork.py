@@ -164,9 +164,13 @@ def test_a_research_tapestry_cushion_is_physical_gated_with_its_chart():
     out, cir = _chain(CUSHION)
     assert [c.name for c in cir.components] == ["front", "back"] and cir.assembly
     assert out["compiled"]["compiled"] is True
-    reasons = out["certified"]["reasons"]
-    assert out["certified"]["granted"] is False and reasons, out["certified"]
-    assert all("PHYSICAL_TEST_REQUIRED" in r for r in reasons), reasons
+    # D-OWNER-NO-SAMPLE-SIZING (owner, 2026-11-22: "Yes, sizes from math"): the only hold
+    # here was PHYSICAL_TEST_REQUIRED (Class C from the closed form), a sizing/shape hold the
+    # ruling lifts: sizes are calculated from standard gauge. Child safety is a separate gate
+    # and is not lifted (the children's decision still holds the PDF below, where asserted).
+    reasons = out["certified"].get("reasons") or []
+    assert out["certified"]["granted"] is True, out["certified"]
+    assert not any("PHYSICAL_TEST_REQUIRED" in r for r in reasons), reasons
     # The PDF is not rendered on nobody's decision: a cushion is a closed stuffed form, and
     # whether it is merchandised to a child is an owner decision bound to this design
     # (`launch0.NOT_MERCHANDISED_TO_A_CHILD`). Held at the PDF too, by name -- not bypassed.

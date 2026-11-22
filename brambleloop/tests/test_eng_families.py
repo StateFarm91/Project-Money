@@ -248,9 +248,13 @@ def test_a_research_cushion_is_physical_gated_not_flattened():
     assert out["drafted"]["construction"] == FC.PANEL_PAIR
     assert [c["name"] for c in out["cir"]["components"]] == ["front", "back"]
     assert out["compiled"]["compiled"] is True
-    reasons = out["certified"]["reasons"]
-    assert out["certified"]["granted"] is False and reasons, out["certified"]
-    assert all("PHYSICAL_TEST_REQUIRED" in r for r in reasons), reasons
+    # D-OWNER-NO-SAMPLE-SIZING (owner, 2026-11-22: "Yes, sizes from math"): the only hold
+    # here was PHYSICAL_TEST_REQUIRED (Class C from the closed form), a sizing/shape hold the
+    # ruling lifts: sizes are calculated from standard gauge. Child safety is a separate gate
+    # and is not lifted (the children's decision still holds the PDF below, where asserted).
+    reasons = out["certified"].get("reasons") or []
+    assert out["certified"]["granted"] is True, out["certified"]
+    assert not any("PHYSICAL_TEST_REQUIRED" in r for r in reasons), reasons
 
 
 # ---- holds: never mislabelled, never flattened ------------------------------------------------
@@ -431,6 +435,7 @@ def test_router_admits_only_verified_or_physical_gated_families():
                         FC.AMIGURUMI, FC.ENVELOPE, FC.APPLIQUE, FC.LOVEY,
                         FC.AMIGURUMI_ANIMAL,                                # ENG-AMIGURUMI-BREADTH
                         CF.GARMENT_RAGLAN, CF.GARMENT_ONE_PIECE,           # ENG-GARMENT
+                        CF.GARMENT_DROP_SHOULDER,                           # D6
                         *CF.WEARABLE_FAMILIES,                              # ENG-GARMENT-2
                         *HD.VARIANTS}, admitted                             # ENG-HOMEDECOR
     # Every admitted family names the test that proves it, and that test exists (ENG-PLUSH:
@@ -707,7 +712,9 @@ def test_every_admitted_family_category_pair_names_an_existing_certifying_proof(
                ("sweater", "fitted_garment", "flat_rows", "Puddle Lane Kids Sweater"),
                ("sweater", "fitted_garment", "flat_rows", "Cosy Adult Sweater"),
                ("vest", "fitted_garment", "side_to_side", "Driftline Vest"),
-               ("pullover", "fitted_garment", "bottom_up", "Kestrel Pullover")]
+               ("pullover", "fitted_garment", "bottom_up", "Kestrel Pullover"),
+               # D6 (catalogue-unblock): the adult drop-shoulder pullover, pinned on intake.
+               ("sweater", "fitted_garment", "bottom_up", "Tallowmere Drop Shoulder Pullover")]
     # ENG-GARMENT-2: wearable families (each pair pinned in tests/test_eng_garment2.py).
     probes += WEARABLE_PROBES
     admitted = set()

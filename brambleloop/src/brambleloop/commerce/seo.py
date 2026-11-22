@@ -349,9 +349,12 @@ def build_description(product_title: str, *, size_label: str | None,
     if gauge_line:
         out.append(f"- Gauge: {gauge_line}")
     if size_is_estimate and (size_label or gauge_line):
-        from ..gates.estimate_claims import ESTIMATE_NOTE
+        from ..gates.estimate_claims import ESTIMATE_NOTE, STANDARD_GAUGE_NOTE
 
         out.append(f"- {ESTIMATE_NOTE}")
+        # D-OWNER-NO-SAMPLE-SIZING: the listing says the sizes are calculated from
+        # standard gauge, and never that anything was tested or made.
+        out.append(f"- {STANDARD_GAUGE_NOTE}")
     if stitches:
         out.append(f"- Stitches used: {', '.join(stitches)}")
     if colors:

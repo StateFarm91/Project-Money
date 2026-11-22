@@ -103,6 +103,16 @@ def opened(db, *, live=False):
                               released_on=H.RELEASED_ON, budget_cad=5.0, live=live)
 
 
+# D-OWNER-NO-SAMPLE-SIZING (2026-11-22): the wrap's cable2x2/fpdc/bpdc now size from
+# documented standard-gauge defaults, so in production it certifies. This suite tests
+# EXPERIMENT mode, which exists only for a REFUSED release, so it withdraws those defaults
+# for this process to keep a refused release to test against (fail-closed path: a primitive
+# with no documented default is still UNCALIBRATED_PRIMITIVE).
+from brambleloop.cir import stitches as _st  # noqa: E402
+
+for _code in ("cable2x2", "cable1x1", "fpdc", "bpdc"):
+    _st.STANDARD_GAUGE_DEFAULTS.pop(_code, None)
+
 # ---- certification ------------------------------------------------------------------------
 
 def test_certification_refuses_the_wrap_through_the_real_chain():

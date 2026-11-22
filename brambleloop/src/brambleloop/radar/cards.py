@@ -25,8 +25,8 @@ def _feasibility(seed) -> dict:
     blockers = []
     if routing.lane == rights.ORIGINAL:
         blockers.append("protected element without a recorded basis: original lane only")
-    if seed.risk_class == "C":
-        blockers.append("Class C: cannot be certified until physical testing exists")
+    # D-OWNER-NO-SAMPLE-SIZING (2026-11-22): Class C is no longer infeasible for want of a
+    # physical test; its sizes are calculated from standard gauge, and certification decides.
     return {"lane": routing.lane, "may_reach_customers": routing.may_reach_customers,
             "protected": [t.text for t in tokens], "risk_class": seed.risk_class,
             # Unfiled means the cue table does not read the title as a cultural signal, so

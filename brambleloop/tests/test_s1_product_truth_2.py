@@ -200,10 +200,10 @@ def _catalogue():
 # Catalogue CIRs refused for a recorded reason that is not this change's: the ring pillow by
 # the ring band (D-S1-SIZE-FAMILIES), the wrap by an uncalibrated primitive, the kneeler by its
 # required physical test. Each must be refused by exactly those codes and nothing else.
+# D-OWNER-NO-SAMPLE-SIZING (2026-11-22): the wrap's cable and the kneeler's Class C now size
+# from standard gauge, so only the ring pillow's size band refuses.
 KNOWN_NON_SIZE_REFUSALS = {
-    "heart-row-ring-pillow": {"OBJECT_SIZE_OUT_OF_BAND", "PHYSICAL_TEST_REQUIRED"},
-    "reading-nook-cable-wrap": {"UNCALIBRATED_PRIMITIVE"},
-    "spring-garden-kneeler": {"PHYSICAL_TEST_REQUIRED"},
+    "heart-row-ring-pillow": {"OBJECT_SIZE_OUT_OF_BAND"},
 }
 
 

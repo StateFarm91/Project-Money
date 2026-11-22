@@ -86,6 +86,7 @@ def test_a_research_amigurumi_is_physical_gated_end_to_end():
     assert cert["granted"] is False
     codes = sorted({r.split(":")[0].split()[-1] for r in cert["reasons"]})
     # Withheld ONLY for physical evidence: every computable check passed.
+    # D-OWNER-NO-SAMPLE-SIZING: this toy is not sized from standard gauge (gates.certificate.sized_from_standard_gauge is False), so its Class C hold stays
     assert codes == ["CHILD_SAFETY_PHYSICAL_EVIDENCE_UNKNOWN", "PHYSICAL_TEST_REQUIRED"], \
         cert["reasons"]
     stages = out["certificate"].get("stages_run") or []
@@ -630,7 +631,8 @@ def test_a_research_lovey_is_physical_gated_end_to_end():
     assert out["drafted"]["construction"] == FC.LOVEY, out["drafted"]
     cir = CIR.from_dict(out["cir"])
     codes = sorted({r.split(":")[0].split()[-1] for r in out["certified"]["reasons"]})
-    assert codes == ["CHILD_SAFETY_PHYSICAL_EVIDENCE_UNKNOWN", "PHYSICAL_TEST_REQUIRED"], \
+    # D-OWNER-NO-SAMPLE-SIZING: Class C sizes from standard gauge; child safety still holds
+    assert codes == ["CHILD_SAFETY_PHYSICAL_EVIDENCE_UNKNOWN"], \
         out["certified"]["reasons"]
     lovey = ("lovey", "under_3")                         # a TEST assignment
     result = compile_cir(cir)

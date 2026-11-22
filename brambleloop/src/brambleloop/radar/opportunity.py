@@ -444,7 +444,8 @@ def score_concept(seed: ConceptSeed, today: date | None = None) -> ScoredConcept
 
     notes = [seasonal_note]
     if seed.risk_class == "C":
-        notes.append("Class C: cannot be certified until physical testing exists")
+        notes.append("Class C: sizes calculated from standard gauge (D-OWNER-NO-SAMPLE-SIZING); "
+                     "no physical test exists")
     if seed.category in CATEGORY_EVIDENCE:
         notes.append(CATEGORY_EVIDENCE[seed.category])
     return ScoredConcept(seed=seed, score=score, components=components, notes=notes)

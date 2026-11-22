@@ -550,6 +550,20 @@ def engine_verdict(slug: str, payload: dict | None = None, *, title: str = "",
                     "status": "verified", "reason": f"engineered design {ENGINEERED[slug]}"}
     except Exception:  # noqa: BLE001 - no pipeline: fall through to the routing
         pass
+    # CATALOGUE-UNBLOCK D3: a bundle has no construction and needs no engine. `cir.draft`
+    # skips it and enqueues `collection.assemble`, which waits for certified members. Read
+    # as engine demand, its offer was refused on every admission pass (seasonal_decor has no
+    # flat template), so a promoted bundle never got its cir.draft.
+    try:
+        from ..radar.opportunity import POOL as _POOL
+
+        _seed = next((s for s in _POOL if s.slug == slug), None)
+        if (_seed is not None and _seed.is_bundle) or p.get("is_bundle") is True:
+            return {"known": True, "certified": True, "family": "bundle",
+                    "status": "verified",
+                    "reason": "a bundle is assembled from its members' certified releases"}
+    except Exception:  # noqa: BLE001 - no pool: fall through to the routing
+        pass
     try:
         from .launch0 import LEGACY_DUPLICATES
 
@@ -607,7 +621,6 @@ ENGINE_NEEDS: dict[str, str] = {
     "amigurumi_features": "cushion appliqué faces and features beyond the highland cow",
     "garment_one_piece": "one-piece sweater: pin the adult (non-child) category through intake",
     "garment_side_to_side": "side-to-side vest: pin a research concept through intake",
-    "garment_drop_shoulder": "drop-shoulder pullover: pin a research concept through intake",
     "seasonal_decor": "seasonal décor shapes (garland units, shaped ornaments)",
     "ornament": "small closed or shaped pieces (ornaments)",
     "hat": "fitted hat crown and brim from a sourced head chart with height and ease",

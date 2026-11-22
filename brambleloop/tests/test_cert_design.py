@@ -252,13 +252,17 @@ def test_impossible_inputs_refuse_with_a_named_reason():
         pass
 
 
-def test_fitted_premise_is_class_c_and_blocked_without_physical_test():
+def test_fitted_premise_is_class_c_and_sizes_from_standard_gauge():
+    # D-OWNER-NO-SAMPLE-SIZING (2026-11-22): Class C with a yarn-evidenced gauge certifies on
+    # standard-gauge arithmetic, recorded as a warning; no physical test is claimed.
     c = K("sheath-raglan", "fitted_garment", "top_down_yoke", "self", "LONG", "garments",
           premise="a fitted cropped yoke that sits close through the shoulders")
     cir = P.author(c)
     assert cir.risk_class == "C"
     cert = certify(cir)
-    assert not cert.granted and any(f.code == "PHYSICAL_TEST_REQUIRED" for f in cert.findings)
+    codes = {f.code for f in cert.findings}
+    assert cert.granted and "PHYSICAL_TEST_REQUIRED" not in codes, cert.blocking_reasons
+    assert "SIZES_FROM_STANDARD_GAUGE" in codes
 
 
 # ---- B. benchmark leakage -----------------------------------------------------------------
