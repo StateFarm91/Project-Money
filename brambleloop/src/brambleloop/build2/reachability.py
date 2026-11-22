@@ -500,6 +500,7 @@ class _Analysis:
 
     def _rescan_methods(self) -> None:
         for key in list(self.live):
+            _yield_to_requests()
             mod, qual = key
             t = self.mods[mod]
             if qual not in t.classes:
@@ -563,6 +564,7 @@ class _Analysis:
         return inside
 
     def _visit(self, mod: str, qual: str, mode: str, why: str) -> None:
+        _yield_to_requests()            # eng/mc-perf (F-11): timing only, never the result
         t = self.mods[mod]
         if qual.startswith("<expr:"):
             node, cls = self._exprs[int(qual[6:-1])]
@@ -749,6 +751,16 @@ class _Analysis:
                        "handler, cadence, runtime loop or database-computing route calls it "
                        "(a static route or an audit receipt is not a caller)"
                        + (f"; imported by {imported_by[0]}" if imported_by else "")), []
+
+
+def _yield_to_requests() -> None:
+    """eng/mc-perf (F-11): this walk is pure-Python CPU and runs on a background thread of
+    the web process; hand the GIL to a request being served. Timing only."""
+    try:
+        from ..app.command_center.page_cache import yield_to_requests
+    except Exception:  # noqa: BLE001 - no web app in this process: nothing to yield to
+        return
+    yield_to_requests()
 
 
 @lru_cache(maxsize=2)
