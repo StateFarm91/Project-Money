@@ -45,6 +45,37 @@ ACTIVATIONS: dict[tuple[str, str], dict] = {
 }
 
 
+# AUDIT F-07 / D-OWNER-AUDIT-APPROVALS (owner, 2026-11-22 ~06:10Z: "I approve my stuff. Fix
+# the rest. Get p0 done."): a publication-gate waiver used to be authorised by a heading in the
+# shipped decision index, so any commit adding a heading waived a gate. A waiver now needs an
+# entry in this fixed table AND the heading. Each entry names the owner's decision, when it was
+# given, and the directive that grants it standing. It is recorded as
+# `owner_directed_without_attestation`: no step-up or signature happened, and nothing here
+# claims one. Adding a waiver is a code change to this table, reviewed like `ACTIVATIONS`.
+AUDIT_APPROVALS_ID = "D-OWNER-AUDIT-APPROVALS"
+AUDIT_APPROVALS_AT = datetime(2026, 11, 22, 6, 10, tzinfo=timezone.utc)
+WAIVERS: dict[str, dict] = {
+    "D-OWNER-PUBLISH-WITH-RENDERS": {
+        "gate": "SAMPLE_PHOTO_REQUIRED",
+        "decided_at": datetime(2026, 11, 21, 10, 50, tzinfo=timezone.utc),
+        "granted_under": AUDIT_APPROVALS_ID,
+        "evidence": "owner_directed_without_attestation",
+    },
+}
+
+
+def waiver_granted(decision_id: str, gate: str, *, now: datetime | None = None) -> bool:
+    """Whether `decision_id` is a standing owner waiver of exactly `gate` (fail closed)."""
+    try:
+        w = WAIVERS.get(str(decision_id))
+        if not w or w["gate"] != str(gate):
+            return False
+        now = _aware(now) or datetime.now(timezone.utc)
+        return now >= w["decided_at"]
+    except Exception:  # noqa: BLE001 - an unreadable table waives nothing
+        return False
+
+
 def recognised(step_up: dict | None, provider: str, scope: str) -> bool:
     """Whether a row's evidence is this directive, for exactly a triple it covers."""
     su = step_up or {}
