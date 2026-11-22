@@ -298,7 +298,9 @@ def test_inventory_does_not_rot():
 def test_inventory_entries_are_well_formed():
     assert INVENTORY.exists(), f"missing inventory {INVENTORY.relative_to(REPO)}"
     non = nonprod_importers()
-    for e in inventory()["modules"]:
+    modules = inventory()["modules"]
+    assert modules, "the inventory lists no modules; a well-formedness check over nothing proves nothing"
+    for e in modules:
         m = e["module"]
         assert e.get("classification") in CLASSES, (m, e.get("classification"))
         # DEAD code is deleted, and WIRED_ELSEWHERE means the scanner must be fixed instead.
