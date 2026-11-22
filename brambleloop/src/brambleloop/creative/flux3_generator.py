@@ -43,6 +43,7 @@ from typing import Callable
 
 from . import image_stages as S
 from . import pattern_refs as P
+from . import pdf_page_refs as PR
 
 ANCHOR_ROLE = "product_anchor"
 # IMAGE-AD (V2): a vessel's side view, standing -- half of its fidelity anchor
@@ -224,8 +225,11 @@ class Flux3Generator:
 
     def __init__(self, db=None, *, renderer=None, cir_loader: Callable | None = None,
                  anchor_lookup: Callable | None = None, work_root: str | None = None,
-                 size: str = S.PRODUCT_SIZE):
+                 size: str = S.PRODUCT_SIZE, pdf_loader: Callable | None = None):
         self.db = db
+        # ENG-IMAGES-PDFREF: (slug, version, release) -> the certified premium US PDF bytes
+        self.pdf_loader = pdf_loader or (lambda slug, version, release:
+                                         PR.certified_pdf(db, slug, version, release))
         self.renderer = renderer
         self.cir_loader = cir_loader or _default_cir_loader(db)
         self.anchor_lookup = anchor_lookup or _default_anchor_lookup(db)
@@ -291,15 +295,35 @@ class Flux3Generator:
         with self._scratch():
             return self._prepare(slug, version, release)
 
+    def _pdf_pages(self, slug: str, version: str, release: str) -> tuple[tuple, str]:
+        """The certified premium PDF's chosen pages as files for this release, or none.
+        Rendered once per PDF hash (`pdf_page_refs.pages_for`); never re-rendered differently."""
+        pdf = self.pdf_loader(slug, version, release)
+        if not pdf:
+            return (), ""
+        entry = PR.pages_for(pdf)
+        files = PR.write_pages(entry, self._root / f"{slug}-{release[:12]}" / "pdf-pages")
+        return tuple(files), entry["pdf_sha256"]
+
     def _prepare(self, slug: str, version: str, release: str) -> list[dict]:
         rel = self._release(slug, version, release)
-        return [{"kind": _KIND_PRODUCT, "data": Path(p).read_bytes(),
-                 "label": f"{role}|{slug}@{version}|{release}"}
-                for role, p in zip(S.PRODUCT_ROLES, rel.pattern_refs)]
+        out = [{"kind": _KIND_PRODUCT, "data": Path(p).read_bytes(),
+                "label": f"{role}|{slug}@{version}|{release}"}
+               for role, p in zip(S.PRODUCT_ROLES, rel.pattern_refs)]
+        # ENG-IMAGES-PDFREF (the owner's method): the certified PDF's own pages, after the four
+        # CIR renders, recorded as pattern_derived provenance with their kind and page.
+        pages, _pdf_sha = self._pdf_pages(slug, version, release)
+        out += [{"kind": _KIND_PRODUCT, "data": Path(p["path"]).read_bytes(),
+                 "sha256": p["sha256"], "source": PR.SOURCE,
+                 "label": f"{p['kind']}:{p['page']}|{slug}@{version}|{release}"}
+                for p in pages]
+        return out
 
     def _bind(self, references: list[dict]) -> tuple[S.Release, str, str, str]:
-        product = [r for r in references if r.get("kind") == _KIND_PRODUCT]
-        labels = {str(r.get("label") or "").split("|", 1)[-1] for r in product}
+        derived = [r for r in references if r.get("kind") == _KIND_PRODUCT]
+        product = [r for r in derived if not PR.is_page_ref(r)]
+        pdf_given = [r for r in derived if PR.is_page_ref(r)]
+        labels = {str(r.get("label") or "").split("|", 1)[-1] for r in derived}
         if len(product) != len(S.PRODUCT_ROLES) or len(labels) != 1 or "" in labels:
             raise GeneratorRefused("the product references do not name one release")
         ident, release = labels.pop().split("|")
@@ -309,6 +333,17 @@ class Flux3Generator:
         if given != list(rel.pattern_ref_sha256s):
             raise GeneratorRefused("the product references handed in are not the bytes this "
                                    "release renders; refused")
+        if pdf_given:
+            # Re-derived from the certified PDF (cached by its hash) and compared byte for
+            # byte, in order: a page that is not this release's certified document is refused.
+            pages, pdf_sha = self._pdf_pages(slug, version, release)
+            want = [p["sha256"] for p in pages]
+            got = [hashlib.sha256(r["data"]).hexdigest() for r in pdf_given]
+            if got != want or any(r.get("sha256") and r["sha256"] != h
+                                  for r, h in zip(pdf_given, got)):
+                raise GeneratorRefused("the certified-PDF page references handed in are not "
+                                       "the pages of this release's certified PDF; refused")
+            rel = S.Release(**{**rel.__dict__, "pdf_pages": pages, "pdf_sha256": pdf_sha})
         return rel, slug, version, release
 
     def _laura_paths(self, references: list[dict]) -> list[str] | None:

@@ -382,7 +382,10 @@ def _prepared_cir_references(db, flux_key: str):
         return None
     if not isinstance(prepared, list):
         return None
-    return [r["sha256"] for r in prepared if r.get("kind") == "pattern_derived"]
+    from ..creative.pdf_page_refs import is_page_ref
+
+    return [r["sha256"] for r in prepared if r.get("kind") == "pattern_derived"
+            and not is_page_ref(r)]
 
 
 def _validate(files: list[dict]) -> list[dict]:
