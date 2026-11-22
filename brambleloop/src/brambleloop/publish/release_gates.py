@@ -2136,6 +2136,26 @@ def our_competitive_reading(db, *, slug: str, version: str, key: str) -> float |
     return None
 
 
+# D-OWNER-COMPETITIVE-BAR (owner, 2026-11-22 ~02:05Z, ruling "Ship without video"):
+# "Drop the video requirement and require 7 photos instead of matching the top seller's 20.
+# Size options become advisory. All other checks stay the same."
+# Standards named here no longer withhold or block publication; they are still read,
+# recorded and reported. The gallery bar is capped at the owner's 7. Any other standard
+# (present or future) binds exactly as the benchmark sets it.
+COMPETITIVE_ADVISORY = frozenset({"video_in_gallery", "size_options"})
+COMPETITIVE_BAR_CAPS = {"gallery_images": 7.0}
+
+
+def competitive_binding(key: str, value: float, higher: bool = True) -> tuple[bool, float]:
+    """(binds publication?, the bar that binds) for one CompetitiveStandard, per the ruling."""
+    if key in COMPETITIVE_ADVISORY:
+        return False, value
+    cap = COMPETITIVE_BAR_CAPS.get(key)
+    if cap is not None and higher:
+        return True, min(float(value), cap)
+    return True, value
+
+
 def standards_gate(db, *, slug: str, version: str) -> dict:
     """The owner's veto, the moving competitive bar and the teardown requirements, at publish.
 
@@ -2170,9 +2190,21 @@ def standards_gate(db, *, slug: str, version: str) -> dict:
             verdict = "unmeasured"
         else:
             verdict = "met" if (ours >= value if higher else ours <= value) else "below"
-        competitive.append({"standard": key, "bar": value, "ours": ours, "verdict": verdict})
-        if verdict != "met":
-            reasons.append(f"competitive standard {key} (#220): bar {value}, ours "
+        # D-OWNER-COMPETITIVE-BAR: the benchmark reading is still recorded and reported as is
+        # (`bar`, `verdict`); what binds publication is the owner's ruling on that bar.
+        binding, effective = competitive_binding(key, value, higher)
+        if not binding:
+            binding_verdict = "advisory"
+        elif ours is None:
+            binding_verdict = "unmeasured"
+        else:
+            binding_verdict = ("met" if (ours >= effective if higher else ours <= effective)
+                               else "below")
+        competitive.append({"standard": key, "bar": value, "ours": ours, "verdict": verdict,
+                            "binding": binding, "effective_bar": effective,
+                            "binding_verdict": binding_verdict})
+        if binding_verdict not in ("met", "advisory"):
+            reasons.append(f"competitive standard {key} (#220): bar {effective}, ours "
                            f"{ours if ours is not None else 'unmeasured'}")
 
     teardown = enforce.check(db, slug, consumers=enforce.PUBLISH_CONSUMERS)

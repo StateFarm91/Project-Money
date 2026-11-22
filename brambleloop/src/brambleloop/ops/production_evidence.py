@@ -1206,6 +1206,7 @@ def _withholding_kinds() -> tuple[str, ...]:
 
 _COMPETITIVE_KEYS = ("gallery_images", "video_in_gallery", "size_options")
 _COMPETITIVE_VERDICTS = ("met", "below", "unmeasured")
+_COMPETITIVE_BINDING_VERDICTS = ("met", "below", "unmeasured", "advisory")
 
 
 def _competitive_now(rows) -> list[dict] | None:
@@ -1221,7 +1222,12 @@ def _competitive_now(rows) -> list[dict] | None:
         out.append({"standard": r["standard"], "bar": num(r.get("bar")),
                     "ours": num(r.get("ours")),
                     "verdict": r.get("verdict") if r.get("verdict") in _COMPETITIVE_VERDICTS
-                    else None})
+                    else None,
+                    # D-OWNER-COMPETITIVE-BAR: what binds publication, beside the benchmark
+                    "binding": _flag(r.get("binding")),
+                    "effective_bar": num(r.get("effective_bar")),
+                    "binding_verdict": (r.get("binding_verdict") if r.get("binding_verdict")
+                                        in _COMPETITIVE_BINDING_VERDICTS else None)})
     return out
 
 

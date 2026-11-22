@@ -194,7 +194,9 @@ def _certification(db, slug, version, release):
         from ..publish import release_gates
 
         competitive = [{"standard": c.get("standard"), "bar": c.get("bar"),
-                        "ours": c.get("ours"), "verdict": c.get("verdict")}
+                        "ours": c.get("ours"), "verdict": c.get("verdict"),
+                        "binding": c.get("binding"), "effective_bar": c.get("effective_bar"),
+                        "binding_verdict": c.get("binding_verdict")}
                        for c in (release_gates.standards_gate(db, slug=slug, version=version)
                                  .get("competitive") or [])]
     except Exception:  # noqa: BLE001 - a diagnostic, never a verdict

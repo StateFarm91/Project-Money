@@ -4547,3 +4547,24 @@ Batch 19i3 (code 916a348ee) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the ow
 ## D-OWNER-DEPLOY-19h21 — 2026-11-22T01:46:46Z
 
 Batch 19h21 (code 9c18a8b78) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 019005b6d08b1bc6340f6b133235196405fb43a1 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-COMPETITIVE-BAR — 2026-11-22T02:05Z
+
+**Decision (owner).** The owner was asked how the "match the best competitor" check (#220) should work. Production showed certification withheld on every release for competitive_standard:
+
+| Standard | Benchmark bar | Ours |
+|---|---|---|
+| Gallery images | 20 | 6–7 |
+| Size options | 9 | 1 |
+| Video | 1 | 0 |
+
+No video production path exists. The owner chose **"Ship without video"**: "Drop the video requirement and require 7 photos instead of matching the top seller's 20. Size options become advisory. All other checks stay the same."
+
+**Implemented (19i5).** `release_gates.competitive_binding` applies the ruling:
+- `video_in_gallery` and `size_options` are advisory. They are still read, recorded and reported in `competitive_now`, but they never withhold or block.
+- `gallery_images` binds at min(benchmark, 7). A benchmark bar below 7 still binds as set.
+- Every other standard binds exactly as the benchmark sets it.
+
+The benchmark bar and its verdict are still reported unchanged beside the binding verdict, so nothing is hidden. The other withholding kinds, the teardown requirements, the owner veto and all other gates are unchanged.
+
+Tests: `tests/test_competitive_bar.py`.
