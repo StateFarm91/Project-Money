@@ -1502,6 +1502,32 @@ def _vp_runs(db) -> dict:
             "blocked_releases": blocked_examples}
 
 
+def _count_fidelity_rejection(acc: dict, checks) -> None:
+    """IMAGE-BLOCKED: which fidelity check refused a frame, as counts in a fixed vocabulary.
+
+    A frame counts when its product-truth fidelity verdict FAILed. Codes are the gate's own
+    (`creative.failure_codes.ALL_CODES`), anything else reads "other"; check names must match
+    the source-name pattern, else "other". No free text leaves the database."""
+    from ..creative import failure_codes as FC
+
+    if not isinstance(checks, dict):
+        return
+    fid = (checks.get("product_truth") or {}).get("fidelity") \
+        if isinstance(checks.get("product_truth"), dict) else None
+    if not isinstance(fid, dict) or fid.get("status") != "FAIL":
+        return
+    acc["frames"] += 1
+    for code in fid.get("codes") or []:
+        k = code if code in FC.ALL_CODES else "other"
+        acc["by_code"][k] = acc["by_code"].get(k, 0) + 1
+    for c in fid.get("checks") or []:
+        if not isinstance(c, dict) or c.get("status") != "FAIL":
+            continue
+        name = c.get("check")
+        k = name if isinstance(name, str) and _SOURCE_NAME.match(name) else "other"
+        acc["by_check"][k] = acc["by_check"].get(k, 0) + 1
+
+
 def _vp_images(db) -> tuple[dict, dict]:
     from sqlalchemy import select
 
@@ -1512,6 +1538,7 @@ def _vp_images(db) -> tuple[dict, dict]:
     method: dict[str, int] = {}
     ident = {"laura_frames": 0, "run": 0, "passed": 0, "failed": 0, "not_run": 0,
              "unknown": 0, "fixture_only": 0, "biometric_measured": 0}
+    fid_rej = {"frames": 0, "by_code": {}, "by_check": {}}
     with db.session() as s:
         for ts, oc, meth, laura, checks in s.execute(
                 select(C.technical_status, C.outcome, C.method, C.laura_present, C.checks)):
@@ -1519,6 +1546,7 @@ def _vp_images(db) -> tuple[dict, dict]:
             outcome[oc if oc in _CANDIDATE_OUTCOMES else "unverified"] += 1
             m = meth if isinstance(meth, str) and _SOURCE_NAME.match(meth) else "other"
             method[m] = method.get(m, 0) + 1
+            _count_fidelity_rejection(fid_rej, checks)
             if not laura:
                 continue
             ident["laura_frames"] += 1
@@ -1543,6 +1571,7 @@ def _vp_images(db) -> tuple[dict, dict]:
                                                                                  "FAIL"):
                 ident["biometric_measured"] += 1
     images = {"candidates": sum(tech.values()), "by_method": method,
+              "fidelity_rejections": fid_rej,
               "verified": tech["PASS"], "failed": tech["FAIL"],
               "unmeasurable": tech["UNKNOWN"] + tech["UNMEASURABLE"],
               "by_technical_status": tech, "by_outcome": outcome}

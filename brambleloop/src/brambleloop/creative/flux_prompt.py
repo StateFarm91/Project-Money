@@ -22,7 +22,7 @@ from ..gateway import prompts
 
 # 2.1.0 (W5-V1): PRODUCT v3 states the CIR's shape (polygon side count), colour bands and final
 # round/rim explicitly; the AI flat lay is labelled as AI-generated, never a photograph.
-BUILDER_VERSION = "flux3-prompt-builder/2.1.1"
+BUILDER_VERSION = "flux3-prompt-builder/2.2.0"
 _IMG = dict(system="", output_schema=("image",), max_output_tokens=1)
 
 # The references, by position. The hierarchy is stated, not implied: identity comes from the
@@ -117,7 +117,16 @@ DISCLOSURE = prompts.register(prompts.Prompt(
     name="image.flux3.disclosure", version="1", **_IMG, template=(
         "STATUS: {disclosure} {restrictions}")))
 
-SECTIONS = (REFERENCES, IDENTITY, REFERENCE_CLOTHING, PRODUCT, NEGATIVES, SCENE, REALISM,
+# IMAGE-BLOCKED: the fidelity gate measures the flat piece's long/short ratio against the twin
+# and counts the declared horizontal repeats (cable columns, motif repeats). The product section
+# gives the centimetres and points at the chart, but never states the ratio or the count, so
+# FLUX was never told the two numbers the gate refuses on. Both come from the certified rules,
+# by the same rules the gate uses (`visual.fidelity._flat_model`); nothing is said otherwise.
+COUNTS = prompts.register(prompts.Prompt(
+    name="image.flux3.counts", version="1", **_IMG, template=(
+        "COUNT AND PROPORTION (these are checked): {facts}.")))
+
+SECTIONS = (REFERENCES, IDENTITY, REFERENCE_CLOTHING, PRODUCT, COUNTS, NEGATIVES, SCENE, REALISM,
             DISCLOSURE)
 
 DEFAULT_DISCLOSURE = ("This is an AI-generated image of a certified Brambleloop product and "
@@ -251,6 +260,37 @@ def _edge(rules: Mapping) -> str:
             f"{_colour_name(last['colour'], hexes.get(last['colour']))}, with no edging")
 
 
+def counts_and_proportion(rules: Mapping) -> str:
+    """The flat main piece's long/short ratio and its declared horizontal repeat count, or "".
+
+    Only for a single-component flat piece (the gate's `_flat_model`); a vessel, a round piece
+    or a multi-component product says nothing here."""
+    f = rules.get("fabric") or {}
+    comps = list(rules.get("components") or [])
+    if f.get("multi_component") or len(comps) != 1:
+        return ""
+    c = comps[0]
+    if c.get("worked") != "in flat rows" or c.get("shape") == "vessel":
+        return ""
+    facts = []
+    w, h = c.get("width_cm"), c.get("height_cm")
+    if w and h:
+        long_, short = max(w, h), min(w, h)
+        facts.append(f"laid flat, the piece's long side is {long_ / short:.2f} times its short "
+                     f"side ({w} x {h} cm)")
+    across = int(c.get("stitches_across") or 0)
+    cab = f.get("cables") or {}
+    rep = rules.get("repeat") or {}
+    if cab and int(cab.get("columns") or 0) >= 2:
+        facts.append(f"exactly {int(cab['columns'])} cable columns across the width, no more "
+                     f"and no fewer")
+    elif rep.get("component") == c.get("name") and 0 < int(rep.get("stitches") or 0) < across \
+            and across % int(rep["stitches"]) == 0 and across // int(rep["stitches"]) >= 2:
+        facts.append(f"exactly {across // int(rep['stitches'])} identical motif repeats across "
+                     f"the width, no more and no fewer")
+    return "; ".join(facts)
+
+
 def _outfit_text(outfit: Mapping) -> str:
     g = dict(outfit.get("garments") or {})
     if g:
@@ -348,6 +388,10 @@ def build(*, rules: Mapping, roles: Sequence[str], role: str,
         stitches=", ".join(rules.get("stitches") or []) or "as charted",
         assembly=assembly, prohibited="; ".join(rules["prohibited_additions"])))
     used.append(PRODUCT)
+    counts = counts_and_proportion(rules)
+    if counts:
+        texts.append(COUNTS.render(facts=counts))
+        used.append(COUNTS)
     negs = list(rules.get("negatives") or [])
     if not negs or not negs[0].startswith("knitting"):
         raise PromptBuildRefused("certified rules carry no fabric negatives; the prompt "
