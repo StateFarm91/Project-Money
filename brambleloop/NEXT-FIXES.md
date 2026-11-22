@@ -116,3 +116,15 @@ in 7 suites, 0 failing:
 - test_vacuity
 
 `PY=python3` was needed because this container has no `.venv`.
+
+`tests/test_amigurumi_judging.py` (the stuffed-animal board route, which now runs after the
+engine-board fallback) is very slow here. A direct run timed out at 3300s with 5 of 11 tests
+passed and 0 failed:
+- crash between request and record is never bought again
+- refusal before sending is declined and may be asked again later
+- a render that may have been paid for is never bought again
+- a toy the animal engine will not draft is never rendered
+- an amigurumi concept from scan evidence reaches cir.draft unaided, paid once
+
+The remaining 6 tests were not reached, so they are **unverified**. Run the full suite in CI
+or on a larger runner before merging.
