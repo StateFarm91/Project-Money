@@ -63,7 +63,12 @@ def _sandbox() -> Path:
 # The knobs this file exercises. When the outer suite itself was started with one of them
 # (REQUIRE_CLEAN=1 for a release run, say), the sandbox must not inherit it -- and a
 # SUITE_RECORD_DIR inherited from outside would make the sandbox write into the real records.
-_KNOBS = ("SUITES", "REQUIRE_CLEAN", "THEN_FULL", "ALLOW_PARALLEL", "SUITE_RECORD_DIR", "JOBS")
+# Every run_tests.sh knob an enclosing run can export. A sandbox run must not inherit them: the
+# W4-B1 checkpoint knobs (CHECKPOINT / RESUME / SHARD / CHECKPOINT_TOOL) leaked from a sharded
+# parent run made the sandbox shard its own one-suite list and refuse to run (exit 2, empty
+# stdout), so every sandbox assertion failed only inside a CHECKPOINT/SHARD run.
+_KNOBS = ("SUITES", "REQUIRE_CLEAN", "THEN_FULL", "ALLOW_PARALLEL", "SUITE_RECORD_DIR", "JOBS",
+          "CHECKPOINT", "CHECKPOINT_TOOL", "RESUME", "SHARD")
 
 
 def _env(**over) -> dict:

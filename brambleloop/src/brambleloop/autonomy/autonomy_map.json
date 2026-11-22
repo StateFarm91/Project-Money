@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-22T10:23:38.659223+00:00",
+ "generated_at": "2026-11-22T12:41:46.296947+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -13,7 +13,7 @@
   "cadences": 153,
   "handlers": 186,
   "agents": 35,
-  "follow_on_edges": 102
+  "follow_on_edges": 125
  },
  "departments": [
   {
@@ -148,7 +148,9 @@
     ],
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
     "follow_on_from": [
+     "autonomy/orchestrator.py:idle_wake",
      "build2/unblock.py:request_recompute",
+     "laura/executive/loop.py:results_wake",
      "listing.seo",
      "ops/daily_ledger.py:_reoffer",
      "owner/API route api_launch_readiness",
@@ -461,6 +463,7 @@
      "portfolio.review",
      "radar.concept_pool",
      "radar.scan",
+     "radar/ideation.py:investigate",
      "radar/ideation.py:open_briefs",
      "research.sweep",
      "runtime/pipeline.py:_score_coverage_handoff"
@@ -544,6 +547,10 @@
     "growth"
    ],
    "follow_on": [
+    {
+     "from": "etsy.probe",
+     "to": "listing.taxonomy_refresh"
+    },
     {
      "from": "mjs.seasonal_sentinel",
      "to": "creative.tournament"
@@ -1174,6 +1181,14 @@
     ],
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
     "follow_on_from": [
+     "app/command_center/api.py:enqueue",
+     "app/command_center/api.py:experiments_run",
+     "app/command_center/api.py:follow",
+     "app/command_center/api.py:images_identity_review",
+     "app/command_center/api.py:images_restart",
+     "app/command_center/api.py:launch_review_activate",
+     "app/command_center/api.py:launch_review_resume",
+     "app/command_center/api.py:make_router",
      "assets.build",
      "assets.launch_review",
      "assets.physical_upgrade",
@@ -1181,10 +1196,15 @@
      "listing.draft",
      "owner/API route _startup",
      "physical.record",
+     "runtime/chain_successors.py:follow",
+     "runtime/chain_successors.py:sweep",
+     "runtime/listing_package_ops.py:_admit_for_sale",
      "runtime/pipeline.py:_listing_parity",
      "runtime/release.py:_intake_photo",
      "runtime/release.py:enqueue",
      "runtime/release.py:follow",
+     "runtime/sale_pipeline_ops.py:enqueue",
+     "runtime/sale_pipeline_ops.py:start_images",
      "store_foundation/asset_health.py:route",
      "visual.controlled_experiment",
      "visual.image_production"
@@ -1506,6 +1526,7 @@
      "assets.build",
      "chain.rebuild",
      "content.draft",
+     "etsy.probe",
      "gate.certify",
      "growth.steer",
      "growth/portfolio_act.py:act",
@@ -1517,10 +1538,13 @@
      "pricing.position",
      "runtime/pipeline.py:_read_back_and_record",
      "runtime/release.py:_enqueue_listing_package",
+     "runtime/release.py:_hand_on_to_sale_pipeline",
      "runtime/release.py:_illustrate",
      "runtime/release.py:_price_launch0",
      "runtime/release.py:_reprice_on_plan_drift",
      "runtime/release.py:_targeted_rebuild",
+     "runtime/sale_pipeline_ops.py:_follow",
+     "runtime/sale_pipeline_ops.py:follow",
      "visual.image_production",
      "visual/laura_approval.py:after_decision"
     ]
@@ -1662,9 +1686,7 @@
      "closure_kind": "OWNER-GATED"
     }
    ],
-   "never_woken_job_types": [
-    "sale.pipeline"
-   ],
+   "never_woken_job_types": [],
    "owner_one_shots": {}
   },
   {
@@ -1875,7 +1897,8 @@
     ],
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
     "follow_on_from": [
-     "finance.reconcile"
+     "finance.reconcile",
+     "runtime/orders.py:handle_orders_ingest"
     ]
    },
    "cadence": [
