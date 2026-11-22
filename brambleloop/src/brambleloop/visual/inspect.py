@@ -320,8 +320,15 @@ def identify_at_grid(image_ref: str, *, families, db=None, provider=None,
                                             "'shows what is sold' has nothing to be checked "
                                             "against; unjudged blocks"))
         return out
-    provider = provider or gw.provider_for(TASK)
+    # ASSET-VISION (19i3): Anthropic vision if usable, else approved openai-vision, else
+    # no judge (every check stays unmade). `vision_route` holds the rule.
+    from . import vision_route
+
+    provider = provider or vision_route.provider_for(db)
     out["model"] = provider.model
+    if isinstance(provider, vision_route.NoVisionJudge):
+        out.update(verdict="unjudged", why=vision_route.NO_JUDGE_WHY)
+        return out
     billed = {"reserved": 0.0, "actual": 0.0, "tokens_in": 0, "tokens_out": 0}
     from ..core import workspace
 
@@ -339,6 +346,15 @@ def _identify_in(image_ref: str, small_path: str, *, grid: int, fams: list, db, 
     from ..gateway import providers as gw
 
     def _call(system, prompt, max_tokens):
+        # ASSET-VISION (19i3): on the openai-vision route, one paid attempt per image bytes
+        # and question per window; a kept answer is served with nothing sent or billed.
+        from . import vision_route as _vr
+
+        once = _vr.once_key(db, provider, system, prompt, [small_path], max_tokens)
+        if once is not None:
+            kept = _vr.kept_answer(db, provider, once)
+            if kept is not None:
+                return kept
         # The same ceiling discipline as `inspect_image._call`: reserve against this run's
         # uncommitted spend with agent and purpose bound, release on failure, settle at cost.
         held = None
@@ -352,7 +368,11 @@ def _identify_in(image_ref: str, small_path: str, *, grid: int, fams: list, db, 
             billed["reserved"] += budget["estimate_cad"]
             held = budget["reservation_id"]
         try:
+            if once is not None:
+                _vr.record_attempt(db, provider, once)
             response = provider.see(system, prompt, [small_path], max_tokens=max_tokens)
+            if once is not None:
+                _vr.record_answer(db, provider, once, response)
         except BaseException:
             if db is not None:
                 gw.release_reservation(db, held)
@@ -410,12 +430,30 @@ def inspect_image(image_ref: str, *, db=None, provider=None,
     """
     from ..gateway import providers as gw
 
-    provider = provider or gw.provider_for(TASK)
+    # ASSET-VISION (19i3): Anthropic vision if usable, else approved openai-vision, else
+    # no judge (every check stays unmade). `vision_route` holds the rule.
+    from . import vision_route
+
+    provider = provider or vision_route.provider_for(db)
     out: dict = {"image": image_ref, "described": False, "realism_judged": False,
                  "model": provider.model, "provider": getattr(provider, "name", None)}
     billed = {"reserved": 0.0, "actual": 0.0, "tokens_in": 0, "tokens_out": 0}
+    if isinstance(provider, vision_route.NoVisionJudge):
+        out.update(description_error=vision_route.NO_JUDGE_WHY,
+                   realism_error=vision_route.NO_JUDGE_WHY,
+                   realism_unjudged=sorted(REALISM_CHECKS))
+        return out
 
     def _call(system, prompt, max_tokens):
+        # ASSET-VISION (19i3): on the openai-vision route, one paid attempt per image bytes
+        # and question per window; a kept answer is served with nothing sent or billed.
+        from . import vision_route as _vr
+
+        once = _vr.once_key(db, provider, system, prompt, [image_ref], max_tokens)
+        if once is not None:
+            kept = _vr.kept_answer(db, provider, once)
+            if kept is not None:
+                return kept
         held = None
         if db is not None:
             # `uncommitted_cad` is this run's own spend, which is not in the ledger yet.
@@ -441,7 +479,11 @@ def inspect_image(image_ref: str, *, db=None, provider=None,
             billed["reserved"] += budget["estimate_cad"]
             held = budget["reservation_id"]
         try:
+            if once is not None:
+                _vr.record_attempt(db, provider, once)
             response = provider.see(system, prompt, [image_ref], max_tokens=max_tokens)
+            if once is not None:
+                _vr.record_answer(db, provider, once, response)
         except BaseException:
             # Released on the way out, including on a refusal. A reservation a failed call
             # never gives back holds budget nobody is spending until its TTL expires, and
@@ -510,13 +552,29 @@ def describe_image(image_ref: str, *, db=None, provider=None, claim: dict | None
     """
     from ..gateway import providers as gw
 
-    provider = provider or gw.provider_for(TASK)
+    # ASSET-VISION (19i3): Anthropic vision if usable, else approved openai-vision, else
+    # no judge (every check stays unmade). `vision_route` holds the rule.
+    from . import vision_route
+
+    provider = provider or vision_route.provider_for(db)
     out: dict = {"image": image_ref, "described": False, "realism_judged": False,
                  "model": provider.model, "provider": getattr(provider, "name", None),
                  "realism_not_applicable": True}
     billed = {"reserved": 0.0, "actual": 0.0, "tokens_in": 0, "tokens_out": 0}
+    if isinstance(provider, vision_route.NoVisionJudge):
+        out["description_error"] = vision_route.NO_JUDGE_WHY
+        return out
 
     def _call(system, prompt, max_tokens):
+        # ASSET-VISION (19i3): on the openai-vision route, one paid attempt per image bytes
+        # and question per window; a kept answer is served with nothing sent or billed.
+        from . import vision_route as _vr
+
+        once = _vr.once_key(db, provider, system, prompt, [image_ref], max_tokens)
+        if once is not None:
+            kept = _vr.kept_answer(db, provider, once)
+            if kept is not None:
+                return kept
         held = None
         if db is not None:
             budget = gw.check_budget(
@@ -528,7 +586,11 @@ def describe_image(image_ref: str, *, db=None, provider=None, claim: dict | None
             billed["reserved"] += budget["estimate_cad"]
             held = budget["reservation_id"]
         try:
+            if once is not None:
+                _vr.record_attempt(db, provider, once)
             response = provider.see(system, prompt, [image_ref], max_tokens=max_tokens)
+            if once is not None:
+                _vr.record_answer(db, provider, once, response)
         except BaseException:
             if db is not None:
                 gw.release_reservation(db, held)

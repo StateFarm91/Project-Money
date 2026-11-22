@@ -8,6 +8,15 @@
 > MM-L6 now earns the no/low-sew tag in `seo.proposals` for a multi-piece amigurumi that really is no/low sew. Every
 > run now records relevance apart from application, and the readback's `why_zero` says which kind of zero it is.
 > Tests: `tests/test_learning_apply.py` (12). Report: `LEARNING-APPLY.md` at the repo root.
+> **2026-11-22 — FIRST-LISTING on `eng/first-listing` (from `claude/w6-release-19h17` e1ff7be; NOT merged, NOT deployed;
+> production unchanged, no production row read).** Three code defects found that kept the publication sections from
+> passing: (1) search `attributes` FAILed for every Launch-0 release because Etsy's variation-only properties
+> (`supports_attributes: false`) read UNDECIDED; (2) a reused disclosed render set never got its hero blind review, so
+> parity HERO stayed unjudged for the life of the release; (3) the deliverables keeper secured the newest build of any
+> release while the rollback drill checks the release-bound build, so `deliverables_restorable` FAILed after a
+> redeploy wiped disk. The certification evidence now names `withheld_kinds` and `competitive_now` (fixed vocabulary,
+> numbers). listing_set (no FLUX gallery; a withdrawn listing reads RETIRED, so no image admission) waits on the
+> chain re-draft owned by the halt-380 lane. No gate weakened. Report and owner actions: `/FIRST-LISTING.md`.
 > **2026-11-21 — BATCH19D-SALE2 on `claude/batch19d-sale2` (batch19d 76d0525 + `w6-release-19d1` 7b250d61 +
 > `w6-release-19h1`, production 1bb7c4f5, merged at 80bc28b with halt-380/H3/H4 and every boot step kept. Run
 > 20261121T082202Z-785 @ 80bc28b, clean tree, 27 suites: 326 passing, 2 suites failing, the same pre-existing two
