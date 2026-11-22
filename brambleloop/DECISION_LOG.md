@@ -4635,3 +4635,7 @@ Production has never had `BRAMBLELOOP_OWNER_GRANT_SIGNING_KEY` or `BRAMBLELOOP_O
 - An explicit pair, when set, always wins.
 
 The readback reports which source is in use (`owner_grant_key_source`: explicit, derived_mode_s or absent), never the key. The approve-all-3 readback also gains `still_listed_by_kind`: bucket plus the card's code identifier, with slugs and free text dropped. Tests: `tests/test_owner_grant_derived.py` (7) and `tests/test_approve_all_kinds.py` (1).
+
+## D-OWNER-DEPLOY-19i10 — 2026-11-22T06:51:55Z
+
+Batch 19i10 (code a71b80b88) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to eb941ffe74f1817df93ee9143a890ec202288499 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
