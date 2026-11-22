@@ -89,6 +89,10 @@ ALLOW: dict[tuple[str, str, str], str] = {
         "a wrong operator token ('not-the-operator-token...') the callback must refuse",
     ("brambleloop/tests/test_policy_intake.py", "bearer_token", "ca7a0c5d29eb"):
         "a wrong operator token ('wrong-token-of-...') the intake must refuse",
+    ("brambleloop/tests/test_b19_security_directive.py", "db_url_password", "57231f7290c9"):
+        "the 'hunter2' fixture inside a raised exception the directive refusal must not echo",
+    ("brambleloop/tests/test_eng_autocoder.py", "private_key", "8bcac7908eb9"):
+        "the bare PEM header line the autocoder secret rail must refuse (no key material follows)",
 }
 
 GENERATED_DIRS = ("brambleloop/artifacts", "brambleloop/backups",
@@ -158,9 +162,14 @@ def pdf_text(raw: bytes) -> str:
 
 
 def _read_text(p: Path) -> str | None:
-    if p.stat().st_size > MAX_BYTES:
+    try:
+        if p.stat().st_size > MAX_BYTES:
+            return None
+        raw = p.read_bytes()
+    except FileNotFoundError:
+        # Removed between listing and reading (a concurrent suite's temp file): a file that
+        # no longer exists cannot be released, so there is nothing to scan.
         return None
-    raw = p.read_bytes()
     if raw[:5] == b"%PDF-":
         PDF_STATS["pdfs"] += 1
         return pdf_text(raw)

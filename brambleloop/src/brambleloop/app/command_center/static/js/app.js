@@ -129,10 +129,8 @@ function parseHash() {
 
 async function route() {
   if (!state.session || !state.session.authenticated) return showLogin();
-  // Render-complete signal: `#main[data-rendered]` names the hash whose view is on screen. It is
-  // cleared as soon as a new route starts and set only when that route's view (or its error
-  // state) is in place, so "settled" can mean "this URL's view finished", not merely "nothing
-  // is loading" (which an old, already-rendered view also satisfies).
+  // `#main[data-rendered]` names the hash whose view (or error state) is on screen; cleared when
+  // a route starts, so "settled" means this URL's view finished.
   const hash = location.hash;
   delete root.dataset.rendered;
   const r = parseHash();

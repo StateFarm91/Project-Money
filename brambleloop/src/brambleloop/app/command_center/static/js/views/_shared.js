@@ -24,10 +24,7 @@ export function pageMeta(result, data) {
       : h("time", { datetime: fetchedAt || "", title: utcStamp(fetchedAt) }, `Loaded ${relTime(fetchedAt)}`))];
 }
 
-/**
- * Render one named section of a tab, whatever honest shape it has: an envelope, a money value,
- * a scalar, a list or a plain object. A missing section renders as Unknown, not as absent.
- */
+/** One named section in whatever honest shape it has; a missing one renders as Unknown. */
 export function renderSection(name, value, { title = null, result = null, limit = 20, asOf = null } = {}) {
   const label = title || humanize(name);
   const opts = { stale: result && result.stale, fetchedAt: result && result.fetchedAt, limit };
@@ -100,11 +97,8 @@ export function toHashRoute(deepLink) {
 
 const META_KEYS = new Set(["tab", "generated_at", "sections", "sources", "status", "reason", "provider"]);
 
-/**
- * Render a lane C tab response: the named `order` first (from sections, else top-level), then
- * every remaining section and top-level field, so nothing the API reports is silently dropped.
- * A key in `required` that is absent renders as Unknown; other absent keys are skipped.
- */
+/** Render a lane C tab: `order` first, then every other section and field (nothing dropped).
+ *  An absent `required` key renders as Unknown; other absent keys are skipped. */
 export function renderAll(data, order, { result = null, required = [], skip = [], limit = 20 } = {}) {
   const s = sectionsOf(data);
   const done = new Set([...skip, ...META_KEYS]);

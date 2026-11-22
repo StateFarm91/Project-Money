@@ -1,14 +1,7 @@
-// Typed client for the Owner Command Center API (contract: research/final_build/v1_1/
-// COMMAND_CENTER_API.md). Every path and header the frontend uses is declared here.
-//
-// Security properties this module guarantees for every caller:
-//  - same-origin requests only; the HttpOnly session cookie travels with credentials:"same-origin";
-//  - every non-GET call carries X-CSRF-Token, a fresh X-CC-Nonce and X-CC-Timestamp (§0);
-//  - a 403 STEP_UP_REQUIRED is answered by asking the owner to re-authenticate, then retrying
-//    once with a NEW nonce -- never by replaying the old request;
-//  - responses are NEVER written to persistent storage (no Cache API, no localStorage). The
-//    only cache is an in-memory Map that dies with the tab, used to show the last good view
-//    *labelled as stale* when the network drops (F-883, F-898).
+// Typed client for the Owner Command Center API (research/final_build/v1_1/COMMAND_CENTER_API.md).
+// Guarantees: same-origin only (HttpOnly cookie); every non-GET carries X-CSRF-Token, a fresh
+// X-CC-Nonce and X-CC-Timestamp (§0); STEP_UP_REQUIRED re-authenticates, then retries once with a
+// NEW nonce; responses are never persisted -- only an in-tab Map, shown *labelled stale* offline (F-883, F-898).
 
 export const API_BASE = "/api/cc";
 export const H_CSRF = "X-CSRF-Token";

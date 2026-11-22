@@ -1,8 +1,5 @@
-// TALK TO LAURA (D-FB-13, spec/07 item 9): the owner's business conversation with Brambleloop's
-// AI Founder/CEO. Every answer comes from durable company records with links to the evidence;
-// with no evidence she says Unknown. Follow-on work needs explicit confirmation, and protected
-// work (publish, spend, price, customer messages) needs a fresh owner step-up and only ever
-// becomes an owner decision -- never an action she takes herself.
+// TALK TO LAURA (D-FB-13, spec/07 item 9): answers come from durable records with evidence links,
+// else Unknown. Protected work (publish, spend, price, messages) only becomes an owner decision.
 import { h, clear } from "../dom.js";
 import { api } from "../api.js";
 import { card, statusPill, sourcesList, loading, toast, guardedAction, freshness } from "../components.js";
@@ -80,10 +77,8 @@ function proposalRow(turnId, p, onDone) {
     h("div", { class: "row-actions" }, btn));
 }
 
-// W4-CCREL: a CEO briefing is long sectioned text with [E#] record ids. On a phone it reads as
-// one section per block (the first two open), each with the records it cites listed beneath
-// it, so the owner can check a line against its record without scrolling the whole answer.
-// The text itself is shown unchanged: code-rendered lines, quoted records verbatim.
+// W4-CCREL: a CEO briefing reads one section per block (first two open), each citing its [E#]
+// records beneath it. The text is shown unchanged.
 const SECTION_HEAD = /^(\d{1,2})\. (.+)$/;
 
 export function splitBriefing(text) {
@@ -190,8 +185,7 @@ function modeRow(ph) {
         h("p", { class: "row-title" }, n.need), h("p", { class: "row-detail muted" }, `${n.who} · ${n.kind} · max cost ${n.max_cost}`))))) : null);
 }
 
-// Visible canonical Laura and how she can be reached: text now; voice and live presence are
-// architected (same identity, memory and authority) but gated on provider + owner decisions.
+// Canonical Laura and her channels: text now; voice/presence gated on provider + owner decisions.
 function presenceCard(pres) {
   const caps = (pres && pres.capabilities) || {};
   const vis = (pres && pres.visible_identity) || {};
@@ -208,8 +202,7 @@ function presenceCard(pres) {
     h("p", { class: "muted small" }, `Identity ${vis.identity_id || "Unknown"} · publication-approved frames: ${vis.publication_approved_frames ?? "Unknown"}`));
 }
 
-// Laura's voice (D-FB-18): spec, whether you have chosen one, the listening decision it needs,
-// and her required roadmap rows (gated, never cancelled).
+// Laura's voice (D-FB-18): spec, choice, listening decision and gated roadmap rows.
 function voiceBlock(voice, roadmap) {
   const v = voice || {};
   const oa = v.owner_action || {};
@@ -223,17 +216,15 @@ function voiceBlock(voice, roadmap) {
       h("p", { class: "row-detail" }, r.title)))) : null);
 }
 
-// Owner-private context: opened only with a fresh step-up; content is fetched by POST and
-// shown only here. Laura replies in her private register only when the owner has enabled it
-// (private key + register switch + spend authorisation); otherwise nothing is generated.
+// Owner-private context: fresh step-up; content by POST, shown only here. Laura uses her private
+// register only when the owner enabled it (key + switch + spend); otherwise nothing is generated.
 function privateGates(en) {
   const e = en || {};
   const yes = (b) => (b ? "on" : "off");
   return `Key ${yes(e.key_configured)} · register switch ${yes(e.register_switch)} · spend authorised CA$${Number(e.spend_authorised_cad_per_day || 0).toFixed(2)}/day · provider ${yes(e.provider_configured)}.`;
 }
 
-// W4-PLACT: each activation prerequisite as met / not met (names only; no secret values).
-// Human consent is not a prerequisite (D-W4-PL-3): Private Laura is Brambleloop's AI persona.
+// W4-PLACT: each activation prerequisite, met / not met (names only). Consent is not one (D-W4-PL-3).
 function privatePrereqs(list) {
   if (!Array.isArray(list) || !list.length) return null;
   return h("ul", { class: "rows" }, list.map((p) => h("li", { class: "row" },

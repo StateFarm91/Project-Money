@@ -1,13 +1,6 @@
-// W4-CCUX: "Decide first" -- the owner's open decisions ranked so the top ones lead, each with
-// what it may cost and what happens if nothing is done. Read-only: it links to the full card
-// (evidence, confirmation, step-up) and never acts by itself.
-//
-// Ranking is deterministic and explained on the card:
-//   1. executable cards that carry evidence, soonest deadline first (no deadline last);
-//   2. executable cards without evidence (they cannot be approved until evidence exists);
-//   3. owner decisions from the batch queue, in the queue's own batch order;
-//   4. cards that cannot be executed from here.
-// A cost the source does not state is "Unknown", never CA$0.00.
+// W4-CCUX "Decide first": open decisions ranked (read-only; links to the full card). Order:
+// executable with evidence (soonest deadline first), executable without evidence, batch-queue
+// decisions in queue order, then non-executable. An unstated cost is "Unknown", never CA$0.00.
 import { h } from "../dom.js";
 import { card, statusPill } from "../components.js";
 import { formatMoney, relTime, utcStamp, UNKNOWN_TEXT } from "../format.js";

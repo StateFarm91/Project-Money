@@ -397,7 +397,10 @@ def test_cloudline_acceptance_dry_run_end_to_end_through_the_experiment_command(
         pass
     assert IP.restartable(db, key)["restartable"] is False
     ordinary = s["timeline"][0]["ordinary_run"]
-    assert ordinary is None or "image_generation gate closed" in ordinary   # never touched
+    # never touched: either the image gate refused it, or (since 19f, D-OWNER-SALE-PIPELINE) the
+    # earlier sale admission parked it before any generation was attempted
+    assert (ordinary is None or "image_generation gate closed" in ordinary
+            or ordinary == "waiting_for_sale_admission"), ordinary
 
 
 def test_shared_cap_is_counted_once_across_both_definitions():

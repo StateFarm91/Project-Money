@@ -1,6 +1,6 @@
 {
  "id": "exp-2026-10-21-cloudline-acceptance",
- "definition_version": 3,
+ "definition_version": 4,
  "kind": "pipeline",
  "purpose": "The first live acceptance test of autonomous image production on a CERTIFIED product (Cloudline Textured Baby Blanket 1.2.0): certified pattern, references, FLUX product-only flat lay, fidelity, Laura stage A identity anchor and lifestyle if eligible, gallery, approval card. Every image is labelled EXPERIMENT and never publishes.",
  "product": {
@@ -50,7 +50,7 @@
    "afe6191fb4c68d0a9c61229fe822a1032ee7c54150597210888db25b0f9ef0db",
    "f32bac686cba46c75e3ac193e72f2bcea4ba7ebc80355a102a4bed4bca3931e0"
   ],
-  "prompt_builder": "flux3-prompt-builder/2.1.1",
+  "prompt_builder": "flux3-prompt-builder/2.2.0",
   "prompt_sections": {
    "image.flux3.references@1": "3dacb26def17b5f9719295083b0b3d976f423b4b7813b2331f1dc9702188d443",
    "image.flux3.identity@2": "24a4f20b044b2c6e34af3968c2094eaea342a832cfdefaf8fa584cfb522a3ad6",
@@ -101,6 +101,14 @@
    "what": "pattern_references rules 74fb4bb5b528 -> 79b7c64e4782 and prompt_builder flux3-prompt-builder/2.1.0 -> 2.1.1; layout, texture, detail, product, cir_hash, Laura and every prompt section unchanged",
    "why": "Batch 6 integrated Codex V1 7d8d28e6 (reviewed in the visual stack V1-V5, d6b642dd): multi-component pieces are no longer described from their largest component, so pattern-refs 3.1.2 -> 3.1.3 changes the rules sheet's negatives (motif prohibitions qualified to motifs not in the certified pattern; a ribbed edge is no longer forbidden when ribbing is declared) and the builder version advances. The drift guard correctly refused the old pins in certification run 20261108T043424Z-16431 (test_w4_visnext2). The certified Cloudline 1.2.0 release and its content hash are unchanged.",
    "how": "the new values are exactly controlled.verify(...)['references'] on the certified release and flux_prompt.BUILDER_VERSION; no money was spent and nothing was authorized or reactivated. Any earlier authorization (bound to the definition sha256) no longer matches; the experiment stays unauthorized until the owner authorizes this version afresh."
+  },
+  {
+   "definition_version": 4,
+   "on": "2026-11-22",
+   "by": "INTEGRATOR v2 record-candidate-2",
+   "what": "prompt_builder flux3-prompt-builder/2.1.1 -> 2.2.0; layout, texture, detail, rules, product, cir_hash, Laura and every pinned prompt section hash unchanged",
+   "why": "eng/image-blocked 0674bd818 added a COUNTS section (prompt builder 2.2.0) stating the fidelity gate's own long/short ratio and repeat count. The drift guard correctly refused the old pin in inventory run 20261122T105135Z-594 (test_w4_visnext2). The certified Cloudline 1.2.0 release and its content hash are unchanged.",
+   "how": "the new value is exactly flux_prompt.BUILDER_VERSION and controlled.verify reports no other problem; no money was spent and nothing was authorized or reactivated. Any earlier authorization (bound to the definition sha256) no longer matches; the experiment stays unauthorized until the owner authorizes this version afresh."
   }
  ]
 }

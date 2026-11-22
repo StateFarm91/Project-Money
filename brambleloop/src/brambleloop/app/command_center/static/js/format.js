@@ -1,9 +1,5 @@
-// Formatting rules that carry truth, not just style.
-//
-// Money: a value the backend could not measure is UNKNOWN and renders as the word "Unknown".
-// It is never coerced to 0 and never printed as CA$0.00 -- CA$0.00 means a *measured* zero
-// (F-902, §95 "Disconnect an accounting source"). Estimated and modelled amounts carry a visible
-// basis label so a forecast cannot masquerade as booked money (F-905, F-913).
+// Formatting that carries truth. Unmeasured money is UNKNOWN and renders "Unknown", never 0 or
+// CA$0.00, which means a *measured* zero (F-902, §95). Estimates carry a basis label (F-905, F-913).
 
 export const UNKNOWN_TEXT = "Unknown";
 
@@ -25,10 +21,8 @@ export function isNonActual(basis) {
 }
 
 /**
- * Normalise every money shape the API may send into
- * {known: bool, amount: number|null, currency, basis, reason}.
- * Accepted: null, a number (treated as measured), {amount}, {amount_minor}, {cents},
- * {value}. status "UNKNOWN" or basis "unknown" always wins over any amount present.
+ * Normalise any API money shape (null, number = measured, {amount}, {amount_minor}, {cents},
+ * {value}) into {known, amount, currency, basis, reason}. UNKNOWN status/basis always wins.
  */
 export function moneyValue(v, fallbackCurrency = "CAD") {
   if (v === null || v === undefined) return { known: false, amount: null, currency: fallbackCurrency, basis: "unknown", reason: "" };

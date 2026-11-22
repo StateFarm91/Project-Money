@@ -1,7 +1,5 @@
-// LISTING IMAGES (W-OWNERIMG). Autonomous gallery production status per product, and the
-// optional owner upload fallback. The upload runs the same gates as autonomous production.
-// Owner approval of the look is a separate field. It never counts as technical verification
-// and never overrides a publication gate.
+// LISTING IMAGES (W-OWNERIMG): gallery status per product and the owner upload fallback (same
+// gates). Owner approval of the look is never technical verification and never overrides a gate.
 import { h, clear } from "../dom.js";
 import { api } from "../api.js";
 import { card, statusPill, toast } from "../components.js";
@@ -83,9 +81,8 @@ function uploadForm(products, out) {
 }
 
 // ---- gallery approval card (W-VISNEXT) ----
-// The images themselves, and three decisions that stay apart: your look (recorded, read by no
-// gate), technical certification (automated; your look cannot change it) and publication
-// authorization (step-up; every gate is re-checked when you press it).
+// Three separate decisions: your look (read by no gate), technical certification (automated)
+// and publication authorization (step-up; every gate re-checked).
 
 const DECISION_PILL = { approved: "OK", available: "OK", PASS: "OK", rejected: "BAD", FAIL: "BAD", not_available: "BAD" };
 

@@ -143,10 +143,7 @@ export function itemRow(item, { drill = true } = {}) {
   return h("li", { class: "row" }, ...inner);
 }
 
-/**
- * Render a provider envelope {status, as_of, basis, items, sources, reason} honestly. UNKNOWN
- * and BLOCKED statuses show their reason prominently instead of an empty list that looks fine.
- */
+/** A provider envelope, honestly: UNKNOWN/BLOCKED show their reason, never a fine-looking empty list. */
 /** W4-CCGAP: a release-time artefact says so in words, so it never reads as live. */
 export function releaseNote(env) {
   const ra = env && env.release_artefact;
@@ -202,12 +199,8 @@ export function toast(message, kind = "info") {
   toastTimer = setTimeout(() => { host.className = "toast"; }, 5000);
 }
 
-/**
- * Accessible confirmation dialog (native <dialog>, modal, focus-trapped by the browser).
- * Resolves {confirmed, reason, passphrase, totp}. With stepUp=true the owner must re-enter the
- * owner passphrase (and TOTP when the server requires it) before Confirm enables (F-887).
- * Credentials live only in the dialog's inputs and are wiped on close.
- */
+/** Accessible native <dialog>. Resolves {confirmed, reason, passphrase, totp}; stepUp=true needs
+ *  the passphrase (+TOTP if required) before Confirm (F-887). Inputs are wiped on close. */
 export function confirmDialog({ title, lines = [], confirmLabel = "Confirm", danger = false,
   stepUp = false, totpRequired = false, reasonLabel = null, reasonRequired = false }) {
   return new Promise((resolve) => {
@@ -261,10 +254,7 @@ export async function stepUpDialog({ totpRequired = false } = {}) {
   return r.confirmed ? { passphrase: r.passphrase, totp: r.totp } : null;
 }
 
-/**
- * Run a consequential call behind confirmation (+ step-up when needed). Shows the outcome in a
- * toast. Returns the response body or null when cancelled/refused.
- */
+/** Consequential call behind confirmation (+ step-up): outcome toast; body, or null if refused. */
 export async function guardedAction({ title, lines, confirmLabel, danger, requiresStepUp, reasonLabel,
   reasonRequired, run, success = "Done.", freshStepUp, onError }) {
   const needStepUp = !!requiresStepUp && (!!freshStepUp || !stepUpValid());
@@ -288,11 +278,8 @@ export { h, icon, clear };
 // ---- W4-CCFM1 (F-652 / F-670): a small, dependency-free bar chart ----
 const SVG = "http://www.w3.org/2000/svg";
 
-/**
- * Bar chart of a numeric series as inline SVG (no library, no innerHTML), with the exact
- * values in a folded table beneath it. `null` values are drawn as a gap and listed as Unknown,
- * never as 0. Colours come from the theme tokens, so light and dark both work.
- */
+/** Inline-SVG bar chart (no library, no innerHTML) with exact values in a folded table; null is a
+ *  gap listed as Unknown, never 0. Theme-token colours. */
 export function barChart(values, { labels = [], label = "Chart", format = (v) => String(v), height = 64 } = {}) {
   const vals = Array.isArray(values) ? values : [];
   const known = vals.filter((v) => typeof v === "number" && Number.isFinite(v));
