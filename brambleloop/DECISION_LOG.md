@@ -4517,3 +4517,7 @@ Batch 19h17 (code 765abfd15) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the o
 ## D-OWNER-DEPLOY-19h18 — 2026-11-22T00:24:29Z
 
 Batch 19h18 (code 1de83403a) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 5f3b171e2c99362fd50c9be68229d43ee793c998 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-DEPLOY-19i1 — 2026-11-22T00:27:56Z
+
+Batch 19i1 (code c99d110c6) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to b253437a2efd640a26334d0fc9f8f04a5394be50 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
