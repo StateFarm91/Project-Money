@@ -53,7 +53,7 @@ def test_refusals_are_counted_by_provider_and_code():
     acts = out["activations"]
     assert set(acts) == {"flux-3-image:generation", "openai-vision:vision"}, acts
     assert acts["openai-vision:vision"]["active"] is False
-    assert acts["openai-vision:vision"]["reason"] == "not_activated_by_owner"
+    assert acts["openai-vision:vision"]["state_code"] == "not_activated_by_owner"
     assert acts["openai-vision:vision"]["directive_sunset_at"]
     assert out["concept_judge"]["route_now"] == "none", out["concept_judge"]
 

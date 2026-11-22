@@ -15,7 +15,7 @@ These fields are added to `factory_visibility.paid_call_dedupe`. They carry coun
 
 - `refusals_by_provider_code`: the gate's `paid_provider.refused` audits by provider and by its fixed code (`provider_daily_ceiling`, `no_budget_reservation`, `reservation_already_used`, `retry_ceiling`, `not_activated_by_owner`, ...).
 - `declined_by_provider_class`: DECLINED intents by provider and by error class (`gate_refused`, `budget`, `no_key`, `auth`, `rate_limited`, `timeout`, `other`).
-- `activations[provider:scope]`: active, reason, status, expires_at, directive_sunset_at, daily_ceiling_cad, spent_or_reserved_today_cad, reserved_older_than_1h, calls_in_window_by_status.
+- `activations[provider:scope]`: active, state_code, status, expires_at, directive_sunset_at, daily_ceiling_cad, spent_or_reserved_today_cad, reserved_older_than_1h, calls_in_window_by_status.
 - `concept_judge`: the last `creative.regate` time, and whether it found vision usable; judged and held counts; the route now; openai_route_usable; openai_key_present.
 
 ## Tests

@@ -528,7 +528,7 @@ def _paid_refusals(db, *, now: datetime, since: datetime) -> dict:
                                            .group_by(G.PaidProviderCall.status)).all())
                 out["activations"][f"{prov}:{scope}"] = {
                     "active": bool(st.get("active")),
-                    "reason": str(st.get("reason") or "")[:40],
+                    "state_code": str(st.get("reason") or "")[:40],
                     "status": act.get("status"), "expires_at": act.get("expires_at"),
                     "directive_sunset_at": OD.SUNSET.isoformat(),
                     "daily_ceiling_cad": act.get("daily_ceiling_cad"),
