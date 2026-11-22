@@ -307,3 +307,12 @@ tests/test_etsy_exercise.py
 tests/test_supply_feed.py
 tests/test_amigurumi_judging.py
 tests/test_halt_380_live.py
+tests/test_audit_budget_scan.py
+tests/test_audit_no_duplicate_dict_keys.py
+tests/test_audit_retention_classes.py
+tests/test_audit_table_scans.py
+tests/test_audit_utc_process.py
+tests/test_image_daily_ceiling_redrive.py
+tests/test_keys_19i4.py
+tests/test_mc_perf.py
+tests/test_paid_refusals.py
