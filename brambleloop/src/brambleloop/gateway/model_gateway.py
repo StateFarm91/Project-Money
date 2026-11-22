@@ -116,7 +116,9 @@ def available_providers() -> list[str]:
     out = []
     if os.environ.get("ANTHROPIC_API_KEY"):
         out.append("anthropic")
-    if os.environ.get("OPENAI_API_KEY"):
+    from .openai_chat import key_present as _openai_key_present
+
+    if _openai_key_present():
         out.append("openai")
     return out
 

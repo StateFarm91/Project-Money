@@ -119,10 +119,14 @@ def _png(name: str, colour=(200, 40, 60)) -> str:
 def _openai_only(db):
     paid.activate(db, G.OPENAI_VISION, G.VISION, daily=2.0, monthly=10.0, per_gallery=1.0)
     assert not gw.vision_usable(db), "Anthropic vision stays closed, as in production"
+    # KEYS-19i4: the openai route is usable only with a credential present, as production now
+    # holds one (BRAMBLELOOP_IMAGE_KEY_OPENAI); without one nothing could be judged.
+    os.environ.setdefault("BRAMBLELOOP_IMAGE_KEY_OPENAI", "fixture-key-not-a-secret")
 
 
 def test_no_route_sends_nothing_and_stays_unjudged():
     db = _db()
+    os.environ.pop("BRAMBLELOOP_IMAGE_KEY_OPENAI", None)
     assert VR.vision_open(db) is False
     vendor, provider = VR.choose(db)
     assert vendor is None and isinstance(provider, VR.NoVisionJudge)

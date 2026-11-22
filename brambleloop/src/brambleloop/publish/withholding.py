@@ -255,10 +255,13 @@ def reconcile(db, slug: str, version: str, *, standards: dict) -> dict:
     veto = standards.get("veto") or {}
     record(db, slug, version, kind=OWNER_VETO,
            reason=(f"owner veto (#228): {veto.get('why')}" if veto.get("vetoed") else None))
-    below = [c for c in (standards.get("competitive") or []) if c.get("verdict") != "met"]
+    # D-OWNER-COMPETITIVE-BAR: an advisory standard never withholds; a binding one is judged
+    # against its effective bar (a verdict written without the ruling's fields binds as is).
+    below = [c for c in (standards.get("competitive") or [])
+             if c.get("binding_verdict", c.get("verdict")) not in ("met", "advisory")]
     record(db, slug, version, kind=COMPETITIVE_STANDARD,
            reason=(("competitive standard (#220): "
-                    + "; ".join(f"{c['standard']} bar {c['bar']}, ours "
+                    + "; ".join(f"{c['standard']} bar {c.get('effective_bar', c['bar'])}, ours "
                                 f"{c['ours'] if c.get('ours') is not None else 'unmeasured'}"
                                 for c in below)) if below else None))
     teardown = standards.get("teardown") or {}

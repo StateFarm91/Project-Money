@@ -4547,3 +4547,40 @@ Batch 19i3 (code 916a348ee) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the ow
 ## D-OWNER-DEPLOY-19h21 — 2026-11-22T01:46:46Z
 
 Batch 19h21 (code 9c18a8b78) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 019005b6d08b1bc6340f6b133235196405fb43a1 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-COMPETITIVE-BAR — 2026-11-22T02:05Z
+
+**Decision (owner).** The owner was asked how the "match the best competitor" check (#220) should work. Production showed certification withheld on every release for competitive_standard:
+
+| Standard | Benchmark bar | Ours |
+|---|---|---|
+| Gallery images | 20 | 6–7 |
+| Size options | 9 | 1 |
+| Video | 1 | 0 |
+
+No video production path exists. The owner chose **"Ship without video"**: "Drop the video requirement and require 7 photos instead of matching the top seller's 20. Size options become advisory. All other checks stay the same."
+
+**Implemented (19i5).** `release_gates.competitive_binding` applies the ruling:
+- `video_in_gallery` and `size_options` are advisory. They are still read, recorded and reported in `competitive_now`, but they never withhold or block.
+- `gallery_images` binds at min(benchmark, 7). A benchmark bar below 7 still binds as set.
+- Every other standard binds exactly as the benchmark sets it.
+
+The benchmark bar and its verdict are still reported unchanged beside the binding verdict, so nothing is hidden. The other withholding kinds, the teardown requirements, the owner veto and all other gates are unchanged.
+
+Tests: `tests/test_competitive_bar.py`.
+## D-ENG-KEYS-19I4 — 2026-11-22T02:20Z
+**What production showed (19i3, 01:58Z).** The concept judge chose its openai route, but `openai_key_present` read false. The code read only `OPENAI_API_KEY`, while Railway holds the OpenAI account's key as `BRAMBLELOOP_IMAGE_KEY_OPENAI` (the image provider's per-account variable). All 52 declined FLUX calls read "auth" (a 401 or 403), but nothing showed which part refused them.
+**Decisions.**
+1. **One account, one secret.** The OpenAI chat and vision calls read `OPENAI_API_KEY`, falling back to `BRAMBLELOOP_IMAGE_KEY_OPENAI` (`openai_chat.api_key`). Presence is reported as a boolean only.
+2. **No credential, closed route.** The concept judge's openai route counts as usable only when a credential is present. A closure caused by a failure before the current deploy lifts on the next deploy. A failure on the current deploy still closes the route for 24 h.
+3. **FLUX auth was verified in code, not changed.** The FLUX request shape matches BFL's contract: `x-key` on submit and poll at api.bfl.ai, and no auth header on the presigned result download. A test now pins it. The 401/403s are therefore the provider refusing this key, or this key's access to `flux-3-image`, not the code's wiring. The readback now shows:
+   - each declined render's HTTP status and a fixed-code provider reason (`key_format`, `not_authenticated`, `key_rejected`, `credit`, `no_model_access`, `content`, `forbidden`, `other`);
+   - the latest free credential reading per provider (BFL `/v1/credits`), which now runs once per deploy at boot.
+   If that reading says REJECTED, the owner action is a valid key in `BRAMBLELOOP_IMAGE_KEY_BFL`. If it says OK while renders get `no_model_access`, the account lacks API access to FLUX 3 Image.
+No cap, gate or activation changed. No key value was read, logged or stored.
+## D-OWNER-DEPLOY-19i4 — 2026-11-22T02:26:08Z
+Batch 19i4 (code aac59790c) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 8c39c8137be5e84ae9e289365255e41f6a1a0bdf was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-DEPLOY-19i5 — 2026-11-22T02:35:19Z
+
+Batch 19i5 (code 79239233a) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 11086c3d2ae9460628be95bdaf036ab923a1b358 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
