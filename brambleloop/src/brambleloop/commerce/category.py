@@ -482,6 +482,26 @@ def _decide(prop: dict, facts: Facts) -> dict:
                     f"pattern; it cannot be called complete until one does")}
 
 
+def _variation_only(prop: dict) -> dict | None:
+    """NOT_APPLICABLE for a property Etsy itself says is not a listing attribute, else None.
+
+    Etsy returns its custom-variation properties (Size, Dimensions, Fabric, Flavor, Scent,
+    Width, ...) in every node's schema with `supports_attributes: false` -- "When true, you
+    can use this property in listing properties" (getPropertiesByTaxonomyId). Such a
+    property cannot be set by `updateListingProperty` at all; it only names a variation, and
+    a single-file PDF listing has none. Only an explicit `False` from Etsy decides this: a
+    missing or null flag is not evidence and goes through the rules like any property, and a
+    property Etsy marks required is never waved through here.
+    """
+    if prop.get("supports_attributes") is not False or prop.get("is_required"):
+        return None
+    return {"property_id": prop.get("property_id"), "name": prop.get("name"),
+            "is_required": False, "status": NOT_APPLICABLE,
+            "why": (f"Etsy's schema marks {prop.get('name')!r} supports_attributes=false: it "
+                    "is a variation property, not a listing attribute, and this listing "
+                    "has no variations")}
+
+
 def _crochet_decision(prop: dict, basis: dict) -> dict:
     """The property that makes this node a crochet node is set to Etsy's own Crochet value."""
     return {"property_id": prop.get("property_id"), "name": prop.get("name"),
@@ -504,7 +524,8 @@ def properties_for(snapshot: dict | None, choice: CategoryChoice, facts: Facts) 
                 "filters": {"entered": [], "lost": [], "measurable": False}}
     basis = choice.crochet_basis or {}
     decisions = [_crochet_decision(p, basis) if basis.get("via") == "property"
-                 and p.get("property_id") == basis.get("property_id") else _decide(p, facts)
+                 and p.get("property_id") == basis.get("property_id")
+                 else _variation_only(p) or _decide(p, facts)
                  for p in raw]
     gaps = [d for d in decisions if d["status"] in (MISSING, UNDECIDED)]
     payload = [{"property_id": d["property_id"], "value_ids": d["value_ids"],
