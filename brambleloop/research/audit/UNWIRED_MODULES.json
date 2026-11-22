@@ -1,0 +1,682 @@
+{
+ "finding": "F-08 (2026-11-22 full-system audit): modules under src/brambleloop with no production importer",
+ "scanned_at": "2026-11-22",
+ "base_commit": "f9011cf94",
+ "scanner": "brambleloop/tests/test_audit_module_reachability.py (the guard; it fails if a module without a production importer is missing here, or if an entry here becomes wired or disappears)",
+ "meaning": {
+  "UNWIRED_CAPABILITY": "A real capability with tests, but no production module imports it and no deployed command runs it. It EXISTS but is NOT WIRED INTO PRODUCTION: a green test for it is not evidence that the system uses it.",
+  "ENTRYPOINT/TOOL": "Run as a command (a Railway service start command, an operator `python -m`, or a script); run_by names it. Not imported by production code by design.",
+  "TEST_SUPPORT": "A _testkit helper that only tests import, by design."
+ },
+ "counts": {
+  "ENTRYPOINT/TOOL": 13,
+  "TEST_SUPPORT": 2,
+  "UNWIRED_CAPABILITY": 43
+ },
+ "modules": [
+  {
+   "module": "brambleloop.analytics.content_economics",
+   "path": "brambleloop/src/brambleloop/analytics/content_economics.py",
+   "lines": 123,
+   "claim": "Content economics (F-825) -- W4-C14.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c14_feedback.py"
+   ]
+  },
+  {
+   "module": "brambleloop.app.command_center.snapshots.__main__",
+   "path": "brambleloop/src/brambleloop/app/command_center/snapshots/__main__.py",
+   "lines": 3,
+   "claim": "(no docstring)",
+   "classification": "ENTRYPOINT/TOOL",
+   "run_by": "operator/script: `python -m brambleloop.app.command_center.snapshots` -- documented in brambleloop/src/brambleloop/app/command_center/company.py, brambleloop/src/brambleloop/app/command_center/snapshots/__init__.py, brambleloop/tests/test_w4_cc_snapshots.py",
+   "covered_by": []
+  },
+  {
+   "module": "brambleloop.app.issuer_entry",
+   "path": "brambleloop/src/brambleloop/app/issuer_entry.py",
+   "lines": 81,
+   "claim": "WS4-7: the policy-issuer service -- the only process that can mint a standing grant.",
+   "classification": "ENTRYPOINT/TOOL",
+   "run_by": "Railway policy-issuer service `python -m brambleloop.app.issuer_entry` (research/final_build/ws4/WS4_7_MODE_T.md; set in Railway, not railway.json)",
+   "covered_by": [
+    "brambleloop/scripts/ws4_7_measure_rss.py",
+    "brambleloop/tests/test_ws4_7_issuer.py",
+    "brambleloop/tests/test_ws4_7_postgres.py",
+    "brambleloop/tests/test_ws4_8_stage_a_wiring.py"
+   ]
+  },
+  {
+   "module": "brambleloop.app.scheduler_entry",
+   "path": "brambleloop/src/brambleloop/app/scheduler_entry.py",
+   "lines": 69,
+   "claim": "Scheduler entrypoint -- run on a cron (Railway cron service) or as a loop.",
+   "classification": "ENTRYPOINT/TOOL",
+   "run_by": "Railway scheduler service start command `python -m brambleloop.app.scheduler_entry` (research/final_build/v1_1/CLOUD_HOSTING_PLAN.md; set in Railway, not railway.json)",
+   "covered_by": [
+    "brambleloop/research/final_build/v1_1/CLOUD_HOSTING_PLAN.md",
+    "brambleloop/tests/test_cert_claude_independence.py"
+   ]
+  },
+  {
+   "module": "brambleloop.app.worker_entry",
+   "path": "brambleloop/src/brambleloop/app/worker_entry.py",
+   "lines": 104,
+   "claim": "Worker process entrypoint.",
+   "classification": "ENTRYPOINT/TOOL",
+   "run_by": "Railway worker service start command `python -m brambleloop.app.worker_entry` (research/final_build/v1_1/CLOUD_HOSTING_PLAN.md; set in Railway, not railway.json)",
+   "covered_by": [
+    "brambleloop/research/final_build/v1_1/CLOUD_HOSTING_PLAN.md",
+    "brambleloop/scripts/ws4_7_measure_rss.py",
+    "brambleloop/tests/test_cert_claude_independence.py",
+    "brambleloop/tests/test_ws4_7_issuer.py"
+   ]
+  },
+  {
+   "module": "brambleloop.autonomy.map",
+   "path": "brambleloop/src/brambleloop/autonomy/map.py",
+   "lines": 330,
+   "claim": "The autonomy map, generated from the code that is actually wired (directive \u00a73).",
+   "classification": "ENTRYPOINT/TOOL",
+   "run_by": "operator/script: `python -m brambleloop.autonomy.map` -- documented in brambleloop/research/final_build/v1_1/AUTONOMY_MAP_AUDIT.md, brambleloop/research/final_build/w3/handoff_WIRE4.md, brambleloop/research/final_build/w4/AGENTS.md, brambleloop/research/final_build/w4/VISFIX.md",
+   "covered_by": [
+    "brambleloop/research/final_build/v1_1/AUTONOMY_MAP_AUDIT.md",
+    "brambleloop/research/final_build/w3/handoff_WIRE4.md",
+    "brambleloop/research/final_build/w4/AGENTS.md",
+    "brambleloop/research/final_build/w4/VISFIX.md",
+    "brambleloop/research/final_build/w4/VISNEXT.md",
+    "brambleloop/research/final_build/w5/CODEX_WO_P0_LEARNING_REFERENCE.md",
+    "brambleloop/research/final_build/w6/review_requests/BATCH19D.md",
+    "brambleloop/research/final_build/w6/review_requests/ENG-PDF-TEMPLATE.md",
+    "brambleloop/research/final_build/w6/review_requests/FIX-B19C.md",
+    "brambleloop/research/final_build/w6/review_requests/concepts100_slice1.md",
+    "brambleloop/research/final_build/w6/review_requests/garment_slice3.md",
+    "brambleloop/research/final_build/w6/review_requests/learn_slice3.md",
+    "brambleloop/research/final_build/w6/review_requests/pdf_premium_slice1.md",
+    "brambleloop/research/final_build/w6/review_requests/vis_identity_slice2.md",
+    "brambleloop/research/final_build/w6/review_requests/wardrobe_scenes_slice1.md",
+    "brambleloop/tests/test_motif_backlog.py",
+    "brambleloop/tests/test_v11_autonomy_timeline.py",
+    "brambleloop/tests/test_w3_reachability_dynamic.py",
+    "brambleloop/tests/test_w4_c12_wiring.py"
+   ]
+  },
+  {
+   "module": "brambleloop.brand.fontbuild",
+   "path": "brambleloop/src/brambleloop/brand/fontbuild.py",
+   "lines": 214,
+   "claim": "Build-time tool: outline the identity's open-licence fonts into `data/glyphs.json`.",
+   "classification": "ENTRYPOINT/TOOL",
+   "run_by": "operator/script: `python -m brambleloop.brand.fontbuild` -- documented in brambleloop/src/brambleloop/brand/fontbuild.py",
+   "covered_by": []
+  },
+  {
+   "module": "brambleloop.brand.iterations",
+   "path": "brambleloop/src/brambleloop/brand/iterations.py",
+   "lines": 59,
+   "claim": "Rejected iterations of the winning direction's icon, kept as evidence of the iteration.",
+   "classification": "ENTRYPOINT/TOOL",
+   "run_by": "research script research/final_build/w3/A_build_sheets.py (builds the brand identity contact sheets; imports it as IT to show the rejected icon iterations). Not dead: deleting it breaks that script.",
+   "covered_by": [
+    "brambleloop/research/final_build/w3/A_build_sheets.py"
+   ]
+  },
+  {
+   "module": "brambleloop.brand.owner_proofs",
+   "path": "brambleloop/src/brambleloop/brand/owner_proofs.py",
+   "lines": 298,
+   "claim": "Proof sheets and small-size measurements for the owner-concept identity (O1, D-FB-16).",
+   "classification": "ENTRYPOINT/TOOL",
+   "run_by": "operator/script: `python -m brambleloop.brand.owner_proofs` -- documented in brambleloop/research/final_build/w3/A3_IDENTITY_SYSTEM.md, brambleloop/src/brambleloop/brand/owner_proofs.py",
+   "covered_by": [
+    "brambleloop/research/final_build/w3/A3_IDENTITY_SYSTEM.md",
+    "brambleloop/tests/test_w3_brand_owner_identity.py"
+   ]
+  },
+  {
+   "module": "brambleloop.build2.final_proof",
+   "path": "brambleloop/src/brambleloop/build2/final_proof.py",
+   "lines": 185,
+   "claim": "Audit an evidence packet, never award COMPLETE+PROVEN.",
+   "classification": "ENTRYPOINT/TOOL",
+   "run_by": "operator/script: `python -m brambleloop.build2.final_proof` -- documented in brambleloop/research/final_build/w4/evidence_FMEND_c131f07/SUMMARY.json, brambleloop/research/final_build/w4/evidence_RELEASE_7421ef6/SUMMARY.json",
+   "covered_by": [
+    "brambleloop/research/final_build/w4/evidence_FMEND_c131f07/SUMMARY.json",
+    "brambleloop/research/final_build/w4/evidence_RELEASE_7421ef6/SUMMARY.json",
+    "brambleloop/tests/test_final_proof.py",
+    "brambleloop/tests/test_w4_close6_proof.py",
+    "brambleloop/tests/test_w4_fmend_packets.py"
+   ]
+  },
+  {
+   "module": "brambleloop.core.backup",
+   "path": "brambleloop/src/brambleloop/core/backup.py",
+   "lines": 125,
+   "claim": "Backup and restore with a verification drill (Master Plan section 28, Gate A).",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_acceptance_gates.py",
+    "brambleloop/tests/test_platform.py"
+   ]
+  },
+  {
+   "module": "brambleloop.core.contract_pins",
+   "path": "brambleloop/src/brambleloop/core/contract_pins.py",
+   "lines": 81,
+   "claim": "F-482: the contract-change barrier -- a shared contract cannot drift silently (test pins).",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_fmbatch1_contracts.py",
+    "brambleloop/tests/test_w4_wire1_routes.py"
+   ]
+  },
+  {
+   "module": "brambleloop.finance.accounting.guardrails",
+   "path": "brambleloop/src/brambleloop/finance/accounting/guardrails.py",
+   "lines": 69,
+   "claim": "What the Accountant agent must never be able to do (F-917).",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_v11_accounting_controller.py"
+   ]
+  },
+  {
+   "module": "brambleloop.finance.accounting.shadow_dataset",
+   "path": "brambleloop/src/brambleloop/finance/accounting/shadow_dataset.py",
+   "lines": 260,
+   "claim": "A realistic SYNTHETIC shadow dataset, for tests and the runtime proof only.",
+   "classification": "ENTRYPOINT/TOOL",
+   "run_by": "operator/script: `python -m brambleloop.finance.accounting.shadow_dataset` -- documented in brambleloop/research/final_build/v1_1/handoff_E.md, brambleloop/src/brambleloop/finance/accounting/shadow_dataset.py",
+   "covered_by": [
+    "brambleloop/research/final_build/audit_ddf9c6e/_h.py",
+    "brambleloop/research/final_build/audit_ddf9c6e/p09_fx_label.py",
+    "brambleloop/research/final_build/audit_ddf9c6e/p13_stale.py",
+    "brambleloop/research/final_build/audit_ddf9c6e/p15_books_cash.py",
+    "brambleloop/research/final_build/v1_1/handoff_E.md",
+    "brambleloop/tests/test_r2_finance_close.py",
+    "brambleloop/tests/test_r2_finance_money.py",
+    "brambleloop/tests/test_r2_finance_views.py",
+    "brambleloop/tests/test_v11_accounting_controller.py",
+    "brambleloop/tests/test_v11_accounting_drill.py",
+    "brambleloop/tests/test_v11_accounting_ledger.py",
+    "brambleloop/tests/test_v11_accounting_money.py",
+    "brambleloop/tests/test_v11_accounting_reconciliation.py"
+   ]
+  },
+  {
+   "module": "brambleloop.gateway.evals",
+   "path": "brambleloop/src/brambleloop/gateway/evals.py",
+   "lines": 121,
+   "claim": "Eval fixtures for model-backed steps (Master Plan section 27).",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_gateway.py"
+   ]
+  },
+  {
+   "module": "brambleloop.growth.ads_decisions",
+   "path": "brambleloop/src/brambleloop/growth/ads_decisions.py",
+   "lines": 168,
+   "claim": "Ads funnel, learning-window discipline, stop/scale and diagnosis routing (F-266, F-269,",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c10_paid_media.py"
+   ]
+  },
+  {
+   "module": "brambleloop.growth.ads_ledger",
+   "path": "brambleloop/src/brambleloop/growth/ads_ledger.py",
+   "lines": 129,
+   "claim": "Paid experiment ledger (F-274) -- W4-C10.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c10_paid_media.py"
+   ]
+  },
+  {
+   "module": "brambleloop.growth.ads_plan",
+   "path": "brambleloop/src/brambleloop/growth/ads_plan.py",
+   "lines": 139,
+   "claim": "Etsy Ads learning-test planner (F-264, F-265, F-615) -- W4-C10.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c10_paid_media.py"
+   ]
+  },
+  {
+   "module": "brambleloop.growth.attach",
+   "path": "brambleloop/src/brambleloop/growth/attach.py",
+   "lines": 112,
+   "claim": "Cross-sell attach rate, optimised without misleading (F-775) -- W4-C10.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c10_paid_media.py"
+   ]
+  },
+  {
+   "module": "brambleloop.growth.plus_credit",
+   "path": "brambleloop/src/brambleloop/growth/plus_credit.py",
+   "lines": 88,
+   "claim": "Etsy Plus credit wallet (F-614) -- W4-C10.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c10_paid_media.py"
+   ]
+  },
+  {
+   "module": "brambleloop.improve.challenger_runs",
+   "path": "brambleloop/src/brambleloop/improve/challenger_runs.py",
+   "lines": 223,
+   "claim": "F-699: prompt and model challengers that actually run, under an owner-approved reservation.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c03_improvement.py"
+   ]
+  },
+  {
+   "module": "brambleloop.launch.mix",
+   "path": "brambleloop/src/brambleloop/launch/mix.py",
+   "lines": 161,
+   "claim": "Launch-mix evaluation (F-366) and autonomous category rebalancing (F-370) -- W4-INTELREC C06.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_intelrec_c06.py"
+   ]
+  },
+  {
+   "module": "brambleloop.launch.non_delay",
+   "path": "brambleloop/src/brambleloop/launch/non_delay.py",
+   "lines": 135,
+   "claim": "F-515@v0.15 Launch Non-Delay Rule: once the floors pass, the launch list is frozen.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c13_etsy_ops.py"
+   ]
+  },
+  {
+   "module": "brambleloop.laura.executive.proof",
+   "path": "brambleloop/src/brambleloop/laura/executive/proof.py",
+   "lines": 135,
+   "claim": "Runtime proof for Laura's executive layer: the real embedded runner, SHADOW, temp SQLite.",
+   "classification": "ENTRYPOINT/TOOL",
+   "run_by": "operator/script: `python -m brambleloop.laura.executive.proof` -- documented in brambleloop/src/brambleloop/laura/executive/proof.py",
+   "covered_by": []
+  },
+  {
+   "module": "brambleloop.laura.private._testkit",
+   "path": "brambleloop/src/brambleloop/laura/private/_testkit.py",
+   "lines": 81,
+   "claim": "Fixtures for tests/test_w3_priv_*.py. Neutral sentinel data only -- no personal content.",
+   "classification": "TEST_SUPPORT",
+   "covered_by": [
+    "brambleloop/research/final_build/w3/F_runtime_proof.py",
+    "brambleloop/tests/test_w3_laura_cc_private.py",
+    "brambleloop/tests/test_w3_priv_access.py",
+    "brambleloop/tests/test_w3_priv_continuity.py",
+    "brambleloop/tests/test_w3_priv_firewall.py",
+    "brambleloop/tests/test_w3_priv_leak.py",
+    "brambleloop/tests/test_w3_priv_provenance.py",
+    "brambleloop/tests/test_w3_priv_store.py",
+    "brambleloop/tests/test_w4_laura1_briefing.py",
+    "brambleloop/tests/test_w4_laura_unified.py",
+    "brambleloop/tests/test_w4_pl_auth.py",
+    "brambleloop/tests/test_w4_pl_boundary.py",
+    "brambleloop/tests/test_w4_pl_continuity.py",
+    "brambleloop/tests/test_w4_pl_leak.py",
+    "brambleloop/tests/test_w4_pl_reply.py",
+    "brambleloop/tests/test_w4_plact.py",
+    "brambleloop/tests/test_w4_venice.py"
+   ]
+  },
+  {
+   "module": "brambleloop.learn.beginner_sim",
+   "path": "brambleloop/src/brambleloop/learn/beginner_sim.py",
+   "lines": 179,
+   "claim": "Beginner failure simulation (F-823) -- W4-C11.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c11_learn.py"
+   ]
+  },
+  {
+   "module": "brambleloop.learn.distribution",
+   "path": "brambleloop/src/brambleloop/learn/distribution.py",
+   "lines": 84,
+   "claim": "Multi-channel product distribution from one canonical record (F-772) -- W4-C11.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c11_learn.py"
+   ]
+  },
+  {
+   "module": "brambleloop.learn.freshness",
+   "path": "brambleloop/src/brambleloop/learn/freshness.py",
+   "lines": 145,
+   "claim": "Lesson content freshness (F-818) -- W4-C11.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c11_learn.py"
+   ]
+  },
+  {
+   "module": "brambleloop.learn.gauge",
+   "path": "brambleloop/src/brambleloop/learn/gauge.py",
+   "lines": 125,
+   "claim": "Gauge learning system (F-809) -- W4-C11.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c11_learn.py"
+   ]
+  },
+  {
+   "module": "brambleloop.learn.ladder",
+   "path": "brambleloop/src/brambleloop/learn/ladder.py",
+   "lines": 76,
+   "claim": "Free-to-paid content ladder (F-771, F-811) -- W4-C11.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c11_learn.py"
+   ]
+  },
+  {
+   "module": "brambleloop.learn.lead_magnets",
+   "path": "brambleloop/src/brambleloop/learn/lead_magnets.py",
+   "lines": 97,
+   "claim": "Free lead magnets (F-810) -- W4-C11.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c11_learn.py"
+   ]
+  },
+  {
+   "module": "brambleloop.learn.linking",
+   "path": "brambleloop/src/brambleloop/learn/linking.py",
+   "lines": 114,
+   "claim": "Internal linking engine (F-816) -- W4-C11.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c11_learn.py"
+   ]
+  },
+  {
+   "module": "brambleloop.learn.seo",
+   "path": "brambleloop/src/brambleloop/learn/seo.py",
+   "lines": 97,
+   "claim": "Education SEO (F-817) -- W4-C11.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c11_learn.py"
+   ]
+  },
+  {
+   "module": "brambleloop.learn.teaching_loop",
+   "path": "brambleloop/src/brambleloop/learn/teaching_loop.py",
+   "lines": 174,
+   "claim": "Continuous teaching improvement (F-829) -- W4-C11.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c11_learn.py"
+   ]
+  },
+  {
+   "module": "brambleloop.learn.video_contract",
+   "path": "brambleloop/src/brambleloop/learn/video_contract.py",
+   "lines": 69,
+   "claim": "Pattern video contract (F-813) -- W4-C11.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c11_learn.py"
+   ]
+  },
+  {
+   "module": "brambleloop.ops.overnight_grade",
+   "path": "brambleloop/src/brambleloop/ops/overnight_grade.py",
+   "lines": 317,
+   "claim": "F-895 Overnight Autonomy: grade one unattended night, read straight after a deploy.",
+   "classification": "ENTRYPOINT/TOOL",
+   "run_by": "operator/script: `python -m brambleloop.ops.overnight_grade` -- documented in brambleloop/research/final_build/w4/OVERNIGHT.md",
+   "covered_by": [
+    "brambleloop/research/final_build/w4/OVERNIGHT.md",
+    "brambleloop/tests/test_w4_overnight_grade.py"
+   ]
+  },
+  {
+   "module": "brambleloop.publish.wearable_pdf",
+   "path": "brambleloop/src/brambleloop/publish/wearable_pdf.py",
+   "lines": 337,
+   "claim": "ENG-GARMENT-2: the wearable pattern PDF, every size in one document, US and UK editions.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_eng_garment2.py"
+   ]
+  },
+  {
+   "module": "brambleloop.quality.benchmark_e2e",
+   "path": "brambleloop/src/brambleloop/quality/benchmark_e2e.py",
+   "lines": 118,
+   "claim": "The benchmark pattern as a recurring end-to-end test (F-678) -- W4-C07.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c07_product_dev.py"
+   ]
+  },
+  {
+   "module": "brambleloop.quality.evidence_request",
+   "path": "brambleloop/src/brambleloop/quality/evidence_request.py",
+   "lines": 78,
+   "claim": "Physical evidence specificity (F-876) -- W4-C07.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c07_product_dev.py"
+   ]
+  },
+  {
+   "module": "brambleloop.quality.make_time",
+   "path": "brambleloop/src/brambleloop/quality/make_time.py",
+   "lines": 90,
+   "claim": "Make-time distribution calibration (F-083) -- W4-C07.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c07_product_dev.py"
+   ]
+  },
+  {
+   "module": "brambleloop.quality.material_enhancement",
+   "path": "brambleloop/src/brambleloop/quality/material_enhancement.py",
+   "lines": 79,
+   "claim": "Bounded material enhancement (F-855) -- W4-C07.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c07_product_dev.py"
+   ]
+  },
+  {
+   "module": "brambleloop.quality.reference_defects",
+   "path": "brambleloop/src/brambleloop/quality/reference_defects.py",
+   "lines": 104,
+   "claim": "Reference defect feedback loop (F-758) -- W4-C07.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c07_product_dev.py"
+   ]
+  },
+  {
+   "module": "brambleloop.quality.stitch_benchmarks",
+   "path": "brambleloop/src/brambleloop/quality/stitch_benchmarks.py",
+   "lines": 84,
+   "claim": "Distinctive-stitch benchmark set and its promotion gate (F-759) -- W4-C07.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c07_product_dev.py"
+   ]
+  },
+  {
+   "module": "brambleloop.quality.structural_truth",
+   "path": "brambleloop/src/brambleloop/quality/structural_truth.py",
+   "lines": 104,
+   "claim": "3D structural truth acceptance (F-675) -- W4-C07.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c07_product_dev.py"
+   ]
+  },
+  {
+   "module": "brambleloop.quality.visual_graduation",
+   "path": "brambleloop/src/brambleloop/quality/visual_graduation.py",
+   "lines": 61,
+   "claim": "Blind original graduation for product-only Visual V2 (F-857) -- W4-C07.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c07_product_dev.py"
+   ]
+  },
+  {
+   "module": "brambleloop.radar.report",
+   "path": "brambleloop/src/brambleloop/radar/report.py",
+   "lines": 170,
+   "claim": "Render the scored opportunity pool as a document a human can argue with.",
+   "classification": "ENTRYPOINT/TOOL",
+   "run_by": "operator/script: `python -m brambleloop.radar.report` -- documented in brambleloop/reports/opportunity_pool.md, brambleloop/src/brambleloop/radar/report.py",
+   "covered_by": []
+  },
+  {
+   "module": "brambleloop.runtime.awaiting",
+   "path": "brambleloop/src/brambleloop/runtime/awaiting.py",
+   "lines": 56,
+   "claim": "F-464: no waiter occupancy -- wait on a durable external operation without holding a",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_fmbatch1_awaiting.py"
+   ]
+  },
+  {
+   "module": "brambleloop.seo._testkit",
+   "path": "brambleloop/src/brambleloop/seo/_testkit.py",
+   "lines": 57,
+   "claim": "Test support for tests/test_v11_seo_*.py (lane G). Hermetic: temp SQLite, no network.",
+   "classification": "TEST_SUPPORT",
+   "covered_by": [
+    "brambleloop/tests/test_v11_seo_cycle.py",
+    "brambleloop/tests/test_v11_seo_proposals.py",
+    "brambleloop/tests/test_v11_seo_taxonomy.py",
+    "brambleloop/tests/test_v11_seo_truth.py",
+    "brambleloop/tests/test_w3_seo_constraints.py",
+    "brambleloop/tests/test_w3_seo_learning.py",
+    "brambleloop/tests/test_w3_seo_strategy.py"
+   ]
+  },
+  {
+   "module": "brambleloop.seo.shop",
+   "path": "brambleloop/src/brambleloop/seo/shop.py",
+   "lines": 197,
+   "claim": "Shop-level SEO: recommendations for lane C's store copy, and a checker for whatever C ships.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w3_seo_learning.py"
+   ]
+  },
+  {
+   "module": "brambleloop.support.community",
+   "path": "brambleloop/src/brambleloop/support/community.py",
+   "lines": 105,
+   "claim": "Community feedback loop (F-820) -- W4-C14.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c14_feedback.py"
+   ]
+  },
+  {
+   "module": "brambleloop.support.gallery_evidence",
+   "path": "brambleloop/src/brambleloop/support/gallery_evidence.py",
+   "lines": 81,
+   "claim": "Visual gallery as validation (F-769) -- W4-C14.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c14_feedback.py"
+   ]
+  },
+  {
+   "module": "brambleloop.support.lesson_trigger",
+   "path": "brambleloop/src/brambleloop/support/lesson_trigger.py",
+   "lines": 145,
+   "claim": "Support-to-lesson trigger (F-802) -- W4-C14.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c14_feedback.py"
+   ]
+  },
+  {
+   "module": "brambleloop.visual.d_judge",
+   "path": "brambleloop/src/brambleloop/visual/d_judge.py",
+   "lines": 294,
+   "claim": "The independent judge for Milestone D's photographic items, and the record it leaves.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/research/bench1/run_bench1.py",
+    "brambleloop/research/bench2/run_bench2.py",
+    "brambleloop/research/bench2/substitute.py",
+    "brambleloop/research/e3/correspond.py",
+    "brambleloop/research/e4/validate_e4.py",
+    "brambleloop/research/e5/validate_e5.py",
+    "brambleloop/research/v1grad/run.py",
+    "brambleloop/tests/test_cert_spend_hosts.py",
+    "brambleloop/tests/test_milestone_d.py",
+    "brambleloop/tests/test_v11_wiring.py",
+    "brambleloop/tests/test_w4_integ3_fx.py",
+    "brambleloop/tests/test_w5_v0_paid_provider_gate.py"
+   ]
+  },
+  {
+   "module": "brambleloop.visual.identity_labelling",
+   "path": "brambleloop/src/brambleloop/visual/identity_labelling.py",
+   "lines": 353,
+   "claim": "Owner Decision 2: a 24-frame contact sheet of Laura for the owner to label (ENG-VIS-IDENTITY).",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/scripts/identity_contact_sheet.py",
+    "brambleloop/tests/test_eng_vis_identity.py"
+   ]
+  },
+  {
+   "module": "brambleloop.visual.image_learning",
+   "path": "brambleloop/src/brambleloop/visual/image_learning.py",
+   "lines": 108,
+   "claim": "Image-production learning: the failure taxonomy end to end, and the Learn path (W-VISNEXT).",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_visnext.py"
+   ]
+  },
+  {
+   "module": "brambleloop.visual.portability",
+   "path": "brambleloop/src/brambleloop/visual/portability.py",
+   "lines": 53,
+   "claim": "F-747 Brand Asset Portability (W4-AGENTS cluster C2).",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_w4_c2_visual.py"
+   ]
+  },
+  {
+   "module": "brambleloop.visual.presentation",
+   "path": "brambleloop/src/brambleloop/visual/presentation.py",
+   "lines": 278,
+   "claim": "How a deterministic product becomes a photograph without stopping being that product.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_final_standard.py"
+   ]
+  },
+  {
+   "module": "brambleloop.visual.yarn",
+   "path": "brambleloop/src/brambleloop/visual/yarn.py",
+   "lines": 323,
+   "claim": "Continuous yarn geometry for certified crochet fabric.",
+   "classification": "UNWIRED_CAPABILITY",
+   "covered_by": [
+    "brambleloop/tests/test_yarn.py"
+   ]
+  }
+ ]
+}
