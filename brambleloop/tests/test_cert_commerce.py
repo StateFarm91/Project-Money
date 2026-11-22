@@ -419,6 +419,20 @@ def _publish_past_shadow(db, *, key: str, inputs: dict, render_patch=None, shim:
     return job, audits, bool(reached[0])
 
 
+def _stopped_only_by_the_sale_rule(job, audits) -> bool:
+    """D-OWNER-SALE-PIPELINE (19f, HARD RULE): a release that is not READY for sale (whole
+    seven-frame gallery, both premium PDFs certified, listing package READY) is refused after
+    the PDF hash check and before any upload. This fixture is truthfully not READY (a six-frame
+    disclosed set, no sale-pipeline run), and faking READY is refused here as in
+    test_search_hero_publish. So "reached upload" now means: the hash check passed, and the
+    ONLY thing that stopped the publish is the sale rule, with nothing refused before it."""
+    actions = [a for a, _d in audits]
+    reasons = list((job.outputs or {}).get("reasons") or [])
+    return ("store.pdf_hash_verified" in actions and "store.publish_refused" not in actions
+            and (job.outputs or {}).get("blocked") is True and bool(reasons)
+            and all(r.startswith("not ready for sale (D-OWNER-SALE-PIPELINE)") for r in reasons))
+
+
 def test_missing_taxonomy_is_refused_without_a_default():
     from brambleloop.runtime import etsy_ops
     st = chain()
@@ -449,7 +463,8 @@ def test_past_shadow_an_identical_rerender_passes_the_hash_check_and_reaches_upl
         st["db"], key="cert-pub-ok", inputs={"slug": st["slug"], "version": st["version"]})
     actions = [a for a, _d in audits]
     assert "store.pdf_hash_verified" in actions, (actions, job.last_error)
-    assert reached, (job.status, (job.last_error or "")[:300])
+    assert reached or _stopped_only_by_the_sale_rule(job, audits), (
+        job.status, (job.last_error or "")[:300], (job.outputs or {}).get("reasons"))
 
 
 def test_past_shadow_a_drifted_rerender_is_refused_before_any_upload():
@@ -520,7 +535,8 @@ def test_a_physically_calibrated_release_can_still_be_published():
         db, key="cert-pub-cal", inputs={"slug": cir.slug, "version": cir.version,
                                         "release": pv.release_hash})
     refused = [d.get("reason", "")[:200] for a, d in audits if a == "store.publish_refused"]
-    assert reached, f"calibrated release refused at upload: {refused}"
+    assert reached or _stopped_only_by_the_sale_rule(job, audits), \
+        f"calibrated release refused at upload: {refused} {(job.outputs or {}).get('reasons')}"
 
 
 def test_the_shipped_us_and_uk_documents_pass_the_deliverable_qa():
