@@ -21,12 +21,21 @@ def handle_owner_queue_consolidate(ctx: JobContext) -> dict:
     # D-OWNER-APPROVE-ALL is applied here, as its own step, never inside the sweep: the sweep
     # signs no grant. `apply` writes each listed activation once and never renews one.
     directive = owner_directives.apply(ctx.db)
+    # D-OWNER-APPROVE-ALL-3: every card, through the press's own path, inside its window.
+    from ..ops import approve_all_directive
+
+    approve3 = approve_all_directive.apply(ctx.db)
     out = oqc.sweep(ctx.db)
     summary = {"directive": out["directive"], "closed": out["closed"],
                "routine_superseded": len(out["routine_superseded"]),
                "auto_closed": len(out["auto_closed"]),
                "genuine_open": len(out["genuine_open"]),
                "unclassified_open": sorted(set(out["unclassified_open"]))[:50],
-               "owner_directive": directive}
+               "owner_directive": directive,
+               "approve_all_3": {k: approve3.get(k) for k in ("ran", "closed_kept",
+                                                              "approved", "failed")}}
     ctx.audit(JOB_TYPE, detail=summary)
-    return {**summary, "ran": True, "work_done": out["closed"] + len(directive["activated"])}
+    return {**summary, "ran": True,
+            "work_done": (out["closed"] + len(directive["activated"])
+                          + int(approve3.get("approved") or 0)
+                          + int(approve3.get("closed_kept") or 0))}

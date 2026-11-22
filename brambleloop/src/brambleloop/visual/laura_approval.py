@@ -86,7 +86,15 @@ def approved(db, run_key: str | None, sha256: str | None) -> bool:
             LauraGalleryApproval.run_key == str(run_key),
             LauraGalleryApproval.frame_sha256 == str(sha256).lower())
             .order_by(LauraGalleryApproval.id.desc()).limit(1))
-        return bool(last is not None and last.decision == APPROVED and last.step_up)
+        if last is None or last.decision != APPROVED:
+            return False
+        if last.step_up:
+            return True
+        # D-OWNER-APPROVE-ALL-3: an approval written by the owner's standing directive (its
+        # recognised actor, no step-up) counts too; any other unstepped row does not.
+        from ..ops import approve_all_directive as _AD
+
+        return str(last.decided_by or "") == _AD.ACTOR
 
 
 def publication_status(db, sha256: str | None, run_key: str | None) -> str:
@@ -201,7 +209,8 @@ def card(db, key: str) -> dict | None:
 # ---- the decision ----------------------------------------------------------------------------
 
 def _decide_in(s, db, row, *, decision: str, actor: str, step_up: bool, via: str,
-               session_public_id: str = "", note: str = "", now: datetime) -> dict:
+               session_public_id: str = "", note: str = "", now: datetime,
+               owner_directive: str | None = None) -> dict:
     """Inside the caller's session: check, record each frame, close the card, audit."""
     from ..core.models import AuditLog
     from ..ops import owner_queue
@@ -210,10 +219,19 @@ def _decide_in(s, db, row, *, decision: str, actor: str, step_up: bool, via: str
 
     if decision not in DECISIONS:
         raise Refused(f"decision must be one of {DECISIONS}")
-    if not str(actor).startswith("owner:"):
-        raise Refused("only an owner session may decide Laura's publication")
-    if step_up is not True:
-        raise Refused("Laura's publication needs the owner's step-up (passphrase + TOTP)")
+    if owner_directive is not None:
+        # D-OWNER-APPROVE-ALL-3: the owner's standing directive, applied by the system and
+        # recorded as owner_directed_without_attestation. Only that directive is recognised.
+        from ..ops import approve_all_directive as _AD
+
+        if (owner_directive != _AD.DIRECTIVE_ID or actor != _AD.ACTOR or step_up
+                or decision != APPROVED):
+            raise Refused("not a recognised owner directive")
+    else:
+        if not str(actor).startswith("owner:"):
+            raise Refused("only an owner session may decide Laura's publication")
+        if step_up is not True:
+            raise Refused("Laura's publication needs the owner's step-up (passphrase + TOTP)")
     if row is None or not is_card(row.requirement_key):
         raise Refused("no such Laura gallery card")
     if owner_queue.effective_state(row) not in (owner_queue.OPEN, owner_queue.PARKED):
@@ -233,10 +251,14 @@ def _decide_in(s, db, row, *, decision: str, actor: str, step_up: bool, via: str
             run_key=run_key, requirement_key=row.requirement_key,
             gallery_digest=raised["gallery_digest"], frame_sha256=f["sha256"],
             candidate_id=f.get("candidate_id"), role=f.get("role") or "", decision=decision,
-            decided_by=actor[:120], step_up=True, via=via[:40],
+            decided_by=actor[:120], step_up=bool(step_up), via=via[:40],
             session_public_id=session_public_id[:64], created_at=now))
     reason = (f"owner {decision} Laura's publication in this gallery ({len(frames)} frame(s)) "
               f"via {via} (step-up)")
+    if owner_directive is not None:
+        reason = (f"owner {decision} Laura's publication in this gallery ({len(frames)} "
+                  f"frame(s)) under the owner directive {owner_directive} "
+                  f"(owner_directed_without_attestation; no step-up)")
     owner_queue.transition(s, row, owner_queue.SATISFIED, reason, actor=actor, now=now)
     s.add(AuditLog(actor=actor[:64], action=AUDIT_DECIDED, at=now,
                    artifact=f"owner_action:{row.id}",
@@ -244,7 +266,8 @@ def _decide_in(s, db, row, *, decision: str, actor: str, step_up: bool, via: str
                            "decision": decision, "gallery_digest": raised["gallery_digest"],
                            "frames": [{k: f[k] for k in ("position", "role", "sha256")}
                                       for f in frames],
-                           "step_up": True, "via": via, "session": session_public_id[:64],
+                           "step_up": bool(step_up), "owner_directive": owner_directive,
+                           "via": via, "session": session_public_id[:64],
                            "note": note[:500], "rule": RULE, "at": now.isoformat()}))
     return {"decided": True, "decision": decision, "run_key": run_key, "card_id": row.id,
             "frames": [f["sha256"] for f in frames]}

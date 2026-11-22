@@ -438,8 +438,11 @@ class _OneTransaction:
         return getattr(self._db, name)
 
 
-def _reason(base: str, extra: str = "") -> str:
+def _reason(base: str, extra: str = "", directive: str | None = None) -> str:
     tail = f"; {extra}" if extra else ""
+    if directive:
+        return (f"approved under the owner directive {directive} ({WITHOUT_ATTESTATION}; no "
+                f"step-up was performed): {base}{tail}")[:1000]
     return (f"approved by the owner with 'Approve everything I can decide' (fresh step-up): "
             f"{base}{tail}")[:1000]
 
@@ -636,7 +639,8 @@ MAX_ITEMS = 5000
 
 
 def execute_items(db, *, actor: str, items: list, confirm: bool,
-                  session_public_id: str = "", now: datetime | None = None) -> dict:
+                  session_public_id: str = "", now: datetime | None = None,
+                  directive: str | None = None) -> dict:
     """The owner's press over the previewed items. The CALLER enforces the owner session and
     the fresh step-up."""
     from sqlalchemy import select
@@ -648,7 +652,14 @@ def execute_items(db, *, actor: str, items: list, confirm: bool,
     from . import approvals
 
     now = _now(now)
-    if not actor.startswith("owner:"):
+    if directive is not None:
+        # D-OWNER-APPROVE-ALL-3: the system applies the owner's standing directive. Only the
+        # directive module calls this with `directive`; nothing claims a step-up or a login.
+        from ...ops import approve_all_directive as _AD
+
+        if directive != _AD.DIRECTIVE_ID or actor != _AD.ACTOR:
+            raise Refused("not a recognised owner directive")
+    elif not actor.startswith("owner:"):
         raise Refused("only an owner session may approve the owner queue")
     if confirm is not True:
         raise Refused("confirm the exact list first")
@@ -666,6 +677,10 @@ def execute_items(db, *, actor: str, items: list, confirm: bool,
     batch = hashlib.sha256("\n".join(sorted(seen)).encode()).hexdigest()[:16]
     common = {"batch": batch, "step_up": True, "session": session_public_id[:64],
               "at": now.isoformat(), "directive": "D-APPROVE-FIX"}
+    if directive is not None:
+        common = {"batch": batch, "step_up": False, "session": None, "at": now.isoformat(),
+                  "directive": directive, "owner_directive": directive,
+                  "resolution": WITHOUT_ATTESTATION, "attested": False}
     done: list[dict] = []
     failed: list[dict] = []
     dropped: list[dict] = []
@@ -735,7 +750,8 @@ def execute_items(db, *, actor: str, items: list, confirm: bool,
                     state, reason = _write_row(s, one, row, bucket, again, detail,
                                                actor=actor, now=now, cap=cap,
                                                left=left, laura_runs=laura_runs,
-                                               session_public_id=session_public_id)
+                                               session_public_id=session_public_id,
+                                               directive=directive)
             except Exception as exc:  # noqa: BLE001 - this row only; the others stand
                 fail(ident, key, exc)
                 continue
@@ -758,7 +774,7 @@ def execute_items(db, *, actor: str, items: list, confirm: bool,
                                         "nothing was signed for it")
                     continue
                 mod = pub if bucket == PUBLICATION_GRANT else act
-                why = _reason(f"{card_id} bound to content {dg[:16]}")
+                why = _reason(f"{card_id} bound to content {dg[:16]}", directive=directive)
                 try:
                     with s.begin_nested():
                         if mod is pub:
@@ -807,7 +823,7 @@ def execute_items(db, *, actor: str, items: list, confirm: bool,
 
 
 def _write_row(s, one, row, bucket, again, detail, *, actor, now, cap, left, laura_runs,
-               session_public_id) -> tuple[str, str]:
+               session_public_id, directive: str | None = None) -> tuple[str, str]:
     """One OwnerAction row's approval, as `execute` writes it (same doors, same audits)."""
     from ...core.models import AuditLog
     from ...ops import owner_queue
@@ -821,14 +837,14 @@ def _write_row(s, one, row, bucket, again, detail, *, actor, now, cap, left, lau
             raise Refused("the company hard cap would be crossed")
         state = owner_queue.SATISFIED
         reason = _reason(f"spend approved at its stated CA${amount:.2f}",
-                         f"company cap CA${cap:.2f}/month unchanged")
+                         f"company cap CA${cap:.2f}/month unchanged", directive=directive)
         s.add(AuditLog(actor=actor[:64], action=SPEND_AUDIT_ACTION, at=now,
                        artifact=f"owner_action:{row.id}",
                        detail={**detail, "amount_cad": amount, "company_cap_cad": cap,
                                "headroom_after_cad": after, "spends_nothing_itself": True}))
         detail["amount_cad"] = amount
     elif bucket == DECISION:
-        why = _reason(f"{row.requirement_key}")
+        why = _reason(f"{row.requirement_key}", directive=directive)
         if again["decision"] == "improvement":
             from ...improve import cells
 
@@ -840,9 +856,14 @@ def _write_row(s, one, row, bucket, again, detail, *, actor, now, cap, left, lau
         state, reason = owner_queue.SATISFIED, why
     elif bucket == OWNER_APPROVED:
         state = owner_queue.SATISFIED
-        reason = _reason(f"{row.requirement_key}", "owner-approved via step-up; not an "
-                         "attestation of any physical or external fact")
-        detail["owner_approved_via_step_up"] = True
+        if directive:
+            reason = _reason(f"{row.requirement_key}", "not an attestation of any physical or "
+                             "external fact", directive=directive)
+            detail["owner_approved_via_step_up"] = False
+        else:
+            reason = _reason(f"{row.requirement_key}", "owner-approved via step-up; not an "
+                             "attestation of any physical or external fact")
+            detail["owner_approved_via_step_up"] = True
     elif bucket == PHYSICAL_DIRECTIVE:
         state = owner_queue.WITHDRAWN
         reason = (f"{WITHOUT_ATTESTATION}: resolved by the owner directive "
@@ -856,7 +877,9 @@ def _write_row(s, one, row, bucket, again, detail, *, actor, now, cap, left, lau
         from ...visual import laura_approval
 
         got = laura_approval._decide_in(s, one._db, row, decision=laura_approval.APPROVED,
-                                        actor=actor, step_up=True, via="approve_everything",
+                                        actor=actor, step_up=directive is None,
+                                        owner_directive=directive,
+                                        via="approve_everything",
                                         session_public_id=session_public_id, now=now)
         laura_runs.append(got["run_key"])
         moved = {"from": owner_queue.OPEN, "changed": True}

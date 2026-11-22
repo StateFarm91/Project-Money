@@ -2258,6 +2258,13 @@ def factory_visibility(db, *, now: datetime) -> dict:
         out["owner_etsy_exercise"] = OEE.visibility(db)
     except Exception as exc:  # noqa: BLE001
         out["owner_etsy_exercise"] = _unreadable(exc)
+    try:
+        from . import approve_all_directive as AD3
+
+        # D-OWNER-APPROVE-ALL-3: counts and bucket names only.
+        out["owner_approve_all_3"] = AD3.visibility(db)
+    except Exception as exc:  # noqa: BLE001
+        out["owner_approve_all_3"] = _unreadable(exc)
     return out
 
 

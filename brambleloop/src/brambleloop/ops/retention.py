@@ -124,6 +124,9 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
         "ops.owner_etsy_exercise.due counts every attempt (cap and clean-run check)"),
     "owner_directive.etsy_exercise_2": ("lifetime_total",
         "ops.owner_etsy_exercise.due_2 counts every attempt (cap and clean-run check)"),
+    # D-OWNER-APPROVE-ALL-3: the readback reads only the directive's newest run row.
+    "owner_directive.approve_all_3": ("latest",
+        "ops.approve_all_directive.visibility reads the newest run row"),
     # ENG-ETSY-RECOVERY: factory_visibility reads only the newest recovery row.
     "etsy.exercise_recovery": ("latest",
         "ops.owner_etsy_exercise.visibility reads the newest row for last_recovery"),

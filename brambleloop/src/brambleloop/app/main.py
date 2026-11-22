@@ -275,6 +275,26 @@ def _startup() -> None:
         _owner_directives.apply(db)
     except Exception:  # noqa: BLE001 - applying a directive must never prevent a boot
         pass
+    # D-OWNER-APPROVE-ALL-3: approve every owner card once per deploy, in the background (the
+    # press's preview reads every release's evidence and takes minutes; a boot never waits).
+    # Only the deployed service runs it at boot; the hourly owner-queue job runs it too.
+    try:
+        import os as _os3
+        import threading as _threading3
+
+        if _os3.environ.get("RAILWAY_DEPLOYMENT_ID"):
+            from ..ops import approve_all_directive as _approve3
+
+            def _run_approve3():
+                import time as _t3
+
+                _t3.sleep(90)
+                _approve3.apply(db)
+
+            _threading3.Thread(target=_run_approve3, name="approve-all-3",
+                               daemon=True).start()
+    except Exception:  # noqa: BLE001 - applying a directive must never prevent a boot
+        pass
     # D-OWNER-ETSY-EXERCISE: the owner's one-time instruction to run the controlled Etsy
     # exercise (one marked draft, deleted and verified; CA$0; never publishes). It runs in a
     # background thread after the boot settles, at most twice, only inside the directive's
