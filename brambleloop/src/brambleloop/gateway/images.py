@@ -1398,7 +1398,25 @@ def _render_fp(provider: ImageProvider, prompt: str, reference_urls, size: str,
     from . import paid_calls
 
     return paid_calls.fingerprint("image.render", provider.key, prompt,
-                                  list(reference_urls or []), size, extra_fields or {})
+                                  reference_identity(reference_urls), size, extra_fields or {})
+
+
+def reference_identity(reference_urls) -> list[str]:
+    """ENG-IMAGES-PDFREF: references as their content (`sha256:<hex>` for a file on this disk),
+    so paid generation is idempotent per input hash: the same certified-PDF pages written to
+    another attempt's scratch directory are the same request, never a second purchase."""
+    import hashlib
+    from pathlib import Path
+
+    out = []
+    for r in reference_urls or []:
+        p = Path(str(r))
+        try:
+            out.append("sha256:" + hashlib.sha256(p.read_bytes()).hexdigest()
+                       if p.is_file() else str(r))
+        except OSError:
+            out.append(str(r))
+    return out
 
 
 def _gated(db, provider: ImageProvider, scope: str, budget: dict, fp: str, purpose: str,
@@ -1467,8 +1485,8 @@ def _guarded_render(provider: ImageProvider, prompt: str, reference_urls, size: 
     effect = "image.render"
     return paid_calls.guarded(
         effect,
-        paid_calls.fingerprint(effect, provider.key, prompt, list(reference_urls or []), size,
-                               extra_fields or {}),
+        paid_calls.fingerprint(effect, provider.key, prompt, reference_identity(reference_urls),
+                               size, extra_fields or {}),
         call, encode=lambda r: dict(r), decode=decode, classify=classify,
         cost_kind="image", provider=provider.key, model=provider.key,
         agent=agent or DEFAULT_RENDER_AGENT,

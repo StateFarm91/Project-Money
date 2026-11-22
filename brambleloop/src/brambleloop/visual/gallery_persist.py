@@ -302,7 +302,11 @@ def frame_matrix(db, row, *, job: str, laura_expected: bool,
     checks = dict(row.checks or {})
     laura = bool(row.laura_present)
     gates: dict[str, dict] = {}
-    sent = [r.get("sha256") for r in (row.references or []) if r.get("kind") == "pattern_derived"]
+    from ..creative.pdf_page_refs import is_page_ref
+
+    # ENG-IMAGES-PDFREF: certified-PDF page references are provenance, not CIR renders
+    sent = [r.get("sha256") for r in (row.references or [])
+            if r.get("kind") == "pattern_derived" and not is_page_ref(r)]
     if cir_references is None:
         gates["cir_references"] = {"status": UNMEASURED, "owner": GALLERY_AGENT,
                                    "why": "the run's prepared CIR references are not on file"}
@@ -431,8 +435,10 @@ def gallery_status(db, key: str, *, review_only_assume_laura_approved: bool = Fa
     view = IP.readiness(db, run["listing"], run_key_=key, plan=plan)
     prepared = ((IP._stage_data(db, key).get("prepare_references") or {}).get("outputs")
                 or {}).get("references")
-    cir_refs = ([r["sha256"] for r in prepared if r.get("kind") == "pattern_derived"]
-                if isinstance(prepared, list) else None)
+    from ..creative.pdf_page_refs import is_page_ref
+
+    cir_refs = ([r["sha256"] for r in prepared if r.get("kind") == "pattern_derived"
+                 and not is_page_ref(r)] if isinstance(prepared, list) else None)
     blockers: list[dict] = []
     frames: list[dict] = []
     for slot in plan["roles"]:

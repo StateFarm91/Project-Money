@@ -126,6 +126,10 @@ class Release:
     pattern_refs: tuple[str, ...]          # layout, texture, detail, rules (references 4-7)
     pattern_ref_sha256s: tuple[str, ...] = ()
     work_root: str = ""
+    # ENG-IMAGES-PDFREF (the owner's method): pages of the certified premium PDF, rendered
+    # deterministically (`creative.pdf_page_refs`): ({kind, page, sha256, path}, ...)
+    pdf_pages: tuple = ()
+    pdf_sha256: str = ""
 
 
 @dataclass(frozen=True)
@@ -337,6 +341,17 @@ def campaign_references(release: Release, *, features_laura: bool, laura_refs=No
     items += list(leading) + list(supplementary)
     combined = None
     limitation = None
+    pdf_sent: list[dict] = []
+    if not features_laura and release.pdf_pages and len(items) < reference_limit:
+        # ENG-IMAGES-PDFREF: the certified PDF's pages fill the slots left, in their chosen
+        # order. They never displace a reference and never cause the product sheet merge.
+        for pg in release.pdf_pages[:reference_limit - len(items)]:
+            if _sha(pg["path"]) != pg["sha256"]:
+                raise StageRefused("a certified-PDF page reference is not the bytes rendered "
+                                   "from the certified PDF; refused")
+            items.append((pg["kind"], pg["path"]))
+            pdf_sent.append({"position": len(items), "kind": pg["kind"], "page": pg["page"],
+                             "sha256": pg["sha256"], "field": f"images[{len(items) - 1}]"})
     if len(items) > reference_limit:
         # Lossless fallback: references 4-7 become one sheet. Laura originals stay separate.
         sheet = combined_reference_sheet(
@@ -376,7 +391,9 @@ def campaign_references(release: Release, *, features_laura: bool, laura_refs=No
             raise StageRefused("the outfit reference may not precede the canonical three")
     return {"roles": roles, "paths": [p for _, p in items],
             "sha256s": shas, "combined_sheet": combined,
-            "limitation": limitation, "reference_limit": reference_limit}
+            "limitation": limitation, "reference_limit": reference_limit,
+            "pdf_pages": pdf_sent,
+            "pdf_sha256": release.pdf_sha256 if pdf_sent else ""}
 
 
 # -- the run ---------------------------------------------------------------------------------
@@ -471,6 +488,9 @@ def _run(stage: str, role: str, release: Release, refs: dict, built, size: str, 
                                   "sha256": refs["sha256s"][refs["roles"].index("outfit")]}
                                  if "outfit" in refs["roles"] else None),
             "reference_limit": refs["reference_limit"],
+            # ENG-IMAGES-PDFREF: the certified-PDF pages this request carried, by position
+            "pdf_reference_pages": list(refs.get("pdf_pages") or []),
+            "pdf_sha256": refs.get("pdf_sha256") or "",
             "combined_sheet": refs["combined_sheet"], "limitation": refs["limitation"],
             "size": size, "task_id": pr.get("task_id") or pr.get("id"), "seed": pr.get("seed"),
             "request": {"provider_task": pr, "conditioning_proven": cond.get("proven"),

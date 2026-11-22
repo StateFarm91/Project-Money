@@ -534,8 +534,7 @@ def record_candidate(db, cand: dict, verdict: dict, *, method: str, run: str = "
             model=str(cand.get("model") or "")[:120], prompt=prompt[:8000],
             prompt_sha256=hashlib.sha256(prompt.encode()).hexdigest(),
             prompt_version=str(cand.get("prompt_version") or "")[:80],
-            references=[{"sha256": r.get("sha256"), "kind": r.get("kind")}
-                        for r in cand.get("references") or []],
+            references=[_ref_provenance(r) for r in cand.get("references") or []],
             laura_present=bool(cand.get("laura_present")),
             outfit_id=str(cand.get("outfit_id") or "")[:80],
             cost_cad=cand.get("cost_cad"), cost_basis=str(cand.get("cost_basis") or "")[:200],
@@ -570,6 +569,17 @@ def record_candidate(db, cand: dict, verdict: dict, *, method: str, run: str = "
         s.add(row)
         s.flush()
         return {"candidate_id": row.id, "sha256": row.sha256, "outcome": outcome}
+
+
+def _ref_provenance(r: dict) -> dict:
+    """{sha256, kind}, plus source and label for a certified-PDF page reference."""
+    from ..creative.pdf_page_refs import SOURCE, is_page_ref
+
+    out = {"sha256": r.get("sha256"), "kind": r.get("kind")}
+    if is_page_ref(r):
+        out["source"] = SOURCE
+        out["label"] = str(r.get("label") or "").split("|", 1)[0][:60]
+    return out
 
 
 def _receipt_summary(ev) -> dict:
@@ -1045,7 +1055,9 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
                              else 0.0, actual_cad=cost, sha256=sha)
     cand = {**base, "data": data, "sha256": sha, "provider": out.get("provider"),
             "model": out.get("model"), "prompt": out.get("prompt") or brief,
-            "references": [{"sha256": r["sha256"], "kind": r["kind"]} for r in refs],
+            # ENG-IMAGES-PDFREF: a certified-PDF page carries its source and label (kind,
+            # page) so each candidate records the reference page hashes as provenance
+            "references": [_ref_provenance(r) for r in refs],
             "identity_evidence": out.get("identity_evidence"), "cost_cad": cost,
             "cost_basis": out.get("cost_basis") or "generator receipt",
             "latency_s": out.get("latency_s"), "provenance_kind": "ai_generated_autonomous",

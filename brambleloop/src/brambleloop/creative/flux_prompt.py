@@ -350,6 +350,10 @@ def build(*, rules: Mapping, roles: Sequence[str], role: str,
         "the canonical images decide who she is)", "scene_reference": "the approved room "
         "of Laura's home (its walls, floor, windows and built-in furniture only; never the "
         "product or the person)"}
+    # ENG-IMAGES-PDFREF: the certified pattern PDF's own pages (the owner's method)
+    from .pdf_page_refs import LABELS as _PDF_LABELS
+
+    labels.update(_PDF_LABELS)
     ref_map = "; ".join(f"{_img(i + 1)} = {labels.get(r.split(':')[0], r)}"
                         for i, r in enumerate(roles))
     scene = dict(scene or {})
