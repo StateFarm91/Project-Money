@@ -178,6 +178,11 @@ SCRATCH = {
         "durable", "visual/hero_review.py::review_disclosed_hero", ("AuditLog(",)),
     "visual/inspect.py::identify_at_grid": ("caller", "visual/hero_review.py::review_disclosed_hero",
                                             ("identify_at_grid(",)),
+    # AMIGURUMI-JUDGING: the toy concept board's render is written to scratch by the provider,
+    # then kept by render_board itself (ArtifactStore().put, durable artefact row) and filed as
+    # the board and judge-attempt audit rows in the same function.
+    "creative/toy_board.py::render_board": ("durable", "creative/toy_board.py::render_board",
+                                            ("ArtifactStore().put(", "AuditLog(")),
     # INTEG4 (VISNEXT merged with CLOSE5): the generator's scratch holds the render only until
     # its bytes are returned; image_production._generate keeps them (`store_bytes`, durable
     # artifact row) and records the candidate row.

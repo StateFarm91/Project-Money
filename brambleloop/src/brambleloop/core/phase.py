@@ -324,10 +324,42 @@ def record_transition(db, *, authorization, to, reason, evidence_refs=None,
     callable `(db, to) -> dict`) to be ready; the compact verdict is sealed into the row as
     `readiness_at_transition`. A move down never evaluates readiness.
     """
+    opsauth.check(authorization)
+    return _record_transition(db, principal=PRINCIPAL, to=to, reason=reason,
+                              evidence_refs=evidence_refs, env=env,
+                              readiness_verdict=readiness_verdict)
+
+
+def record_directive_transition(db, *, directive: str, to, reason, evidence_refs=None,
+                                env: dict | None = None, readiness_verdict=None) -> dict:
+    """D-OWNER-AUDIT-APPROVALS: record a transition the owner directed in words, with no
+    step-up (`owner_directed_without_attestation`).
+
+    Only a (directive, from, to) move listed in `ops.owner_directives.PHASE_TRANSITIONS` is
+    accepted, and every gate of `record_transition` still applies: one step up, cited
+    readiness and rollback evidence that resolves to real recent rows, and the launch
+    readiness verdict evaluated now and `ready`. The row's principal names the directive, so
+    it is never read as an owner login. A move this table does not list raises ValueError.
+    """
+    from ..ops import owner_directives
+
+    current = latest_recorded(db)
+    frm = (current.get("phase") or DEFAULT) if current.get("recorded") else DEFAULT
+    target = str(to or "").strip().lower()
+    if not owner_directives.phase_transition_authorised(directive, frm, target):
+        raise ValueError(f"owner directive {directive!r} does not cover {frm!r} -> {target!r}")
+    return _record_transition(db, principal=f"owner-directive:{directive}"[:64], to=target,
+                              reason=reason, evidence_refs=evidence_refs, env=env,
+                              readiness_verdict=readiness_verdict,
+                              attestation="owner_directed_without_attestation")
+
+
+def _record_transition(db, *, principal: str, to, reason, evidence_refs=None,
+                       env: dict | None = None, readiness_verdict=None,
+                       attestation: str | None = None) -> dict:
     from . import sealed_chain
     from .models import AuditLog
 
-    opsauth.check(authorization)
     to = str(to or "").strip().lower()
     if to not in ORDER:
         raise ValueError(f"unknown phase {to!r}; one of {list(ORDER)}")
@@ -388,7 +420,7 @@ def record_transition(db, *, authorization, to, reason, evidence_refs=None,
         verdict = _readiness_at_transition(db, to, readiness_verdict)
     with db.session() as s:
         rows, c, current, evidence = checked(s, expect=before)
-        detail = {"principal": PRINCIPAL, "from": current, "to": to, "reason": reason.strip(),
+        detail = {"principal": principal, "from": current, "to": to, "reason": reason.strip(),
                   "evidence_refs": {k: str(v) for k, v in sorted(refs.items())},
                   "at": now_dt.isoformat(),
                   "direction": ("up" if rank(to) > rank(current) else
@@ -398,8 +430,10 @@ def record_transition(db, *, authorization, to, reason, evidence_refs=None,
             detail["evidence"] = evidence
         if verdict is not None:
             detail["readiness_at_transition"] = verdict
+        if attestation:
+            detail["attestation"] = attestation
         detail["seal"] = _seal(detail)
-        row = AuditLog(actor=PRINCIPAL, action=TRANSITION, artifact=f"phase:{current}->{to}",
+        row = AuditLog(actor=principal[:64], action=TRANSITION, artifact=f"phase:{current}->{to}",
                        detail=detail)
         s.add(row)
         s.flush()
