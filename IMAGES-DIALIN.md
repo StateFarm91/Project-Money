@@ -92,3 +92,10 @@ Raw, uncorrected palette coverage on all 7 owner frames, measured on a centre bo
 - `brambleloop/tests/test_images_dialin.py`
 - `brambleloop/DECISION_LOG.md`
 - `brambleloop/src/brambleloop/core/decision_index.json`
+
+## Test run
+
+The touched suites were run with `SUITE_REGISTRY=0 SUITES=… bash run_tests.sh` (21 suites, including `test_vacuity` and `test_w3_decision_index`).
+- **First run:** 411 passing and 1 failing. `test_w5_v1_visual_correctness` pinned the prompt-builder version string `2.2.0`, and this change bumps it to 2.3.0 on purpose. The pin was updated.
+- **Re-run of that suite and `test_vacuity`:** 40 passing, 0 failing. Every other suite passed in the first run.
+- **Left alone:** `experiments/definitions/exp-2026-10-21-cloudline-acceptance/definition.json` still names builder 2.2.0. It is a historical experiment record, so I did not edit it.
