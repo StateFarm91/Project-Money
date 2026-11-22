@@ -120,6 +120,11 @@ ANCHOR_SIDE_ROLE = "product_anchor_side"
 IDENTITY_ANCHOR_ROLE = "laura_identity_anchor"   # stage A: an intermediate reference, not a frame
 MAX_IDENTITY_ANCHOR_ATTEMPTS = 2   # one generation + one bounded proportion-correction pass
 MAX_RESTARTS = 3                   # per run; a restart never resets attempts, calls or spend
+# ENG-IMAGES-LAURA: the owner's two-step method. Step 1 makes and accepts the product frame
+# (the fidelity-gated anchor); step 2 conditions every Laura frame on that accepted frame plus
+# Laura's canonical identity images, and nothing else. Used when the generator declares it.
+OWNER_METHOD = "owner_two_step/1"
+PRODUCT_FRAME_LABEL = "accepted_product_frame"
 RESTART_KEY = "_restart"           # the run's restart record inside `stages`
 
 
@@ -552,6 +557,9 @@ def record_candidate(db, cand: dict, verdict: dict, *, method: str, run: str = "
                        if cand.get("_paid_call_token") else {}),
                     **({"_anchor_side": dict(cand["_anchor_side"])}
                        if cand.get("_anchor_side") else {}),
+                    # ENG-IMAGES-LAURA: the reference inputs by hash, in the order sent
+                    **({"_reference_provenance": dict(cand["_reference_provenance"])}
+                       if cand.get("_reference_provenance") else {}),
                     **({"_generation_operation": {"key": cand["_generation_operation"],
                                                    "mode": cand.get("_generation_mode")}}
                        if cand.get("_generation_operation") else {}),
@@ -950,7 +958,8 @@ def _recover_generation(db, key, *, operation, stage, role, slug, version, relea
 def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, refs, outfit,
               laura: bool, judges, plan_attempt: int, evaluate: bool = True,
               repair: dict | None = None, exp=None, operation: str = "",
-              route: str = "", side: dict | None = None) -> dict:
+              route: str = "", side: dict | None = None,
+              reference_provenance: dict | None = None) -> dict:
     from . import spend_plan
     from .gallery import gates_now
 
@@ -1072,6 +1081,8 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
     if operation:
         cand["_generation_operation"] = operation
         cand["_generation_mode"] = "experiment" if exp is not None else "normal"
+    if reference_provenance:
+        cand["_reference_provenance"] = reference_provenance
     if role == ANCHOR_ROLE:
         bind = _binding(db, exp, slug, version, release)
         pt = judges.product_truth({**cand, "role": ANCHOR_ROLE}, bind)
@@ -1594,6 +1605,25 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
                     f"refused")
             return out
 
+        owner_method = bool(getattr(gen, "accepts_owner_method", False)) and exp is None
+        owner_cache = {}
+
+        def owner_inputs():
+            """(accepted product frame ref, canonical Laura refs): both by their bytes."""
+            if "v" not in owner_cache:
+                pf = _accepted_product_frame(db, key, run["listing"])
+                if pf is None:
+                    raise ConditioningRefused("no product frame has been accepted through the "
+                                              "fidelity gate; Laura frames come after it")
+                owner_cache["v"] = (pf, laura_refs())
+            return owner_cache["v"]
+
+        def owner_provenance(pf, lr, outfit_):
+            from . import canonical
+
+            return reference_provenance(pf, lr, outfit_id=(outfit_ or {}).get("outfit_id"),
+                                        identity_id=canonical.IDENTITY_ID)
+
         def gen_roles(roles, rnd_stage, repairs=None):
             outs = []
             outfit = outfits.get(db, run["outfit_id"]) if run["outfit_id"] else None
@@ -1606,13 +1636,48 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
                         outs.append(prior_)
                         continue
                 attempt = _attempts(db, key, r["role"]) + 1
-                if attempt > max_att:
+                if attempt > max_att and not (r["laura"] and owner_method):
                     recovered = _recover_generation(
                         db, key, operation=operation_for(r["role"]), stage=rnd_stage,
                         role=r["role"], slug=slug, version=version, release=release,
                         experiment=exp is not None)
                     if recovered is not None:
                         outs.append(recovered)
+                    continue
+                if r["laura"] and owner_method:
+                    # ENG-IMAGES-LAURA: the accepted product frame + the canonical three. The
+                    # pattern references ride along only so the generator can bind the release;
+                    # it does not transmit them. Idempotent per input hashes: the operation is
+                    # keyed by what is sent (not by the restart epoch), so a redrive recovers
+                    # the frame already bought instead of buying it again.
+                    if not outfit:
+                        raise ConditioningRefused("a Laura frame needs the outfit already "
+                                                  "assigned to this listing")
+                    pf, lr = owner_inputs()
+                    prov = owner_provenance(pf, lr, outfit)
+                    seg = prov["input_digest"]
+                    if repairs:
+                        seg += ":repair:" + str(round_) + ":" + hashlib.sha256(json.dumps(
+                            (repairs or {}).get(r["role"]), sort_keys=True,
+                            default=str).encode()).hexdigest()
+                    op = _owner_operation(key, rnd_stage, r["role"], seg, exp is not None)
+                    if attempt > max_att:
+                        recovered = _recover_generation(
+                            db, key, operation=op, stage=rnd_stage, role=r["role"],
+                            slug=slug, version=version, release=release,
+                            experiment=exp is not None)
+                        if recovered is not None:
+                            outs.append(recovered)
+                        continue
+                    outs.append(_generate(db, key, gen, slug=slug, version=version,
+                                          release=release, role=r["role"], stage=rnd_stage,
+                                          route=str(r.get("route") or ""), laura=True,
+                                          judges=judges, brief=r["brief"] or
+                                          f"{r['job']}: the finished piece",
+                                          refs=_refs_with_bytes() + lr + [pf], outfit=outfit,
+                                          plan_attempt=attempt,
+                                          repair=(repairs or {}).get(r["role"]), exp=exp,
+                                          operation=op, reference_provenance=prov))
                     continue
                 refs_ = _refs_with_bytes() + (laura_refs() if r["laura"] else [])
                 if (r["laura"] and outfit and outfit.get("approved_reference")
@@ -1670,6 +1735,13 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
                                           refs=_refs_with_bytes, laura_refs=laura_refs,
                                           slug=slug, version=version, release=release,
                                           operation_for=operation_for)
+
+        if stage in ("lifestyle_generation", "remaining_roles") and (
+                _accepted_product_frame(db, key, run["listing"]) is None):
+            # ENG-IMAGES-LAURA: nothing after step 1 runs (or spends) before a product frame
+            # of this gallery is accepted, however the job got here.
+            return block("no product frame accepted: lifestyle and every later role start "
+                         "only after the product frame passes the fidelity gate")
 
         if stage == "lifestyle_generation":
             roles = [r for r in SP.generated_roles(plan) if r["job"] == "LIFESTYLE"]
@@ -2182,6 +2254,53 @@ def redrive_capability_blocked(db, *, follow) -> dict:
     return {"restarted": restarted, "waiting": waiting, "refused": refused}
 
 
+# ---- the owner's two-step method (ENG-IMAGES-LAURA) ---------------------------------------------
+
+def _accepted_product_frame(db, key: str, listing: str) -> dict | None:
+    """Step 1's output: this gallery's product frame that PASSed the fidelity gate, as a
+    reference whose bytes are re-read from the artifact store and must hash to the stored
+    sha256. None when no product frame of this run is accepted."""
+    b = _best(db, listing=listing, role=ANCHOR_ROLE, run=key)
+    if not b or b.get("technical_status") != "PASS" or not b.get("sha256"):
+        return None
+    if _image_has_negative_decision(db, slug=b["slug"], version=b["version"], sha=b["sha256"]):
+        return None
+    ref = _prior_ref(db, b["sha256"], PRODUCT_FRAME_LABEL)
+    if ref is None:
+        return None
+    return {**ref, "candidate_id": b["candidate_id"]}
+
+
+def reference_provenance(product_frame: dict, laura: list[dict], *, outfit_id: str | None,
+                         identity_id: str) -> dict:
+    """What a Laura frame is conditioned on, by hash, in the order FLUX 3 receives it
+    (`image_stages.OWNER_METHOD_ROLES`: canonical face, torso, full length, then the accepted
+    product frame), and the digest that keys its idempotency."""
+    from . import conditioning
+
+    by_frame = {r.get("frame"): r["sha256"] for r in laura}
+    lsha = [by_frame.get(f) for f in conditioning.FRAME_ORDER]
+    images = [{"position": i + 1, "role": role, "sha256": sha} for i, (role, sha) in enumerate(
+        zip(("laura_face", "laura_torso", "laura_body", "product_candidate"),
+            lsha + [product_frame["sha256"]]))]
+    material = json.dumps({"method": OWNER_METHOD, "images": [i["sha256"] for i in images],
+                           "outfit_id": outfit_id}, separators=(",", ":"), sort_keys=True)
+    return {"method": OWNER_METHOD, "identity_id": identity_id, "images": images,
+            "accepted_product_frame": {"candidate_id": product_frame.get("candidate_id"),
+                                       "sha256": product_frame["sha256"]},
+            "laura_references": dict(zip(conditioning.FRAME_ORDER, lsha)),
+            "outfit_id": outfit_id,
+            "input_digest": hashlib.sha256(material.encode()).hexdigest()}
+
+
+def _owner_operation(key: str, stage: str, role: str, segment: str, experiment: bool) -> str:
+    """The replay key of an owner-method generation: the run, stage, role and input hashes --
+    deliberately not the restart epoch, so a redrive of the same inputs is never bought twice."""
+    material = json.dumps([key, stage, role, OWNER_METHOD, segment]
+                          + (["experiment"] if experiment else []), separators=(",", ":"))
+    return hashlib.sha256(material.encode()).hexdigest()
+
+
 # ---- stage A and stage D (W-VISNEXT2) --------------------------------------------------------
 
 def _prior_ref(db, sha: str, label: str) -> dict | None:
@@ -2287,10 +2406,14 @@ def _stage_identity_anchor(db, key, run, inputs, *, gen, judges, exp, laura_role
     from . import identity_gate
 
     stage = "identity_anchor"
-    if not laura_roles or exp is not None or not getattr(gen, "accepts_staged_method", False):
+    owner = exp is None and bool(getattr(gen, "accepts_owner_method", False))
+    if (not laura_roles or exp is not None or owner
+            or not getattr(gen, "accepts_staged_method", False)):
         why = ("no Laura in this listing's shot plan" if not laura_roles else
                "EXPERIMENT: the owner-approved plan has no stage A" if exp is not None else
-               "the generator does not carry the staged method")
+               f"{OWNER_METHOD}: every Laura frame is conditioned on the accepted product "
+               f"frame and the canonical identity images only; no identity anchor is bought"
+               if owner else "the generator does not carry the staged method")
         _update(db, key, stage=stage, status=st, record={"outputs": {"skipped": why}})
         return {"run_key": key, "next": go(_next(stage))}
     outfit = outfits.get(db, run["outfit_id"]) if run["outfit_id"] else None

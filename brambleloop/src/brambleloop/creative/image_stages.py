@@ -713,6 +713,74 @@ def lifestyle(release: Release, product_candidate: Candidate, laura_refs: Sequen
                 job_id=job_id, max_attempts=max_attempts, purpose="image.lifestyle")
 
 
+# ENG-IMAGES-LAURA: the owner's two-step method, step 2. Verbatim: "Then when it made the
+# product, I sent the product with Laura's identity images." Each Laura frame is conditioned on
+# exactly two things: Laura's canonical identity images (laura-r2-a42aeac7, face, torso, full
+# length, in FRAME_ORDER, always first so the identity checks in `_run` stay unchanged) and the
+# product frame this gallery already ACCEPTED through the fidelity gate. Nothing else is sent:
+# no pattern references, no identity anchor, no edit base, no room image. The outfit already
+# assigned to the listing travels in the prompt. FLUX 3 Image takes these in its `images` field
+# (openapi `Flux3ImageInputs`: one to ten; `input_image` is FLUX.2's field and a 422 here).
+OWNER_METHOD = "owner_two_step/1"
+OWNER_METHOD_ROLES: tuple[str, ...] = LAURA_ROLES + ("product_candidate",)
+# The prompt builder describes the product from its images by position; under this method the
+# accepted product frame is the one product image, so every product role points at it.
+_OWNER_METHOD_ALIAS = {k: "product_candidate" for k in PRODUCT_ROLES}
+
+
+def owner_method_references(laura_refs: Sequence[str] | None, product_frame: str, *,
+                            reference_limit: int) -> dict:
+    """The ordered `images` of one owner-method request: canonical three, then the product."""
+    from ..gateway import flux_contract
+
+    items = list(zip(LAURA_ROLES, laura_references(laura_refs))) + [
+        ("product_candidate", str(product_frame))]
+    limit = min(int(reference_limit), flux_contract.MAX_REFERENCES)
+    if len(items) > limit:
+        raise StageRefused(f"{len(items)} references; the provider takes {limit}")
+    plan = {"roles": [r for r, _ in items], "paths": [p for _, p in items],
+            "sha256s": [_sha(p) for _, p in items], "combined_sheet": None,
+            "limitation": None, "reference_limit": int(reference_limit)}
+    if tuple(plan["roles"]) != OWNER_METHOD_ROLES or tuple(
+            plan["sha256s"][:3]) != canonical_laura_hashes():
+        raise StageRefused("the owner method sends the canonical three, in order, then the "
+                           "accepted product frame; refused")
+    if plan["sha256s"][3] in set(canonical_laura_hashes()):
+        raise StageRefused("the product frame is a canonical identity reference; refused")
+    return plan
+
+
+def owner_method_lifestyle(release: Release, product_candidate: Candidate,
+                           laura_refs: Sequence[str] | None, outfit: Mapping, *,
+                           fidelity: Mapping | None = None, scene: Mapping | None = None,
+                           role: str = "lifestyle", size: str = LIFESTYLE_SIZE, renderer=None,
+                           work_dir: str, db=None, job_id: int | None = None,
+                           max_attempts: int = DEFAULT_ATTEMPTS) -> Candidate:
+    """Step 2 of the owner's method: Laura with the product, from the accepted product frame
+    and her canonical identity images only. Gated on the flat lay's fidelity PASS."""
+    if product_candidate.release_hash != release.release_hash:
+        raise StageRefused("the product candidate belongs to a different release")
+    _require_flat_lay_pass(release, product_candidate, fidelity)
+    outfit = dict(outfit or {})
+    if not (outfit.get("id") and (outfit.get("description") or outfit.get("garments"))):
+        raise StageRefused("a Laura image needs the listing's reserved outfit (id and "
+                           "description)")
+    render = renderer or flux3_renderer()
+    plan = owner_method_references(laura_refs, product_candidate.path,
+                                   reference_limit=_limit(render))
+    built = flux_prompt.build(rules=release.rules, roles=plan["roles"], role=role,
+                              scene={**dict(scene or {}), "outfit": outfit},
+                              alias=_OWNER_METHOD_ALIAS)
+    cand = _run("lifestyle", f"{role}:{outfit['id']}", release, plan, built, size,
+                features_laura=True, renderer=render, work_dir=work_dir, db=db,
+                job_id=job_id, max_attempts=max_attempts,
+                purpose="image.lifestyle.owner_method")
+    cand.receipt["method"] = OWNER_METHOD
+    cand.receipt["outfit_id"] = outfit["id"]
+    cand.receipt["accepted_product_frame_sha256"] = product_candidate.sha256
+    return cand
+
+
 SIX_REF_PRODUCT_ROLES: tuple[str, ...] = ("product_layout", "product_texture", "product_rules")
 
 # W-VISNEXT2 stage A. The identity anchor is an intermediate reference only (never a gallery
