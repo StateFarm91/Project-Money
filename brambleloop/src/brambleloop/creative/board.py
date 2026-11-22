@@ -103,3 +103,131 @@ def make_board(db, concept) -> dict:
             "kind": KIND, "slug": cir.slug, "source": source, **extra,
             "disclosure": (f"a deterministic render of {what} from its compiled digital "
                            f"twin, not a photograph")}
+
+
+# ---- NEXT-FIXES #2: the board of a concept the prototype cannot size ------------------------
+#
+# Production 15:00Z (release 5297dbba): the concept gate held concepts at
+# `board_missing/prototype_refused`. `radar.intake` admits a concept only into a family whose
+# engine is verified end to end (`construction_families.route`): a ball-body bear or a lovey
+# (form `toy`), a shawl or wrap (`draped_garment`), socks, slippers and baby dresses
+# (wearable `fitted_garment`). But the board above was drawn from `creative.prototype.author`,
+# which sizes flat and round forms only, so every one of those admitted concepts was refused a
+# board, never judged, and waited at the gate forever while a pattern engine for it existed.
+#
+# This draws the board from the engine's OWN draft instead: the same inputs `radar.score`
+# offers `cir.draft` (`toy_board.draft_inputs`), the same route, the same builder. The draft
+# must compile; the fabric is drawn from its digital twin exactly as above. CA$0, no image
+# provider. The stuffed-animal family keeps its own board route (`creative.toy_board`), and a
+# family whose engine is not admitted gets no board (unknown never admits).
+ENGINE_BOARD_SOURCE = "engine_draft"
+
+
+class EngineDraftRefused(ValueError):
+    """No engine draft to draw for this concept, and why. Nothing was spent."""
+
+
+def engine_draft_cir(db, slug: str, *, today=None):
+    """(cir, family, compiled) as `cir.draft` will build them for an approved radar concept, compiled
+    clean; or EngineDraftRefused naming why not."""
+    from types import SimpleNamespace
+
+    from ..cir.compiler import compile_cir
+    from ..runtime.pipeline import Concept
+    from . import baby
+    from . import construction_families as CF
+    from . import fallback_constructions as FC
+    from . import homedecor as HD
+    from .toy_board import draft_inputs
+
+    i = draft_inputs(db, slug, today=today)
+    if i is None:
+        raise EngineDraftRefused("not an approved research concept")
+    seed = i.pop("_seed")
+    title, category = str(i.get("title") or ""), str(i.get("category") or "")
+    form, construction = str(i.get("form") or ""), str(i.get("construction") or "")
+    if CF.is_wearable(form, title):
+        from ..products import wearables as WB
+
+        route = CF.route(category=category, title=title, form=form,
+                         construction=construction, slug=slug,
+                         premise=str(i.get("premise") or ""))
+        if not route["admitted"]:
+            raise EngineDraftRefused(route["reason"][:240])
+        try:
+            spec = WB.spec_for(SimpleNamespace(
+                key=slug, title=title, form=form, category=category,
+                construction=construction, premise=str(i.get("premise") or ""),
+                notes=str(i.get("notes") or ""), recipient=str(i.get("recipient") or "self")))
+            if spec.audience != route.get("audience"):
+                raise EngineDraftRefused(f"the concept's recipient sizes it for {spec.audience} "
+                                         f"but its title and category say {route.get('audience')}")
+            built = WB.build(spec)
+        except (WB.WearableRefused, ValueError) as exc:
+            raise EngineDraftRefused(f"the {route['family']} engine will not draft it: "
+                                     f"{exc}"[:240]) from None
+        sizes = list(built.cirs)
+        if not sizes:
+            raise EngineDraftRefused(f"the {route['family']} engine drafted no size")
+        cir, family = built.cirs[sizes[len(sizes) // 2]], route["family"]
+    else:
+        concept = Concept(slug=i["slug"], title=i["title"], category=i["category"],
+                          stitch_repeat=[(s, n) for s, n in i["stitch_repeat"]],
+                          width_stitches=i["width_stitches"], rows=i["rows"],
+                          colors=i["colors"], season=i.get("season"),
+                          risk_class=i.get("risk_class", "A"))
+        route = FC.plan(category=concept.category, title=concept.title,
+                        is_bundle=bool(seed.is_bundle), slug=concept.slug,
+                        rationale=seed.rationale or "")
+        family = route["family"]
+        builders = {FC.AMIGURUMI: FC.amigurumi, FC.LOVEY: baby.lovey,
+                    FC.TRIANGLE: FC.triangle, FC.POUCH: FC.pouch, FC.TOTE: FC.tote,
+                    FC.COSY: FC.cosy, FC.STOCKING: FC.stocking, FC.VESSEL: FC.vessel,
+                    **{v: (lambda c, _v=v: HD.build(_v, c)) for v in HD.VARIANTS}}
+        if family == FC.AMIGURUMI_ANIMAL:
+            raise EngineDraftRefused("a stuffed animal's board is creative.toy_board's")
+        if family not in builders:
+            raise EngineDraftRefused(f"no engine board for the {family!r} route: "
+                                     f"{route.get('why') or ''}"[:240])
+        if CF.status_of(family) not in CF.ADMITTED_STATUSES:
+            raise EngineDraftRefused(f"the {family} engine is not admitted "
+                                     f"({CF.status_of(family)})")
+        try:
+            cir = builders[family](concept)
+        except (ValueError, KeyError) as exc:
+            raise EngineDraftRefused(f"the {family} engine will not draft it: "
+                                     f"{type(exc).__name__}: {exc}"[:240]) from None
+    result = compile_cir(cir)
+    if not result.ok:
+        codes = sorted({f.code for f in result.findings if f.is_error})
+        raise EngineDraftRefused(f"the engine's draft does not compile: {codes}"[:240])
+    return cir, family, result
+
+
+def make_engine_board(db, slug: str, *, today=None) -> dict:
+    """The board drawn from the engine's own draft (see above), in `make_board`'s shape."""
+    from ..cir.twin import build_twin
+    from ..core.artifacts import ArtifactStore
+    from ..visual.render import fabric_raster
+
+    try:
+        cir, family, result = engine_draft_cir(db, slug, today=today)
+    except EngineDraftRefused as exc:
+        return {"board_image": None, "why": f"no engine draft to render: {exc}"[:300]}
+    try:
+        twin = build_twin(cir, result)
+        image = fabric_raster(twin, cir.gauge, px_per_stitch=26, max_rows=40, max_cols=40,
+                              seed=0, fibre=True)
+    except Exception as exc:  # noqa: BLE001 - an undrawable twin is no board, never a crash
+        return {"board_image": None,
+                "why": f"the engine's draft could not be drawn ({type(exc).__name__})"}
+    side = min(image.size)
+    image = image.crop((0, 0, side, side)).resize((BOARD_PX, BOARD_PX))
+    buf = io.BytesIO()
+    image.save(buf, format="PNG", optimize=True)
+    stored = ArtifactStore().put(f"board/{slug}-engine.png", buf.getvalue(), "image/png",
+                                 db=db, keep="concept board drawn from the engine's draft")
+    return {"board_image": f"artifact:{stored.sha256}", "sha256": stored.sha256,
+            "kind": KIND, "slug": slug, "source": ENGINE_BOARD_SOURCE, "family": family,
+            "disclosure": (f"a deterministic render of the {family} engine's draft fabric "
+                           f"from its compiled digital twin, not a photograph")}

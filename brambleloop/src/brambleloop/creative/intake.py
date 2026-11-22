@@ -1281,7 +1281,8 @@ def _gate_waits_on_vision(db, slug: str) -> bool:
 
 
 BOARD_WHY_CODES = ("concept_incomplete", "prototype_refused", "prototype_not_compiling",
-                   "hero_not_verified", "hero_render_refused", "not_stored", "other")
+                   "hero_not_verified", "hero_render_refused", "not_stored",
+                   "engine_draft_refused", "other")
 
 
 def board_why_code(made: dict) -> str:
@@ -1290,6 +1291,9 @@ def board_why_code(made: dict) -> str:
     if made.get("board_image") and not made.get("sha256"):
         return "not_stored"
     why = str(made.get("why") or "")
+    if why.startswith("no engine draft to render") or why.startswith(
+            "the engine's draft could not be drawn"):
+        return "engine_draft_refused"
     if why.startswith("no prototype to render"):
         return "prototype_refused"
     if why.startswith("the prototype does not compile"):
@@ -1316,6 +1320,17 @@ def file_radar_board(db, slug: str) -> dict:
         return {"board": "", "why": f"no concept to draw: {problem}"[:200],
                 "why_code": "concept_incomplete"}
     made = make_board(db, built)
+    if not made.get("board_image") and board_why_code(made) == "prototype_refused":
+        # NEXT-FIXES #2: the prototype sizes flat and round forms only, but intake admitted
+        # this concept into a family with a verified engine (a ball bear, a lovey, a shawl,
+        # socks...). Draw the board from that engine's own draft rather than hold it forever.
+        from .board import make_engine_board
+
+        engine = make_engine_board(db, slug)
+        if engine.get("board_image"):
+            made = engine
+        else:
+            made = {**engine, "why": f"{engine.get('why')} (and {made.get('why')})"}
     sha = _sha256_hex(made.get("sha256"))
     if not made.get("board_image") or not sha:
         return {"board": "", "why": str(made.get("why") or "no board was drawn")[:200],

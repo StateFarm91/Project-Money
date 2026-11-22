@@ -176,6 +176,39 @@ def test_a_draft_withdrawn_before_reaching_etsy_is_not_retired():
     assert L._derive(db, "retired")["stage"] == "RETIRED"
 
 
+def test_an_observed_retirement_the_rows_no_longer_show_is_not_replayed():
+    """NEXT-FIXES #1 (production 15:00Z, release 5297dbba): `observe()` had cached RETIRED for
+    four products under the pre-19i14 rule (withdrawn, never on Etsy). `_derive` replayed any
+    recorded RETIRED, so `sale_admission` refused them as "product is RETIRED" even though the
+    rows now derive a draft. Only a deliberate `transition()` is terminal."""
+    from brambleloop.autonomy import memory
+    from brambleloop.core.models import Product
+    from brambleloop.products import lifecycle as L
+    from brambleloop.visual import image_production as IP
+
+    db = _db()
+    with db.session() as s:
+        for slug in ("cached", "deliberate"):
+            s.add(Product(slug=slug, title=slug))
+            _listing(s, slug, "withdrawn")
+    for slug, observed in (("cached", True), ("deliberate", False)):
+        body = {"stage": "RETIRED", "from": "VISUAL", "why": "every listing is retired or "
+                "withdrawn", "by": "listing.draft", "history": []}
+        if observed:
+            body["observed"] = True
+        memory.remember(db, L.KEY + slug, kind="product.lifecycle",
+                        department="product_design", subject=f"{slug} lifecycle",
+                        state="retired", body=body, sources=["listings"])
+    assert L._derive(db, "cached")["stage"] == "VISUAL", L._derive(db, "cached")
+    assert L._derive(db, "deliberate")["stage"] == "RETIRED"
+    adm = IP.sale_admission(db, "cached", "1.2.0", "r" * 64)
+    assert not adm.get("rejected") and "RETIRED" not in adm["why"], adm
+    assert IP.sale_admission(db, "deliberate", "1.2.0", "r" * 64).get("rejected") is True
+    # the next observation replaces the stale cache with what the rows show
+    moved = L.observe(db, "cached", by="listing.package")
+    assert moved and moved["from"] == "RETIRED" and moved["to"] == "VISUAL", moved
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

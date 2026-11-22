@@ -93,7 +93,13 @@ def _derive(db, slug: str) -> dict:
     from ..core.models import Listing, ListingAsset, Order, PatternVersion, Product
 
     rec = memory.get(db, KEY + slug)
-    if rec and rec["body"].get("stage") in ("REJECTED", "ROLLED_BACK", "RETIRED"):
+    # NEXT-FIXES: only a DELIBERATE transition (`transition()`) is terminal. A record written
+    # by `observe()` (`observed: True`) is a cache of what the rows derived at that time; the
+    # rows stay the source of truth. Before this, a RETIRED observed under the pre-19i14 rule
+    # ("withdrawn and never on Etsy" read as retired) was replayed forever, so sale admission
+    # kept refusing four products as "product is RETIRED" after the rule was fixed.
+    if (rec and rec["body"].get("stage") in ("REJECTED", "ROLLED_BACK", "RETIRED")
+            and not rec["body"].get("observed")):
         return {"slug": slug, "stage": rec["body"]["stage"], "basis": "recorded transition",
                 "why": rec["body"].get("why")}
     with db.session() as s:
