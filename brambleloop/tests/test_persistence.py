@@ -156,14 +156,40 @@ def test_pipeline_resumes_across_a_worker_restart_mid_flight():
 
         with db.session() as s:
             # ENG-SUPPLY: products enter engineering through the admission controller, in
-            # demand order at a bounded work-in-progress limit, so the product carried across
-            # the restart is the first one admitted, read from the durable record rather than
-            # assumed. (Every other offer stays recorded as waiting, never lost.)
-            first = s.scalar(select(AuditLog).where(AuditLog.action == "supply.admitted")
-                             .order_by(AuditLog.id).limit(1))
-            assert first is not None and first.artifact, "nothing was admitted to engineering"
-            product = s.scalar(select(Product).where(Product.slug == first.artifact))
-            assert product is not None and product.status == "certified", first.artifact
+            # demand order at a bounded work-in-progress limit, read from the durable record
+            # rather than assumed. (Every other offer stays recorded as waiting, never lost.)
+            admitted = [a.artifact for a in s.scalars(
+                select(AuditLog).where(AuditLog.action == "supply.admitted")
+                .order_by(AuditLog.id))]
+            assert admitted and admitted[0], "nothing was admitted to engineering"
+            certs = {}
+            for job in s.scalars(select(Job).where(Job.job_type == "gate.certify")
+                                 .order_by(Job.id)):
+                slug = str((job.outputs or {}).get("artifact") or "").split("@")[0]
+                certs.setdefault(slug, job)
+            # D-ENG-DEMAND-SUPPLY (2026-11-20): admission is ordered by MARKET demand, so the
+            # first product admitted is now heirloom-cable-blanket, whose certification the
+            # gate refuses (UNCALIBRATED_PRIMITIVE: cable2x2/fpdc/bpdc have no physical
+            # calibration) -- as it already did when it was admitted second. The worker
+            # restart must lose neither outcome: the first admitted product's certification
+            # ran to DONE with its verdict recorded (a refusal carries its reasons and creates
+            # no certified product) ...
+            job = certs.get(admitted[0])
+            assert job is not None and job.status == JobStatus.DONE, (admitted[0], job)
+            first = s.scalar(select(Product).where(Product.slug == admitted[0]))
+            if job.outputs.get("granted"):
+                assert first is not None and first.status == "certified", admitted[0]
+            else:
+                assert job.outputs.get("reasons"), job.outputs
+                assert first is None or first.status != "certified", admitted[0]
+            # ... and the first admitted product the gate grants is carried all the way to
+            # certification by the second worker.
+            granted = [slug for slug in admitted
+                       if slug in certs and (certs[slug].outputs or {}).get("granted")]
+            assert granted, {slug: (certs[slug].outputs or {}).get("reasons")
+                             for slug in admitted if slug in certs}
+            product = s.scalar(select(Product).where(Product.slug == granted[0]))
+            assert product is not None and product.status == "certified", granted[0]
             offered = {a.artifact for a in s.scalars(select(AuditLog).where(
                 AuditLog.action == "supply.offered"))}
             assert "nordic-forest-mosaic-throw" in offered

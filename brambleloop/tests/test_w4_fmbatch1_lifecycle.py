@@ -49,13 +49,36 @@ def test_stages_follow_the_rows():
             product_slug="x", version="1", state="valid",
             certificate={"frames": [{"position": i} for i in range(1, CAMPAIGN_MIN_FRAMES)]}))
     assert L.derive(db, "x")["stage"] == "VISUAL"
-    # ... and the complete gallery is what makes it LISTING_READY.
+    # ... and the complete gallery alone is still not LISTING_READY. D-OWNER-SALE-PIPELINE
+    # (2026-11-20, owner HARD RULE): ready for sale = certified pattern + complete certified
+    # gallery + both premium PDFs certified + every listing gate PASS, read by
+    # `publish.sale_pipeline.ready_for_sale`. These rows carry no PDFs or package, so the
+    # stage stays VISUAL and says why.
     with db.session() as s:
         s.add(ListingSetCertificateRecord(
             product_slug="x", version="1", state="valid",
             certificate={"frames": [{"position": i}
                                     for i in range(1, CAMPAIGN_MIN_FRAMES + 1)]}))
-    assert L.derive(db, "x")["stage"] == "LISTING_READY"
+    d = L.derive(db, "x")
+    assert d["stage"] == "VISUAL" and "not yet ready for sale" in d["why"], d
+    # The real ready_for_sale on a real chain reaching LISTING_READY is
+    # tests/test_sale_pipeline.py; here its reading is supplied at its seam so the stage
+    # mapping is what is tested: READY -> LISTING_READY, asked for the certified listed
+    # version, and a not-ready reading keeps VISUAL.
+    from brambleloop.publish import sale_pipeline
+    saved = sale_pipeline.ready_for_sale
+    asked = []
+    try:
+        sale_pipeline.ready_for_sale = lambda _db, slug, version: (
+            asked.append((slug, version)) or {"ready": False, "reasons": ["PDFs pending"]})
+        d = L.derive(db, "x")
+        assert d["stage"] == "VISUAL" and "PDFs pending" in d["why"], d
+        sale_pipeline.ready_for_sale = lambda _db, slug, version: (
+            asked.append((slug, version)) or {"ready": True, "reasons": []})
+        assert L.derive(db, "x")["stage"] == "LISTING_READY"
+    finally:
+        sale_pipeline.ready_for_sale = saved
+    assert asked == [("x", "1"), ("x", "1")], asked
     with db.session() as s:
         s.query(Listing).update({"state": "published"})
     assert L.derive(db, "x")["stage"] == "LIVE"

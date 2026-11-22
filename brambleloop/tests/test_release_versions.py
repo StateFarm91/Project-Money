@@ -178,8 +178,10 @@ def test_the_pt_redesigns_carry_a_new_version():
             assert cir.version == "1.2.1", slug
         # W4-K9 (F-762/F-763): the size matrix and stated fit are new customer-visible
         # content in every graded size, so each graded design moved one minor further.
+        # D-CERTFIX3-SEWN-JOIN-NOTES (2026-11-20): the drop-shoulder seam notes now state
+        # both loops + buried tails, printed text in every Harbour size -> 1.4.0.
         if slug.startswith("harbour-drop-shoulder-pullover-"):
-            assert cir.version == "1.3.0", slug
+            assert cir.version == "1.4.0", slug
         if slug.startswith("pebble-raglan-cardigan-"):
             assert cir.version == "1.2.0", slug
 
