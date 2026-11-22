@@ -64,6 +64,19 @@ def start_images(ctx: JobContext):
                           + f":admitted:{hour}")
             return {"started": "admitted_reentry", "enqueued": job is not None,
                     "run_key": run["run_key"]}
+        if run["state"] == IP.SALE_WAITING:
+            # SALE-PREIMAGE: a FLUX run parked by the vis-gallery for-sale admission. The sale
+            # pipeline admitted the release, so the run is re-entered through that admission
+            # point: it re-checks `sale_admission` (both spend admissions must hold, Batch 19),
+            # re-enters once per wait under its own idempotency key, or leaves the run parked
+            # with the reason recorded. Before, this read as "in_progress" and nothing
+            # re-entered the run until a six-hourly listing.package sweep, if ever.
+            got = IP.admit_for_sale(ctx.db, enqueue, slug=slug, version=version,
+                                    release=release)
+            return {"started": "sale_readmission" if got.get("enqueued") else "still_waiting",
+                    "enqueued": bool(got.get("enqueued")), "run_key": run["run_key"],
+                    "admission": {k: (got.get("admission") or {}).get(k)
+                                  for k in ("admitted", "why")}}
         if run["state"] in SPL.IMAGE_END_STATES:
             SPL.image_run_ended(_follow(ctx), slug=slug, version=version, release=release,
                                 state=run["state"], epoch=int(run.get("restarts") or 0))

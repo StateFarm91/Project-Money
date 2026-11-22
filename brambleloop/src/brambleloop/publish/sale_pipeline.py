@@ -355,19 +355,48 @@ def _gate(status: str, why: str = "", **kw) -> dict:
     return {"status": status, "why": why, **kw}
 
 
+# SALE-PREIMAGE: the chain-key stage prefix of each job the readiness reads
+# (`runtime.release.chain_key`: "<stage>:<slug>:<version>:<release[:12]>[:token]:c<N>").
+_CHAIN_STAGE = {"listing.seo": "seo", "launch.plan": "launch"}
+_LATEST_JOB_SCAN = 500
+
+
 def _latest_job(db, job_type: str, slug: str, version: str, release: str):
+    """The newest DONE `job_type` job whose inputs name exactly slug@version@release.
+
+    SALE-PREIMAGE (copy_seo): this used to read only the newest 500 DONE jobs of the type
+    company-wide. Fix-only rebuilds re-run `listing.seo` for every product without reaching
+    `launch.plan`, so a release whose copy was drafted (and selected for sale) before those
+    rebuilds fell out of the window and read "no listing copy and SEO drafted" for good, while
+    its `launch.plan` was still found. Jobs keyed by the chain key of exactly this release are
+    read first, unbounded; the bounded scan stays the fallback for unkeyed jobs. The inputs
+    are matched exactly either way."""
     from sqlalchemy import desc, select
 
     from ..core.models import Job, JobStatus
 
+    def match(job):
+        i = dict(job.inputs or {})
+        if (i.get("slug"), i.get("version")) == (slug, version) and \
+                str(i.get("release") or "") == release:
+            return {"id": job.id, "inputs": i, "outputs": dict(job.outputs or {})}
+        return None
+
+    base = select(Job).where(Job.job_type == job_type, Job.status == JobStatus.DONE)
     with db.session() as s:
-        for job in s.scalars(select(Job).where(Job.job_type == job_type,
-                                               Job.status == JobStatus.DONE)
-                             .order_by(desc(Job.id)).limit(500)):
-            i = dict(job.inputs or {})
-            if (i.get("slug"), i.get("version")) == (slug, version) and \
-                    str(i.get("release") or "") == release:
-                return {"id": job.id, "inputs": i, "outputs": dict(job.outputs or {})}
+        stage = _CHAIN_STAGE.get(job_type)
+        if stage and slug and version and release:
+            prefix = f"{stage}:{slug}:{version}:{release[:12]}"
+            for job in s.scalars(base.where(Job.idempotency_key.like(
+                    prefix.replace("%", r"\%").replace("_", r"\_") + "%", escape="\\"))
+                    .order_by(desc(Job.id))):
+                got = match(job)
+                if got is not None:
+                    return got
+        for job in s.scalars(base.order_by(desc(Job.id)).limit(_LATEST_JOB_SCAN)):
+            got = match(job)
+            if got is not None:
+                return got
     return None
 
 
@@ -463,15 +492,25 @@ def pre_image_readiness(db, slug: str, version: str, release: str, *,
                     else None)
         words = launch0.child_words_in_listing(copy) if copy else False
         dec = decision[0] if isinstance(decision, tuple) else None
+        screen = child_audience_screen(cir, copy) if cir is not None else None
         if cir is None:
             gates["child_family"] = _gate(UNKNOWN, "no pattern to judge")
+        elif dec == getattr(launch0, "UNDECIDED", "undecided") and not screen["applies"]:
+            # SALE-PREIMAGE: the deterministic screen found no children's signal at all, so
+            # the children's question does not arise, exactly as the renderer
+            # (`publish.pdf`) and the listing package already read it.
+            gates["child_family"] = _gate(PASS, decision="not_applicable", screen=screen)
         elif dec == getattr(launch0, "UNDECIDED", "undecided"):
-            gates["child_family"] = _gate(FAIL, "the children's audience decision is undecided")
+            gates["child_family"] = _gate(
+                FAIL, "the children's audience decision is undecided (OWNER DECISION: assign "
+                      "it in products.launch0.EXTRA_CHILDRENS_ASSIGNMENTS or record a reasoned "
+                      "exemption in NOT_MERCHANDISED_TO_A_CHILD, bound to this design): "
+                      + "; ".join(screen["signals"])[:400], screen=screen)
         elif words and dec != launch0.ASSIGNED:
             gates["child_family"] = _gate(FAIL, "listing copy names a child audience without "
-                                                "an explicit assignment")
+                                                "an explicit assignment", screen=screen)
         else:
-            gates["child_family"] = _gate(PASS, decision=dec)
+            gates["child_family"] = _gate(PASS, decision=dec, screen=screen)
     except Exception as exc:  # noqa: BLE001 - an unreadable decision is never a pass
         gates["child_family"] = _gate(UNKNOWN, type(exc).__name__)
     hashes = None
@@ -487,7 +526,13 @@ def pre_image_readiness(db, slug: str, version: str, release: str, *,
     # Text, schematics and diagrams against the standard, image slots pending.
     if gates["pdf_text"]["status"] == PASS and cir is not None:
         prev = (cached or {}).get("pdf_structure") or {}
-        if prev.get("hashes") == hashes and prev.get("status") in (PASS, FAIL):
+        checker = structure_checker()
+        # SALE-PREIMAGE (pdf_structure): a cached reading is reused only for the same base
+        # PDFs AND the same checker. Keyed by the PDF hashes alone, a FAIL issued by an older
+        # checker (BATCH19D changed `pdf_standard` without bumping CHECKER_VERSION) was
+        # reused for good, and the release never re-read.
+        if (prev.get("hashes") == hashes and prev.get("status") in (PASS, FAIL)
+                and checker is not None and prev.get("checker") == checker):
             gates["pdf_structure"] = prev
         else:
             gates["pdf_structure"] = _structure(db, slug, version, release, cir, hashes)
@@ -519,7 +564,63 @@ def _structure(db, slug, version, release, cir, hashes) -> dict:
                                   for t, v in readings.items() if v.get("verdict") !=
                                   "PASS_PENDING_IMAGES")
     return {"status": PASS if ok else (FAIL if bad else UNKNOWN), "why": why,
-            "hashes": dict(hashes), "editions": readings}
+            "hashes": dict(hashes), "editions": readings, "checker": structure_checker()}
+
+
+def structure_checker() -> str | None:
+    """The identity of the PDF-structure checker a reading came from: its version, the
+    standard's hash and the checker's own code. None when unreadable (nothing is reused)."""
+    try:
+        import inspect
+
+        from . import pdf_standard as PS
+
+        code = hashlib.sha256(inspect.getsource(PS).encode()).hexdigest()[:16]
+        return f"{PS.CHECKER_VERSION}|{(PS.standard_sha256() or '')[:16]}|{code}"
+    except Exception:  # noqa: BLE001 - an unidentifiable checker reuses nothing
+        return None
+
+
+def child_audience_screen(cir, listing=None) -> dict:
+    """SALE-PREIMAGE: the deterministic children's-audience screen for the sale pipeline.
+
+    The children's question applies -- and an explicit decision is then required, exactly as
+    before -- when ANY signal is present: a catalogue assignment, a closed stuffed form
+    (`closed_stuffed_form`, which reads UNKNOWN construction as stuffed), the child-safety
+    gate's own applicability (`gates.child_safety.applies`: child words in title or slug, a
+    stuffed figure, a closing or stuffed piece in rounds, a baby/child garment grading), child
+    words in the CIR category, or child words in the listing's title, description or tags.
+    Anything unreadable is a signal. Only a release with no signal at all is outside the
+    question; that is how the renderer and the listing package already treat it."""
+    from ..products import launch0
+
+    signals: list[str] = []
+    try:
+        assignment = launch0.childrens_assignment(cir.slug)
+        if assignment is not None:
+            signals.append(f"children's assignment {assignment}")
+        reasons = launch0.stuffed_form_reasons(cir)
+        if reasons:
+            signals.append("closed stuffed form: " + "; ".join(reasons)[:200])
+        from ..gates import child_safety
+
+        if child_safety.applies(cir, assignment):
+            signals.append("child-safety gate applies (title/slug words, stuffed figure, "
+                           "closed or stuffed piece, or child garment)")
+        words = launch0.child_words_in(cir.title, cir.slug, str(getattr(cir, "category", "")
+                                                                or ""))
+        if words:
+            signals.append(f"child words in the pattern: {', '.join(words)}")
+    except Exception as exc:  # noqa: BLE001 - an unreadable pattern is a signal
+        signals.append(f"pattern unreadable ({type(exc).__name__})")
+    if listing is not None:
+        try:
+            words = launch0.child_words_in_listing(listing)
+            if words:
+                signals.append(f"child words in the listing copy: {', '.join(words)}")
+        except Exception as exc:  # noqa: BLE001
+            signals.append(f"listing copy unreadable ({type(exc).__name__})")
+    return {"applies": bool(signals), "signals": signals}
 
 
 def spend_admitted(db, slug: str, version: str, release: str) -> bool:
@@ -804,6 +905,21 @@ def _gallery(db, key, run, *, follow, start_images, store_root):
                             "(ENG-VIS-GALLERY gallery_persist.certify_gallery)")
         elif certify is not None:
             blocker, why = "gallery_certification_refused", str(certify.get("why"))[:600]
+        elif img["state"] in IMAGE_WAIT_STATES:
+            # SALE-PREIMAGE: an admitted release whose image run sits in a non-spending wait
+            # (parked before admission, or by the vis-gallery `sale_admission`) is re-entered
+            # here -- once per wait, idempotent keys -- and the wait's own reason is the
+            # named blocker. Before, nothing re-entered it (`start_images` read the parked
+            # run as "in progress") and the incident said only "gallery_in_production".
+            blocker = "image_sale_admission"
+            why = f"image run is {img['state']}: {image_wait_reason(db, img)}"
+            if run["reservation"] == "held" and start_images is not None:
+                try:
+                    started = start_images(slug, version, release)
+                except Exception as exc:  # noqa: BLE001 - recorded, never silent
+                    started = {"started": "error", "why": f"{type(exc).__name__}: {exc}"[:300]}
+                _update(db, key, evidence={"image_production": started})
+                why += f" (re-entry: {started.get('started')})"
         else:
             blocker, why = "gallery_in_production", f"image run is {img['status']}"
         view = _update(db, key, blocker=blocker, detail=why or reading["why"],
@@ -1200,6 +1316,20 @@ def _ready(db, key, run, *, follow, start_images, store_root):
 # ---- image production hook -------------------------------------------------------------------
 
 IMAGE_END_STATES = ("ready_for_owner_review", "blocked", "approved_for_publication")
+# The image run's non-spending waits (`visual.image_production`): not admitted by this
+# pipeline yet (AWAITING_PRE_IMAGE), or parked by the vis-gallery for-sale admission.
+IMAGE_WAIT_STATES = ("awaiting_pre_image_readiness", "waiting_for_sale_admission")
+
+
+def image_wait_reason(db, img: dict) -> str:
+    """Why an image run is waiting, from its own record (`_sale_waits`), or 'unrecorded'."""
+    try:
+        from ..visual import image_production as IP
+
+        waits = (IP._stage_data(db, img["run_key"]).get(IP._SALE_WAITS) or {})
+        return str(waits.get("why") or "unrecorded")[:500]
+    except Exception as exc:  # noqa: BLE001
+        return f"unreadable ({type(exc).__name__})"
 
 
 def image_run_ended(follow, *, slug: str, version: str, release: str, state: str,
