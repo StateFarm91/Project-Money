@@ -2263,7 +2263,7 @@ def _accepted_product_frame(db, key: str, listing: str) -> dict | None:
     b = _best(db, listing=listing, role=ANCHOR_ROLE, run=key)
     if not b or b.get("technical_status") != "PASS" or not b.get("sha256"):
         return None
-    if _image_has_negative_decision(db, slug=b["slug"], version=b["version"], sha=b["sha256"]):
+    if _anchor_has_negative_decision(db, b.get("candidate_id")):
         return None
     ref = _prior_ref(db, b["sha256"], PRODUCT_FRAME_LABEL)
     if ref is None:
@@ -2312,6 +2312,23 @@ def _prior_ref(db, sha: str, label: str) -> dict | None:
         return None
     return {"kind": "prior_candidate", "label": label, "sha256": sha, "data": data} \
         if data and hashlib.sha256(data).hexdigest() == sha else None
+
+
+def _anchor_has_negative_decision(db, candidate_id) -> bool:
+    """A negative decision on THIS product-frame candidate (owner disapproval or a rejected
+    outcome). Scoped to the candidate, not its bytes: a later frame that happens to share
+    bytes and is rejected for its own reason (e.g. wardrobe repetition) never voids step 1."""
+    from sqlalchemy import or_, select
+    from .image_records import ImageCandidate
+
+    if candidate_id is None:
+        return True
+    with db.session() as session:
+        return session.scalar(select(ImageCandidate.id).where(
+            ImageCandidate.id == candidate_id,
+            or_(ImageCandidate.owner_visual_approval.is_(False),
+                ImageCandidate.outcome == "rejected"),
+        ).limit(1)) is not None
 
 
 def _image_has_negative_decision(db, *, slug: str, version: str, sha: str) -> bool:

@@ -1,6 +1,6 @@
 {
  "id": "exp-2026-10-21-cloudline-acceptance",
- "definition_version": 4,
+ "definition_version": 5,
  "kind": "pipeline",
  "purpose": "The first live acceptance test of autonomous image production on a CERTIFIED product (Cloudline Textured Baby Blanket 1.2.0): certified pattern, references, FLUX product-only flat lay, fidelity, Laura stage A identity anchor and lifestyle if eligible, gallery, approval card. Every image is labelled EXPERIMENT and never publishes.",
  "product": {
@@ -50,7 +50,7 @@
    "afe6191fb4c68d0a9c61229fe822a1032ee7c54150597210888db25b0f9ef0db",
    "f32bac686cba46c75e3ac193e72f2bcea4ba7ebc80355a102a4bed4bca3931e0"
   ],
-  "prompt_builder": "flux3-prompt-builder/2.2.0",
+  "prompt_builder": "flux3-prompt-builder/2.3.0",
   "prompt_sections": {
    "image.flux3.references@1": "3dacb26def17b5f9719295083b0b3d976f423b4b7813b2331f1dc9702188d443",
    "image.flux3.identity@2": "24a4f20b044b2c6e34af3968c2094eaea342a832cfdefaf8fa584cfb522a3ad6",
@@ -103,7 +103,7 @@
    "how": "the new values are exactly controlled.verify(...)['references'] on the certified release and flux_prompt.BUILDER_VERSION; no money was spent and nothing was authorized or reactivated. Any earlier authorization (bound to the definition sha256) no longer matches; the experiment stays unauthorized until the owner authorizes this version afresh."
   },
   {
-   "definition_version": 4,
+   "definition_version": 5,
    "on": "2026-11-22",
    "by": "INTEGRATOR v2 record-candidate-2",
    "what": "prompt_builder flux3-prompt-builder/2.1.1 -> 2.2.0; layout, texture, detail, rules, product, cir_hash, Laura and every pinned prompt section hash unchanged",

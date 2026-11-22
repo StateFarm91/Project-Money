@@ -344,8 +344,10 @@ def test_cloudline_acceptance_dry_run_end_to_end_through_the_experiment_command(
     assert s["shared_cap_group"] == ["exp-2026-10-20-wrap-7ref",
                                      "exp-2026-10-21-cloudline-acceptance"]
     imgs = s["experiment_images"]
-    # three calls reserved (anchor, identity anchor, lifestyle); the refused one made no image
-    assert s["orchestrator"]["generation_calls"] == 3 and len(imgs) == 2, (s["orchestrator"],
+    # two calls reserved (product anchor, lifestyle); the refused one made no image. Under the
+    # owner's two-step method (D-ENG-IMAGES-LAURA) stage A's identity anchor is not bought:
+    # Laura frames are conditioned on the accepted product frame plus canonical Laura instead.
+    assert s["orchestrator"]["generation_calls"] == 2 and len(imgs) == 1, (s["orchestrator"],
                                                                             imgs)
     db = Database(f"sqlite:///{out / 'scratch_shadow.db'}", scratch=True)
     assert all(XP.is_experiment_image(db, h) for h in imgs)

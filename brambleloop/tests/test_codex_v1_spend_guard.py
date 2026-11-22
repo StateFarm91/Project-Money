@@ -539,6 +539,14 @@ def test_multi_role_stage_reuses_completed_role_after_interruption(monkeypatch):
     monkeypatch.setattr(IP, "MAX_ATTEMPTS_PER_ROLE", 1)
     monkeypatch.setattr(SP, "campaign_plan", lambda listing: {"roles": roles})
     monkeypatch.setattr(SP, "generated_roles", lambda plan: roles)
+    # Step 1 is done: later roles start only after a product frame passed the fidelity
+    # gate (IMAGES-LAURA). This test is about reuse after an interruption, so the accepted
+    # frame is given rather than produced.
+    monkeypatch.setattr(IP, "_accepted_product_frame",
+                        lambda db, key, listing: {"kind": "prior_candidate",
+                                                  "label": IP.PRODUCT_FRAME_LABEL,
+                                                  "sha256": "f" * 64, "data": b"frame",
+                                                  "candidate_id": 1})
     db = O.make_db()
     key = IP._ensure_run(db, "item", "1", "a" * 64, "")
     inputs = {"slug": "item", "version": "1", "release": "a" * 64,
