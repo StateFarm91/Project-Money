@@ -63,9 +63,10 @@ def review(db, slug: str, version: str, *, provider=None, gate_open: bool | None
     from . import inspect as inspection_mod
 
     if gate_open is None:
-        from .gallery import gates_now
+        # ASSET-VISION (19i3): open when any owner-activated vision route is usable.
+        from .vision_route import vision_open
 
-        gate_open = bool(gates_now(db, keys=("image_vision",)).get("image_vision"))
+        gate_open = vision_open(db)
     if not gate_open:
         return {"reviewed": False, "why": "image_vision gate closed: no model has been proven "
                                           "to look at a picture"}

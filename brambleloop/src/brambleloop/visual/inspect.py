@@ -320,8 +320,15 @@ def identify_at_grid(image_ref: str, *, families, db=None, provider=None,
                                             "'shows what is sold' has nothing to be checked "
                                             "against; unjudged blocks"))
         return out
-    provider = provider or gw.provider_for(TASK)
+    # ASSET-VISION (19i3): Anthropic vision if usable, else approved openai-vision, else
+    # no judge (every check stays unmade). `vision_route` holds the rule.
+    from . import vision_route
+
+    provider = provider or vision_route.provider_for(db)
     out["model"] = provider.model
+    if isinstance(provider, vision_route.NoVisionJudge):
+        out.update(verdict="unjudged", why=vision_route.NO_JUDGE_WHY)
+        return out
     billed = {"reserved": 0.0, "actual": 0.0, "tokens_in": 0, "tokens_out": 0}
     from ..core import workspace
 
@@ -410,10 +417,19 @@ def inspect_image(image_ref: str, *, db=None, provider=None,
     """
     from ..gateway import providers as gw
 
-    provider = provider or gw.provider_for(TASK)
+    # ASSET-VISION (19i3): Anthropic vision if usable, else approved openai-vision, else
+    # no judge (every check stays unmade). `vision_route` holds the rule.
+    from . import vision_route
+
+    provider = provider or vision_route.provider_for(db)
     out: dict = {"image": image_ref, "described": False, "realism_judged": False,
                  "model": provider.model, "provider": getattr(provider, "name", None)}
     billed = {"reserved": 0.0, "actual": 0.0, "tokens_in": 0, "tokens_out": 0}
+    if isinstance(provider, vision_route.NoVisionJudge):
+        out.update(description_error=vision_route.NO_JUDGE_WHY,
+                   realism_error=vision_route.NO_JUDGE_WHY,
+                   realism_unjudged=sorted(REALISM_CHECKS))
+        return out
 
     def _call(system, prompt, max_tokens):
         held = None
@@ -510,11 +526,18 @@ def describe_image(image_ref: str, *, db=None, provider=None, claim: dict | None
     """
     from ..gateway import providers as gw
 
-    provider = provider or gw.provider_for(TASK)
+    # ASSET-VISION (19i3): Anthropic vision if usable, else approved openai-vision, else
+    # no judge (every check stays unmade). `vision_route` holds the rule.
+    from . import vision_route
+
+    provider = provider or vision_route.provider_for(db)
     out: dict = {"image": image_ref, "described": False, "realism_judged": False,
                  "model": provider.model, "provider": getattr(provider, "name", None),
                  "realism_not_applicable": True}
     billed = {"reserved": 0.0, "actual": 0.0, "tokens_in": 0, "tokens_out": 0}
+    if isinstance(provider, vision_route.NoVisionJudge):
+        out["description_error"] = vision_route.NO_JUDGE_WHY
+        return out
 
     def _call(system, prompt, max_tokens):
         held = None

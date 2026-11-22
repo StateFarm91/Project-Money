@@ -1977,7 +1977,10 @@ def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict
     from ..visual import inspect as inspection_mod
     from ..visual.gallery import gates_now
 
-    vision_open = gates_now(ctx.db, keys=("image_vision",)).get("image_vision", False)
+    # ASSET-VISION (19i3): open when any owner-activated vision route is usable.
+    from ..visual.vision_route import vision_open as _vision_open
+
+    vision_open = _vision_open(ctx.db)
     verdicts: dict[int, dict] = {}
     blocking: list[str] = []
     for frame in frames:
