@@ -529,6 +529,23 @@ schedule() {
   ) &
 }
 
+# Suites whose budgets are wall-clock timings of the machine itself (scripts/suite_run_alone.txt;
+# test_mc_perf's route budgets) run ALONE, after every other suite has finished, so a busy core
+# from a neighbouring suite never decides their verdict. Their budgets are unchanged; only
+# their slot in the schedule moves. One path per line; '#' starts a comment.
+ALONE=()
+if [ -f scripts/suite_run_alone.txt ]; then
+  while IFS= read -r line; do
+    line="${line%%#*}"; line="${line//[[:space:]]/}"
+    [ -n "$line" ] && ALONE+=("$line")
+  done < scripts/suite_run_alone.txt
+fi
+is_alone() {
+  local a
+  for a in "${ALONE[@]+"${ALONE[@]}"}"; do [ "$a" = "$1" ] && return 0; done
+  return 1
+}
+
 order=()
 for s in "${SLOW[@]}"; do
   for t in "${TO_RUN[@]+"${TO_RUN[@]}"}"; do [ "$t" = "$s" ] && order+=("$t") && break; done
@@ -539,13 +556,19 @@ for t in "${TO_RUN[@]+"${TO_RUN[@]}"}"; do
   [ -z "$skip" ] && order+=("$t")
 done
 
+alone_run=()
 for t in "${order[@]+"${order[@]}"}"; do
+  if is_alone "$t"; then alone_run+=("$t"); continue; fi
   # `wait -n` returns as soon as any one child finishes, which keeps every core busy instead
   # of draining a whole batch before starting the next.
   while [ "$(jobs -rp | wc -l)" -ge "$JOBS" ]; do wait -n; done
   schedule "$t"
 done
 wait
+for t in "${alone_run[@]+"${alone_run[@]}"}"; do
+  schedule "$t"
+  wait
+done
 
 # W4-B1: suites that passed in an earlier segment are reported from their checkpoint.
 if [ -n "$CKPT" ] && ! "$PY" "$CKPT" restore --dir "$CKPT_DIR" --outdir "$outdir" -- "${SUITES[@]}"; then

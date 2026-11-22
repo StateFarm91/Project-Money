@@ -1,0 +1,4 @@
+# Suites run ALONE after the parallel phase of run_tests.sh (one path per line).
+# Only suites whose verdict is a wall-clock budget of this machine belong here; budgets are
+# never loosened to make a busy run pass (integration ruling 2026-11-22 for mc_perf).
+tests/test_mc_perf.py
