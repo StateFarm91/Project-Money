@@ -126,6 +126,19 @@ MAX_RESTARTS = 3                   # per run; a restart never resets attempts, c
 OWNER_METHOD = "owner_two_step/1"
 PRODUCT_FRAME_LABEL = "accepted_product_frame"
 RESTART_KEY = "_restart"           # the run's restart record inside `stages`
+# ENG-IMAGE-METHOD-REDRIVE: every generated candidate carries the generation method it was made
+# under (`generation_method`), by stable identifiers. A candidate with no stamp was made
+# before stamps existed and reads as PRE_METHOD: stored provenance does not carry the
+# pattern-reference version, so the current method cannot be proven for it.
+METHOD_KEY = "_generation_method"
+PRE_METHOD = "pre-method"
+METHOD_REDRIVE_BY = "method_redrive"
+METHOD_REDRIVE_KEY = "_method_redrive"          # the run's last method-redrive readback
+# The fixed vocabulary of the method redrive (codes and sweep evidence). Never free text.
+METHOD_REDRIVE_NO_HEADROOM = "method_redrive:no_headroom"
+METHOD_REDRIVE_ALREADY = "method_redrive:already_redriven"
+METHOD_REDRIVE_CURRENT = "method_redrive:failed_under_current_method"
+METHOD_REDRIVE_EVIDENCE = ("eligible", "done", "no_headroom")
 
 
 class Generator(Protocol):
@@ -489,6 +502,7 @@ def _run_view(r) -> dict:
             "outfit_id": r.outfit_id or None, "card": dict(r.card or {}),
             "owner_decision": dict(r.owner_decision or {}),
             "restarts": int(((r.stages or {}).get(RESTART_KEY) or {}).get("epoch") or 0),
+            "method_redrive": dict((r.stages or {}).get(METHOD_REDRIVE_KEY) or {}),
             "stages": sorted((k for k in (r.stages or {}) if not k.startswith("_")),
                              key=lambda k: [s for s, _ in STAGES].index(k)
                              if k in STAGE_STATE else 99),
@@ -560,6 +574,10 @@ def record_candidate(db, cand: dict, verdict: dict, *, method: str, run: str = "
                     # ENG-IMAGES-LAURA: the reference inputs by hash, in the order sent
                     **({"_reference_provenance": dict(cand["_reference_provenance"])}
                        if cand.get("_reference_provenance") else {}),
+                    # ENG-IMAGE-METHOD-REDRIVE: the generation method this candidate was made
+                    # under, by stable identifiers (absent = "pre-method")
+                    **({METHOD_KEY: dict(cand[METHOD_KEY])}
+                       if isinstance(cand.get(METHOD_KEY), dict) else {}),
                     **({"_generation_operation": {"key": cand["_generation_operation"],
                                                    "mode": cand.get("_generation_mode")}}
                        if cand.get("_generation_operation") else {}),
@@ -726,13 +744,21 @@ def _fidelity_summary(checks: dict | None) -> dict:
 
 
 def _attempts(db, run: str, role: str) -> int:
+    """Attempts spent on `role` in `run`. After a method redrive (ENG-IMAGE-METHOD-REDRIVE)
+    only candidates made under the method the run was re-driven for count: the older method's
+    attempts were spent on a method that no longer runs. Calls and spend are never scoped."""
     from sqlalchemy import func, select
 
     from .image_records import ImageCandidate
 
+    scoped = _redriven_method(db, run)
     with db.session() as s:
-        return int(s.scalar(select(func.count()).select_from(ImageCandidate).where(
-            ImageCandidate.run_key == run, ImageCandidate.role == role)) or 0)
+        if scoped is None:
+            return int(s.scalar(select(func.count()).select_from(ImageCandidate).where(
+                ImageCandidate.run_key == run, ImageCandidate.role == role)) or 0)
+        rows = s.execute(select(ImageCandidate.checks).where(
+            ImageCandidate.run_key == run, ImageCandidate.role == role)).all()
+    return sum(1 for (checks,) in rows if candidate_method_version(checks) == scoped)
 
 
 # ---- one generation, through the budget --------------------------------------------------
@@ -1009,7 +1035,8 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
     call_token = _begin_generation(db, key, stage=stage, paid=paid, next_cost=next_cost)
     base = {"slug": slug, "version": version, "release": release, "run_key": key, "role": role,
             "laura_present": laura, "outfit_id": (outfit or {}).get("outfit_id"),
-            "listing": outfits.listing_of(slug), "prompt_version": prompt_version(db)}
+            "listing": outfits.listing_of(slug), "prompt_version": prompt_version(db),
+            METHOD_KEY: generation_method(gen)}
     if route:
         base["route"] = route
     if exp is not None:
@@ -1043,7 +1070,8 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
                                  failure_categories=["provider_error"],
                                  checks={"provider": {"status": "FAIL",
                                                       "why": f"{type(exc).__name__}: "
-                                                             f"{str(exc)[:300]}"}}))
+                                                             f"{str(exc)[:300]}"},
+                                         METHOD_KEY: dict(base[METHOD_KEY])}))
         return {"provider_error": f"{type(exc).__name__}: {str(exc)[:300]}"}
     cost = out.get("cost_cad")
     if paid:
@@ -1964,7 +1992,8 @@ def reverify(db, candidate_id: int, *, judges, exp=None) -> dict:
                 "prompt_version": row.prompt_version,
                 "route": ((row.checks or {}).get("_route") or {}).get("route") or ""}
         kept = {k: v for k, v in (row.checks or {}).items()
-                if k in ("_route", "_paid_call", "_generation_operation", "_anchor_side")}
+                if k in ("_route", "_paid_call", "_generation_operation", "_anchor_side",
+                         METHOD_KEY)}
         prev = {"technical_status": row.technical_status,
                 "failure_categories": list(row.failure_categories or []),
                 "unknown": sorted(k for k, c in (row.checks or {}).items()
@@ -2031,6 +2060,153 @@ def _run_candidates_failed(db, key: str, listing: str) -> list[str]:
         "technical_status") == "FAIL"]
 
 
+# ---- ENG-IMAGE-METHOD-REDRIVE: one restart per new generation-method version -----------------
+
+def _stable_pdf_page_refs_version() -> str:
+    """The page-reference renderer's version without the environment's pdfium build, which
+    is not a method change."""
+    from ..creative import pdf_page_refs
+
+    return str(pdf_page_refs.RENDER_VERSION).split(";", 1)[0]
+
+
+def generation_method(gen=None) -> dict:
+    """The generation method by stable identifiers: the FLUX prompt builder, the pattern
+    reference renderer (references 4-7 and the certified-PDF pages) and the owner's two-step
+    method identifier this pipeline implements (`OWNER_METHOD`). Only code changes move the
+    version. With `gen`, what that generator declares is recorded beside it
+    (`generator_owner_method`) as provenance; it is not part of the version."""
+    from ..creative import flux_prompt, pattern_refs
+
+    parts = {"prompt_builder": str(flux_prompt.BUILDER_VERSION),
+             "pattern_refs": str(pattern_refs.VERSION),
+             "pdf_page_refs": _stable_pdf_page_refs_version(),
+             "owner_method": OWNER_METHOD}
+    out = {**parts, "version": "|".join(parts[k] for k in (
+        "prompt_builder", "pattern_refs", "pdf_page_refs", "owner_method"))}
+    if gen is not None:
+        out["generator_owner_method"] = bool(getattr(gen, "accepts_owner_method", False))
+    return out
+
+
+def current_method_version() -> str:
+    return generation_method()["version"]
+
+
+def candidate_method_version(checks) -> str:
+    """The method version a stored candidate was made under; PRE_METHOD when unstamped."""
+    rec = (checks or {}).get(METHOD_KEY) if isinstance(checks, dict) else None
+    v = rec.get("version") if isinstance(rec, dict) else None
+    return str(v) if v else PRE_METHOD
+
+
+def _redriven_method(db, key: str) -> str | None:
+    """The method version this run was last re-driven for, or None (never re-driven)."""
+    from .image_records import ImageProductionRun
+    from sqlalchemy import select
+
+    with db.session() as s:
+        stages = s.scalar(select(ImageProductionRun.stages).where(
+            ImageProductionRun.run_key == key))
+    v = (((stages or {}).get(RESTART_KEY) or {}).get("method_redrive") or {}).get("version")
+    return str(v) if v else None
+
+
+def _run_fail_versions(db, key: str, roles: list[str]) -> list[str]:
+    """The method versions of every FAILed candidate of `roles` in this run."""
+    from sqlalchemy import select
+
+    from .image_records import ImageCandidate
+
+    with db.session() as s:
+        rows = s.execute(select(ImageCandidate.checks).where(
+            ImageCandidate.run_key == key, ImageCandidate.role.in_(roles),
+            ImageCandidate.technical_status == "FAIL")).all()
+    return [candidate_method_version(c) for (c,) in rows]
+
+
+def _redrive_call_cost_cad() -> float:
+    """The most one FLUX 3 product-frame call may cost, CAD (the generator's own figure)."""
+    from ..creative import image_stages
+    from ..gateway import images
+
+    try:
+        usd = images.BFL3_TIER_USD[images.bfl3_tier(image_stages.PRODUCT_SIZE)]
+    except Exception:  # noqa: BLE001 - unknown tier: assume the dearest, never the cheapest
+        usd = max(images.BFL3_TIER_USD.values())
+    return round(usd * images.USD_TO_CAD, 6)
+
+
+def method_headroom(db, key: str, run: dict) -> dict:
+    """Whether the run's existing call and spend caps leave room for one product-frame
+    attempt (two calls for a vessel: side view + top-down). Reads the same spend plan the
+    generation guard enforces; nothing here resets or raises a cap."""
+    plan = _spend_plan(key, db)
+    calls = 2 if is_vessel_release(db, run["slug"], run["version"]) else 1
+    cost = _redrive_call_cost_cad()
+    calls_left = int(plan["call_count"]) - int(run.get("generation_calls") or 0)
+    spend_left = round(float(plan["max_spend_cad"]) - float(run.get("spent_cad") or 0.0), 4)
+    ok = calls_left >= calls and spend_left + 1e-9 >= calls * cost
+    return {"ok": ok, "calls_needed": calls, "calls_left": calls_left,
+            "call_cap": int(plan["call_count"]), "spend_left_cad": spend_left,
+            "spend_cap_cad": float(plan["max_spend_cad"]),
+            "needed_cad": round(calls * cost, 4)}
+
+
+def method_redrive_check(db, key: str, run: dict, failed: list[str]) -> dict:
+    """Whether a run blocked on a fidelity FAIL may be restarted once under the current
+    generation method. Eligible only when it blocked at `fidelity_gate`, every FAILed
+    candidate of the failed roles was made under another method version, and no restart of
+    this run has yet been spent on the current version. `ok` additionally needs headroom
+    under the existing call and spend caps; without it the code is `method_redrive:no_headroom`."""
+    current = current_method_version()
+    base = {"version": current}
+    if run.get("stage") != "fidelity_gate" or not failed:
+        return {**base, "eligible": False, "ok": False, "code": None}
+    history = (((_stage_data(db, key).get(RESTART_KEY)) or {}).get("history")) or []
+    if any(h.get("method_version") == current for h in history):
+        return {**base, "eligible": False, "ok": False, "code": METHOD_REDRIVE_ALREADY,
+                "why": f"{METHOD_REDRIVE_ALREADY}: already restarted once under {current}"}
+    versions = _run_fail_versions(db, key, failed)
+    if not versions or current in versions:
+        return {**base, "eligible": False, "ok": False, "code": METHOD_REDRIVE_CURRENT,
+                "why": f"{METHOD_REDRIVE_CURRENT}: FAIL on {failed} under {current}"}
+    room = method_headroom(db, key, run)
+    out = {**base, "eligible": True, "ok": room["ok"], "headroom": room,
+           "failed_versions": sorted(set(versions))}
+    if not room["ok"]:
+        out.update(code=METHOD_REDRIVE_NO_HEADROOM, why=(
+            f"{METHOD_REDRIVE_NO_HEADROOM}: {room['calls_left']} of {room['call_cap']} calls "
+            f"and CA${room['spend_left_cad']:.2f} of CA${room['spend_cap_cad']:.2f} left; one "
+            f"attempt needs {room['calls_needed']} call(s) and CA${room['needed_cad']:.2f}"))
+    else:
+        out["code"] = None
+    return out
+
+
+def _record_method_readback(db, key: str, chk: dict, status: str) -> None:
+    """Write the run's method-redrive readback (`stages._method_redrive`). The run's status,
+    blocked reason, calls and spend are untouched."""
+    from sqlalchemy import select
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from .image_records import ImageProductionRun
+
+    assert status in METHOD_REDRIVE_EVIDENCE, status
+    with db.session() as s:
+        r = s.scalar(select(ImageProductionRun).where(ImageProductionRun.run_key == key))
+        if r is None:
+            return
+        st = dict(r.stages or {})
+        st[METHOD_REDRIVE_KEY] = {"status": status, "code": chk.get("code"),
+                                  "version": chk.get("version"),
+                                  "why": str(chk.get("why") or "")[:500],
+                                  "headroom": chk.get("headroom") or {},
+                                  "at": _now().isoformat()}
+        r.stages = st
+        flag_modified(r, "stages")
+
+
 def restartable(db, key: str) -> dict:
     """Whether a blocked run may be restarted, and from which stage.
 
@@ -2060,8 +2236,19 @@ def restartable(db, key: str) -> dict:
         return {"restartable": False, "why": "a budget stop is final for this run: " + reason}
     failed = _run_candidates_failed(db, key, run["listing"])
     if failed:
-        return {"restartable": False, "why": f"FAIL on {failed}: attempts were spent on a "
-                                             f"failure, not a missing capability"}
+        chk = method_redrive_check(db, key, run, failed)
+        if chk["eligible"] and not chk["ok"]:
+            return {"restartable": False, "code": chk["code"], "why": chk["why"],
+                    "method_redrive": chk}
+        if not chk["ok"]:
+            return {"restartable": False, "why": f"FAIL on {failed}: attempts were spent on a "
+                                                 f"failure, not a missing capability",
+                    **({"code": chk["code"]} if chk.get("code") else {})}
+        # ENG-IMAGE-METHOD-REDRIVE: the failures were made under an older method. Regenerate
+        # the product frame under the current one; attempts then count that method only.
+        return {"restartable": True, "resume_at": "product_generation", "reverify": False,
+                "blocked_at": run["stage"], "blocked_reason": reason,
+                "epoch": run.get("restarts", 0) + 1, "method_redrive": chk}
     names = [st for st, _ in STAGES]
     blocked_at = run["stage"] if run["stage"] in names else names[0]
     has_anchor = _best(db, listing=run["listing"], role=ANCHOR_ROLE, run=key) is not None
@@ -2118,7 +2305,14 @@ def restart(db, key: str, *, follow, by: str, reason: str = "") -> dict:
             "reason": str(reason)[:500], "blocked_at": can["blocked_at"],
             "blocked_reason": can["blocked_reason"][:1000], "resume_at": can["resume_at"],
             "reverify": can["reverify"], "generation_calls": r.generation_calls,
-            "spent_cad": round(r.spent_cad or 0.0, 4)}]
+            "spent_cad": round(r.spent_cad or 0.0, 4),
+            **({"method_version": can["method_redrive"]["version"]}
+               if can.get("method_redrive") else {})}]
+        if can.get("method_redrive"):
+            rec["method_redrive"] = {"version": can["method_redrive"]["version"],
+                                     "epoch": epoch, "at": _now().isoformat(),
+                                     "failed_versions": can["method_redrive"].get(
+                                         "failed_versions") or []}
         st[RESTART_KEY] = rec
         r.stages = st
         flag_modified(r, "stages")
@@ -2138,7 +2332,9 @@ def restart(db, key: str, *, follow, by: str, reason: str = "") -> dict:
         if job is None:
             raise RuntimeError("restart job was not durably enqueued")
     return {"restarted": True, "epoch": epoch, "resume_at": can["resume_at"],
-            "reverify": can["reverify"], "enqueued": job is not None, "run_key": key}
+            "reverify": can["reverify"], "enqueued": job is not None, "run_key": key,
+            **({"method_version": can["method_redrive"]["version"]}
+               if can.get("method_redrive") else {})}
 
 
 # ---- V2 / P2-a: a capability-only block is re-driven once when its gate opens -------------
@@ -2210,8 +2406,13 @@ def redrive_capability_blocked(db, *, follow) -> dict:
     gates = {g for _n, g in CAPABILITY_GATES}
     open_now = gates_now(db, keys=tuple(sorted(gates)))
     restarted, waiting, refused = [], [], []
+    method = {k: [] for k in METHOD_REDRIVE_EVIDENCE}
     for key, reason, stages in rows:
         gate = _gate_of(reason)
+        if gate is None and _method_redrive_candidate(db, key, reason, stages):
+            _sweep_method_redrive(db, key, follow=follow, method=method,
+                                  restarted=restarted, refused=refused)
+            continue
         if gate is None:
             if DAILY_CEILING_CODE in reason and reason.startswith("budget stop"):
                 run = get_run(db, key) or {}
@@ -2251,7 +2452,50 @@ def redrive_capability_blocked(db, *, follow) -> dict:
         (restarted if out.get("restarted") else refused).append(
             {"run_key": key, **{k: out[k] for k in ("epoch", "resume_at", "why")
                                 if k in out}})
-    return {"restarted": restarted, "waiting": waiting, "refused": refused}
+    return {"restarted": restarted, "waiting": waiting, "refused": refused,
+            "method_redrives": method}
+
+
+def _method_redrive_candidate(db, key: str, reason: str, stages: dict) -> bool:
+    """A blocked run the sweep should consider for a method redrive: blocked at the fidelity
+    gate (`method_redrive_check` then requires a FAILed role), and not a budget stop."""
+    if reason.startswith("budget stop") or "#" in key:
+        return False
+    run = get_run(db, key) or {}
+    return run.get("stage") == "fidelity_gate"
+
+
+def _sweep_method_redrive(db, key: str, *, follow, method: dict, restarted: list,
+                          refused: list) -> None:
+    run = get_run(db, key) or {}
+    failed = _run_candidates_failed(db, key, run.get("listing", ""))
+    chk = method_redrive_check(db, key, run, failed)
+    if not chk["eligible"]:
+        if chk.get("code"):
+            refused.append({"run_key": key, "code": chk["code"], "why": chk.get("why", "")})
+        return
+    method["eligible"].append(key)
+    if not chk["ok"]:
+        method["no_headroom"].append(key)
+        _record_method_readback(db, key, chk, "no_headroom")
+        refused.append({"run_key": key, "code": chk["code"], "why": chk["why"]})
+        return
+    try:
+        out = restart(db, key, follow=follow, by=METHOD_REDRIVE_BY,
+                      reason=f"generation method changed to {chk['version']}; failures were "
+                             f"made under {chk.get('failed_versions')}")
+    except Exception as exc:  # noqa: BLE001 - the restart rolled back; the run stays blocked
+        out = {"restarted": False, "why": f"restart not enqueued ({type(exc).__name__})"}
+    if out.get("restarted"):
+        method["done"].append(key)
+        _record_method_readback(db, key, chk, "done")
+        restarted.append({"run_key": key, **{k: out[k] for k in (
+            "epoch", "resume_at", "method_version") if k in out}})
+    else:
+        if out.get("code") == METHOD_REDRIVE_NO_HEADROOM:
+            method["no_headroom"].append(key)
+            _record_method_readback(db, key, out.get("method_redrive") or chk, "no_headroom")
+        refused.append({"run_key": key, **{k: out[k] for k in ("code", "why") if k in out}})
 
 
 # ---- the owner's two-step method (ENG-IMAGES-LAURA) ---------------------------------------------

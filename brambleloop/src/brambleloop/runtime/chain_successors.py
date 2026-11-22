@@ -359,7 +359,11 @@ def sweep(db, queue, *, now: datetime | None = None) -> dict:
         images = IP.redrive_capability_blocked(db, follow=follow)
     except Exception as exc:  # noqa: BLE001 - an unreadable image table re-drives nothing
         images = {"restarted": [], "waiting": [], "refused": [],
+                  "method_redrives": {k: [] for k in IP.METHOD_REDRIVE_EVIDENCE},
                   "error": f"{type(exc).__name__}"}
     return {"open": len(rows), "redriven": redriven, "resolved": resolved,
             "waiting": waiting, "commit": here, "images": images,
+            # ENG-IMAGE-METHOD-REDRIVE: fixed-vocabulary counts (eligible/done/no_headroom)
+            "method_redrives": {k: len((images.get("method_redrives") or {}).get(k) or [])
+                                for k in IP.METHOD_REDRIVE_EVIDENCE},
             "work_done": len(redriven) + len(resolved) + len(images["restarted"])}
