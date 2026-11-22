@@ -715,6 +715,13 @@ def test_no_code_compares_or_lists_the_published_literal_outside_the_helper():
         # listing check on the previous line, which uses PUBLISHED_LISTING_STATES
         # (published, active, published_manually).
         'reach("published", listing_id=': "production_inventory stage name, not a state check",
+        # Reviewed 2026-11-22 (integrator): marketing content pieces, not listings
+        # (eng/halt-380-marketing, ops/artefacts.py), and a verify-check KEY name read by the
+        # mission view (app/command_center/mission.py), not a listing state.
+        "CONTENT_PUBLISHED_STATES = frozenset(": "marketing content pieces, not listings",
+        'd.get("published_at") or d.get("published_url") or d.get("published")':
+            "a content piece's recorded publication, not a listing state",
+        'for k in ("phase", "published", "revenue")': "verify-check key names, not a state",
     }
     offenders = []
     for path in src.rglob("*.py"):

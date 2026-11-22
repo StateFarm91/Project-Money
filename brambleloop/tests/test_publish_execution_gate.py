@@ -37,6 +37,21 @@ class ExecutionRecheck(unittest.TestCase):
         self.gates=self.stack.enter_context(patch.object(pipeline,"_release_gates",return_value={"blocks_release":False}))
         self.payload=self.stack.enter_context(patch.object(etsy_ops,"certified_payload",return_value=copy.deepcopy(self.kw["payload"])))
         self.images=self.stack.enter_context(patch.object(etsy_ops,"certified_images",return_value={**copy.deepcopy(self.kw["listing_images"]),"problems":[]}))
+        # ENG-SALE-PIPELINE (19f): the revalidation also re-reads the certified premium
+        # editions. This synthetic release has no sale-pipeline run, so the lookup is a
+        # declared stand-in (as in test_etsy_readback_observe), bound like the real one to the
+        # release's assets.built PDF hashes: the editions are those bytes, or None.
+        from brambleloop.publish import sale_pipeline as _SPL
+        built={k:v.pdf_bytes for k,v in copy.deepcopy(self.kw["docs"]).items()}
+        def _premium(_db,slug,version,release,**_k):
+            with self.db.session() as s:
+                rows=s.query(AuditLog).filter(AuditLog.action=="assets.built",
+                                              AuditLog.artifact==f"{slug}@{version}").all()
+            want={k:hashlib.sha256(b).hexdigest() for k,b in built.items()}
+            if not any((dict(r.detail or {}).get("pdf_sha256_by_terminology") or {})==want for r in rows):
+                return None
+            return dict(built)
+        self.stack.enter_context(patch.object(_SPL,"certified_premium_pdfs",side_effect=_premium))
         # F-299: the env phase must agree with the owner's recorded transition.
         from phase_fixture import record_phase_path
         record_phase_path(self.db,OWNER_TOKEN,"production")

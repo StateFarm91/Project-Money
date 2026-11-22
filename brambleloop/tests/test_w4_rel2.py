@@ -294,8 +294,14 @@ def test_i2_the_lighter_visual_path_is_chosen_only_by_deterministic_builders():
     # Reviewed 2026-10-19: listing_assets.py builds the frames, launch_imagery.py maps a
     # deterministic CONTENTS job; eligibility.py and listing_set.py only read the class
     # (lookup tables / a value constant).
+    # Reviewed 2026-11-22 (integrator, 19i14): release_gates.py (ENG-VIS-GALLERY H1) assigns
+    # PATTERN_PREVIEW only to the generated gallery's CONTENTS frame, which is the
+    # deterministic download-information frame and must itself PASS
+    # `certified_contents_frame` first. The generated frames stay AI_LIFESTYLE_CONCEPT, so
+    # nothing generated skips the realism checks.
     assert assigners == ["publish/eligibility.py", "publish/listing_assets.py",
-                         "publish/listing_set.py", "visual/launch_imagery.py"], assigners
+                         "publish/listing_set.py", "publish/release_gates.py",
+                         "visual/launch_imagery.py"], assigners
 
 
 def test_i3_attribution_evidence_is_capped():
