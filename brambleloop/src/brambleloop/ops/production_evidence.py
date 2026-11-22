@@ -627,11 +627,27 @@ def _paid_refusals(db, *, now: datetime, since: datetime) -> dict:
             "last_regate_vision_usable": bool(reg.get("vision_usable")) if last else None,
             "last_regate_radar_judged": len(reg.get("radar_judged") or []),
             "last_regate_radar_held": len(reg.get("radar_held") or []),
+            # CONCEPT-GATE: why each held concept was not judged, as fixed codes only.
+            "last_regate_radar_held_by_code": _held_codes(reg.get("radar_held") or []),
             "route_now": vendor or "none",
             "openai_route_usable": bool(CJ.openai_vision_usable(db, now=now)),
             "openai_key_present": _openai_key_present()}
     except Exception as exc:  # noqa: BLE001 - visibility never breaks the readback
         out["refusals_error"] = type(exc).__name__
+    return out
+
+
+HELD_CODES = ("no_vision", "cap_spent", "board_cap_spent", "board_render_failed",
+              "board_missing", "board_no_digest", "board_bytes_missing", "retry_window",
+              "budget", "provider_refused", "provider_transient", "answer_unparsed")
+
+
+def _held_codes(held) -> dict:
+    out: dict[str, int] = {}
+    for h in held:
+        code = (h or {}).get("code") if isinstance(h, dict) else None
+        code = code if code in HELD_CODES else "other"
+        out[code] = out.get(code, 0) + 1
     return out
 
 
