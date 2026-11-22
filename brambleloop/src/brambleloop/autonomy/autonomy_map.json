@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-22T07:04:06.460607+00:00",
+ "generated_at": "2026-11-22T10:23:38.659223+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -1391,6 +1391,12 @@
       "period_seconds": 21600
      },
      {
+      "name": "sale_pipeline",
+      "agent": "listing",
+      "job_type": "sale.pipeline_sweep",
+      "period_seconds": 3600
+     },
+     {
       "name": "remerchandising_review",
       "agent": "listing",
       "job_type": "seasonal.remerchandising",
@@ -1560,6 +1566,7 @@
      "brambleloop.runtime.listing_package_ops",
      "brambleloop.runtime.pipeline",
      "brambleloop.runtime.release",
+     "brambleloop.runtime.sale_pipeline_ops",
      "brambleloop.runtime.standing_policy_ops",
      "brambleloop.runtime.storefront_ops",
      "brambleloop.runtime.storefront_watch",
@@ -1586,6 +1593,8 @@
      "policy.issuer_shadow",
      "policy.stop_watch",
      "pricing.position",
+     "sale.pipeline",
+     "sale.pipeline_sweep",
      "seasonal.remerchandising",
      "seo.cycle",
      "store.activate",
@@ -1653,7 +1662,9 @@
      "closure_kind": "OWNER-GATED"
     }
    ],
-   "never_woken_job_types": [],
+   "never_woken_job_types": [
+    "sale.pipeline"
+   ],
    "owner_one_shots": {}
   },
   {

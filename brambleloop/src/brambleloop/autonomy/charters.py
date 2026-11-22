@@ -286,8 +286,10 @@ CHARTERS: tuple[Charter, ...] = (
        agents=("listing", "store_operator", "pricing", "storefront_director",
                # W4-F454: integration -- the Etsy API surface and credential health.
                "integration_steward"),
+       # ENG-SALE-PIPELINE (19f): the sale chain (`sale.pipeline`, `sale.pipeline_sweep`)
+       # runs as the listing agent (`publish.sale_pipeline.AGENT`), so it is this department's.
        prefixes=("listing.", "store.", "pricing.", "etsy.credential", "etsy.shop",
-                 "etsy.listing", "seo.", "storefront."),
+                 "etsy.listing", "seo.", "storefront.", "sale."),
        job_types={"chain.rebuild", "chain.successors", "seasonal.remerchandising", "etsy.credential_health",
                   # WS4-5: the standing-policy issuer in shadow (decides on this chain's drafts).
                   "policy.issuer_shadow", "policy.stop_watch", "policy.activation_schedule",

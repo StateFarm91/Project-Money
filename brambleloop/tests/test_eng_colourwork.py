@@ -384,7 +384,9 @@ def test_mutant_unreachable_colour_change_is_refused_by_the_placement_gate():
 
 HOLDS = {
     # (category, form, construction, title): the hold label
-    ("bag", "bag", "tapestry", "Wave Tapestry Tote"): FC.COLOURWORK_TAPESTRY,
+    # ENG-BAGS: a bag now routes to the verified bag_tote engine, which holds tapestry by its
+    # own name (it does not work that construction) -- still held, more precisely labelled.
+    ("bag", "bag", "tapestry", "Wave Tapestry Tote"): "bag_tote",
     ("runner", "runner", "tapestry", "Wave Tapestry Table Runner"): FC.COLOURWORK_TAPESTRY,
     ("blanket", "rectangle_throw", "tapestry", "Wave Tapestry Baby Blanket"):
         FC.COLOURWORK_TAPESTRY,
