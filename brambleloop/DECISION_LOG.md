@@ -4615,3 +4615,15 @@ Batch 19i7 (code ff9f99793) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owne
 - **F-11:** the separate worker service is approved, inside the CA$20/month infrastructure ceiling.
 
 **Unchanged:** child safety, spend ceilings, the signed publication grant, copy truth, and every other gate.
+## D-OWNER-APPROVE-ALL-3 — 2026-11-22T06:20Z
+The owner, in their own words: "Approval tab is still a mess. I fucking told you too Approve every single thing. I dont not care what you have to bypass to approve everything. Ive read jt all, its good. Approve all."
+`ops/approve_all_directive.py` applies this on boot (once per deploy, in the background) and on the hourly owner-queue job, from 2026-11-22T06:20Z until 2026-11-29T06:20Z. Each pass approves every owner card the system can act on through the "Approve everything" press's own code (`execute_items(directive=...)`). That includes child-family audience decisions and cards that need a ruling, which are recorded as the owner's ruling to proceed. Physical-attestation cards are withdrawn without attestation. Every write is recorded as `owner_directed_without_attestation`, `step_up: false`, actor `owner-directive:D-OWNER-APPROVE-ALL-3`. None of these writes is recorded as a login, a step-up or an attestation.
+Some things still hold, because they are not approvals:
+- Copy may never claim a made, tested or measured sample.
+- Legally required safety warnings stay in the content.
+- Spend stays inside the code-enforced caps. The owner did not raise any cap, so spend over the CA$100/month company cap, spend with no stated amount, and ceiling raises stay listed.
+- Acts that happen on another site stay listed with their link: OAuth consent, payout, KYC, banking and legal acceptance.
+- Per-release Etsy publication and activation grants stay listed for the owner's own press. They are Ed25519-signed only inside the owner's Command Center request (`core.owner_grant_keys`), and a background process cannot and does not enter that boundary.
+A Laura gallery approved by this directive is recorded with `step_up: false` under the directive's actor. `laura_approval.approved` accepts exactly that actor, and no other unstepped row. The evidence shows `factory_visibility.owner_approve_all_3` as counts and bucket names only.
+## D-OWNER-DEPLOY-19i9 — 2026-11-22T06:30:05Z
+Batch 19i9 (code 8c95cf114) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to 6a127f45da3356b213ce912dc914714e22f6c3a7 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
