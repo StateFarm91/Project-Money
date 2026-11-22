@@ -4580,3 +4580,7 @@ Tests: `tests/test_competitive_bar.py`.
 No cap, gate or activation changed. No key value was read, logged or stored.
 ## D-OWNER-DEPLOY-19i4 — 2026-11-22T02:26:08Z
 Batch 19i4 (code aac59790c) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 8c39c8137be5e84ae9e289365255e41f6a1a0bdf was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-DEPLOY-19i5 — 2026-11-22T02:35:19Z
+
+Batch 19i5 (code 79239233a) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 11086c3d2ae9460628be95bdaf036ab923a1b358 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
