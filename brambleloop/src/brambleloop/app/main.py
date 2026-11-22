@@ -16,6 +16,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import Depends, FastAPI, Header, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, RedirectResponse
 from sqlalchemy import func, select
+from sqlalchemy import text as _sql_text
 
 from ..agents.registry import Registry
 from ..core.build import identity as build_identity
@@ -682,7 +683,9 @@ def health() -> JSONResponse:
     """Liveness + a real readiness signal: can we actually reach the database?"""
     try:
         with db.session() as s:
-            s.execute(select(func.count()).select_from(Job))
+            # F-13: a constant-cost reachability probe. A count of the jobs table scanned an
+            # ever-growing table on every platform health probe; SELECT 1 proves the same thing.
+            s.execute(_sql_text("SELECT 1"))
         healthy = True
         detail = "ok"
     except Exception as e:  # noqa: BLE001
