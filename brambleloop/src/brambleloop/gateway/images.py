@@ -94,7 +94,7 @@ class ImageProvider:
 PROVIDERS: tuple[ImageProvider, ...] = (
     ImageProvider(
         "flux-2-pro", "Black Forest Labs FLUX 2 Pro",
-        "https://api.bfl.ai/v1/flux-2-pro", 0.02, True, 8,
+        "https://api.us.bfl.ai/v1/flux-2-pro", 0.02, True, 8,
         "cheapest of the candidates that conditions on reference images, which is what an "
         "identity lock actually is. Eight references is the documented API limit "
         "(`input_image` .. `input_image_8`, api.bfl.ai/openapi.json `Flux2Inputs`, read "
@@ -112,7 +112,7 @@ PROVIDERS: tuple[ImageProvider, ...] = (
     # documented price (`BFL3_TIER_USD`).
     ImageProvider(
         "flux-3-image", "Black Forest Labs FLUX 3 Image",
-        "https://api.bfl.ai/v1/flux-3-image", 0.048, True, 10,
+        "https://api.us.bfl.ai/v1/flux-3-image", 0.048, True, 10,
         "the model the owner measured by hand on dashboard.bfl.ai (US$0.048 per image at 1k, "
         "37-216 s each, up to three references). Same BFL account and key as flux-2-pro",
         account="bfl", model="flux-3-image", dialect="bfl3"),
@@ -182,7 +182,7 @@ ACCOUNTS: dict[str, dict] = {
     },
     "bfl": {
         "name": "Black Forest Labs",
-        "where": "https://api.bfl.ai",
+        "where": "https://api.us.bfl.ai",
         "needs_card": True,
         "reachable": True,
         "minutes": 4,
@@ -682,7 +682,8 @@ def _request_for(provider: ImageProvider, key: str, prompt: str,
             body = {"prompt": prompt, "width": w or px, "height": h or px}
             for i, data in enumerate(inline):
                 body[_bfl_input_field(i)] = data
-        return provider.endpoint, {"x-key": key}, json.dumps(body).encode()
+        from .flux_contract import bfl_url
+        return bfl_url(provider.endpoint), {"x-key": key}, json.dumps(body).encode()
 
     if provider.dialect == "openai" and refs:
         # Reference conditioning is a *different endpoint* on OpenAI, not a field.

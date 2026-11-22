@@ -4588,3 +4588,11 @@ Batch 19i5 (code 79239233a) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the ow
 ## D-OWNER-DEPLOY-19h22 — 2026-11-22T03:20:03Z
 
 Batch 19h22 (code f4650c648) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to f90289ed923c1323c497e47a20d70c2125782579 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-ENG-BFL-REGIONAL-HOST — 2026-11-22T05:35Z
+
+FLUX renders and the free credit check failed in production with 403/422 although the owner's BFL account is funded and the key was correct. Free calls showed the cause: the global host `api.bfl.ai` refuses the owner's new-format key ("Invalid API key format"), while the regional hosts `api.us.bfl.ai` and `api.eu.bfl.ai` accept it and return the dashboard's credit balance. The error was on our side. Every BFL request (generation, credit check) now goes to `api.us.bfl.ai` (Railway runs in us-west2) through `flux_contract.bfl_url`. `BRAMBLELOOP_BFL_HOST` may select only one of the three BFL API hosts; any other value falls back to the default, so the x-key header cannot be sent anywhere else. Polling still follows the `polling_url` BFL returns, with no redirects, and downloads still carry no auth header. No key value appears anywhere in this record. Test: `tests/test_bfl_regional_host.py`.
+
+## D-OWNER-AUTODEPLOY-24H-2 — 2026-11-22T05:35Z
+
+The owner answered "Auto-deploy for 24h (Recommended)": deploy this fix and any further P0 fixes once their tests pass and the rollback rehearsal passes, until 2026-11-23T05:30Z, reporting each deploy.

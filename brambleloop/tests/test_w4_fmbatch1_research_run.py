@@ -74,7 +74,7 @@ def test_only_allowlisted_https_urls_without_credentials_are_fetchable():
             assert why in str(exc), (bad, exc)
         else:
             raise AssertionError(f"{bad} was not refused")
-    paid = {"api.openai.com", "api.anthropic.com", "api.bfl.ai", "fal.run"}
+    paid = {"api.openai.com", "api.anthropic.com", "api.bfl.ai", "api.us.bfl.ai", "api.eu.bfl.ai", "fal.run"}
     assert not paid & set(F.ALLOWED_HOSTS)
 
 

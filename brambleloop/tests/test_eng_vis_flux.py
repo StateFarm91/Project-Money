@@ -207,7 +207,10 @@ def test_contract_equals_the_official_openapi_snapshot():
     assert set(FC.SUBMIT_OPTIONAL) <= set(snap["AsyncResponse"]["properties"])
     assert snap["ResultResponse"]["required"] == list(FC.RESULT_REQUIRED)
     assert snap["security_scheme"] == {"type": "apiKey", "in": "header", "name": FC.AUTH_HEADER}
-    assert FC.HOST in snap["servers"] and "/v1/flux-3-image" in snap["paths"]
+    # The snapshot names BFL's global server; requests go to the regional BFL API host
+    # (D-ENG-BFL-REGIONAL-HOST). The path is the contract; the host is one of BFL's own.
+    assert "/v1/flux-3-image" in snap["paths"] and FC.HOST.removeprefix("https://") in FC.BFL_HOSTS
+    assert any(str(s_).rstrip("/").endswith(".bfl.ai") for s_ in snap["servers"])
     # The gateway's provider row and price table are the contract's.
     p = I.BY_KEY["flux-3-image"]
     assert p.endpoint == FC.ENDPOINT and p.reference_images == FC.MAX_REFERENCES

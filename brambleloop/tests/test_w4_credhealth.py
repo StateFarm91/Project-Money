@@ -90,7 +90,7 @@ def test_bfl_uses_the_free_credits_endpoint_and_reads_the_balance():
     assert got["status"] == CR.OK and got["credits"] == 500.0, got
     assert len(h.calls) == 1
     call = h.calls[0]
-    assert call["method"] == "GET" and call["url"] == "https://api.bfl.ai/v1/credits"
+    assert call["method"] == "GET" and call["url"] == "https://api.us.bfl.ai/v1/credits"
     assert call["headers"]["x-key"] == BFL_KEY and call["body"] is None
     low = CR.check_bfl(ENV, Http(bfl=(200, '{"credits": 5}')))
     assert low["status"] == CR.INSUFFICIENT_CREDIT and "less than one 2k" in low["why"]

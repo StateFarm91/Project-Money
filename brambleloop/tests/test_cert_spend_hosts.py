@@ -20,7 +20,7 @@ sys.path.insert(0, str(SRC))
 from brambleloop.visual import d_judge  # noqa: E402
 
 PAID_HOSTS = re.compile(
-    r"api\.openai\.com|api\.anthropic\.com|generativelanguage\.googleapis\.com|api\.bfl\.ai"
+    r"api\.openai\.com|api\.anthropic\.com|generativelanguage\.googleapis\.com|api(?:\.us|\.eu)?\.bfl\.ai"
     r"|volces\.com|fal\.run|api\.replicate\.com|api\.stability\.ai|api\.venice\.ai")
 
 # Each file allowed to address a paid provider, and what holds its ceiling. A new file here is
@@ -81,7 +81,7 @@ def test_every_file_addressing_a_paid_provider_is_declared():
 # billable endpoint added to either file fails here instead of passing under the declaration.
 URL_ALLOWLIST = {
     "brambleloop/gateway/credentials.py": {
-        "https://api.bfl.ai/v1/credits",
+        "https://api.us.bfl.ai/v1/credits",
         "https://api.anthropic.com/v1/messages/count_tokens",
         "https://api.venice.ai/api/v1/api_keys/rate_limits",
         "https://api.venice.ai/api/v1/models?type=text",
@@ -91,7 +91,7 @@ URL_ALLOWLIST = {
         "https://api.venice.ai/api/v1/models",
     },
 }
-_URL = re.compile(r"https?://(?:api\.venice\.ai|api\.anthropic\.com|api\.bfl\.ai)"
+_URL = re.compile(r"https?://(?:api\.venice\.ai|api\.anthropic\.com|api(?:\.us|\.eu)?\.bfl\.ai)"
                   r"[^\s\"'`;),]*")
 
 

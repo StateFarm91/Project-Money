@@ -158,7 +158,7 @@ def _reservations(db):
 # ------------------------------------------------------------------------------------------
 def test_flux3_is_registered_with_documented_endpoint_limit_and_price():
     p = I.BY_KEY["flux-3-image"]
-    assert p.endpoint == "https://api.bfl.ai/v1/flux-3-image" and p.model == "flux-3-image"
+    assert p.endpoint == "https://api.us.bfl.ai/v1/flux-3-image" and p.model == "flux-3-image"
     assert p.dialect == "bfl3" and p.reference_images == 10 and p.supports_lock
     assert p.usd_per_image == 0.048 == I.BFL3_TIER_USD["1k"]
     assert I.key_for("flux-3-image", ENV) == ENV["BRAMBLELOOP_IMAGE_KEY_BFL"]
@@ -172,7 +172,7 @@ def test_flux3_transmits_every_reference_in_images_in_order():
         out = _gen(t, refs)
         (sent,) = t.posts
         body = sent["body"]
-        assert sent["url"] == "https://api.bfl.ai/v1/flux-3-image"
+        assert sent["url"] == "https://api.us.bfl.ai/v1/flux-3-image"
         assert sent["headers"] == {"x-key": ENV["BRAMBLELOOP_IMAGE_KEY_BFL"]}
         expect = [base64.standard_b64encode(Path(r).read_bytes()).decode() for r in refs]
         assert body["images"] == expect                      # all three, in order

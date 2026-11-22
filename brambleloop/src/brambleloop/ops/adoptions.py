@@ -44,7 +44,7 @@ PACKAGES: dict[str, tuple[str, str]] = {
 # Called services -> (metered provider key in CostEntry or None, host).
 SERVICES: dict[str, tuple[str | None, str]] = {
     "anthropic": ("anthropic", "api.anthropic.com"),
-    "bfl": ("bfl", "api.bfl.ai"),
+    "bfl": ("bfl", "api.us.bfl.ai"),
     "openai": ("openai", "api.openai.com"),
     "google": ("google", "generativelanguage.googleapis.com"),
     "volcengine": ("volcengine", "volcengine API"),

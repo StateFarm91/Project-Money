@@ -12,7 +12,7 @@ cheapest documented authenticated call for each provider:
   recent real call this system recorded (`model.probe` / `vision.probe`). A credit-balance
   refusal there is INSUFFICIENT_CREDIT, and with no such record credit stays unproven, never
   assumed.
-* **BFL:** `GET https://api.bfl.ai/v1/credits` with header `x-key` (docs.bfl.ml, API
+* **BFL:** `GET https://api.us.bfl.ai/v1/credits` (regional; D-ENG-BFL-REGIONAL-HOST) with header `x-key` (docs.bfl.ml, API
   reference "Get the user's credits", OpenAPI `get_credits_v1_credits_get`, response
   `{"credits": number}`; 1 credit = US$0.01, docs.bfl.ml "Pricing"). It is free. It proves the
   key authenticates and reads the balance. A balance below the price of one 2k FLUX 3 image is
@@ -59,7 +59,7 @@ OWNER_STATUSES = (MISSING, REJECTED, INSUFFICIENT_CREDIT, PERMISSION)
 TRANSIENT_STATUSES = (OUTAGE, RATE_LIMITED, UNKNOWN)
 ALERT_AFTER_CONSECUTIVE = 3
 
-BFL_CREDITS_URL = "https://api.bfl.ai/v1/credits"
+BFL_CREDITS_URL = "https://api.us.bfl.ai/v1/credits"
 ANTHROPIC_COUNT_URL = "https://api.anthropic.com/v1/messages/count_tokens"
 ANTHROPIC_VERSION = "2023-06-01"
 # A 1x1 PNG: the smallest image block that proves the model accepts image input.
@@ -69,7 +69,7 @@ _PIXEL_PNG_B64 = ("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z
 PROVIDERS: dict[str, dict] = {
     "bfl": {"label": "Black Forest Labs (FLUX 3 Image)", "var": "BRAMBLELOOP_IMAGE_KEY_BFL",
             "model": "flux-3-image",
-            "check": "GET https://api.bfl.ai/v1/credits (x-key)",
+            "check": "GET https://api.us.bfl.ai/v1/credits (x-key)",
             "doc": "docs.bfl.ml/api-reference/get-the-users-credits (free; 1 credit = US$0.01)",
             "console": "dashboard.bfl.ai > API Keys / Credits"},
     "anthropic": {"label": "Anthropic (Claude vision)", "var": "ANTHROPIC_API_KEY",
@@ -212,7 +212,8 @@ def check_bfl(env, http=None) -> dict:
     key = _key("bfl", env)
     if not key:
         return {"status": MISSING, "why": f"{PROVIDERS['bfl']['var']} is not set"}
-    status, text = http("GET", BFL_CREDITS_URL, {"x-key": key, "accept": "application/json"},
+    from .flux_contract import bfl_url
+    status, text = http("GET", bfl_url(BFL_CREDITS_URL, env), {"x-key": key, "accept": "application/json"},
                         None, 20.0)
     cls = classify(status, text)
     out = {"status": cls, "http_status": status, "why": _redact(text, key)[:300]}

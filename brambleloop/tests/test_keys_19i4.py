@@ -85,7 +85,7 @@ def test_flux3_request_shape_is_pinned():
 
     p = I.BY_KEY["flux-3-image"]
     url, headers, body = I._request_for(p, FIXTURE, "a crochet basket", [], "1024x1024")
-    assert url == "https://api.bfl.ai/v1/flux-3-image", url
+    assert url == "https://api.us.bfl.ai/v1/flux-3-image", url
     assert headers == {"x-key": FIXTURE}, "BFL auth is the x-key header, nothing else"
     assert "authorization" not in {k.lower() for k in headers}
     assert json.loads(body)["prompt"] == "a crochet basket"

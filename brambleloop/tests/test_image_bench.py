@@ -447,7 +447,7 @@ def test_each_provider_gets_the_body_its_api_actually_accepts():
     # 401 or 422, which is an endpoint that understood the request and wanted money.
     url, headers, body = I._request_for(
         I.BY_KEY["flux-2-pro"], "K", "a crochet basket", None, "1024x1024")
-    assert url == "https://api.bfl.ai/v1/flux-2-pro"
+    assert url == "https://api.us.bfl.ai/v1/flux-2-pro"
     assert headers == {"x-key": "K"}
     assert json.loads(body)["width"] == 1024
 

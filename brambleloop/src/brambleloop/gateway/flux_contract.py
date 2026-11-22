@@ -80,8 +80,35 @@ SOURCES: dict[str, dict] = {
 
 # ---- the request -------------------------------------------------------------------------
 
-HOST = "https://api.bfl.ai"
+# D-ENG-BFL-REGIONAL-HOST (2026-11-22): the owner's new-format `bfl_...` key is refused by the
+# global host (`https://api.bfl.ai` answers 422 "Invalid API key format" on /v1/credits and on
+# POST /v1/flux-3-image) and accepted by the regional hosts (`api.us.bfl.ai`/`api.eu.bfl.ai`
+# returned the dashboard's credit balance). Railway runs in us-west2, so the US region is the
+# default. `BRAMBLELOOP_BFL_HOST` may name one of the three BFL API hosts and nothing else: an
+# unknown value falls back to the default, so the x-key header can never be pointed elsewhere.
+BFL_HOSTS = ("api.us.bfl.ai", "api.eu.bfl.ai", "api.bfl.ai")
+DEFAULT_BFL_HOST = "api.us.bfl.ai"
+HOST_ENV_VAR = "BRAMBLELOOP_BFL_HOST"
+HOST = f"https://{DEFAULT_BFL_HOST}"
 ENDPOINT = f"{HOST}/v1/flux-3-image"
+_BFL_PREFIXES = tuple(f"https://{h}" for h in BFL_HOSTS)
+
+
+def bfl_host(env=None) -> str:
+    """The BFL API base URL to call: the allowed override, else the US region."""
+    import os
+    e = env if env is not None else os.environ
+    chosen = (e.get(HOST_ENV_VAR) or "").strip().lower()
+    chosen = chosen.removeprefix("https://").rstrip("/")
+    return f"https://{chosen if chosen in BFL_HOSTS else DEFAULT_BFL_HOST}"
+
+
+def bfl_url(url: str, env=None) -> str:
+    """`url` with its BFL API host replaced by `bfl_host()`. Any other URL is returned unchanged."""
+    for prefix in sorted(_BFL_PREFIXES, key=len, reverse=True):
+        if url.startswith(prefix + "/") or url == prefix:
+            return bfl_host(env) + url[len(prefix):]
+    return url
 AUTH_HEADER = "x-key"
 MODEL = "flux-3-image"
 # `Flux3ImageInputs.properties` exactly (openapi). additionalProperties: false.
