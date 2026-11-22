@@ -4619,3 +4619,7 @@ Some things still hold, because they are not approvals:
 - Per-release Etsy publication and activation grants stay listed for the owner's own press. They are Ed25519-signed only inside the owner's Command Center request (`core.owner_grant_keys`), and a background process cannot and does not enter that boundary.
 
 A Laura gallery approved by this directive is recorded with `step_up: false` under the directive's actor. `laura_approval.approved` accepts exactly that actor, and no other unstepped row. The evidence shows `factory_visibility.owner_approve_all_3` as counts and bucket names only.
+
+## D-OWNER-DEPLOY-19i9 — 2026-11-22T06:30:05Z
+
+Batch 19i9 (code 8c95cf114) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to 6a127f45da3356b213ce912dc914714e22f6c3a7 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
