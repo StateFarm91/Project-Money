@@ -474,11 +474,35 @@ _NEVER_REARM_WORDS = ("child safety", "child_safety", "childrens", "children's",
 # publication-halting incident(s)" -- the halt these very rebuild-incomplete rows feed, i.e.
 # the symptom of the rebuild never completing, not an independent cause. Any other refusal
 # (a policy, a gate, a withheld release) keeps the hold.
-_HALT_REFUSAL_PREFIX = "halted (#173)"
+# 19h20: the curable refusals are exactly the product's OWN staleness -- the same tuple the
+# release chain uses to tell a deadlock from a gate's verdict (`release._STALENESS_REASONS`,
+# test-pinned equal): "halted (#173)" and "rebuild outstanding (#172)". Both are what the
+# rebuild exists to cure. Every other refusal is a real verdict and keeps the hold.
+CURABLE_REFUSAL_PREFIXES = ("halted (#173)", "rebuild outstanding (#172)")
+# Fixed-vocabulary categories of every refusal text the hold's `refused_by` can carry (its
+# writers: marketing.schedule via `release_gates.for_marketing`, and chain.rebuild_refused).
+REFUSAL_CATEGORIES = (
+    ("halted (#173)", "halted_173"),
+    ("rebuild outstanding (#172)", "rebuild_outstanding_172"),
+    ("missed window (#297)", "missed_window_297"),
+    ("release withheld (#163/#228)", "release_withheld"),
+    ("no stored release", "no_stored_release"),
+    ("requested slugs name no product", "unknown_slugs"),
+)
+
+
+def refusal_category(text) -> str:
+    t = str(text or "").strip()
+    for prefix, code in REFUSAL_CATEGORIES:
+        if t.startswith(prefix):
+            return code
+    if "no product record" in t:
+        return "unknown_product"
+    return "other"
 
 
 def _only_halt_refusals(refused) -> bool:
-    return all(str(r).strip().startswith(_HALT_REFUSAL_PREFIX) for r in (refused or []))
+    return all(str(r).strip().startswith(CURABLE_REFUSAL_PREFIXES) for r in (refused or []))
 
 
 REARM_VERDICTS = ("rearmed", "not_held", "parked", "failed_attempts", "other_refusal",
