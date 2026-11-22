@@ -1081,6 +1081,12 @@ def _vocab(values, allowed) -> list[str]:
     return sorted({str(v) for v in (values or []) if str(v) in allowed})
 
 
+def _withholding_kinds() -> tuple[str, ...]:
+    from ..publish import withholding
+
+    return tuple(withholding.KINDS)
+
+
 def _flag(v):
     return v if isinstance(v, bool) else None
 
@@ -1132,7 +1138,10 @@ def _section_diagnostics(ev: dict) -> dict:
                                             if v is False and _SOURCE_NAME.match(str(k)))[:12]},
         "certification": {"certificate_granted": _flag(ce.get("certificate_granted")),
                           "release_matches": _flag(ce.get("release_matches")),
-                          "withheld": _flag(ce.get("withheld"))},
+                          "withheld": _flag(ce.get("withheld")),
+                          # ENG-FIRST-LISTING: the withholding kinds, fixed vocabulary only.
+                          "withheld_kinds": _vocab(ce.get("withheld_kinds"),
+                                                   _withholding_kinds())},
     }
 
 

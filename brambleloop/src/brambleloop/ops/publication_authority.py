@@ -200,6 +200,10 @@ def _certification(db, slug, version, release):
             "stages_run": cert.get("stages_run"), "blocking_finding_codes": blocking,
             "physical_proof": physical, "withheld": held["withheld"],
             "withheld_reasons": held["publish_reasons"],
+            # ENG-FIRST-LISTING: which withholding kinds hold the release (fixed vocabulary,
+            # `withholding.KINDS`), so a reader can tell a standards reason from the QA's.
+            "withheld_kinds": sorted(k for k in (held.get("reasons") or {})
+                                     if k in withholding.KINDS),
             "why": ("certificate granted for this release, nothing withheld" if ok else
                     "no certificate recorded" if not cert else
                     "release is not certified for this hash, or is withheld")}
