@@ -378,6 +378,10 @@ EVIDENCE_ITEMS = (
     # ENG-AUTOCODER: the in-production coding team. Advisory: OFF (the default) or blocked on
     # the owner's GitHub token WARNs and never fails a deploy; unreadable is UNKNOWN.
     ("autocoder (change requests -> reviewed auto/* branches)", "autocoder", None),
+    # Audit F-02: the effective runtime phase, the boot guard and whether a release could
+    # reach Etsy at all now. Advisory: SHADOW is the honest pre-launch state, so a closed
+    # path WARNs with its fixed refusal codes and never fails a deploy; unreadable WARNs.
+    ("runtime phase and publication path", "runtime_phase", None),
 )
 
 
@@ -438,10 +442,30 @@ def _judge_section(name: str, section, judged) -> tuple[str, str]:
                           f"unreadable ({section.get('error_class') or 'no reason given'})")
         cands = section.get("draft_candidates") or []
         if cands:
-            return PASS, f"draft candidates {cands}"
+            # Audit F-02: a candidate the runtime would refuse now is named as such.
+            codes = [c for c in section.get("runtime_refusal_reasons") or []
+                     if isinstance(c, str) and _VOCAB.match(c)]
+            return PASS, (f"draft candidates {cands}"
+                          + (f"; not actionable now ({', '.join(codes)})" if codes else ""))
         return WARN, (f"no draft candidate among {section.get('certified_with_listing')} "
                       f"certified Launch-0 releases with a listing"
                       + _why_not_candidates(section.get("releases")))
+    if name == "runtime_phase":
+        if not isinstance(section, dict) or section.get("readable") is not True:
+            return WARN, ("section missing" if not isinstance(section, dict) else
+                          f"unreadable ({section.get('error_class') or 'no reason given'})")
+        phase = section.get("effective_phase")
+        phase = phase if isinstance(phase, str) and _VOCAB.match(phase) else "?"
+        guard = section.get("boot_guard") or {}
+        action = guard.get("action") if isinstance(guard.get("action"), str) and _VOCAB.match(
+            guard.get("action")) else None
+        summary = (f"effective phase {phase}; boot guard "
+                   f"{'not run' if guard.get('ran') is not True else action or '?'}"
+                   f" (ok={guard.get('ok')}, enforced={guard.get('enforced')})")
+        if section.get("publication_possible") is True and \
+                section.get("private_draft_possible") is True:
+            return PASS, summary + "; the phase permits store.publish"
+        return WARN, summary + "; store.publish would refuse every release, drafts included"
     if name == "motif_backlog_recovery":
         if not isinstance(section, dict) or section.get("readable") is not True:
             return WARN, ("section missing" if not isinstance(section, dict) else
