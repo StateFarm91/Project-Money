@@ -1,4 +1,5 @@
-"""ENG-ETSY-PUBLISH, end to end on FakeEtsy with the real certified release fixture.
+"""ENG-ETSY-PUBLISH, end to end on FakeEtsy with a release READY for sale
+(tests/ready_release_fixture.py; READY-FIXTURE.md says what is faked and what is real).
 
 package -> draft -> images (gallery order, alt text) and BOTH PDFs uploaded -> read back
 (every byte that left hashes to the certified release, Etsy's sizes and dimensions match) ->
@@ -25,6 +26,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tests"))
 
 import test_first_listing_doors as FL  # noqa: E402  (fixture, env and loopback guard)
+import ready_release_fixture as RF  # noqa: E402  (a READY release, real sale pipeline)
 
 from sqlalchemy import select  # noqa: E402
 
@@ -51,9 +53,25 @@ def _listing(db, slug, version):
 
 
 def _certified_pdfs(db, slug, version, rh):
+    """The PDF editions certified for sale for this release (D-OWNER-SALE-PIPELINE): the
+    premium US/UK editions whose `pdf_certificates` PASS, each bound to the `assets.build`
+    edition of the same terminology. Since 19f these, not the base editions, are what a READY
+    release uploads (test_vis_gallery_e2e test_3 asserts the same)."""
+    from brambleloop.publish import sale_pipeline as SPL
+    from brambleloop.publish.sale_pipeline import PdfCertificate
     from brambleloop.runtime.pipeline import _certified_pdf_hashes
 
-    return _certified_pdf_hashes(db, slug, version, rh)
+    base = _certified_pdf_hashes(db, slug, version, rh)
+    certs = SPL.pdf_certificates(db, slug, version, rh)
+    assert certs["both_pass"] is True, certs
+    with db.session() as s:
+        bound = {t: s.get(PdfCertificate, e["certificate_id"]).base_pdf_sha256
+                 for t, e in certs["editions"].items()}
+    assert bound == base, (bound, base)
+    premium = {t: e["pdf_sha256"] for t, e in certs["editions"].items()}
+    stored = SPL.certified_premium_pdfs(db, slug, version, rh) or {}
+    assert {t: _sha(b) for t, b in stored.items()} == premium, premium
+    return premium
 
 
 def _grant(db, slug, version, rh, note):
@@ -152,7 +170,9 @@ def test_package_to_draft_rollback_adoption_and_refusals():
     from brambleloop.launch import rollback
     from brambleloop.publish import draft_adoption
 
-    path, version, rh = SH._chain()
+    # A release READY for sale (D-OWNER-SALE-PIPELINE), built through the real sale chain on
+    # fake image / vision providers only (tests/ready_release_fixture.py, READY-FIXTURE.md).
+    path, version, rh = RF.ready_chain("etsypub")
     copy = path + ".etsypub.sqlite"
     shutil.copyfile(path, copy)
     db = Database(f"sqlite:///{copy}")
@@ -185,8 +205,12 @@ def test_package_to_draft_rollback_adoption_and_refusals():
                                    "ETSY_SHARED_SECRET": fake.shared_secret})
                 etsy_mod.EtsyClient.BASE = fake.base
                 rec = reh.Recorder()
-                reh.record_simulated_taxonomy(rec, db, {"slug": slug, "version": version,
-                                                        "release": rh}, fake_base=fake.base)
+                # The simulated seller taxonomy and the release's listing.seo were recorded by
+                # the READY fixture in production order, before the gallery
+                # (ready_release_fixture._simulated_taxonomy, the same
+                # reh.record_simulated_taxonomy step); read back here. Re-running listing.seo
+                # after a certified generated gallery is refused (READY-FIXTURE.md, F1).
+                RF.assert_taxonomy_recorded(db, slug, version)
                 os.environ["BRAMBLELOOP_PHASE"] = "limited_production"
 
                 def run_job(db_, agent, job_type, inputs, phase):
@@ -285,6 +309,17 @@ def test_package_to_draft_rollback_adoption_and_refusals():
                         "full_width": w, "full_height": h})
                 assert not fake.received_images.get(seeded_id)
                 creates_before = _creates(fake)
+                # D-OWNER-SALE-PIPELINE: the rollback rewrote the local listing, so the
+                # package fence invalidated the reviewed listing package ("listing or
+                # certified release changed after package review") and the release is not
+                # READY until it is re-assembled. The real packager re-assembles it.
+                pk = SH._run(db, "listing", "listing.package", {"slug": slug,
+                                                                "version": version})
+                assert pk.status is JobStatus.DONE, pk.last_error
+                from brambleloop.publish import sale_pipeline as SPL
+
+                assert SPL.ready_for_sale(db, slug, version, rh)["ready"] is True, \
+                    SPL.ready_for_sale(db, slug, version, rh)
                 gid2 = _grant(db, slug, version, rh, "after rollback")
                 #    No button: the hourly scheduler sees the owner's grant and queues the
                 #    one store.publish for it; a second tick queues nothing more.
@@ -294,6 +329,7 @@ def test_package_to_draft_rollback_adoption_and_refusals():
                 FL._run_all(db, ["store.publish"])
                 job = FL._job(db, tick["queued"][0]["job_id"])
                 assert _creates(fake) == creates_before, "a second listing was created"
+                assert "etsy_listing_id" in job["outputs"], job
                 assert str(job["outputs"]["etsy_listing_id"]) == seeded_id, job
                 assert job["outputs"].get("adopted_existing_draft") is True, job
                 assert FL._audits(db, draft_adoption.ADOPTED), "adoption is audited"

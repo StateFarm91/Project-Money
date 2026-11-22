@@ -12,9 +12,10 @@ Found tracing the first real Etsy draft on the Batch 9 code (base 6e47d9bb):
   server refused every approval made from that button.
 * G4: `/api/readback/evidence` could not say which release is a first-draft candidate.
 
-The flow below uses the real certified release fixture (tests/test_search_hero_publish.py:
-certify -> assets.build -> listing.seo through the real handlers) and the rehearsal's own
-helpers. Held, exactly as test_rehearsal_past_shadow_success holds them: the readiness
+The flow below uses a release READY for sale (tests/ready_release_fixture.py: certify ->
+assets.build -> listing.seo -> the seven-frame generated gallery on fake image / vision
+providers -> both premium PDFs certified -> the READY package, all through the real handlers;
+see READY-FIXTURE.md) and the rehearsal's own helpers. Held, exactly as test_rehearsal_past_shadow_success holds them: the readiness
 verdict (a fixture shop is honestly not ready), creative parity (#75), the search-grid
 tournament (#126) and the Launch-0 scope gate. Everything else is real: the phase transition,
 the sealed grants, the Command Center action dispatch, store.publish, the read-back,
@@ -42,6 +43,7 @@ sys.path.insert(0, str(ROOT.parent / "ops"))
 
 import test_search_hero_publish as SH  # noqa: E402  (sets its env and loopback-only sockets)
 import test_rehearsal_past_shadow_success as RP  # noqa: E402
+import ready_release_fixture as RF  # noqa: E402  (a READY release, real sale pipeline)
 
 _spec = importlib.util.spec_from_file_location("shadow_rehearsal_fl",
                                                ROOT / "scripts" / "shadow_rehearsal.py")
@@ -104,7 +106,10 @@ def test_the_grant_reaches_a_draft_and_then_a_public_listing_through_the_owner_d
     from brambleloop.ops import production_evidence as pe
     from brambleloop.ops import publication_authority as pa
 
-    path, version, rh = SH._chain()
+    # A release READY for sale (D-OWNER-SALE-PIPELINE): the seven-frame certified gallery, both
+    # premium PDFs certified, the package READY -- built through the real sale chain on fake
+    # image / vision providers only (tests/ready_release_fixture.py, READY-FIXTURE.md).
+    path, version, rh = RF.ready_chain("doors")
     copy = path + ".doors.sqlite"
     shutil.copyfile(path, copy)
     db = Database(f"sqlite:///{copy}")
@@ -138,7 +143,12 @@ def test_the_grant_reaches_a_draft_and_then_a_public_listing_through_the_owner_d
                 etsy_mod.EtsyClient.BASE = fake.base
                 rec = reh.Recorder()
                 state = {"slug": slug, "version": version, "release": rh}
-                reh.record_simulated_taxonomy(rec, db, state, fake_base=fake.base)
+                # The simulated seller taxonomy and the release's listing.seo were recorded by
+                # the READY fixture in production order, before the gallery
+                # (ready_release_fixture._simulated_taxonomy, the same
+                # reh.record_simulated_taxonomy step); read back here. Re-running listing.seo
+                # after a certified generated gallery is refused (READY-FIXTURE.md, F1).
+                RF.assert_taxonomy_recorded(db, slug, version)
 
                 # G4: the readback names this release and what still blocks it.
                 rb = pe.first_listing_readiness(db, now=pe.datetime.now(pe.timezone.utc))
@@ -228,21 +238,6 @@ def test_the_grant_reaches_a_draft_and_then_a_public_listing_through_the_owner_d
 
                 _run_all(db, ["store.publish"])
                 j = _job(db, out["job_id"])
-                # D-OWNER-GALLERY-COMPLETE + D-OWNER-SALE-PIPELINE (19f, HARD RULE): this
-                # fixture's certified disclosed set is six frames, one short of the whole
-                # gallery, and the release is truthfully not READY for sale, so the door's
-                # store.publish is refused at the image gate with no Etsy request. Faking a
-                # seven-frame READY release is refused here, as in test_search_hero_publish.
-                # The draft -> read-back -> activation leg below needs a READY release; it is
-                # the integration item w6/review_requests/FIX-SALE-PIPELINE.md names, so this
-                # test proves the doors (G1-G4) up to that refusal and stops there.
-                if j["outputs"].get("published") is not True:
-                    assert j["status"] == "done" and j["outputs"].get("blocked") is True, j
-                    assert any("D-OWNER-GALLERY-COMPLETE" in r
-                               for r in j["outputs"].get("reasons") or []), j
-                    assert len(fake.listings) == 0, fake.listings
-                    assert _fees(db) == [], "a refused publish reserves no listing fee"
-                    return
                 assert j["status"] == "done" and j["outputs"].get("published") is True, j
                 assert j["outputs"].get("read_back_verified") is True, j
                 assert len(fake.listings) == 1, fake.listings
@@ -283,9 +278,19 @@ def test_the_grant_reaches_a_draft_and_then_a_public_listing_through_the_owner_d
                 # one reason is the release gate a buyer-facing listing needs.
                 verified = _audits(db, "store.activation_verified")[-1]
                 assert verified["fields"]["verified"] and verified["files"]["verified"], verified
-                assert [r.split(":")[0] for r in verified["reasons"]] == \
-                    ["release gate"] and "SAMPLE_PHOTO_REQUIRED" in verified["reasons"][0], \
-                    verified["reasons"]
+                # D-OWNER-PUBLISH-WITH-RENDERS: while the owner's recorded waiver stands, the
+                # sample photograph does not block activation, so the read-back carries no
+                # release-gate reason and the first owner grant activates. Without the waiver
+                # every original SAMPLE_PHOTO_REQUIRED assertion below applies unchanged
+                # (test_vis_gallery_e2e test_7a covers both states).
+                from brambleloop.publish import sample_photo
+                waived = sample_photo.publish_with_renders()
+                if waived:
+                    assert verified["reasons"] == [], verified["reasons"]
+                else:
+                    assert [r.split(":")[0] for r in verified["reasons"]] == \
+                        ["release gate"] and "SAMPLE_PHOTO_REQUIRED" in verified["reasons"][0], \
+                        verified["reasons"]
 
                 # The activation card exists and offers preview/approve.
                 cards = {c["card_id"]: c for c in approvals.inbox(db).get("cards") or []
@@ -314,42 +319,45 @@ def test_the_grant_reaches_a_draft_and_then_a_public_listing_through_the_owner_d
                 again = _exec(db, "activation.execute", slug=slug, version=version,
                               release=rh, approval_id=aid)["result"]
                 assert again["queued"] is False and again["job_id"] == out["job_id"], again
-                # The door does not weaken the gate: with no sample photograph on file the
-                # owner-granted activation is still refused, nothing is activated and no fee is
-                # reserved.
-                _run_all(db, ["store.activate"])
-                j = _job(db, out["job_id"])
-                assert j["status"] == "done" and j["outputs"].get("activated") is False, j
-                assert any("SAMPLE_PHOTO_REQUIRED" in r for r in j["outputs"]["reasons"]), j
-                assert remote.get("state") == "draft" and _fees(db) == [], remote
-                # One job per grant: the refused grant does not queue again.
-                again = _exec(db, "activation.execute", slug=slug, version=version,
-                              release=rh, approval_id=aid)["result"]
-                assert again["queued"] is False and again["job_status"] == "done", again
-
-                # Held from here, as the other gates are (sample_photo has its own tests in
-                # test_w4_launchfix): an owner-attested unedited sample photo through the
-                # physical intake is the owner's physical action, not something to forge.
-                from brambleloop.publish import sample_photo
-                real_requirement = sample_photo.requirement
-                sample_photo.requirement = lambda *a, **k: {
-                    "satisfied": False, "reasons": [], "qualifying": [], "rejected": [],
-                    "first_frame": None, "held": "SAMPLE_PHOTO_REQUIRED has its own tests"}
-                try:
-                    prev = _exec(db, "activation.preview", slug=slug, version=version,
-                                 release=rh)["result"]
-                    with ogk.owner_request("first-listing-test-owner"):
-                        aid = aa.approve(db, authorization=reh.REHEARSAL_OPS_TOKEN,
-                                         slug=slug, version=version, release=rh,
-                                         expected_digest=prev["digest"],
-                                         reason="ENG-FIRSTLIST test: second review")[
-                                             "approval_id"]
-                    out = _exec(db, "activation.execute", slug=slug, version=version,
-                                release=rh, approval_id=aid)["result"]
-                    assert out["queued"] is True, out
+                if waived:
                     _run_all(db, ["store.activate"])
-                finally:
-                    sample_photo.requirement = real_requirement
+                else:
+                    # The door does not weaken the gate: with no sample photograph on file the
+                    # owner-granted activation is still refused, nothing is activated and no fee is
+                    # reserved.
+                    _run_all(db, ["store.activate"])
+                    j = _job(db, out["job_id"])
+                    assert j["status"] == "done" and j["outputs"].get("activated") is False, j
+                    assert any("SAMPLE_PHOTO_REQUIRED" in r for r in j["outputs"]["reasons"]), j
+                    assert remote.get("state") == "draft" and _fees(db) == [], remote
+                    # One job per grant: the refused grant does not queue again.
+                    again = _exec(db, "activation.execute", slug=slug, version=version,
+                                  release=rh, approval_id=aid)["result"]
+                    assert again["queued"] is False and again["job_status"] == "done", again
+
+                    # Held from here, as the other gates are (sample_photo has its own tests in
+                    # test_w4_launchfix): an owner-attested unedited sample photo through the
+                    # physical intake is the owner's physical action, not something to forge.
+                    from brambleloop.publish import sample_photo
+                    real_requirement = sample_photo.requirement
+                    sample_photo.requirement = lambda *a, **k: {
+                        "satisfied": False, "reasons": [], "qualifying": [], "rejected": [],
+                        "first_frame": None, "held": "SAMPLE_PHOTO_REQUIRED has its own tests"}
+                    try:
+                        prev = _exec(db, "activation.preview", slug=slug, version=version,
+                                     release=rh)["result"]
+                        with ogk.owner_request("first-listing-test-owner"):
+                            aid = aa.approve(db, authorization=reh.REHEARSAL_OPS_TOKEN,
+                                             slug=slug, version=version, release=rh,
+                                             expected_digest=prev["digest"],
+                                             reason="ENG-FIRSTLIST test: second review")[
+                                                 "approval_id"]
+                        out = _exec(db, "activation.execute", slug=slug, version=version,
+                                    release=rh, approval_id=aid)["result"]
+                        assert out["queued"] is True, out
+                        _run_all(db, ["store.activate"])
+                    finally:
+                        sample_photo.requirement = real_requirement
                 j = _job(db, out["job_id"])
                 assert j["status"] == "done" and j["outputs"].get("activated") is True, j
                 assert j["outputs"].get("state_on_etsy") == "active", j
