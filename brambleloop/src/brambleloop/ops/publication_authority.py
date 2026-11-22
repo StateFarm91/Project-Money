@@ -187,6 +187,18 @@ def _certification(db, slug, version, release):
     blocking = sorted({str(f.get("code")) for f in findings
                        if str(f.get("severity", "")).lower() in ("error", "blocker", "critical")})
     held = withholding.reasons(db, slug, version)
+    # ENG-FIRST-LISTING: the competitive bars (#220) as they stand now, numbers only, so a
+    # reader can tell a bar our release could meet from one it cannot (read-only; the stored
+    # record above stays the gate).
+    try:
+        from ..publish import release_gates
+
+        competitive = [{"standard": c.get("standard"), "bar": c.get("bar"),
+                        "ours": c.get("ours"), "verdict": c.get("verdict")}
+                       for c in (release_gates.standards_gate(db, slug=slug, version=version)
+                                 .get("competitive") or [])]
+    except Exception:  # noqa: BLE001 - a diagnostic, never a verdict
+        competitive = None
     granted = cert.get("granted") is True
     ok = (pv["certified"] and granted and pv["release_hash"] == release
           and cert.get("release_hash") in (None, release) and not held["withheld"])
@@ -200,6 +212,11 @@ def _certification(db, slug, version, release):
             "stages_run": cert.get("stages_run"), "blocking_finding_codes": blocking,
             "physical_proof": physical, "withheld": held["withheld"],
             "withheld_reasons": held["publish_reasons"],
+            # ENG-FIRST-LISTING: which withholding kinds hold the release (fixed vocabulary,
+            # `withholding.KINDS`), so a reader can tell a standards reason from the QA's.
+            "competitive_now": competitive,
+            "withheld_kinds": sorted(k for k in (held.get("reasons") or {})
+                                     if k in withholding.KINDS),
             "why": ("certificate granted for this release, nothing withheld" if ok else
                     "no certificate recorded" if not cert else
                     "release is not certified for this hash, or is withheld")}

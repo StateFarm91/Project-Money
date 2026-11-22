@@ -1081,6 +1081,33 @@ def _vocab(values, allowed) -> list[str]:
     return sorted({str(v) for v in (values or []) if str(v) in allowed})
 
 
+def _withholding_kinds() -> tuple[str, ...]:
+    from ..publish import withholding
+
+    return tuple(withholding.KINDS)
+
+
+_COMPETITIVE_KEYS = ("gallery_images", "video_in_gallery", "size_options")
+_COMPETITIVE_VERDICTS = ("met", "below", "unmeasured")
+
+
+def _competitive_now(rows) -> list[dict] | None:
+    """ENG-FIRST-LISTING: each #220 bar, our reading and the verdict; fixed keys, numbers."""
+    if not isinstance(rows, list):
+        return None
+    out = []
+    for r in rows:
+        if not isinstance(r, dict) or r.get("standard") not in _COMPETITIVE_KEYS:
+            continue
+        num = (lambda v: float(v) if isinstance(v, (int, float))
+               and not isinstance(v, bool) else None)
+        out.append({"standard": r["standard"], "bar": num(r.get("bar")),
+                    "ours": num(r.get("ours")),
+                    "verdict": r.get("verdict") if r.get("verdict") in _COMPETITIVE_VERDICTS
+                    else None})
+    return out
+
+
 def _flag(v):
     return v if isinstance(v, bool) else None
 
@@ -1132,7 +1159,11 @@ def _section_diagnostics(ev: dict) -> dict:
                                             if v is False and _SOURCE_NAME.match(str(k)))[:12]},
         "certification": {"certificate_granted": _flag(ce.get("certificate_granted")),
                           "release_matches": _flag(ce.get("release_matches")),
-                          "withheld": _flag(ce.get("withheld"))},
+                          "withheld": _flag(ce.get("withheld")),
+                          # ENG-FIRST-LISTING: the withholding kinds, fixed vocabulary only.
+                          "withheld_kinds": _vocab(ce.get("withheld_kinds"),
+                                                   _withholding_kinds()),
+                          "competitive_now": _competitive_now(ce.get("competitive_now"))},
     }
 
 
