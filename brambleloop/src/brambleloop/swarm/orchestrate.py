@@ -1380,7 +1380,8 @@ JOB_BANDS: dict[str, str] = {
     # ENG-AUTOCODER: model-paid coding against a change request; capped by its own month.
     "improve.code": "exploration",
     # Pre-existing gap on the w6-INTEG7 base (test_swarm_runtime): ENG-IMPROVE's daily pass was
-    # never banded. Reads rows and files change requests, like its improve.* siblings.
+    # never banded. Self-tuning pass: reads rows, tunes bounded champions, files change
+    # requests, like its improve.* siblings.
     "improve.self_tune": "exploration",
     "improve.retrospective": "exploration",
     "intel.pod_learning": "exploration",
@@ -1391,8 +1392,6 @@ JOB_BANDS: dict[str, str] = {
     "improve.sandbox": "exploration",
     "improve.league": "exploration",
     "improve.replay": "exploration",
-    # ENG-IMPROVE self-tuning pass: reads rows, tunes bounded champions, files change requests.
-    "improve.self_tune": "exploration",
     "teardown.enforce": "benchmark_change",
     "creative.style_learning": "exploration",
     # Learning-centre scan: reads evidence, no committed value.
