@@ -4655,3 +4655,7 @@ All 14 FLUX gallery runs waited at `waiting_for_sale_admission`: every Launch-0 
 ## D-OWNER-DEPLOY-19i12 — 2026-11-22T07:06:59Z
 
 Batch 19i12 (code ee6aaaec7) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to 13272d90098abd6424b44b97e125fd1b7d7b99d2 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-DEPLOY-19i13 — 2026-11-22T07:34:00Z
+
+Batch 19i13 (code 7c4048847) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to 825b4f34252d1658cb610ab374bc2e4e7df6271a was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
