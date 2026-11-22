@@ -775,9 +775,12 @@ def test_static_isolation_is_unchanged():
         assert "private.store" not in text and "from ..laura.private" not in text, rel
     # The register copy is the owner's own commit (fcb2bcd), merged unchanged: this branch
     # neither edits it nor moves it (laura.js loads the thread view by dynamic import).
+    # Located by content, not a fixed line index: unrelated edits above it (the mc-perf page
+    # cache) move the line, and the owner's register copy must still be present exactly once.
     js = (src / "app/command_center/static/js/views/laura.js").read_text().splitlines()
-    assert js[272].lstrip().startswith('st.reply_register === "ENABLED" ? "Laura replies in '
-                                       'her private'), js[272]
+    reg = [ln for ln in js if ln.lstrip().startswith('st.reply_register === "ENABLED" ? '
+                                                     '"Laura replies in her private')]
+    assert len(reg) == 1, reg
     assert PC.REPLY_ENABLED.startswith("Laura replies in her private")
 
 
