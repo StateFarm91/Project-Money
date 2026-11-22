@@ -36,7 +36,9 @@ import _owner_grant; _owner_grant.scoped_owner_approvals()  # noqa: E402,E702  (
 # Every EtsyClient method that writes to Etsy.
 MUTATIONS = {"publish", "create_draft", "set_listing_property", "attach_file", "upload_image",
              "update_listing", "delete_listing", "activate"}
-READBACK = ("get_listing(", "read_back(", "listing_exists(", "etsy_verify.", "verify(")
+READBACK = ("get_listing(", "read_back(", "listing_exists(", "etsy_verify.", "verify(",
+            # ENG-ETSY-PUBLISH: pipeline's recorder whose body is `etsy_ops.read_back(...)`
+            "_read_back_and_record(")
 # Mutation sites that cannot affect a customer, and why. Drafts are not visible on Etsy; a
 # delete is constrained to a listing Etsy itself reports as a draft (delete_listing reads the
 # listing first and refuses any other state).
@@ -47,6 +49,10 @@ DRAFT_ONLY = {
     "delete_listing reads the listing first and refuses any other state",
     "integrations/etsy_probe.py::run_exercise#delete_listing": "deletes the exercise's own "
     "draft (expect_states=('draft',)) and then verifies it is gone with listing_exists",
+    "runtime/pipeline.py::_complete_draft": "ENG-ETSY-PUBLISH slice 2: fills an existing DRAFT "
+    "(adopted, or one whose read-back came up short) under the PUBLISH_COMPLETE grant; it never "
+    "activates, and both callers read the listing back after it (_adopt_and_complete -> "
+    "_read_back_and_record; the completion loop's _read -> etsy_ops.read_back)",
     "app/command_center/approvals.py::_standing_policy#activate": "WS4: `sp.activate` is "
     "ops.standing_policy.activate -- the owner's signed, stepped-up activation of a standing "
     "policy ROW in our database; it calls no Etsy client and writes nothing to Etsy",

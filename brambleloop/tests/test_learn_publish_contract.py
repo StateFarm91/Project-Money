@@ -21,13 +21,19 @@ from test_learn_launch import database, spec, approve, seed
 from brambleloop.learn.service import save_lesson, pdf_help_links
 
 
+# The customer PDF is rendered through the engine directly or through the layout switch
+# (publish.pdf_template: build_customer_pdf / build_customer_pdf_with_layout, IMAGE-AD), which
+# forwards its keywords to the engine. Every such call site must bind the same Learn resolver.
+RENDER_ENTRYPOINTS = ("build_pattern_pdf", "build_customer_pdf", "build_customer_pdf_with_layout")
+
+
 def test_both_runtime_pdf_render_sites_pass_same_learn_resolver():
     for file in ("release.py", "pipeline.py"):
         tree = ast.parse((ROOT / "src/brambleloop/runtime" / file).read_text(encoding="utf-8"))
         sites = []
         for fn in (n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))):
             calls = [n for n in ast.walk(fn) if isinstance(n, ast.Call)
-                     and isinstance(n.func, ast.Name) and n.func.id == "build_pattern_pdf"]
+                     and isinstance(n.func, ast.Name) and n.func.id in RENDER_ENTRYPOINTS]
             if not calls:
                 continue
             sites.extend(calls)
