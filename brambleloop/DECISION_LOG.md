@@ -4600,3 +4600,7 @@ The owner answered "Auto-deploy for 24h (Recommended)": deploy this fix and any 
 ## D-OWNER-DEPLOY-19i6 — 2026-11-22T05:37:14Z
 
 Batch 19i6 (code 78ee14f94) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to 67efe8ebe863a1e7fbc8b0ae33ce213639ebaa41 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-DEPLOY-19i7 — 2026-11-22T06:00:14Z
+
+Batch 19i7 (code ff9f99793) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to b829caf7516bb5f91cee9f0f26c291f1b570f8b7 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
