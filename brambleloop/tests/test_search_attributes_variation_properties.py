@@ -144,7 +144,7 @@ if __name__ == "__main__":
     for name, fn in tests:
         try:
             fn()
-            print(f"PASS {name}")
+            print(f"OK   {name}")
         except Exception as exc:  # noqa: BLE001
             failed += 1
             print(f"FAIL {name}: {type(exc).__name__}: {exc}")
