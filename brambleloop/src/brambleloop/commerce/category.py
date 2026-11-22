@@ -460,6 +460,13 @@ def _decide(prop: dict, facts: Facts) -> dict:
         return set_to(hit, "catalogue season")
     if name in ("craft type", "craft"):
         return set_to("Crochet", "the product is a crochet pattern")
+    if name in ("self published", "self-published", "selfpublished"):
+        # Etsy's Patterns & Blueprints node (6343) carries "Self-published". Every pattern in
+        # this catalogue is designed, written and published by this shop itself (no publisher
+        # or licensed book stands behind it), so the true value is "Yes". With no rule it read
+        # UNDECIDED and failed the search certificate's attributes check on every Launch-0
+        # release (GALLERY-START, 2026-11-22). A schema with no "Yes" value stays MISSING.
+        return set_to("Yes", "the shop designs and publishes its own patterns")
     if name in ("skill level", "difficulty", "craft skill level"):
         return set_to(SKILL.get(facts.difficulty), "publish.difficulty (printed on the PDF)")
     if name in ("digital file type", "digital file types", "file type", "file format"):
