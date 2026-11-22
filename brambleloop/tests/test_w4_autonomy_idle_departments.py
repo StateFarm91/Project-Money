@@ -203,7 +203,10 @@ def test_a_wide_rebuild_fits_the_varchar_200_key_column():
     db = Database("sqlite://")
     db.create_all()
     slugs = ["autumn-oak-mosaic-throw", "cloudline-baby-blanket", "harvest-table-runner",
-             "hexie-coaster-set", "market-basket-trio", "mosaic-placemat-pair",
+             # D-ENG-PUBLISH-UNHALT U2: the rebuild graph plans nothing for the retired
+             # legacy-duplicate slugs (launch0.LEGACY_DUPLICATES), so the fixture uses the live
+             # Launch-0 products that superseded them (longer slugs: the bound is no weaker).
+             "hexagon-coaster-set", "market-basket-medium", "mosaic-placemat-pair",
              "nordic-forest-mosaic-throw", "nordic-star-ornaments", "pet-snuggle-mat",
              "pressed-flower-motifs", "pumpkin-cluster-set", "spooky-garland",
              "valentine-heart-garland", "winter-village-graphghan"]
