@@ -990,6 +990,40 @@ def parse_judgement(text: str) -> dict:
             "craft_impression": round(float(craft), 2)}
 
 
+def _reuse_judgement(ctx, *, slug: str, board: str, board_sha: str, model: str) -> dict | None:
+    """This model's recorded verdict on these exact board bytes, re-bound to `slug`, or None.
+
+    The judge's prompt is constant and its answer is bound to the board's sha256, so the same
+    model asked about the same bytes is asked the same question: reusing its verdict is exact,
+    costs nothing, and never carries a verdict onto bytes nobody looked at.
+    """
+    if not board_sha or not model:
+        return None
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with ctx.db.session() as s:
+        rows = s.execute(select(AuditLog.id, AuditLog.artifact, AuditLog.detail).where(
+            AuditLog.action == JUDGED_ACTION).order_by(desc(AuditLog.id)).limit(500)).all()
+    for row_id, artifact, detail in rows:
+        d = detail or {}
+        if d.get("board_sha256") != board_sha or str(d.get("judge") or "") != model:
+            continue
+        if "thumbnail_reads_small" not in d or "craft_impression" not in d:
+            continue
+        verdict = {"thumbnail_reads_small": d["thumbnail_reads_small"],
+                   "craft_impression": d["craft_impression"]}
+        ctx.audit(JUDGED_ACTION, artifact=slug,
+                  detail={**verdict, "judge": model, "board": board[-120:],
+                          "board_sha256": board_sha, "cost_cad": 0.0,
+                          "source": "creative.regate",
+                          "reused_from": {"audit_id": row_id, "artifact": str(artifact)[:80]}})
+        return {"judged": True, **verdict, "judge": model, "cost_cad": 0.0,
+                "reused_from": row_id}
+    return None
+
+
 def judge_held(ctx, *, slug: str, board: str, provider=None) -> dict:
     """Ask the vision judge about one held winner's board, and record what it said.
 
@@ -1019,22 +1053,35 @@ def judge_held(ctx, *, slug: str, board: str, provider=None) -> dict:
         return {"judged": False, "why": f"the board's bytes cannot be shown to a judge: "
                                         f"{missing}"[:200]}
     guard = None
+    from . import concept_judge
+
     if provider is None:
         # ENG-ADMIT-TO-BUILD: whichever owner-activated vision provider is usable
         # (`creative.concept_judge.choose`); none means no judgement, so the concept waits.
-        from . import concept_judge
-
         vendor, provider = concept_judge.choose(ctx.db)
         if provider is None:
             return {"judged": False, "why": "no owner-activated vision provider is usable"}
-        if vendor == concept_judge.OPENAI:
-            # The openai-vision route is idempotent per (concept, board bytes): one paid
-            # attempt per RETRY_AFTER, recorded just before the send (after the budget
-            # reservation), so a redrive never repeats it. The Anthropic route is unchanged.
-            guard = str(getattr(provider, "name", "") or "openai")[:40]
-            if concept_judge.attempted(ctx.db, board_sha, guard, slug=slug):
-                return {"judged": False, "why": "this board was already sent to this judge "
-                                                "within the retry window; not sent again"}
+    else:
+        # AUDIT 19i7: `regate_held` passes the openai provider it chose, and this branch
+        # used to skip the guard entirely for a passed provider -- the hole behind
+        # production's repeated_billed_requests=1. The vendor is read from the provider.
+        vendor = (concept_judge.OPENAI
+                  if str(getattr(provider, "name", "") or "") == concept_judge.OPENAI
+                  else None)
+    if vendor == concept_judge.OPENAI:
+        # The openai-vision route is idempotent per board BYTES: one paid attempt per
+        # RETRY_AFTER for any concept showing them, recorded just before the send (after the
+        # budget reservation), so neither a redrive nor a second concept sharing the board
+        # repeats it. A judgement is bound to the bytes (CB2-D01) and the prompt is constant,
+        # so this model's verdict on these bytes is reused at no cost.
+        guard = str(getattr(provider, "name", "") or "openai")[:40]
+        reused = _reuse_judgement(ctx, slug=slug, board=board, board_sha=board_sha,
+                                  model=str(getattr(provider, "model", "") or ""))
+        if reused is not None:
+            return reused
+        if concept_judge.attempted(ctx.db, board_sha, guard):
+            return {"judged": False, "why": "this board was already sent to this judge "
+                                            "within the retry window; not sent again"}
     held = None
     try:
         reservation = gw.check_budget(
@@ -1044,8 +1091,6 @@ def judge_held(ctx, *, slug: str, board: str, provider=None) -> dict:
             job_id=ctx.job.id)
         held = reservation["reservation_id"]
         if guard is not None:
-            from . import concept_judge
-
             concept_judge.record_attempt(ctx, slug=slug, board_sha=board_sha,
                                          provider_name=guard, model=provider.model)
         response = provider.see(JUDGE_SYSTEM, JUDGE_PROMPT, [shown],
