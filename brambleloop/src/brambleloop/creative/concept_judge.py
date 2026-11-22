@@ -56,6 +56,10 @@ def openai_vision_usable(db, *, now: datetime | None = None) -> bool:
 
     now = _aware(now) or datetime.now(timezone.utc)
     try:
+        from ..gateway.openai_chat import key_present
+
+        if not key_present():                    # no credential: nothing could be judged
+            return False
         if not G.activation_state(db, G.OPENAI_VISION, G.VISION, now=now)["active"]:
             return False
         with db.session() as s:
@@ -68,7 +72,17 @@ def openai_vision_usable(db, *, now: datetime | None = None) -> bool:
             status, act, at = last.status, last.activation_id, _aware(last.settled_at or last.at)
         if status == G.BILLED:
             return G.is_active_id(db, act, now=now)
-        return at is not None and now - at >= RETRY_AFTER
+        if at is None:
+            return False
+        if now - at >= RETRY_AFTER:
+            return True
+        # KEYS-19i4: a closure is evidence about the code and credential that produced it. A
+        # deploy since that failure (new code, possibly a newly wired credential) gets one fresh
+        # judgement; a failure on this deploy keeps the route closed for RETRY_AFTER as before.
+        from ..ops.rebuild_graph import _current_deploy_started_at
+
+        started = _aware(_current_deploy_started_at(db))
+        return started is not None and at < started
     except Exception:  # noqa: BLE001 - unreadable evidence is a closed route
         return False
 

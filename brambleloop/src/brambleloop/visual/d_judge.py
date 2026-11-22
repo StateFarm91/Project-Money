@@ -101,7 +101,9 @@ def prompt() -> str:
 
 
 def _key() -> str:
-    key = (os.environ.get("OPENAI_API_KEY") or "").strip()
+    from ..gateway.openai_chat import api_key
+
+    key = api_key()
     if not key:
         path = os.environ.get("OPENAI_API_KEY_FILE", "")
         if path and os.path.exists(path):

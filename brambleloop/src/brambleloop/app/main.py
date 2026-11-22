@@ -451,7 +451,12 @@ def _startup() -> None:
                                ("concept_intake", "market_radar", "radar.concept_intake"),
                                # ENG-ADMIT-TO-BUILD: then re-gate concepts waiting on a
                                # vision judgement, so a judge fix does not wait an hour
-                               ("creative_regate", "market_radar", "creative.regate")):
+                               ("creative_regate", "market_radar", "creative.regate"),
+                               # KEYS-19i4: a free credential reading per deploy (BFL
+                               # /v1/credits, Anthropic count_tokens), so a key fix or a
+                               # rejected key is visible within minutes, not a day
+                               ("provider_credentials", "orchestrator",
+                                "ops.provider_credentials")):
         try:
             _boot_enqueue(_name, when=True, agent=_agent, job_type=_jt,
                           key=f"boot-{_name}-{build_identity().get('commit', '') or 'dev'}")
