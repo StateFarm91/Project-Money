@@ -11448,3 +11448,11 @@ etsy_api/benchmark_observation read CLOSED today; /api/verify reads 11/12. Repor
 - Root cause of "approve does nothing": the press re-ran a 2-minute preview, and the browser closed the request (HTTP 499, production log 00:19 and 00:22 UTC). Fixed by `approve_everything.execute_items`, which writes each previewed item in its own savepoint, reports per-item failures and stores the outcome as `last_press`. The page sends the items and keeps the result on screen. D-APPROVE-FIX.
 - Approve-all now also covers unclassified owner cards that need no choice (`owner_approved_step_up`). The rest are listed with their reason.
 - Tests: tests/test_approve_fix.py (8 passing, including a 173-row queue) plus the related suites, 144 passing. NOT verified: the preview's own GET is still slow (it now reports `timings_ms` to find the cost), and whether producers re-raise approved rows in production.
+
+## ENG-IMAGES-LAURA — 2026-11-22 (branch eng/images-laura; NOT merged, NOT deployed)
+- Owner method step 2: every Laura frame's FLUX 3 `images` are the canonical three (laura-r2-a42aeac7) and then the product frame this gallery accepted (by sha256), with the listing's outfit in the prompt.
+- Nothing after step 1 runs before a product frame is accepted.
+- The replay key is built from the input hashes, so a redrive buys nothing twice.
+- Reference hashes are recorded in `checks._reference_provenance`.
+- Gates and caps are unchanged. No live call was made.
+- Details and test results: `IMAGES-LAURA.md`.

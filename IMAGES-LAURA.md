@@ -1,7 +1,6 @@
 # IMAGES-LAURA — the owner's two-step method, step 2 (Laura frames)
 
-Branch `eng/images-laura`, based on `5297dbba` (`origin/eng/images-pdfref` did not exist when
-this was fetched on 2026-11-22). Not merged and not deployed.
+Branch `eng/images-laura`. It is based on `5297dbba`, because `origin/eng/images-pdfref` did not exist at the first fetch. It then merged `origin/eng/images-pdfref` @ `3c3a3af9` as `e10b188f`. Not merged into any release branch and not deployed.
 
 ## The owner's method
 
@@ -78,10 +77,20 @@ The brief said `input_image` fields. In FLUX 3 Image's schema the reference fiel
 
 Run: `cd brambleloop && SUITE_REGISTRY=0 SUITES="<touched suites> tests/test_vacuity.py" JOBS=$(nproc) bash run_tests.sh`. The results are below.
 
-RESULTS_PLACEHOLDER
+**Merged tree `e10b188f`, clean, run record `artifacts/suite_runs/20261122T154744Z-5297.json`.**
+- Scope: 54 suites. These are every suite touching `image_production`, `image_stages`, `flux3_generator` or `pdf_page_refs`, plus `test_vacuity`.
+- Result: **837 passing, 2 suites failing. Neither failure is from this branch:**
+  - `test_w4_visnext2`: 3 tests fail on prompt-builder drift (2.3.0 vs the frozen 2.2.0 definition). This is inherited from `eng/images-dialin`, and pdfref's own IMAGES-PDFREF.md records it.
+  - `test_w5_v1_visual_correctness::test_basket_prompt_names_six_corners_two_wine_stripes_and_the_plain_cream_rim`: this fails the same way on `origin/eng/images-pdfref` by itself (reproduced: 31 passed, 1 failed). That points to the same dialin basket-prompt change.
+- `test_images_laura`: 6/6. `test_vacuity`: pass.
+- On the pre-merge commit `656170ef`, the earlier failing suites all pass: `test_codex_v1_spend_guard` 62/62, `test_w4_visnext` 22/22, `test_w4_visnext2` 12/12, `test_images_laura` 6/6, `test_vacuity`.
+- Two regressions were found and fixed on the way:
+  - Product-frame acceptance had read duplicate-bytes rejections. It now reads the anchor's own PASS and any owner veto on it.
+  - The pre-acceptance gate had been applied to every generator. It is now scoped to the owner method.
 
 ## Not done or not verified
 
 - No live FLUX 3 call was made, and nothing was spent.
 - Step 1 (the PDF-page product frame) belongs to `eng/images-pdfref`. When that lands, its accepted product anchor is what this step consumes. Merge it and re-run these suites.
-- The owner method applies to normal runs only. Experiments (`exp`) keep their recorded plans.
+- The owner method applies to normal gallery runs only. Experiments (`exp`) and controlled runs (`#` keys) keep the pipeline definition they were approved with, including stage A, because changing it would be definition drift. Generators that do not declare `accepts_owner_method` behave exactly as before.
+- After the merge, step 2 receives pdfref's certified-PDF page references for release binding only. `_bind` verifies them, but they are not transmitted in a Laura request.
