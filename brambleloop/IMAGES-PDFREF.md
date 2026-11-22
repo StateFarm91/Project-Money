@@ -127,3 +127,16 @@ controlled-experiment drift check against the frozen
 (`prompt_builder: flux3-prompt-builder/2.2.0`). The drift check is a spend-safety gate, so this
 branch does not re-freeze the definition. The fix belongs with dialin: either a recorded
 amendment to the definition (like its existing 2.1.1 → 2.2.0 amendment) or its retirement.
+
+## Runner result (merged tree 4e98838, clean)
+
+`SUITE_REGISTRY=0 SUITES="..." JOBS=4 bash run_tests.sh` ran 13 suites. Result:
+**TOTAL PASSING: 116; suites failing: 0** (run `20261122T153505Z-3632`, 1452 s).
+
+Suites: test_images_pdfref, test_images_dialin, test_w4_flux3generator, test_w4_fluxstages,
+test_w4_fluxapi, test_eng_vis_flux, test_bfl_regional_host, test_image_ad,
+test_image_counts_prompt, test_image_daily_ceiling_redrive,
+test_image_reference_hash_failclosed, test_w4_images, test_vacuity.
+
+Also run directly: 21 related image and gallery suites. 20 pass. test_w4_visnext2 fails,
+inherited from dialin (see the section above).
