@@ -94,3 +94,5 @@ Run: `cd brambleloop && SUITE_REGISTRY=0 SUITES="<touched suites> tests/test_vac
 - Step 1 (the PDF-page product frame) belongs to `eng/images-pdfref`. When that lands, its accepted product anchor is what this step consumes. Merge it and re-run these suites.
 - The owner method applies to normal gallery runs only. Experiments (`exp`) and controlled runs (`#` keys) keep the pipeline definition they were approved with, including stage A, because changing it would be definition drift. Generators that do not declare `accepts_owner_method` behave exactly as before.
 - After the merge, step 2 receives pdfref's certified-PDF page references for release binding only. `_bind` verifies them, but they are not transmitted in a Laura request.
+
+**Update after the last merge** (`0f1ddf54`, pdfref's newer commit, which fixes the basket test). On the final tree, `test_w5_v1_visual_correctness` passes 32/32 and `test_images_laura` passes 6/6. The only remaining known failure is the inherited `test_w4_visnext2` definition drift, which belongs to dialin.
