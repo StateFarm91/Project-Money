@@ -39,6 +39,19 @@ deployed); 6 are not; 2 name no resolvable branch.
 
 ---
 
+> **2026-11-22 — IMAGES-PDFREF on `eng/images-pdfref` (from 5297dbba; NOT merged, NOT deployed; production
+> unchanged; no paid call made).** The owner's hand method ("PDF pages as images") is now part of the autonomous
+> pipeline. The release's certified premium US PDF is rendered deterministically (`creative/pdf_page_refs.py`:
+> cover, colour key, up to 3 chart/schematic pages, finished design, chart key, instructions; 1536 px long side,
+> PDFium, cached per PDF sha256) and the pages go to FLUX 3 Image as references in the documented `images`
+> field, after the 4 CIR renders. The live openapi `Flux3ImageInputs` has no `input_image` field. The pages go only
+> into no-Laura requests (the flat lay the fidelity gate judges, its side view, product-only styled scenes) and fill
+> free slots only. Each candidate records the page hashes (`pattern_derived`, source `certified_pdf_page`). The gates,
+> the caps and the BFL host (api.us.bfl.ai) are unchanged. The paid-call fingerprints now key on reference content
+> hashes, not paths, so a redrive does not buy the same render twice. Whether the pages actually clear the
+> OFF_PALETTE / WRONG_COLOUR_LAYOUT / WRONG_REPEAT_COUNT rejections is UNMEASURED until a paid run happens. Tests:
+> `tests/test_images_pdfref.py` (12). Report: `brambleloop/IMAGES-PDFREF.md`.
+
 > **2026-11-22 — LEARNING-APPLY on `eng/learning-apply` (from `origin/claude/w6-release-19h17`; NOT merged, NOT
 > deployed; production unchanged).** Why benchmark lessons ran thousands of times with 0 applied: (1) the
 > pattern_engineering predicates (amigurumi, chunky/chenille, join-as-you-go, multi-component) are false for all

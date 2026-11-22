@@ -174,12 +174,43 @@ export function galleryCard(c, reload) {
     rs.restartable === false && c.state === "blocked" ? h("p", { class: "muted small" }, `Restart: ${rs.why}`) : restart);
 }
 
+// A GET resolves {data, stale, fetchedAt} (api.get); a POST resolves the body itself.
+export function body(res) {
+  return res && typeof res === "object" && "data" in res && "fetchedAt" in res ? (res.data || {}) : (res || {});
+}
+
+const VERDICT_PILL = { PASS: "OK", FAIL: "BAD" };
+
+export function candidateThumb(f) {
+  const v = String(f.technical_status || "UNKNOWN");
+  const alt = `${f.role || "frame"} attempt ${f.attempt ?? "?"}: ${v}`;
+  return h("figure", { class: "gallery-frame" },
+    f.image_url ? h("a", { href: f.image_url, target: "_blank", rel: "noopener" },
+      h("img", { src: f.image_url, alt, loading: "lazy", width: 160, height: 160 })) : null,
+    h("figcaption", null,
+      h("p", { class: "row-title" }, statusPill(VERDICT_PILL[v] || "UNKNOWN", v), ` ${f.role || "frame"} #${f.attempt ?? "?"}`),
+      h("p", { class: "row-detail" }, `${f.method || ""} · ${f.outcome || ""}${f.width ? ` · ${f.width}x${f.height}px` : ""}`),
+      (f.codes || []).length ? h("p", { class: "row-detail" }, `Codes: ${f.codes.join(", ")}`) : null,
+      (f.failed_checks || []).length ? h("p", { class: "row-detail" }, `Failed: ${f.failed_checks.join(", ")}`) : null));
+}
+
+export function runBlock(r) {
+  const frames = r.frames || [];
+  return h("details", { class: "run-block", open: frames.length > 0 && frames.length <= 12 },
+    h("summary", null, statusPill(STATE_PILL[r.state] || "UNKNOWN", String(r.state || "unknown")),
+      ` ${r.run_key || "(no run key)"} · ${frames.length} frame(s)` +
+      (r.spent_cad != null ? ` · CA$${r.spent_cad}` : "") + (r.updated_at ? ` · ${r.updated_at}` : "")),
+    r.blocked_reason ? h("p", { class: "row-detail" }, r.blocked_reason) : null,
+    frames.length ? h("div", { class: "gallery-grid" }, frames.map(candidateThumb))
+      : h("p", { class: "muted small" }, "No frames recorded for this run."));
+}
+
 function runRow(p, rerender, slot) {
   const st = String(p.state || "awaiting_certified_pattern");
   const open = p.run_key ? h("button", { class: "btn", type: "button", onclick: async () => {
     const load = async () => {
       try {
-        const c = await api.imagesCard(p.run_key);
+        const c = body(await api.imagesCard(p.run_key));
         clear(slot); slot.append(galleryCard(c, load));
         slot.scrollIntoView({ behavior: "smooth", block: "start" });
       } catch (err) { toast(err.message, "bad"); }
@@ -190,7 +221,8 @@ function runRow(p, rerender, slot) {
     h("p", { class: "row-title" }, statusPill(STATE_PILL[st] || "UNKNOWN", st), ` ${p.listing}`),
     p.blocked_reason ? h("p", { class: "row-detail" }, p.blocked_reason) : null,
     p.why ? h("p", { class: "row-detail" }, p.why) : null,
-    open);
+    open,
+    (p.runs || []).length ? h("div", { class: "stack" }, p.runs.map(runBlock)) : null);
 }
 
 // ---- wardrobe editor (W-VISNEXT) ----
@@ -289,15 +321,20 @@ function experimentsCard(list, slot, reload) {
       h("ul", null, (e.runs || []).map((r) => h("li", null, `run ${r.run_id} · ${r.status} `,
         h("button", { class: "btn", type: "button", onclick: async () => {
           try {
-            const c = await api.experimentCard(r.run_id);
+            const c = body(await api.experimentCard(r.run_id));
             clear(slot); slot.append(galleryCard(c, reload), experimentDetails(c));
           } catch (err) { toast(err.message, "bad"); }
         } }, "Open"))))))));
 }
 
 export async function render({ rerender } = {}) {
-  const [board, wardrobe, exps] = await Promise.all([api.images(), api.wardrobe().catch(() => null),
+  // IMAGES-DIALIN: GET resolves {data, stale, fetchedAt}; the page read `.products` off that
+  // envelope, so the product list, the dropdown and every gallery were always empty.
+  const [boardRes, wardrobeRes, expsRes] = await Promise.all([api.images(), api.wardrobe().catch(() => null),
     api.experiments().catch(() => null)]);
+  const board = body(boardRes);
+  const wardrobe = wardrobeRes ? body(wardrobeRes) : null;
+  const exps = expsRes ? body(expsRes) : null;
   const products = Array.isArray(board.products) ? board.products : [];
   const out = h("div", { aria: { live: "polite" } });
   const gallery = h("div", { aria: { live: "polite" } });

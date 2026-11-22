@@ -22,7 +22,7 @@ from ..gateway import prompts
 
 # 2.1.0 (W5-V1): PRODUCT v3 states the CIR's shape (polygon side count), colour bands and final
 # round/rim explicitly; the AI flat lay is labelled as AI-generated, never a photograph.
-BUILDER_VERSION = "flux3-prompt-builder/2.2.0"
+BUILDER_VERSION = "flux3-prompt-builder/2.3.0"   # 2.3: vessel wall, palette and sides
 _IMG = dict(system="", output_schema=("image",), max_output_tokens=1)
 
 # The references, by position. The hierarchy is stated, not implied: identity comes from the
@@ -260,11 +260,57 @@ def _edge(rules: Mapping) -> str:
             f"{_colour_name(last['colour'], hexes.get(last['colour']))}, with no edging")
 
 
-def counts_and_proportion(rules: Mapping) -> str:
-    """The flat main piece's long/short ratio and its declared horizontal repeat count, or "".
+def vessel_counts(rules: Mapping) -> str:
+    """IMAGES-DIALIN: a vessel's palette, wall bands and side count, or "".
 
-    Only for a single-component flat piece (the gate's `_flat_model`); a vessel, a round piece
-    or a multi-component product says nothing here."""
+    From `rules["vessel"]` (`pattern_refs.vessel_spec`), which is the fidelity gate's own wall
+    model (`visual.vessel.vessel_models`): the gate labels the side view's rows bottom to top
+    and compares the band order and each band's share of the wall, counts the corners from
+    above, and requires the wall to be the declared colours. Each of those is stated here."""
+    v = rules.get("vessel") or {}
+    bands = v.get("wall_bands") or []
+    if not bands:
+        return ""
+    pal = v.get("palette") or {}
+    facts = ["yarn colours exactly and only " + ", ".join(
+        f"{cid} {hx}" for cid, hx in pal.items()) + " (no other colour, tint or shade of yarn)"]
+    n = int(v.get("sides") or 0)
+    if n >= 3:
+        name = {3: "triangle", 4: "square", 5: "pentagon", 6: "hexagon", 7: "heptagon",
+                8: "octagon"}.get(n, f"{n}-sided polygon")
+        facts.append(f"seen from above the rim is a {name}: exactly {n} flat sides and {n} "
+                     f"corners, no more and no fewer")
+    else:
+        facts.append("seen from above the rim is a circle: round, with no corners or flat sides")
+    base = ", ".join(v.get("base_colours") or []) or "as charted"
+    facts.append(f"the base is {v['base_rounds']} flat rounds in {base}, underneath; the wall "
+                 f"rises straight from it in exactly {v['wall_rounds']} rounds")
+    seq = "; ".join(f"{b['rounds']} round{'s' if b['rounds'] != 1 else ''} of {b['colour']} "
+                    f"{b.get('hex') or ''} ({b['share']:.0%} of the wall height)".replace(
+                        "  ", " ") for b in bands)
+    facts.append(f"the wall's horizontal colour bands from the base up are, in this order: "
+                 f"{seq}")
+    ground = bands[0]["colour"]
+    stripes = [b for b in bands if b["colour"] != ground]
+    if stripes:
+        facts.append(f"so exactly {len(stripes)} contrast band"
+                     f"{'s' if len(stripes) != 1 else ''} on the wall, each running all the "
+                     f"way round, level and unbroken")
+    facts.append(f"the top rim is the plain last round in {v.get('rim_colour')}: no braid, "
+                 f"roll, border or edging")
+    facts.append("show the wall exactly as in the side elevation on the left of the layout "
+                 "reference")
+    return "; ".join(facts)
+
+
+def counts_and_proportion(rules: Mapping) -> str:
+    """The flat main piece's long/short ratio and its declared horizontal repeat count, or a
+    vessel's wall, palette and side count (`vessel_counts`), or "".
+
+    Flat: only for a single-component flat piece (the gate's `_flat_model`). A round piece or
+    a multi-component product says nothing here."""
+    if (rules.get("vessel") or {}).get("wall_bands"):
+        return vessel_counts(rules)
     f = rules.get("fabric") or {}
     comps = list(rules.get("components") or [])
     if f.get("multi_component") or len(comps) != 1:
@@ -350,6 +396,10 @@ def build(*, rules: Mapping, roles: Sequence[str], role: str,
         "the canonical images decide who she is)", "scene_reference": "the approved room "
         "of Laura's home (its walls, floor, windows and built-in furniture only; never the "
         "product or the person)"}
+    # ENG-IMAGES-PDFREF: the certified pattern PDF's own pages (the owner's method)
+    from .pdf_page_refs import LABELS as _PDF_LABELS
+
+    labels.update(_PDF_LABELS)
     ref_map = "; ".join(f"{_img(i + 1)} = {labels.get(r.split(':')[0], r)}"
                         for i, r in enumerate(roles))
     scene = dict(scene or {})
