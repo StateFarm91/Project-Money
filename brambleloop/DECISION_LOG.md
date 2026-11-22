@@ -4611,7 +4611,7 @@ Batch 19i7 (code ff9f99793) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owne
 
 **How it is applied.** The same way as D-OWNER-APPROVE-ALL: by the system, through fixed tables in `ops/owner_directives.py`, recorded as `owner_directed_without_attestation`. No step-up, TOTP, passphrase or signature happened, and nothing records or presents one.
 - **F-07:** `owner_directives.WAIVERS` grants D-OWNER-PUBLISH-WITH-RENDERS standing for exactly `SAMPLE_PHOTO_REQUIRED`. `sample_photo.publish_with_renders` now needs the table entry AND the decision-index heading, so a heading alone no longer waives a publication gate.
-- **F-01:** the release ships with an honest full-suite release record, and only after a full, clean, unresumed run on the exact tree. The phase transition goes only through the code's own transition path and gates, including the launch readiness verdict. If that path can only be satisfied by a live owner step-up, the steps are left for the owner rather than simulated.
+- **F-01:** the release ships with an honest full-suite release record, and only after a full, clean, unresumed run on the exact tree. The phase transition out of SHADOW is NOT recorded by the system: a system-written move into a publishing phase without the owner's credential was drafted and withdrawn. The transition stays the owner's own action (operator credential, `core.phase.record_transition`, every readiness gate), with the exact steps left for the owner.
 - **F-11:** the separate worker service is approved, inside the CA$20/month infrastructure ceiling.
 
 **Unchanged:** child safety, spend ceilings, the signed publication grant, copy truth, and every other gate.
