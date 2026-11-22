@@ -518,14 +518,18 @@ def _search_rule(selected: dict) -> None:
     the hero raises HeroUnjudged (image-caused), everything else ValueError."""
     pending = list(selected.get("certified_pending") or [])
     failed = list(selected.get("certified_failed") or [])
-    if ((selected.get("certified") == "PENDING" and pending == ["hero"])
-            # GALLERY-START: a certificate REFUSED on the hero alone (frame 1 of the old
-            # disclosed set not export-ready) is cured only by a gallery, so it is image-caused
-            # too -- otherwise admission waits on the hero and the hero on the gallery.
-            or (selected.get("certified") == "REFUSED" and failed == ["hero"]
-                and set(pending) <= {"hero"})):
+    if selected.get("certified") == "PENDING" and pending == ["hero"]:
         raise HeroUnjudged("listing search profile PENDING: only the hero is unjudged; it is "
                            "judged on the certified listing set once the gallery exists")
+    if (selected.get("certified") == "REFUSED" and failed == ["hero"]
+            and set(pending) <= {"hero"}):
+        # GALLERY-START: a certificate REFUSED on the hero alone (frame 1 of the old disclosed
+        # set not export-ready) is cured only by a gallery, so it is image-caused too --
+        # otherwise admission waits on the hero and the hero on the gallery. It still says
+        # what it is: judged and refused, never "unjudged".
+        raise HeroUnjudged("listing search profile not certified PASS (REFUSED on the hero "
+                           "alone; image-curable: the hero is re-judged on the certified "
+                           "listing set once the gallery exists)")
     if selected.get("certified") != "PASS":
         raise ValueError(
             f"listing search profile not certified PASS "

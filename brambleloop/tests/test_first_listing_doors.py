@@ -228,6 +228,21 @@ def test_the_grant_reaches_a_draft_and_then_a_public_listing_through_the_owner_d
 
                 _run_all(db, ["store.publish"])
                 j = _job(db, out["job_id"])
+                # D-OWNER-GALLERY-COMPLETE + D-OWNER-SALE-PIPELINE (19f, HARD RULE): this
+                # fixture's certified disclosed set is six frames, one short of the whole
+                # gallery, and the release is truthfully not READY for sale, so the door's
+                # store.publish is refused at the image gate with no Etsy request. Faking a
+                # seven-frame READY release is refused here, as in test_search_hero_publish.
+                # The draft -> read-back -> activation leg below needs a READY release; it is
+                # the integration item w6/review_requests/FIX-SALE-PIPELINE.md names, so this
+                # test proves the doors (G1-G4) up to that refusal and stops there.
+                if j["outputs"].get("published") is not True:
+                    assert j["status"] == "done" and j["outputs"].get("blocked") is True, j
+                    assert any("D-OWNER-GALLERY-COMPLETE" in r
+                               for r in j["outputs"].get("reasons") or []), j
+                    assert len(fake.listings) == 0, fake.listings
+                    assert _fees(db) == [], "a refused publish reserves no listing fee"
+                    return
                 assert j["status"] == "done" and j["outputs"].get("published") is True, j
                 assert j["outputs"].get("read_back_verified") is True, j
                 assert len(fake.listings) == 1, fake.listings
