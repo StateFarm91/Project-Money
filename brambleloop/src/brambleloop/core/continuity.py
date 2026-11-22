@@ -39,7 +39,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Iterator
 
-from sqlalchemy import func, insert, select
+from sqlalchemy import delete, func, insert, select
 
 from .db import Base, Database
 
@@ -625,13 +625,15 @@ def retain(db: Database, export_path: str | Path, result: ExportResult) -> dict:
         s.flush()
         archive_id = row.id
 
-        keep = [r.id for r in s.scalars(
-            select(ContinuityArchive).order_by(ContinuityArchive.at.desc(),
-                                               ContinuityArchive.id.desc()))][:RETAINED_ARCHIVES]
-        pruned = [r for r in s.scalars(select(ContinuityArchive)) if r.id not in keep]
-        for old in pruned:
-            s.delete(old)
-        pruned_ids = [r.id for r in pruned]
+        # F-03: ids only. Selecting the entity loaded every archive's gzip payload (a whole
+        # database export each) just to decide which ids to keep.
+        keep = list(s.scalars(
+            select(ContinuityArchive.id).order_by(ContinuityArchive.at.desc(),
+                                                  ContinuityArchive.id.desc())))[:RETAINED_ARCHIVES]
+        pruned_ids = [i for i in s.scalars(
+            select(ContinuityArchive.id).order_by(ContinuityArchive.id)) if i not in keep]
+        if pruned_ids:
+            s.execute(delete(ContinuityArchive).where(ContinuityArchive.id.in_(pruned_ids)))
 
     return {
         "archive_id": archive_id,
@@ -653,8 +655,12 @@ def retained(db: Database) -> list[dict]:
     from .models import ContinuityArchive
 
     with db.session() as s:
-        rows = list(s.scalars(select(ContinuityArchive).order_by(
-            ContinuityArchive.at.desc(), ContinuityArchive.id.desc())))
+        # F-03: the metadata columns only, never `payload` (a gzip of a whole export).
+        rows = s.execute(select(
+            ContinuityArchive.id, ContinuityArchive.at, ContinuityArchive.digest,
+            ContinuityArchive.total_rows, ContinuityArchive.stored_bytes,
+            ContinuityArchive.raw_bytes, ContinuityArchive.manifest).order_by(
+            ContinuityArchive.at.desc(), ContinuityArchive.id.desc())).all()
         return [{"archive_id": r.id, "at": r.at.isoformat(), "digest": r.digest,
                  "total_rows": r.total_rows, "stored_bytes": r.stored_bytes,
                  "raw_bytes": r.raw_bytes, "tables": len(r.manifest.get("tables", []))}

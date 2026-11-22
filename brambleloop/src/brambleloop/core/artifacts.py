@@ -131,7 +131,9 @@ def _keep(db, digest: str, payload: bytes, content_type: str, why: str) -> bool:
 
     try:
         with db.session() as s:
-            if s.get(DurableArtifact, digest) is not None:
+            # F-03: presence by primary key only; `s.get` would load the stored bytes.
+            if s.scalar(select(DurableArtifact.sha256).where(
+                    DurableArtifact.sha256 == digest)) is not None:
                 return True
             s.add(DurableArtifact(sha256=digest, content_type=content_type,
                                   bytes_len=len(payload), payload=payload,

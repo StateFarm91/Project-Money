@@ -83,7 +83,9 @@ def archive(db, *, period: str, original: bytes, content_type: str, totals: dict
                 return {"archived": False, "replayed": True, "period": period,
                         "sha256": digest, "version": r.detail.get("version"),
                         "audit_id": r.id}
-        if s.get(DurableArtifact, digest) is None:
+        # F-03: presence by primary key only, never the stored bytes.
+        if s.scalar(select(DurableArtifact.sha256).where(
+                DurableArtifact.sha256 == digest)) is None:
             s.add(DurableArtifact(sha256=digest, content_type=str(content_type or
                                                                   "application/pdf")[:80],
                                   bytes_len=len(original), payload=original,
@@ -99,7 +101,8 @@ def archive(db, *, period: str, original: bytes, content_type: str, totals: dict
         s.add(row)
         s.flush()
         audit_id = row.id
-        held = s.get(DurableArtifact, digest) is not None
+        held = s.scalar(select(DurableArtifact.sha256).where(
+            DurableArtifact.sha256 == digest)) is not None
     return {"archived": True, "replayed": False, "period": period, "sha256": digest,
             "version": version, "audit_id": audit_id, "original_held": held,
             "reconciliation": reconcile(db, period, now=now)}

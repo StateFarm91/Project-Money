@@ -426,8 +426,9 @@ def retention_plan(db, *, keep_previous: int = KEEP_PREVIOUS) -> dict:
         delivered = set()
         for row in s.scalars(select(AuditLog).where(AuditLog.action.in_(DELIVERY_ACTIONS))):
             delivered |= _hex64(row.detail or {})
-        kept = [(r.sha256, r.why_kept or "", r.bytes_len or 0)
-                for r in s.scalars(select(DurableArtifact))]
+        # F-03: the metadata columns only; selecting the entity loaded every kept PDF/image.
+        kept = [(sha, why or "", n or 0) for sha, why, n in s.execute(select(
+            DurableArtifact.sha256, DurableArtifact.why_kept, DurableArtifact.bytes_len))]
     protected_releases = set(listed)
     for slug, version in sold:
         if version:
@@ -450,6 +451,8 @@ def retention_plan(db, *, keep_previous: int = KEEP_PREVIOUS) -> dict:
 
 def prune(db, *, keep_previous: int = KEEP_PREVIOUS, dry_run: bool = False) -> dict:
     """Apply `retention_plan`, re-checking each hash at delete time; audited."""
+    from sqlalchemy import delete, select
+
     from ..core.models import AuditLog, DurableArtifact
 
     try:
@@ -475,9 +478,12 @@ def prune(db, *, keep_previous: int = KEEP_PREVIOUS, dry_run: bool = False) -> d
                     "prune_bytes": sum(p["bytes"] for p in kept_plan)}
             with db.session() as s:
                 for p in plan["prune"]:
-                    row = s.get(DurableArtifact, p["sha256"])
-                    if row is not None and (row.why_kept or "").startswith(KEEP_PREFIX):
-                        s.delete(row)
+                    # F-03: read why_kept, not the bytes, before deleting by primary key.
+                    why = s.scalar(select(DurableArtifact.why_kept).where(
+                        DurableArtifact.sha256 == p["sha256"]))
+                    if why is not None and why.startswith(KEEP_PREFIX):
+                        s.execute(delete(DurableArtifact).where(
+                            DurableArtifact.sha256 == p["sha256"]))
                         gone += 1
         out = {"pruned": gone, "dry_run": dry_run, "candidates": len(plan["prune"]),
                "bytes": plan["prune_bytes"], "kept_rows": plan["kept_rows"],

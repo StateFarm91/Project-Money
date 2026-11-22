@@ -2527,9 +2527,11 @@ def tournament_image_refusal(sha256: str) -> str | None:
 
     try:
         with db.session() as s:
-            row = s.get(DurableArtifact, sha256)
-            if row is not None:
-                return (None if (row.why_kept or "") == reference_pack.KEEP_REASON[:200]
+            # F-03: presence and why_kept only; `s.get` would load the image bytes.
+            kept = s.execute(select(DurableArtifact.why_kept).where(
+                DurableArtifact.sha256 == sha256)).first()
+            if kept is not None:
+                return (None if (kept[0] or "") == reference_pack.KEEP_REASON[:200]
                         else "kept for another purpose")
             for a in s.scalars(select(AuditLog).where(AuditLog.action.in_(
                     (tournament.TOURNAMENT_ACTION, reference_pack.PACK_ACTION)))
