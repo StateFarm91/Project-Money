@@ -184,6 +184,44 @@ def test_curable_refusals_are_exactly_the_chains_own_staleness_reasons():
         build.identity = real
 
 
+def test_a_park_cured_by_a_code_fix_is_rearmed_and_others_are_not():
+    """pumpkin-cluster-set: parked on listing.seo_blocked by POLICY_SIZE_COVERAGE_UNSUPPORTED
+    from a title that claimed '(3 sizes)'. The title is now built without that count, so a
+    deploy re-arms the park for the real gate to judge; any other park stays."""
+    from brambleloop.gates.policy import claim_findings, strip_unsupported_size_counts
+    assert strip_unsupported_size_counts("Pumpkin Cluster Set (3 sizes)") == "Pumpkin Cluster Set"
+    assert strip_unsupported_size_counts("Hat in one size") == "Hat in one size"
+    assert strip_unsupported_size_counts("Sweater (1 sizes)") == "Sweater (1 sizes)"
+    assert [f.code for f in claim_findings("Pumpkin Cluster Set (3 sizes)", "t", None)] \
+        == ["POLICY_SIZE_COVERAGE_UNSUPPORTED"]
+    assert claim_findings(strip_unsupported_size_counts("Pumpkin Cluster Set (3 sizes)"),
+                          "t", None) == []
+    db = _db()
+    real = _running("newsha")
+    try:
+        _boot(db, "newsha", NOW - timedelta(minutes=10))
+        why = ("ERROR POLICY_SIZE_COVERAGE_UNSUPPORTED: [listing.title] '3 sizes': this "
+               "release's instructions cover one size")
+        held = CAP_HELD.split(";")[0] + "; parked on listing.seo_blocked: " + why
+        cured = _detail(held=held, held_commit="oldsha",
+                        parked={"gate": "listing.seo_blocked", "reasons": [why]})
+        parks = ({"gate": "listing.seo_blocked", "reasons": ["ERROR POLICY_X: y"]},
+                 {"gate": "pricing.refused", "reasons": [why]},
+                 {"gate": "listing.seo_blocked", "reasons": [why, "ERROR OTHER: z"]},
+                 {"gate": "listing.seo_blocked", "reasons": []})
+        assert len(parks) == 4
+        with db.session() as s:
+            assert RG.held_before_deploy(s, cured) is not None
+            assert RG.rearm_verdict(s, cured) == "rearmed"
+            for park in parks:
+                d = dict(cured, parked=park)
+                assert RG.held_before_deploy(s, d) is None, park
+                assert RG.rearm_verdict(s, d) == "parked"
+            assert RG.held_before_deploy(s, dict(cured, held_commit="newsha")) is None
+    finally:
+        build.identity = real
+
+
 def test_unknown_deploy_rearms_nothing():
     db = _db()
     real = _running("dev")

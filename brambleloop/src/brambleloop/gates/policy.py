@@ -88,6 +88,27 @@ _NUMBERS = {"two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "e
             "nine": 9, "ten": 10}
 
 
+_SIZE_COUNT_PHRASE = re.compile(
+    r"\s*[\(\[]?\s*\b(\d+|two|three|four|five|six|seven|eight|nine|ten)\s+sizes\b\s*[\)\]]?",
+    re.IGNORECASE)
+
+
+def strip_unsupported_size_counts(text: str) -> str:
+    """The product name without a size count this release cannot carry.
+
+    19h21 (production 2026-11-22, pumpkin-cluster-set parked on listing.seo_blocked): a
+    concept title "Pumpkin Cluster Set (3 sizes)" became the CIR title, so every listing
+    title built from it claimed three sizes of instructions. One release covers exactly one
+    size (`claim_findings`, POLICY_SIZE_COVERAGE_UNSUPPORTED), so the claim was false and the
+    gate rightly refused it on every rebuild. The listing is built from the name without
+    that count; the gate is unchanged and still judges the finished copy."""
+    def _drop(m):
+        n = int(_NUMBERS.get(m.group(1).lower(), m.group(1)))
+        return m.group(0) if n == 1 else ""
+    out = _SIZE_COUNT_PHRASE.sub(_drop, text or "")
+    return re.sub(r"\s{2,}", " ", out).strip() or (text or "")
+
+
 def claim_findings(text: str, where: str, cir: CIR | None) -> list[Finding]:
     """Every claim in `text` that does not trace to this product's own evidence."""
     out: list[Finding] = []

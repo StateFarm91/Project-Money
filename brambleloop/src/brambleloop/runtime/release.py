@@ -1342,10 +1342,15 @@ def handle_listing_seo(ctx: JobContext) -> dict:
                          # F-008: observed is not the same as true of this product.
                          if not search_mod.tag_truth(q.phrase, difficulty=difficulty,
                                                      shape=shape)]
-    title = seo_mod.build_title(cir.title, category, motifs, season,
+    # 19h21: the product name without a size count one release cannot carry (the gate
+    # below still judges the finished title; `policy.strip_unsupported_size_counts`).
+    from ..gates.policy import strip_unsupported_size_counts as _strip_sizes
+
+    name = _strip_sizes(cir.title)
+    title = seo_mod.build_title(name, category, motifs, season,
                                 sizes=len(i.get("sizes") or []) or 1)
     # F-022: the differentiator build_title placed first, checked by the copy gate below.
-    differentiator = seo_mod.title_differentiator(cir.title, category, motifs, season,
+    differentiator = seo_mod.title_differentiator(name, category, motifs, season,
                                                   sizes=len(i.get("sizes") or []) or 1)
     # #97: Listings read their lesson inbox. A search-language or construction lesson whose
     # words match one of this product's candidate queries puts that query in a tag slot --
@@ -1353,7 +1358,7 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     # recorded as acted on.
     from ..improve import consume
 
-    listing_text = " ".join([cir.title, category, " ".join(motifs)]
+    listing_text = " ".join([name, category, " ".join(motifs)]
                             + [q.phrase for q in queries])
     seo_lessons = [l for l in consume.matching(ctx.db, "seo_search", listing_text,
                                                subject=slug)
@@ -1405,7 +1410,7 @@ def handle_listing_seo(ctx: JobContext) -> dict:
         title=title,
         tags=tags,
         description=seo_mod.build_description(
-            cir.title, size_label=size_label, yardage_lines=yardage_lines,
+            name, size_label=size_label, yardage_lines=yardage_lines,
             tolerance_pct=tolerance_pct, difficulty=difficulty,
             colors=colors, terminology="US",
             gauge_line=gauge_line, stitches=sorted(twin.stitch_types_used),

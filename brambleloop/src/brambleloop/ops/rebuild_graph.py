@@ -501,6 +501,36 @@ def refusal_category(text) -> str:
     return "other"
 
 
+# 19h21: a park whose every recorded reason carries one of these codes was caused by a
+# deterministic defect in what the chain PRODUCED (not by the product), and the running code
+# no longer produces it. Such a park is re-armed once per deploy so the real gate judges the
+# corrected output; if the gate still refuses, the attempt parks and holds again under this
+# build. The gate itself is unchanged. Each entry names the fix that cured it.
+CURED_PARK_CODES = {
+    # listing.seo built the title from a CIR name carrying "(3 sizes)" (one release covers
+    # one size); `policy.strip_unsupported_size_counts` builds it from the name without it.
+    "POLICY_SIZE_COVERAGE_UNSUPPORTED": ("listing.seo_blocked",),
+}
+
+
+def _park_cured(parked) -> bool:
+    if not isinstance(parked, dict):
+        return False
+    gate = str(parked.get("gate") or "")
+    reasons = [str(r) for r in (parked.get("reasons") or [])]
+    if not reasons:
+        return False
+    return all(any(code in r and gate in gates for code, gates in CURED_PARK_CODES.items())
+               for r in reasons)
+
+
+def _protected_words(d) -> tuple:
+    """The hold wording that blocks a re-arm; a cured park's own "parked on" is not one."""
+    if _park_cured((d or {}).get("parked")):
+        return tuple(w for w in _NEVER_REARM_WORDS if w != "parked on")
+    return _NEVER_REARM_WORDS
+
+
 def _only_halt_refusals(refused) -> bool:
     return all(str(r).strip().startswith(CURABLE_REFUSAL_PREFIXES) for r in (refused or []))
 
@@ -514,13 +544,13 @@ def rearm_verdict(db, detail) -> str:
     d = detail or {}
     if not d.get("held"):
         return "not_held"
-    if d.get("parked"):
+    if d.get("parked") and not _park_cured(d.get("parked")):
         return "parked"
     if d.get("failed_attempts"):
         return "failed_attempts"
     if not _only_halt_refusals(d.get("refused_by")):
         return "other_refusal"
-    if any(w in _hold_text(d).lower() for w in _NEVER_REARM_WORDS):
+    if any(w in _hold_text(d).lower() for w in _protected_words(d)):
         return "protected_wording"
     commit, _started = _current_deploy(db)
     if not commit:
@@ -550,12 +580,12 @@ def held_before_deploy(db, detail):
     d = detail or {}
     if not d.get("held"):
         return None
-    if d.get("parked") or d.get("failed_attempts"):
+    if (d.get("parked") and not _park_cured(d.get("parked"))) or d.get("failed_attempts"):
         return None
     if not _only_halt_refusals(d.get("refused_by")):
         return None
     text = _hold_text(d).lower()
-    if any(w in text for w in _NEVER_REARM_WORDS):
+    if any(w in text for w in _protected_words(d)):
         return None
     commit, _started = _current_deploy(db)
     if not commit:
