@@ -1,3 +1,13 @@
+> **2026-11-22 — LEARNING-APPLY on `eng/learning-apply` (from `origin/claude/w6-release-19h17`; NOT merged, NOT
+> deployed; production unchanged).** Why benchmark lessons ran thousands of times with 0 applied: (1) the
+> pattern_engineering predicates (amigurumi, chunky/chenille, join-as-you-go, multi-component) are false for all
+> 11 Launch-0 CIRs, so that 0 is true; (2) the SEO and creative-asset hooks sat only on validators downstream of
+> generators that never read the lessons; (3) the pricing hook HC-L1 ran only inside the live SERP capture, which is
+> blocked by the Etsy credential. Fixes: HC-L1 now runs on every `pricing.decide` anchor read
+> (`release._outcome_price`): an on-sale row is read at its effective price or left out, never at its strike price.
+> MM-L6 now earns the no/low-sew tag in `seo.proposals` for a multi-piece amigurumi that really is no/low sew. Every
+> run now records relevance apart from application, and the readback's `why_zero` says which kind of zero it is.
+> Tests: `tests/test_learning_apply.py` (12). Report: `LEARNING-APPLY.md` at the repo root.
 > **2026-11-21 — BATCH19D-SALE2 on `claude/batch19d-sale2` (batch19d 76d0525 + `w6-release-19d1` 7b250d61 +
 > `w6-release-19h1`, production 1bb7c4f5, merged at 80bc28b with halt-380/H3/H4 and every boot step kept. Run
 > 20261121T082202Z-785 @ 80bc28b, clean tree, 27 suites: 326 passing, 2 suites failing, the same pre-existing two
