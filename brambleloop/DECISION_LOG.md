@@ -4529,3 +4529,9 @@ Batch 19i1 (code c99d110c6) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the ow
 - New acted bucket `owner_approved_step_up`. It covers an unclassified owner card with no guard subject (child, physical, spend, publishing) and no key that needs a choice or is read as a decision elsewhere (`decision.*`, acceptance ruling, launch decisions, phase, ads, buyer messages, storefront, Etsy auth, certification or safety). It closes `satisfied` with "owner-approved via step-up; not an attestation".
 - Every guard is unchanged. Child safety and physical attestation are never moved. Spend headroom is re-read at the press, and the CA$100/month cap is never raised. Grants go through their own signing path, bound to the previewed digest, with the publication evidence check. Fresh step-up is required and consumed.
 - The page shows the result on the card ("Approved N. Needs your action elsewhere M (listed below)", with reasons for any failures) and never only in a toast.
+## D-OWNER-DEPLOY-19h19 — 2026-11-22T00:37:11Z
+Batch 19h19 (code 7ce92f9ad) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 5ea431fb63c7b5e6e79bb4e63191bf92c05f336b was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-DEPLOY-19i2 — 2026-11-22T00:47:55Z
+
+Batch 19i2 (code 3a5bfc6a1) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 9e6a8df33d21e8cb90898b77438af27b0a8e9d29 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
