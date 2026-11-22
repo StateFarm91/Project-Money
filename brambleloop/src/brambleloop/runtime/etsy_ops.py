@@ -516,8 +516,14 @@ def certified_payload(db, slug: str, version: str):
 def _search_rule(selected: dict) -> None:
     """Refuse unless the search certificate is PASS; a PENDING whose only unjudged check is
     the hero raises HeroUnjudged (image-caused), everything else ValueError."""
-    if (selected.get("certified") == "PENDING"
-            and list(selected.get("certified_pending") or []) == ["hero"]):
+    pending = list(selected.get("certified_pending") or [])
+    failed = list(selected.get("certified_failed") or [])
+    if ((selected.get("certified") == "PENDING" and pending == ["hero"])
+            # GALLERY-START: a certificate REFUSED on the hero alone (frame 1 of the old
+            # disclosed set not export-ready) is cured only by a gallery, so it is image-caused
+            # too -- otherwise admission waits on the hero and the hero on the gallery.
+            or (selected.get("certified") == "REFUSED" and failed == ["hero"]
+                and set(pending) <= {"hero"})):
         raise HeroUnjudged("listing search profile PENDING: only the hero is unjudged; it is "
                            "judged on the certified listing set once the gallery exists")
     if selected.get("certified") != "PASS":

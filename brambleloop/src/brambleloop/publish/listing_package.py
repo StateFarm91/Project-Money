@@ -279,8 +279,11 @@ def assemble(db, slug: str, version: str) -> dict | None:
         # package stays BLOCKED for owner review and publication; the sale pipeline alone
         # reads the tag, to reach READY and a private draft before the photo exists.
         activation_only = release_gates.activation_only_reasons(gate)
+        fc_areas = release_gates.first_customer_areas(gate)
         for reason in gate.get("reasons") or []:
             b = {"source": "release_gates.for_publish", "why": str(reason)[:300]}
+            if str(reason) in fc_areas:
+                b["fc_area"] = fc_areas[str(reason)]
             if str(reason) in visual:
                 b["image"] = True
             elif str(reason) in publish_time:
