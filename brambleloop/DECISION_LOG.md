@@ -4563,3 +4563,7 @@ Batch 19h21 (code 9c18a8b78) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the o
    If that reading says REJECTED, the owner action is a valid key in `BRAMBLELOOP_IMAGE_KEY_BFL`. If it says OK while renders get `no_model_access`, the account lacks API access to FLUX 3 Image.
 
 No cap, gate or activation changed. No key value was read, logged or stored.
+
+## D-OWNER-DEPLOY-19i4 — 2026-11-22T02:26:08Z
+
+Batch 19i4 (code aac59790c) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 8c39c8137be5e84ae9e289365255e41f6a1a0bdf was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
