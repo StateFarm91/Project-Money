@@ -137,7 +137,7 @@ def test_openai_vision_alone_opens_the_review_and_describes():
     _openai_only(db)
     assert VR.vision_open(db) is True
     vendor, provider = VR.choose(db)
-    assert vendor == VR.OPENAI and isinstance(provider, VR.OnceVision)
+    assert vendor == VR.OPENAI and provider.name == "openai"
     t = _Transport()
     with _Patched(t):
         got = I.describe_image(_png("c.png"), db=db)
@@ -182,7 +182,8 @@ def test_anthropic_route_is_unchanged_when_usable():
         vendor, provider = VR.choose(db)
     finally:
         gw.vision_usable = saved
-    assert vendor == VR.ANTHROPIC and not isinstance(provider, (VR.OnceVision, VR.NoVisionJudge))
+    assert vendor == VR.ANTHROPIC and not isinstance(provider, VR.NoVisionJudge)
+    assert not str(getattr(provider, "name", "")).startswith("openai")
 
 
 if __name__ == "__main__":

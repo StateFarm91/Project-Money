@@ -23,7 +23,7 @@ deterministic verdicts (`inspect.gate`, `frame_role.verdict`, the grid rule).
 **Spend.** OpenAI calls still go through `OpenAIProvider.see`, so the activation's ceilings
 (`paid_provider_gate`) and the paid-call fingerprint still apply. The inspect functions'
 own `check_budget` reservation is unchanged as well. On top of that, the OpenAI route is
-idempotent per image bytes (`OnceVision`). One paid attempt is allowed per (image sha256,
+idempotent per image bytes (`once_key`, applied inside each inspect `_call`). One paid attempt is allowed per (image sha256,
 system, prompt, max tokens) per `RETRY_AFTER`, recorded BEFORE the send:
 
 * a successful answer is stored, and a repeat is served from it, with nothing sent and
@@ -77,73 +77,74 @@ def _image_sha(ref: str) -> str:
     return hashlib.sha256(ref.encode()).hexdigest()
 
 
-class OnceVision:
-    """Wraps an OpenAI vision provider: one paid attempt per image bytes and question."""
+def _once_applies(db, provider) -> bool:
+    """The per-bytes idempotency applies to the OpenAI vision route (the Anthropic route
+    keeps its existing paid-call store)."""
+    return db is not None and str(getattr(provider, "name", "")).startswith("openai")
 
-    def __init__(self, db, inner):
-        self.db = db
-        self.inner = inner
-        self.name = getattr(inner, "name", "openai")
-        self.model = inner.model
-        self.cost_per_1k_input_cad = inner.cost_per_1k_input_cad
-        self.cost_per_1k_output_cad = inner.cost_per_1k_output_cad
 
-    def _key(self, system, prompt, image_urls, max_tokens) -> str:
-        shas = [_image_sha(u) for u in image_urls]
-        body = "\n".join([self.name, self.model, str(max_tokens),
-                          hashlib.sha256((system or "").encode()).hexdigest(),
-                          hashlib.sha256((prompt or "").encode()).hexdigest(), *shas])
-        return hashlib.sha256(body.encode()).hexdigest()
+def once_key(db, provider, system, prompt, image_urls, max_tokens) -> str | None:
+    """The idempotency key of one question about these image bytes, or None (not applicable)."""
+    if not _once_applies(db, provider):
+        return None
+    shas = [_image_sha(u) for u in image_urls]
+    body = "\n".join([str(provider.name), str(provider.model), str(max_tokens),
+                      hashlib.sha256((system or "").encode()).hexdigest(),
+                      hashlib.sha256((prompt or "").encode()).hexdigest(), *shas])
+    return hashlib.sha256(body.encode()).hexdigest()
 
-    def _recent(self, key: str, now: datetime):
-        from sqlalchemy import desc, select
 
-        from ..core.models import AuditLog
+def kept_answer(db, provider, key: str, *, now: datetime | None = None):
+    """The stored answer to this exact question (served with nothing sent or billed), None
+    when it was never asked, or TransientError when it was asked and no answer was kept."""
+    from sqlalchemy import desc, select
 
-        answer, attempted = None, False
-        with self.db.session() as s:
-            for action, detail in s.execute(
-                    select(AuditLog.action, AuditLog.detail)
-                    .where(AuditLog.action.in_((ATTEMPT_ACTION, ANSWER_ACTION)),
-                           AuditLog.artifact == key[:64],
-                           AuditLog.at >= now - RETRY_AFTER)
-                    .order_by(desc(AuditLog.id))):
-                d = detail or {}
-                if action == ANSWER_ACTION and answer is None and "text" in d:
-                    answer = d
-                elif action == ATTEMPT_ACTION:
-                    attempted = True
-        return answer, attempted
+    from ..core.models import AuditLog
+    from ..gateway.model_gateway import ModelResponse
 
-    def _audit(self, action: str, key: str, detail: dict) -> None:
-        from ..core.models import AuditLog
+    now = _aware(now) or datetime.now(timezone.utc)
+    answer, attempted = None, False
+    with db.session() as s:
+        for action, detail in s.execute(
+                select(AuditLog.action, AuditLog.detail)
+                .where(AuditLog.action.in_((ATTEMPT_ACTION, ANSWER_ACTION)),
+                       AuditLog.artifact == key[:64],
+                       AuditLog.at >= now - RETRY_AFTER)
+                .order_by(desc(AuditLog.id))):
+            d = detail or {}
+            if action == ANSWER_ACTION and answer is None and "text" in d:
+                answer = d
+            elif action == ATTEMPT_ACTION:
+                attempted = True
+    if answer is not None:
+        return ModelResponse(text=str(answer["text"]), provider=str(provider.name),
+                             model=str(answer.get("model") or provider.model),
+                             input_tokens=0, output_tokens=0, latency_ms=0.0, replayed=True)
+    if attempted:
+        raise TransientError("these image bytes were already sent to this judge with this "
+                             "question within the retry window and no answer was kept; not "
+                             "sent again (the check stays unmade)")
+    return None
 
-        with self.db.session() as s:
-            s.add(AuditLog(action=action, artifact=key[:64], actor="quality_director",
-                           detail=detail))
 
-    def see(self, system, prompt, image_urls, *, max_tokens):
-        from ..gateway.model_gateway import ModelResponse
+def _audit(db, action: str, key: str, detail: dict) -> None:
+    from ..core.models import AuditLog
 
-        now = datetime.now(timezone.utc)
-        key = self._key(system, prompt, image_urls, max_tokens)
-        answer, attempted = self._recent(key, now)
-        if answer is not None:
-            # Served from the stored answer: nothing sent, nothing billed.
-            return ModelResponse(text=str(answer["text"]), provider=self.name,
-                                 model=str(answer.get("model") or self.model),
-                                 input_tokens=0, output_tokens=0, latency_ms=0.0,
-                                 replayed=True)
-        if attempted:
-            raise TransientError("these image bytes were already sent to this judge with this "
-                                 "question within the retry window and no answer was kept; "
-                                 "not sent again (the check stays unmade)")
-        self._audit(ATTEMPT_ACTION, key, {"provider": self.name, "model": self.model,
-                                          "task": TASK})
-        response = self.inner.see(system, prompt, image_urls, max_tokens=max_tokens)
-        self._audit(ANSWER_ACTION, key, {"provider": self.name, "model": response.model,
-                                         "text": str(response.text)[:20000], "task": TASK})
-        return response
+    with db.session() as s:
+        s.add(AuditLog(action=action, artifact=key[:64], actor="quality_director",
+                       detail=detail))
+
+
+def record_attempt(db, provider, key: str) -> None:
+    """Written after the budget reservation and BEFORE the send: a crash blocks a repeat."""
+    _audit(db, ATTEMPT_ACTION, key, {"provider": str(provider.name),
+                                     "model": str(provider.model), "task": TASK})
+
+
+def record_answer(db, provider, key: str, response) -> None:
+    _audit(db, ANSWER_ACTION, key, {"provider": str(provider.name),
+                                    "model": str(getattr(response, "model", provider.model)),
+                                    "text": str(response.text)[:20000], "task": TASK})
 
 
 def choose(db) -> tuple[str | None, object]:
@@ -163,8 +164,7 @@ def choose(db) -> tuple[str | None, object]:
         if concept_judge.openai_vision_usable(db):
             from ..gateway import openai_chat, routing
 
-            return OPENAI, OnceVision(db, openai_chat.OpenAIProvider(
-                model=routing.openai_model_for(TASK)))
+            return OPENAI, openai_chat.OpenAIProvider(model=routing.openai_model_for(TASK))
     except Exception:  # noqa: BLE001 - an unpriced or unroutable model judges nothing
         pass
     return None, NoVisionJudge()
