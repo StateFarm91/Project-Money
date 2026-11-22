@@ -1,28 +1,28 @@
-## PRODUCTION NOW (verified 2026-11-22T05:29Z)
+## PRODUCTION NOW (verified 2026-11-22T14:02Z)
 
 Keep this block first and current: `tests/test_audit_build_state_current.py` fails when it names a SHA
 older than the last two entries of `release/DEPLOYED_HISTORY.json`, or when its `release-record:` line
 disagrees with `release_record.verify_build` for the checked-out tree.
 
-**Verified from git** (tree `claude/w6-release-19h22` f9011cf9):
+**Verified from git** (tree `claude/rc2-fixes`, the record-candidate tree):
 
-- production-sha: 67efe8ebe863a1e7fbc8b0ae33ce213639ebaa41
-- Batch 19h22, code f4650c648, deployed 2026-11-22T03:23:15Z (`verify_deploy` DEPLOYED, override
-  D-OWNER-DEPLOY-19h22, authorization D-OWNER-AUTODEPLOY-TONIGHT); rollback target
-  f90289ed923c1323c497e47a20d70c2125782579 (Batch 19i5). This is entry 57 of 57 in
-  `release/DEPLOYED_HISTORY.json`; f9011cf9 on top of it only appends that history entry.
+- production-sha: 83d05dbfcd370773d718639d24300ebf78fb863a
+- Batch 19i14, code 8feb01036, deployed 2026-11-22T08:22:26Z (`verify_deploy` DEPLOYED, override
+  D-OWNER-DEPLOY-19i14, authorization D-OWNER-AUTODEPLOY-24H-2); rollback target
+  d1c2ff10b0e026ba17f6c30e63363b49f881e934 (Batch 19i13). This is entry 65 of 65 in
+  `release/DEPLOYED_HISTORY.json`.
 - release-record: NONE. No committed release record names this tree: with `PYTHONPATH=src`,
   `release_record.verify_build(env={'RAILWAY_ENVIRONMENT':'production'})` returns `ok: False`
   ("no committed release record names this build's tree digest"). On Railway the boot guard
   therefore forces SHADOW and opens the P1 incident `release.unproven_build`.
 - Last release-eligible full-suite run on file: `release/suite_runs/20261119T135927Z-1739` on
-  a35ad302 (finished 2026-11-19T16:55:33Z): 982 suites, 11,679 passing, 0 failing. All 37
-  DEPLOYED_HISTORY entries dated after it (Batch 19a 2026-11-21T00:15Z through 19h22) were deployed
-  without a full-suite certification: 34 are labelled D-OWNER-AUTODEPLOY-TONIGHT (extended by
-  D-OWNER-EXTENSION-24H) on changed+overlap suites, 2 were owner per-SHA approvals, 1 (19a) has no
-  authorization field.
-- The auto-deploy window of D-OWNER-EXTENSION-24H closed at 2026-11-22T05:00Z. Every further
-  deploy needs the owner's per-SHA approval.
+  a35ad302 (finished 2026-11-19T16:55:33Z). Every DEPLOYED_HISTORY entry after it was deployed
+  without a full-suite certification. F-01 is open. The record candidate (record-candidate-2 plus
+  every inventory red fixed at root, verified suite by suite) is being released so that one plain
+  full REQUIRE_CLEAN run can certify it. Until a record for exactly that tree is committed, this
+  line stays NONE.
+- Auto-deploy authority D-OWNER-AUTODEPLOY-24H-2 runs until 2026-11-23T05:30Z (enforced by the
+  release script).
 
 **As REPORTED BY THE OPERATOR READBACK at 2026-11-22T05:15Z** (not verified by this record):
 systemic publishing halt clear; 11 products with per-product marketing-rebuild holds; FLUX renders
