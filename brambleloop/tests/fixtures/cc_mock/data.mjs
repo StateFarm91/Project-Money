@@ -609,6 +609,31 @@ export const DATA = {
       queue_drain: { stalled: false } },
     recoveries: { state: "OK", last_24h: 2, last_7d: 3, refused_24h: 1, recent: [
       { id: 1, at: ago(60), action: "queue.lease_reclaimed", actor: "queue", job_id: 5, result: null }] } }),
+  // MISSION-CONTROL-2 (D-MC2-HOME): Home leads with GET /api/cc/mission (mission.view's shape).
+  // UNKNOWN is never a pass and never 0: unmeasured counts are the string "UNKNOWN".
+  mission: () => ({ tab: "MISSION", read_only: true, generated_at: now(),
+    conditions: [
+      { id: "running", title: "Production is running and healthy", sources: ["p0_board.running"], verdict: "PASS", why: "worker heartbeat 1 min ago" },
+      { id: "research", title: "All mandatory shops scanned on time", sources: ["p0_board.shops"], verdict: "UNKNOWN", why: "Etsy read credential not proven" },
+      { id: "factory", title: "Products are advancing through the factory", sources: ["p0_board.development", "ops.daily_ledger"], verdict: "PASS", why: "2 advances in the last two days" },
+      { id: "certified", title: "Certified releases with PDFs and images", sources: ["p0_board.releases", "p0_board.assets"], verdict: "FAIL", why: "1 release lacks a proven gallery" },
+      { id: "etsy", title: "Etsy drafts exist for certified releases", sources: ["p0_board.etsy"], verdict: "UNKNOWN", why: "no Etsy write credential" },
+      { id: "safety", title: "Publication safety (the /api/verify checks)", sources: ["app.verify_checks.publication_checks"], verdict: "PASS", why: "shadow: nothing can publish" }],
+    tally: { PASS: 3, FAIL: 1, UNKNOWN: 2 }, overall: "FAIL",
+    today: [{ id: "scans", label: "Scans", value: 4 }, { id: "products_started", label: "Products started", value: 0 },
+      { id: "images", label: "Images", value: "UNKNOWN" }],
+    today_meta: { day: now().slice(0, 10), partial: true, as_of: now() },
+    owner_queue: { eligible: 1, never_bulk: 1, never_bulk_by_category: { physical: 1 }, href: "#/approvals",
+      can_decide: 1, owner_rows_open: 2, stays_with_reason: 1 },
+    inventory_href: "#/catalogue", rule: "UNKNOWN is never a pass and never 0" }),
+  // APPROVE-ALL-V2: the Approvals view's bulk card reads GET /api/cc/approve-everything?cards=0.
+  approveEverything: () => ({ as_of: now(), count: 1, digest: "sha256:fixture-approve-everything",
+    items: [{ requirement_key: "fixture.routine_card", bucket: "routine" }],
+    acted: [{ requirement_key: "fixture.routine_card", title: "Refresh SEO coverage", bucket: "routine" }],
+    kept: [{ requirement_key: "physical_sample:harbour-throw", title: "Attest the physical sample", reason: "physical-sample attestations are never bulk-approved",
+      link: { card: "#/approvals/owner_action:2", external: null, where: "its own card" } }],
+    kept_count: 1, counts: { owner_rows_open: 2, stays_with_reason: 1 },
+    spend: { approved_in_press_cad: 0, company_cap_cad: 50 }, last_press: null }),
   ask: (question) => /overnight/i.test(question)
     ? { question, intent: "overnight", status: "ANSWERED", answer: "Overnight: 6 jobs completed, 1 parked (bank feed missing).",
       facts: [{ statement: "SEO coverage refreshed", source: "jobs:320", as_of: ago(30) }], next_action: "Connect bank feed",

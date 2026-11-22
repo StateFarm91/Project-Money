@@ -59,6 +59,15 @@ async function settle() {
   await page.waitForFunction(() => { const m = document.getElementById("main"); return m.dataset.rendered === location.hash && !m.querySelector(".loading"); }, null, { timeout: 10000 });
   await page.waitForTimeout(150);
 }
+// D-MC2-HOME (DECISION_LOG, MISSION-CONTROL-2, 2026-11-21): Home leads with the Mission control
+// card; the previous Home content (brief hero, decide-first, the six owner blocks) is kept, folded
+// under the first `details.home-more` ("Full overview"), and the older detail stays folded under
+// the second ("More on Home"). The owner opens the overview by tapping its summary; so does this.
+const OVERVIEW = "#main .stack > details.home-more:first-of-type";
+async function openOverview() {
+  if (!(await page.$eval(OVERVIEW, (d) => d.open))) await page.click(`${OVERVIEW} > summary`);
+  await page.waitForSelector(`${OVERVIEW} .hero`, { state: "visible" });
+}
 async function noHScroll(name) {
   const r = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth,
     bw: document.body.scrollWidth }));
@@ -84,8 +93,11 @@ try {
   await page.fill("#login-pass", PASSPHRASE);
   await page.fill("#login-device", "Test phone");
   await page.click("form.login button[type=submit]");
-  await page.waitForSelector(".hero");
+  await page.waitForSelector(".hero", { state: "attached" });
   await settle();
+  const lead = await page.$eval("#main .stack > .card", (e) => (e.querySelector(".card-title") || {}).textContent || "");
+  check(lead === "Mission control", "home: Mission control leads Home (D-MC2-HOME)", lead);
+  check(!(await page.$eval(OVERVIEW, (d) => d.open)), "home: the full overview is kept, folded (D-MC2-HOME)", "");
   check(await page.evaluate(() => !document.cookie.includes("bl_cc_mock")), "login: session cookie is HttpOnly (invisible to JS)");
 
   const heroTiles = await page.$$eval(".hero .tile", (els) => els.map((e) => [e.querySelector(".tile-label").textContent, e.querySelector(".tile-value").textContent]));
@@ -391,6 +403,14 @@ try {
   // ---- approvals: evidence + confirmation + step-up --------------------------------------
   await page.goto(`${BASE}/cc/#/approvals`);
   await settle();
+  // D-APPROVE-ALL-V2 (DECISION_LOG, owner request, 2026-11-21): cards that are not OwnerAction
+  // rows -- this fixture's publication grant card and Etsy gate -- are folded under "Not owner
+  // actions: close through their own doors", so their doors stay reachable. Open that fold
+  // the way the owner does, then exercise the same doors as before.
+  await page.click("#main .stack > details > summary:has-text('Not owner actions')");
+  await page.waitForSelector("article.approval", { state: "visible" });
+  // Door cards render with their review folded (only the first OwnerAction card opens itself).
+  await page.click("article.approval:nth-of-type(1) details.review > summary");
   const cards = await page.$$eval("article.approval", (els) => els.map((e) => ({ id: e.dataset.card,
     evidence: Number(e.querySelector(".evidence")?.dataset.evidence), fields: e.querySelectorAll(".kv > div").length,
     approve: !!e.querySelector("button[data-action$='.approve']"), approveDisabled: e.querySelector("button[data-action$='.approve']")?.disabled })));
@@ -457,29 +477,34 @@ try {
   // ---- W4-CCUX: decide-first prioritisation, long-page sections, phone navigation ----------
   await page.goto(`${BASE}/cc/#/approvals`);
   await settle();
+  // D-APPROVE-ALL-V2 (DECISION_LOG, owner request, 2026-11-21): the Approvals view counts and
+  // ranks OwnerAction rows only; grant cards (this fixture's publication card) and gates are
+  // folded under "Not owner actions: close through their own doors" and never ranked. With no
+  // OwnerAction card in this fixture, Decide first is the batch queue, in order; the door cards
+  // stay reachable by their fold and by their deep link. The card-first ranking rule itself is
+  // proven by the in-page rankDecisions check below.
   const order = await page.$$eval("#main .stack > *", (els) => els.map((e) => e.matches("article.approval") ? "card"
-    : e.matches(".decide-first") ? "decide" : e.matches("section[aria-labelledby='approvals-batches']") ? "batches" : "other"));
-  const iDecide = order.indexOf("decide"), iCard = order.indexOf("card"), iBatch = order.indexOf("batches");
-  check(iDecide >= 0 && iDecide < iCard && iCard < iBatch, "ccux approvals: Decide first leads, then the cards, then the batch queue", JSON.stringify(order));
+    : e.matches(".decide-first") ? "decide" : e.matches("details") && /Not owner actions/.test(e.querySelector(":scope > summary")?.textContent || "") ? "doors"
+    : e.matches("section[aria-labelledby='approvals-batches']") ? "batches" : "other"));
+  const iDecide = order.indexOf("decide"), iCard = order.indexOf("card"), iDoors = order.indexOf("doors"), iBatch = order.indexOf("batches");
+  check(iDecide >= 0 && iCard === -1 && iDecide < iDoors && iDoors < iBatch, "ccux approvals: Decide first leads, door cards folded apart, then the batch queue", JSON.stringify(order));
   const dRows = await page.$$eval(".decide-first li.decide-row", (els) => els.map((e) => ({ kind: e.dataset.decision, text: e.textContent,
     href: e.querySelector("a.decide-go")?.getAttribute("href") || null, btn: e.querySelector("button.decide-go")?.textContent || null })));
-  check(dRows.length === 3 && dRows[0].kind === "card" && /Harbour Throw/.test(dRows[0].text) && dRows[1].kind === "batch" && dRows[2].kind === "batch",
-    "ccux approvals: top 3 = decidable card, then batch queue in order (non-executable card last)", JSON.stringify(dRows.map((d) => [d.kind, d.text.slice(0, 40)])));
-  check(/Max cost\s*Unknown/.test(dRows[0]?.text || "") && /If you do nothing\s*Launch slips/.test(dRows[0]?.text || "") && /Deadline\s*in /.test(dRows[0]?.text || ""),
-    "ccux approvals: each top decision shows cost (Unknown, never CA$0) and consequence", (dRows[0]?.text || "").slice(0, 300));
-  check(/Max cost\s*CA\$25\.00/.test(dRows[1]?.text || "") && /Max cost\s*Unknown/.test(dRows[2]?.text || "") && !/CA\$0\.00/.test(dRows[2]?.text || "")
-    && /If you do nothing\s*revenue stays Unknown/.test(dRows[2]?.text || ""), "ccux approvals: batch decision costs stated or Unknown", JSON.stringify(dRows.slice(1).map((d) => d.text.slice(0, 160))));
-  check(dRows[0]?.href === "#/approvals/publication%3Aharbour-throw%401", "ccux approvals: top decision links to its evidence card", String(dRows[0]?.href));
-  check(/1 more below/.test(await page.textContent(".decide-first")), "ccux approvals: the rest are counted, not hidden");
-  const firstOpen = await page.$eval("article.approval", (e) => e.querySelector("details.review").open && /Harbour/.test(e.textContent));
-  check(firstOpen, "ccux approvals: the most urgent card is first and open");
-  await page.click(".decide-first li.decide-row:nth-child(2) button.decide-go");
+  check(dRows.length === 2 && dRows.every((d) => d.kind === "batch") && /Open Etsy payouts/.test(dRows[0].text) && /Connect the bank feed/.test(dRows[1].text),
+    "ccux approvals: top decisions = the batch queue in order; no door card is ranked", JSON.stringify(dRows.map((d) => [d.kind, d.text.slice(0, 40)])));
+  check(dRows.length > 0 && dRows.every((d) => /Max cost/.test(d.text) && /If you do nothing/.test(d.text)),
+    "ccux approvals: each top decision shows cost and consequence", JSON.stringify(dRows.map((d) => d.text.slice(0, 120))));
+  check(/Max cost\s*CA\$25\.00/.test(dRows[0]?.text || "") && /Max cost\s*Unknown/.test(dRows[1]?.text || "") && !/CA\$0\.00/.test(dRows[1]?.text || "")
+    && /If you do nothing\s*revenue stays Unknown/.test(dRows[1]?.text || ""), "ccux approvals: batch decision costs stated or Unknown", JSON.stringify(dRows.map((d) => d.text.slice(0, 160))));
+  const doorsOpen = await page.$$eval("#main .stack > details", (els) => els.filter((d) => /Not owner actions/.test(d.querySelector(":scope > summary")?.textContent || "")).map((d) => d.open));
+  check(doorsOpen.length === 1 && doorsOpen[0] === false, "ccux approvals: door cards are folded, not dropped", JSON.stringify(doorsOpen));
+  await page.click(".decide-first li.decide-row:first-child button.decide-go");
   await page.waitForTimeout(200);
   const batchInView = await page.$eval("section[aria-labelledby='approvals-batches']", (e) => { const r = e.getBoundingClientRect(); return r.top < window.innerHeight && r.bottom > 0 && e.querySelector("details.review").open; });
   check(batchInView, "ccux approvals: 'Show in batches' scrolls to the open batch");
-  await page.click(".decide-first li.decide-row:first-child a.decide-go");
+  await page.goto(`${BASE}/cc/#/approvals/publication%3Aharbour-throw%401`);
   await settle();
-  check(/#\/approvals\/publication/.test(page.url()) && (await page.$$("article.approval .evidence li")).length === 3, "ccux approvals: decide-first link opens the card with its evidence");
+  check((await page.$$("article.approval .evidence li")).length === 3, "ccux approvals: a door card's deep link opens the card with its evidence");
 
   // deterministic ranking (unit, in the page): deadline, evidence, executability, cost text
   const rank = await page.evaluate(async () => {
@@ -499,10 +524,11 @@ try {
   check(rank.find((x) => x[0] === "late")[1] === "CA$0.00" && rank.find((x) => x[0] === "noev")[1] === "Unknown" && rank.find((x) => x[0] === "b1")[1] === "Unknown",
     "ccux ranking: a stated 0 stays CA$0.00, an unstated cost is Unknown", JSON.stringify(rank));
 
-  // home: decide-first is the first card after the hero
+  // home: decide-first is the first card after the hero (inside the full overview, D-MC2-HOME)
   await page.goto(`${BASE}/cc/#/home`);
   await settle();
-  const homeOrder = await page.$$eval("#main .stack > .card", (els) => els.slice(0, 2).map((e) => e.classList.contains("hero") ? "hero" : e.classList.contains("decide-first") ? "decide" : e.className));
+  await openOverview();
+  const homeOrder = await page.$$eval(`${OVERVIEW} > .card`, (els) => els.slice(0, 2).map((e) => e.classList.contains("hero") ? "hero" : e.classList.contains("decide-first") ? "decide" : e.className));
   check(JSON.stringify(homeOrder) === JSON.stringify(["hero", "decide"]), "ccux home: Decide first directly after the brief", JSON.stringify(homeOrder));
   const homeDecide = await page.textContent(".decide-first");
   check(/Harbour Throw/.test(homeDecide) && /Max cost/.test(homeDecide) && /If you do nothing/.test(homeDecide) && /1 more open/.test(homeDecide)
@@ -510,7 +536,7 @@ try {
   await noHScroll("ccux home");
 
   // ---- W4-OWNERHOME: six-block owner overview at 390 px ----------------------------------
-  const ovTitles = await page.$$eval("#main .stack > .card", (els) => els.map((e) => e.classList.contains("hero") ? "hero"
+  const ovTitles = await page.$$eval(`${OVERVIEW} > .card`, (els) => els.map((e) => e.classList.contains("hero") ? "hero"
     : e.classList.contains("decide-first") ? "decisions" : (e.className.match(/ov-(working|blocked|accomplished|ready|money)/) || [])[1] || null).filter(Boolean));
   check(JSON.stringify(ovTitles.slice(0, 7)) === JSON.stringify(["hero", "decisions", "working", "blocked", "accomplished", "ready", "money"]),
     "ownerhome: six blocks lead Home (decisions first after the brief)", JSON.stringify(ovTitles));
@@ -528,7 +554,7 @@ try {
   check(/PDF BUILT/.test(readyTxt) && /images UNKNOWN/.test(readyTxt) && /NOT READY/.test(readyTxt), "ownerhome: ready to sell shows certification, PDF and image status", readyTxt);
   check(/#4/.test(await page.textContent(".decide-first .ov-next-decisions")) && (await page.$$(".decide-first .decide-go")).length === 3,
     "ownerhome: decisions block reaches rank 5 without extra tap targets", "");
-  check(!(await page.$eval("details.home-more", (d) => d.open)), "ownerhome: the previous Home detail is kept, folded", "");
+  check(!(await page.$eval("#main .stack > details.home-more:last-of-type", (d) => d.open)), "ownerhome: the previous Home detail is kept, folded", "");
   for (const sel of [".ov-blocked > .ov-evidence > summary", ".ov-ready > .ov-evidence > summary", ".ov-money > .ov-evidence > summary"]) await page.click(sel);
   await page.waitForTimeout(100);
   check((await page.$$eval(".ov-blocked .ov-ev", (e) => e.length)) === 7, "ownerhome: expanding evidence lists the rows with sources", "");
@@ -539,6 +565,7 @@ try {
     await page.screenshot({ path: path.join(SCREENS, "ownerhome_390_expanded_full.png"), fullPage: true });
     await page.reload();
     await settle();
+    await openOverview();
     await page.screenshot({ path: path.join(SCREENS, "ownerhome_390_top.png"), fullPage: false });
     await page.screenshot({ path: path.join(SCREENS, "ownerhome_390_full.png"), fullPage: true });
   }
@@ -586,6 +613,9 @@ try {
   // approvals folded: evidence links and decision buttons survive, return on expand
   await page.goto(`${BASE}/cc/#/approvals`);
   await settle();
+  // D-APPROVE-ALL-V2: the fixture's cards are door cards, folded apart; open that fold first.
+  await page.click("#main .stack > details > summary:has-text('Not owner actions')");
+  await page.click("article.approval:nth-of-type(1) details.review > summary");
   const apTools = await page.$(".page-tools button[data-fold=all]");
   if (apTools) {
     const evBefore = await page.$$eval("article.approval .evidence a", (a) => a.length);
@@ -610,7 +640,9 @@ try {
   // S4b adds "p0_board" (the P0 command board, each section with its proven level).
   // ENG-DAILY adds "daily" (per-day production counts and zero-output diagnoses).
   // ENG-CATALOGUE adds "catalogue" (every product by stage) and "agents_evidence".
-  const MORE_IDS = ["company", "images", "production", "p0_board", "daily", "catalogue", "agents_evidence", "completion", "policy", "operations", "learn",
+  // D-ENG-DEMAND-SUPPLY (DECISION_LOG, owner TOP PRIORITY, 2026-11-20) adds "demand", the
+  // Mission Control Demand view (GET /api/cc/demand) that decision names as its surface.
+  const MORE_IDS = ["company", "images", "production", "p0_board", "daily", "demand", "catalogue", "agents_evidence", "completion", "policy", "operations", "learn",
     "insights", "notifications", "timeline", "ask", "account", "emergency"];
   check(JSON.stringify(menu.map((m) => m.id)) === JSON.stringify(MORE_IDS) && menu.every((m) => m.hint.length > 5), "ccux more: every More item says what it holds", JSON.stringify(menu.map((m) => [m.id, m.hint])));
   const nb = await page.$eval(".menu a[data-more=notifications] .badge", (b) => ({ hidden: b.hidden, t: b.textContent }));

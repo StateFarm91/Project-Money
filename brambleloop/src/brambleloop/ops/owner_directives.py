@@ -125,7 +125,7 @@ def apply(db, *, now: datetime | None = None) -> dict:
     from sqlalchemy import select
 
     from ..core.models import AuditLog
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw
     from ..gateway import paid_provider_gate as G
 
     now = _aware(now) or datetime.now(timezone.utc)

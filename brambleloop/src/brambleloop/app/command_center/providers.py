@@ -92,6 +92,23 @@ def _import(mod_name: str):
     return provider_module(mod_name)
 
 
+def resolution_fingerprint() -> tuple:
+    """Which module object each provider contract path resolves to in this process right now.
+
+    A page snapshot (`page_cache`) is only valid for the providers that computed it: a lane
+    installed, replaced, reloaded or made unimportable (`sys.modules[name] = None`) since then
+    means the snapshot describes code that no longer answers, so it is recomputed. A dict
+    lookup per contract path; no import is triggered. The module objects themselves are
+    compared (by identity), never their `id()`: a replaced module's address can be reused."""
+    import sys
+
+    return tuple((m, sys.modules.get(m, _MISSING))
+                 for m in sorted({mod for mod, _fn in PROVIDERS.values()}))
+
+
+_MISSING = object()
+
+
 def _resolve(key: str):
     mod_name, fn_name = PROVIDERS[key]
     try:

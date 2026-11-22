@@ -138,7 +138,7 @@ def limits(env=None) -> Limits:
             v = hard        # NaN, negative, infinite: not a lowering anyone meant
         vals[name] = type(hard)(min(v, hard))
     try:
-        from ..gateway import anthropic as gw
+        from ..gateway import providers as gw
 
         vals["month_cad"] = min(vals["month_cad"], float(gw.monthly_ceiling_cad()))
     except Exception:  # noqa: BLE001 - an unreadable ceiling binds at zero, never unbounded
