@@ -4627,3 +4627,31 @@ Some things still hold, because they are not approvals:
 A Laura gallery approved by this directive is recorded with `step_up: false` under the directive's actor. `laura_approval.approved` accepts exactly that actor, and no other unstepped row. The evidence shows `factory_visibility.owner_approve_all_3` as counts and bucket names only.
 ## D-OWNER-DEPLOY-19i9 — 2026-11-22T06:30:05Z
 Batch 19i9 (code 8c95cf114) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to 6a127f45da3356b213ce912dc914714e22f6c3a7 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-ENG-OWNER-GRANT-DERIVED-KEY — 2026-11-22T06:55Z
+
+Production has never had `BRAMBLELOOP_OWNER_GRANT_SIGNING_KEY` or `BRAMBLELOOP_OWNER_GRANT_VERIFY_KEY` (Railway variable names, read 2026-11-22; no value was read). So every owner press that signs a publication or activation grant raised "owner grant signing key unavailable", and no per-release Etsy grant could ever be signed, by the owner's own passphrase-and-TOTP press included.
+
+`core/owner_grant_keys` now derives the Ed25519 pair from `BRAMBLELOOP_SECRET_KEY` with HKDF-SHA256, domain separated (`brambleloop/owner-grant/ed25519/v1`), when no explicit pair is set and the service runs in Mode S (embedded worker). The module already documents that Mode S holds every secret in one process, so this is no weaker than an explicit pair there. Unchanged:
+- Mode T never derives; the worker must hold only an explicit verify key.
+- A job process never signs.
+- A grant or rebase is still signed only inside the owner's Command Center request (session, CSRF/nonce and step-up).
+- An explicit pair, when set, always wins.
+
+The readback reports which source is in use (`owner_grant_key_source`: explicit, derived_mode_s or absent), never the key. The approve-all-3 readback also gains `still_listed_by_kind`: bucket plus the card's code identifier, with slugs and free text dropped. Tests: `tests/test_owner_grant_derived.py` (7) and `tests/test_approve_all_kinds.py` (1).
+
+## D-OWNER-DEPLOY-19i10 — 2026-11-22T06:51:55Z
+
+Batch 19i10 (code a71b80b88) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to eb941ffe74f1817df93ee9143a890ec202288499 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-DEPLOY-19i11 — 2026-11-22T06:56:33Z
+
+Batch 19i11 (code 8764a7471) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to 6c7c4d2d005aacbd39c48af3680de39d4cbcd2cf was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-ENG-GALLERY-START — 2026-11-22T07:20Z
+
+All 14 FLUX gallery runs waited at `waiting_for_sale_admission`: every Launch-0 release on Etsy's Patterns & Blueprints node (6343) held a search certificate REFUSED on `attributes`, because the node's "Self-published" property had no rule and read UNDECIDED. That made `certified_payload` raise ValueError, the listing package carried a non-image blocker, and `sale_admission` refused every run. Decision: `commerce.category` sets "Self-published" to Etsy's "Yes" value (the shop designs and publishes its own patterns; a schema without a "Yes" value stays MISSING, never guessed). Because a certificate is only computed inside `listing.seo`, `ops.search_recertify` enqueues one `listing.seo` per deployed commit for each product whose newest certificate failed `attributes` and nothing outside {attributes, hero}, using the chain's rebuild-token key and that release's last listing.seo inputs (as the taxonomy-drift re-certification does). Nothing is waved through: an undecided property still refuses. No spend. Authority: D-OWNER-APPROVE-ALL-3. Other admission blockers seen (per-product halted/rebuild holds, FIRST_CUSTOMER_BLOCKING outside the publish-time allow-list, three products read RETIRED) are not changed here.
+
+## D-OWNER-DEPLOY-19i12 — 2026-11-22T07:06:59Z
+
+Batch 19i12 (code ee6aaaec7) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to 13272d90098abd6424b44b97e125fd1b7d7b99d2 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.

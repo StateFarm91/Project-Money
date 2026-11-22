@@ -181,6 +181,7 @@ def apply(db, *, now: datetime | None = None) -> dict:
                                    "approved": out["approved"], "failed": out["failed"],
                                    "still_listed": len(out["still_listed"]),
                                    "still_listed_by_bucket": _by_bucket(out["still_listed"]),
+                                   "still_listed_by_kind": _by_kind(out["still_listed"]),
                                    "error_class": (out["error"] or "").split(":", 1)[0]
                                    or None,
                                    "resolution": WITHOUT_ATTESTATION, "step_up": False,
@@ -190,12 +191,40 @@ def apply(db, *, now: datetime | None = None) -> dict:
     return out
 
 
+_KIND = __import__("re").compile(r"[a-z][a-z0-9_.-]{0,60}")
+
+
+def _kind(item: dict) -> str:
+    """The card's requirement kind for the readback: the key's first segment, kept only when
+    it is a code identifier (a slug or any free text after ':' never leaves)."""
+    key = str(item.get("requirement_key") or item.get("card") or "")
+    head = key.split(":", 1)[0].strip().lower()
+    return head if _KIND.fullmatch(head) else "other"
+
+
+def _by_kind(items: list[dict]) -> dict:
+    out: dict = {}
+    for i in items:
+        k = f"{str(i.get('bucket') or 'other')}/{_kind(i)}"
+        out[k] = out.get(k, 0) + 1
+    return out
+
+
 def _by_bucket(items: list[dict]) -> dict:
     out: dict = {}
     for i in items:
         b = str(i.get("bucket") or "other")
         out[b] = out.get(b, 0) + 1
     return out
+
+
+def _key_source() -> str:
+    try:
+        from ..core import owner_grant_keys
+
+        return owner_grant_keys.key_source()
+    except Exception:  # noqa: BLE001
+        return "unreadable"
 
 
 def visibility(db) -> dict:
@@ -214,6 +243,8 @@ def visibility(db) -> dict:
         return {"directive": DIRECTIVE_ID,
                 "last_run": {k: d.get(k) for k in ("at", "ran", "closed_kept", "approved",
                                                    "failed", "still_listed",
-                                                   "still_listed_by_bucket", "error_class")}}
+                                                   "still_listed_by_bucket",
+                                                   "still_listed_by_kind", "error_class")},
+                "owner_grant_key_source": _key_source()}
     except Exception as exc:  # noqa: BLE001
         return {"directive": DIRECTIVE_ID, "error": type(exc).__name__}

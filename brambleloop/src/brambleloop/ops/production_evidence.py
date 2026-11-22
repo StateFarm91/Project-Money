@@ -561,6 +561,16 @@ def _credential_health(db) -> dict:
     return out
 
 
+def _credential_key_shape() -> dict:
+    """BFL-KEY-SHAPE: booleans and a length bucket per provider, never any character of a key."""
+    from ..gateway import credentials as C
+
+    try:
+        return C.key_shapes()
+    except Exception:  # noqa: BLE001 - visibility never breaks the readback
+        return {}
+
+
 def _openai_key_present() -> bool:
     from ..gateway.openai_chat import key_present
 
@@ -629,6 +639,7 @@ def _paid_refusals(db, *, now: datetime, since: datetime) -> dict:
                 .limit(1)).first()
         reg = ((last[1] or {}).get("regated") or {}) if last else {}
         out["credential_health"] = _credential_health(db)
+        out["credential_key_shape"] = _credential_key_shape()
         from ..creative import concept_judge as CJ
 
         vendor, _p = CJ.choose(db)

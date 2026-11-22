@@ -458,6 +458,26 @@ def _startup() -> None:
         BOOT_ENQUEUES.append({"name": "listing_package", "outcome": "error",
                               "detail": f"{type(e).__name__}: {e}"[:300]})
 
+    # GALLERY-START: re-certify search profiles refused only on an attribute gap that a
+    # deployed rule now decides (the chain then re-packages and re-admits for images).
+    try:
+        from datetime import timedelta as _td
+
+        from ..ops import search_recertify as _recert
+
+        _q = JobQueue(db)
+        _rec = _recert.run(db, lambda a, jt, inp, idempotency_key: _q.enqueue(
+            a, jt, inp, idempotency_key=idempotency_key,
+            run_after=utcnow() + _td(seconds=BOOT_JOB_DELAY_SECONDS)),
+            commit=build_identity().get("commit", "") or "dev")
+        BOOT_ENQUEUES.append({"name": "search_recertify", "job_type": "listing.seo",
+                              "outcome": "enqueued" if _rec["enqueued"] else "not needed",
+                              "detail": (f"{len(_rec['enqueued'])} of {_rec['candidates']} "
+                                         f"candidates, {_rec['duplicates']} duplicate")})
+    except Exception as e:  # noqa: BLE001 - never block a boot
+        BOOT_ENQUEUES.append({"name": "search_recertify", "outcome": "error",
+                              "detail": f"{type(e).__name__}: {e}"[:300]})
+
     # Halt 380: the stale-artefact sentinel (hourly) closes rows whose rebuild verified, and
     # the health sweep's truth pass re-evaluates the systemic halt. Run each once per deployed
     # commit, so a fix to either does not wait an hour; both are read-and-record, no spend.

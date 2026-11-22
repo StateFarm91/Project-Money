@@ -137,34 +137,30 @@ def test_an_unbilled_refusal_does_not_block_a_later_judgement():
 
 
 def test_judge_held_records_an_unbilled_refusal_and_never_passes():
-    """provider=None is the guarded path (judge_held chooses openai-vision itself)."""
+    """An openai provider passed in (as creative.regate does) is guarded per board bytes
+    (AUDIT 19i7); a 401 is never billed, never passes, and does not lock the bytes out."""
     from brambleloop.core.models import AuditLog
     from brambleloop.creative import concept_judge as CJ
     from brambleloop.creative import intake
+    from brambleloop.gateway import openai_chat, routing
 
-    transport = _Switch(status=401)
-    db = ATB._state_openai(_Switch(status=200))
+    refusing = _Switch(status=401)
+    db = ATB._state_openai(refusing)                 # nothing was ever judged in this state
     slug = None
-    for row_id, sl, detail in intake.latest_per_slug(db):
-        if intake.board_for(db, sl) and intake.board_digest_for(db, sl):
+    for _rid, sl, _d in intake.latest_per_slug(db):
+        if intake.board_for(db, sl) and intake.board_digest_for(db, sl) \
+                and not intake.judgement_for(db, sl):
             slug = sl
             break
     if slug is None:
         from brambleloop.radar import intake as radar_intake
         for row in radar_intake.approved_rows(db):
-            if intake.board_for(db, row.slug) and intake.board_digest_for(db, row.slug):
+            if intake.board_for(db, row.slug) and intake.board_digest_for(db, row.slug) \
+                    and not intake.judgement_for(db, row.slug):
                 slug = row.slug
                 break
-    assert slug, "the fixture state has a boarded concept"
-    # AUDIT 19i7: a recorded verdict on the same board bytes by the same model is reused at no
-    # cost, so the earlier fixture judgement of this board would answer without asking the
-    # provider. Remove it (and any attempt row) so this case reaches the refusing provider.
-    sha = intake.board_digest_for(db, slug)
-    with db.session() as s:
-        for r in s.scalars(select(AuditLog).where(AuditLog.action.in_(
-                (intake.JUDGED_ACTION, CJ.ATTEMPT_ACTION)))).all():
-            if (r.detail or {}).get("board_sha256") == sha:
-                s.delete(r)
+    assert slug, "the fixture state has an unjudged boarded concept"
+    board_sha = intake.board_digest_for(db, slug)
 
     class _Job:
         id = None
@@ -172,28 +168,20 @@ def test_judge_held_records_an_unbilled_refusal_and_never_passes():
 
     ctx = _Ctx(db)
     ctx.job = _Job()
-    restore = _new_deploy(None)            # no deploy recorded: route state as the gate says
-    try:
-        res = _with_transport(transport, lambda: intake.judge_held(
-            ctx, slug=slug, board=intake.board_for(db, slug)))
-    finally:
-        restore()
-    if res.get("code") == "no_vision":
-        return                              # the route is closed in this state: nothing sent
-    assert not res.get("judged"), res
-    assert res.get("code") in ("provider_refused", "retry_window"), res
-    if res.get("code") == "provider_refused":
-        with db.session() as s:
-            assert s.scalars(select(AuditLog).where(
-                AuditLog.action == CJ.FAILED_ACTION)).all(), "the refusal is recorded"
-        with db.session() as s:
-            guards = {str((d or {}).get("provider")) for (d,) in s.execute(
-                select(AuditLog.detail).where(AuditLog.action == CJ.ATTEMPT_ACTION,
-                                              AuditLog.artifact == slug))}
-        assert guards, "the attempt was recorded before the send"
-        for g in guards:  # vacuity-ok: asserted non-empty just above
-            assert not CJ.attempted(db, intake.board_digest_for(db, slug), g, slug=slug), \
-                "an unbilled refusal does not block the board"
+    provider = openai_chat.OpenAIProvider(model=routing.openai_model_for(intake.JUDGE_TASK))
+    # earlier unbilled refusals of these bytes (the state's own 401s) do not block this ask
+    assert not CJ.attempted(db, board_sha, str(provider.name)), "unbilled refusals never block"
+    before = refusing.calls
+    res = _with_transport(refusing, lambda: intake.judge_held(
+        ctx, slug=slug, board=intake.board_for(db, slug), provider=provider))
+    assert refusing.calls == before + 1, "the judge was asked once"
+    assert not res.get("judged") and res.get("code") == "provider_refused", res
+    with db.session() as s:
+        assert s.scalars(select(AuditLog).where(
+            AuditLog.action == CJ.FAILED_ACTION)).all(), "the refusal is recorded"
+    assert not CJ.attempted(db, board_sha, str(provider.name)), \
+        "an unbilled refusal does not lock the bytes out for 24 h"
+    assert not intake.judgement_for(db, slug), "a refusal is never a judgement"
 
 
 def test_held_reasons_are_fixed_codes():
