@@ -102,6 +102,7 @@ def test_recertify_enqueues_only_attribute_refusals_once_per_commit():
     out = R.run(db, enqueue, commit="abcdef0123456789")
     assert sorted(out["enqueued"]) == ["basket@1.0.0", "coaster@1.0.0"], out
     assert out["candidates"] == 3 and len(out["skipped"]) == 1, out
+    assert len(calls) == 2, calls
     for agent, job_type, inputs, key in calls:
         assert (agent, job_type) == ("listing", "listing.seo")
         assert inputs["rebuild"] == "recert-abcdef012345" and "fix_only" not in inputs
