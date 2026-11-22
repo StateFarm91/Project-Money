@@ -134,6 +134,8 @@ def digital_files_reading(db, releases: list[tuple[str, str]] | None = None,
                           *, now: float | None = None) -> dict | None:
     """Every Launch-0 release's certified PDFs held durably (re-hashed from Postgres now) and
     within Etsy's published digital-file rules, under the names the buyer downloads."""
+    from sqlalchemy import select
+
     from ..commerce import deliverables
     from ..core.models import DurableArtifact
     from ..integrations.etsy_constraints import digital_file_problems
@@ -153,8 +155,10 @@ def digital_files_reading(db, releases: list[tuple[str, str]] | None = None,
         files = []
         with db.session() as s:
             for t, sha in sorted((st.get("pdfs") or {}).items()):
-                row = s.get(DurableArtifact, sha)
-                files.append((pattern_filename(t), int(row.bytes_len or 0) if row else 0))
+                # F-03: the length column only, not the PDF it describes.
+                n = s.scalar(select(DurableArtifact.bytes_len).where(
+                    DurableArtifact.sha256 == sha))
+                files.append((pattern_filename(t), int(n or 0)))
         fails = [f["detail"] for f in digital_file_problems(files) if f["severity"] == "fail"]
         if fails:
             gaps.append(f"{slug}@{version}: {fails[0]}")
