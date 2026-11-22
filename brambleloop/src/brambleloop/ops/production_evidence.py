@@ -2413,7 +2413,13 @@ def factory_visibility(db, *, now: datetime) -> dict:
                 if not isinstance(b, dict):
                     continue
                 m = _re.match(r"\s*([A-Za-z_][A-Za-z0-9_.]{0,40})", str(b.get("why") or ""))
-                codes.append(f"{b.get('source')}:{m.group(1) if m else '?'}")
+                label = f"{b.get('source')}:{m.group(1) if m else '?'}"
+                # GALLERY-START: which first-customer area blocks (fixed vocabulary).
+                from ..gates.first_customer import AREAS as _FC_AREAS
+
+                if b.get("fc_area") in _FC_AREAS:
+                    label += f"/{b['fc_area']}"
+                codes.append(label)
             why.append({"run": f"{slug}@{version}", "admitted": bool(adm.get("admitted")),
                         "blockers": codes[:8] or ([] if adm.get("admitted") else
                                                   [_re.sub(r"[^a-z_ ]", "", str(

@@ -603,6 +603,8 @@ def publish_inputs(db, *, slug: str, version: str) -> dict:
                "certified": row.verdict,
                "certified_pending": [str(k) for k in ((row.certificate or {}).get("pending")
                                                       or [])],
+               "certified_failed": [str(k) for k in ((row.certificate or {}).get("failed")
+                                                     or [])],
                "why": "" if row.category_status == CHOSEN else "category UNKNOWN"}
     # A stored PASS counts only while it still describes this listing: the hero judged on the
     # listing-set certificate still valid for this release, and the copy unchanged since.

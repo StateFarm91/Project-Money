@@ -113,6 +113,69 @@ def test_recertify_enqueues_only_attribute_refusals_once_per_commit():
     assert len(nxt["enqueued"]) == 2, nxt                     # a new deploy re-asks
 
 
+# ---- the hero-before-gallery deadlock, first-customer imagery, withdrawn drafts ----
+
+def test_a_certificate_refused_on_the_hero_alone_is_image_caused():
+    from brambleloop.runtime import etsy_ops as E
+
+    def raises(selected):
+        try:
+            E._search_rule(selected)
+        except E.HeroUnjudged:
+            return "image"
+        except ValueError:
+            return "value"
+        return "pass"
+
+    assert raises({"certified": "PENDING", "certified_pending": ["hero"]}) == "image"
+    assert raises({"certified": "REFUSED", "certified_failed": ["hero"],
+                   "certified_pending": []}) == "image"
+    # anything besides the hero still refuses as a non-image blocker
+    assert raises({"certified": "REFUSED", "certified_failed": ["hero", "tags"]}) == "value"
+    assert raises({"certified": "REFUSED", "certified_failed": ["attributes"]}) == "value"
+    assert raises({"certified": "STALE"}) == "value"
+    assert raises({"certified": "PASS"}) == "pass"
+
+
+def test_first_customer_imagery_is_an_image_reason_and_other_areas_are_not():
+    from brambleloop.publish import eligibility as EL
+    from brambleloop.publish import release_gates as RG
+
+    reasons = [{"code": EL.FIRST_CUSTOMER_BLOCKING, "area": "imagery", "why": "imagery: x"},
+               {"code": EL.FIRST_CUSTOMER_BLOCKING, "area": "final_pdf", "why": "final_pdf: y"},
+               {"code": EL.FIRST_CUSTOMER_BLOCKING, "area": "made_up", "why": "made_up: z"}]
+    verdict = {"publication_scope": {"reasons": reasons}}
+    areas = RG.first_customer_areas(verdict)
+    assert areas == {f"{EL.FIRST_CUSTOMER_BLOCKING}: imagery: x": "imagery",
+                     f"{EL.FIRST_CUSTOMER_BLOCKING}: final_pdf: y": "final_pdf"}, areas
+    img = RG.image_reasons(verdict)
+    assert f"{EL.FIRST_CUSTOMER_BLOCKING}: imagery: x" in img
+    assert not any("final_pdf" in r or "made_up" in r for r in img), img
+
+
+def _listing(s, slug, state, etsy_id=""):
+    from brambleloop.core.models import Listing
+
+    s.add(Listing(product_slug=slug, version="1.0.0", title="t", description="d", tags=[],
+                  state=state, etsy_listing_id=etsy_id))
+
+
+def test_a_draft_withdrawn_before_reaching_etsy_is_not_retired():
+    from brambleloop.core.models import Product
+    from brambleloop.products import lifecycle as L
+
+    db = _db()
+    with db.session() as s:
+        for slug in ("never", "was-live", "retired"):
+            s.add(Product(slug=slug, title=slug))
+        _listing(s, "never", "withdrawn")
+        _listing(s, "was-live", "withdrawn", etsy_id="123456")
+        _listing(s, "retired", "retired")
+    assert L._derive(db, "never")["stage"] != "RETIRED"
+    assert L._derive(db, "was-live")["stage"] == "RETIRED"
+    assert L._derive(db, "retired")["stage"] == "RETIRED"
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

@@ -117,7 +117,12 @@ def _derive(db, slug: str) -> dict:
 
     states = {x.state for x in listings}
     live = bool(states & set(LIVE_ON_ETSY))
-    if listings and states <= {"retired", "withdrawn"} and not live:
+    # GALLERY-START: a listing withdrawn before it ever reached Etsy (a refused certification
+    # withdraws the draft) is a draft to re-make, not a retired product. Only a listing that
+    # was on Etsy, or one recorded retired, retires the product.
+    never_on_etsy = bool(listings) and all(
+        x.state == "withdrawn" and not (x.etsy_listing_id or "").strip() for x in listings)
+    if listings and states <= {"retired", "withdrawn"} and not live and not never_on_etsy:
         stage, why = "RETIRED", "every listing is retired or withdrawn"
     elif live:
         stage, why = ("GROWING", f"{orders} order(s) recorded") if orders else \

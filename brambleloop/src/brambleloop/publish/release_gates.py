@@ -2050,6 +2050,26 @@ def image_reasons(verdict: dict | None) -> set[str]:
                if str(r).startswith(HERO_REASON))
     out.update(str(r) for r in ((v.get("standards") or {}).get("reasons") or [])
                if any(str(r).startswith(f"competitive standard {k} ") for k in IMAGE_STANDARDS))
+    # GALLERY-START: the first-customer gate's `imagery` area is the listing's images; the
+    # gallery is what clears it, so it cannot also stop the gallery being made. Read from the
+    # structured reason's area, never the text; every other area stays non-image.
+    out.update(k for k, area in first_customer_areas(v).items() if area == "imagery")
+    return out
+
+
+def first_customer_areas(verdict: dict | None) -> dict[str, str]:
+    """Every first-customer reason of a `for_publish` verdict mapped to its area (one of
+    `gates.first_customer.AREAS`), keyed by the reason text exactly as `for_publish` lists it.
+    A reason with no area, or an area outside the nine, is omitted (unknown is not an area)."""
+    from ..gates.first_customer import AREAS
+    from .eligibility import FIRST_CUSTOMER_BLOCKING
+
+    scope = (verdict or {}).get("publication_scope") or {}
+    out: dict[str, str] = {}
+    for r in scope.get("reasons") or []:
+        if (isinstance(r, dict) and r.get("code") == FIRST_CUSTOMER_BLOCKING
+                and r.get("area") in AREAS):
+            out[f"{r['code']}: {r['why']}"] = r["area"]
     return out
 
 
