@@ -65,6 +65,29 @@ def test_nothing_withheld_reads_an_empty_list():
     assert cert["withheld"] is False and cert["withheld_kinds"] == [], cert
 
 
+def test_competitive_bars_are_reported_as_numbers_and_still_withhold():
+    from brambleloop.core.models import CompetitiveStandard
+    from brambleloop.ops import production_evidence as pe
+    from brambleloop.ops import publication_authority as pa
+    from brambleloop.publish import release_gates
+
+    cir = D._cir()
+    db = D._db(cir)
+    with db.session() as s:
+        s.add(CompetitiveStandard(key="video_in_gallery", value=1.0, higher_is_better=True,
+                                  history=[]))
+    # The publish gate writes the standard into the record, exactly as in production.
+    g = release_gates.for_publish(db, slug=cir.slug, version=cir.version, read_only=True)
+    assert any("video_in_gallery" in r for r in g["reasons"]), g["reasons"][:8]
+    ev = pa.evidence(db, cir.slug, cir.version, _rh(db))
+    assert ev["certification"]["state"] == pa.FAIL
+    assert W.COMPETITIVE_STANDARD in ev["certification"]["withheld_kinds"]
+    diag = pe._section_diagnostics(ev)["certification"]
+    assert diag["competitive_now"] == [{"standard": "video_in_gallery", "bar": 1.0,
+                                        "ours": 0.0, "verdict": "below"}], diag
+    assert pe._competitive_now([{"standard": "secret", "bar": 1}]) == []
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
