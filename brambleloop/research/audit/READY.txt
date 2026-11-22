@@ -1,0 +1,6 @@
+eng/audit-blob-reads 0a7872f33b5f8dace879f28a7e4b8bbf60fef5e8 tests/test_audit_blob_reads.py,tests/test_evidence_perf.py,tests/test_continuity.py:28-passing-0-failing
+eng/audit-build-state b551e4049669ed37089f79f2c95562d8d63b335e tests/test_audit_build_state_current.py:4-passing-0-failing(lead-verified);sub-agent-touched-suites:61-passing-0-failing
+eng/audit-budget-scan 3279551bc56a340c44ba544f5efb09a4977555ff tests/test_audit_budget_scan.py,tests/test_governor.py,tests/test_codex_v0_postgres.py:26-passing-0-failing
+eng/audit-dead-code f12032d6225ab2c69cdb05d59d93f3c21f15c5b6 tests/test_audit_module_reachability.py:6-passing-0-failing
+eng/audit-hygiene b10c02e2097eb64b8c3a3207475dcaf8c70f6ed2 tests/test_audit_no_duplicate_dict_keys.py,tests/test_w4_firstsale_deliverables.py:9-passing-0-failing
+eng/audit-table-scans f048b5fc97ccab380745dfe538a50c298ddcb94e tests/test_audit_table_scans.py,tests/test_evidence_perf.py:10-passing-0-failing
