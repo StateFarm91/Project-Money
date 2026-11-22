@@ -1322,10 +1322,67 @@ def file_radar_board(db, slug: str) -> dict:
                 "why_code": board_why_code(made)}
     record = {"slug": slug, "kind": made.get("kind"), "image": {"sha256": sha},
               "image_ref": f"sha256:{sha}", "disclosure": made.get("disclosure"),
-              "source": RADAR_BOARD_SOURCE, "board_source": made.get("source")}
+              "source": RADAR_BOARD_SOURCE, "board_source": made.get("source"),
+              "renderer": made.get("renderer")}
     with db.session() as s:
         s.add(AuditLog(actor="creative", action=BOARD_ACTION, artifact=slug, detail=record))
     return {"board": record["image_ref"], "why": ""}
+
+
+RADAR_REBOARD_PREFIX = "score-reboard"
+
+
+def reboard_stale_radar(ctx, *, today: date | None = None) -> list[str]:
+    """D5: re-draw a prototype board filed by an older renderer when it was judged not to
+    read at grid size, and send the concept back to `radar.score`.
+
+    Before `creative.board.BOARD_RENDERER` "twin-board/2" a radar concept's board was a
+    top-left crop of 40x40 stitches in a default pink, whatever the concept's colours: a
+    swatch with no outline. A "does not read at mobile-grid size" verdict on that picture
+    judged the renderer, not the concept. Only that case is redrawn: an undrafted approved
+    concept whose board on file is a radar prototype board from an older renderer and whose
+    recorded judgement is `thumbnail_reads_small: False`. The new board is CA$0 and
+    deterministic; the old verdict stays bound to the old bytes (CB2-D01), so the gate
+    waits on a judgement of the new board, which the ordinary judging pass makes. Never
+    writes a taste field, and never re-opens a verdict about a current-renderer board.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Job
+    from ..products.moment_candidates import board_record
+    from ..radar import intake as radar_intake
+    from .board import BOARD_RENDERER
+
+    today = today or date.today()
+    out: list[str] = []
+    for row in radar_intake.approved_rows(ctx.db):
+        slug = row.slug
+        record = board_record(ctx.db, slug) or {}
+        if (record.get("source") != RADAR_BOARD_SOURCE
+                or record.get("board_source") != "prototype"
+                or record.get("renderer") == BOARD_RENDERER):
+            continue
+        verdict = judgement_for(ctx.db, slug) or {}
+        if verdict.get("thumbnail_reads_small") is not False:
+            continue
+        with ctx.db.session() as s:
+            if s.scalar(select(Job.id).where(Job.idempotency_key == f"draft:{slug}")
+                        .limit(1)) is not None:
+                continue
+        filed = file_radar_board(ctx.db, slug)
+        if not filed["board"]:
+            continue
+        sha = board_digest_for(ctx.db, slug)
+        payload = radar_intake.score_concept(radar_intake._seed_from(row), today).to_dict()
+        payload["intake"] = {"row": row.id, "source_ref": row.source_ref,
+                             "reason": "concept board redrawn (D5); judge the new board"}
+        ctx.enqueue("market_radar", "radar.score", payload,
+                    idempotency_key=f"{RADAR_REBOARD_PREFIX}:{slug}:{sha[:16]}")
+        ctx.audit("creative.board_redrawn", artifact=slug, detail={
+            "renderer": BOARD_RENDERER, "was": record.get("renderer") or "twin-board/1",
+            "old_sha256": (record.get("image") or {}).get("sha256"), "new_sha256": sha})
+        out.append(slug)
+    return out
 
 
 def judge_radar_waiting(ctx, *, today: date | None = None, provider=None,
@@ -1354,6 +1411,7 @@ def judge_radar_waiting(ctx, *, today: date | None = None, provider=None,
     judged_now, held = [], []
     asked_n = 0
     renders_n = 0
+    reboarded = reboard_stale_radar(ctx, today=today)
     for row in radar_intake.approved_rows(ctx.db):
         slug = row.slug
         with ctx.db.session() as s:
@@ -1411,7 +1469,7 @@ def judge_radar_waiting(ctx, *, today: date | None = None, provider=None,
         ctx.db, audit=ctx.audit, enqueue=ctx.enqueue, today=today,
         key_for=lambda slug: f"{RADAR_RESCORE_PREFIX}:{slug}:{board_digest_for(ctx.db, slug)[:16]}"
     ) if judged_now else []
-    return {"judged": judged_now, "held": held, "rescored": rescored}
+    return {"judged": judged_now, "held": held, "rescored": rescored, "reboarded": reboarded}
 
 
 # ---------------------------------------------------------------------------
