@@ -53,6 +53,10 @@ ACCEPTS_OUTFIT_REFERENCE = True
 # W-VISNEXT2: stage A (identity anchor) and stage D (edit the accepted lifestyle frame).
 IDENTITY_ANCHOR_ROLE = "laura_identity_anchor"
 ACCEPTS_STAGED_METHOD = True
+# ENG-IMAGES-LAURA: the owner's two-step method. A Laura frame handed an
+# `accepted_product_frame` is conditioned on that frame plus the canonical three, nothing else.
+ACCEPTS_OWNER_METHOD = True
+PRODUCT_FRAME_LABEL = "accepted_product_frame"
 VARIANT_OF_ROLE = {"size": "scale_in_hand", "colour_context": "colour_context",
                    "angle": "second_angle", "detail": "detail_closeup"}
 _KIND_PRODUCT = "pattern_derived"
@@ -206,6 +210,7 @@ class Flux3Generator:
     paid = True
     accepts_outfit_reference = ACCEPTS_OUTFIT_REFERENCE
     accepts_staged_method = ACCEPTS_STAGED_METHOD
+    accepts_owner_method = ACCEPTS_OWNER_METHOD
 
     @property
     def current_run_key(self) -> str | None:
@@ -395,6 +400,9 @@ class Flux3Generator:
             cand = S.identity_anchor(rel, laura, spec,
                                      correction=tuple((repair or {}).get("correction") or ()),
                                      size=S.IDENTITY_ANCHOR_SIZE, **kw)
+        elif laura is not None and self._has_prior(references, PRODUCT_FRAME_LABEL):
+            cand = self._owner_method(rel, slug, version, release, role=role, brief=brief,
+                                      references=references, outfit=outfit, laura=laura, kw=kw)
         else:
             anchor = self._anchor(rel, slug, version, release)
             if laura is not None:
@@ -461,6 +469,37 @@ class Flux3Generator:
                 "cost_cad": r.get("cost_cad"), "latency_s": round(time.time() - started, 3),
                 "cost_basis": (r.get("price") or {}).get("basis") or "generator receipt",
                 "identity_evidence": r}
+
+    @staticmethod
+    def _has_prior(references: list[dict], label: str) -> bool:
+        return any(r.get("kind") == "prior_candidate" and r.get("label") == label
+                   for r in references)
+
+    def _owner_method(self, rel, slug, version, release, *, role, brief, references, outfit,
+                      laura, kw):
+        """Step 2 of the owner's method (ENG-IMAGES-LAURA). The product frame handed in must be
+        the anchor this release ACCEPTED (the anchor lookup re-reads its fidelity PASS), byte
+        for byte; anything else is refused before a reservation is made."""
+        anchor = self._anchor(rel, slug, version, release)
+        frame = self._prior(references, PRODUCT_FRAME_LABEL)
+        sha = hashlib.sha256(Path(frame).read_bytes()).hexdigest()
+        if sha != anchor["candidate"].sha256:
+            raise GeneratorRefused("the product frame handed in is not this release's accepted "
+                                   "product frame; refused")
+        if anchor["verdict"].get("status") != "PASS":
+            raise GeneratorRefused("the product frame is not accepted (fidelity "
+                                   f"{anchor['verdict'].get('status')}); refused")
+        o = dict(outfit or {})
+        spec = {"id": o.get("outfit_id") or o.get("id"), "description": o.get("description"),
+                "garments": o.get("garments")}
+        from ..visual import laura_home
+
+        laura_home.check(brief or "")
+        home = laura_home.scene_for(slug, role=role)
+        scene = {"environment": home["environment"], "pose": brief or "", "framing": ""}
+        return S.owner_method_lifestyle(rel, anchor["candidate"], laura, spec,
+                                        fidelity=anchor["verdict"], role=role, size=self.size,
+                                        scene=scene, **kw)
 
     def _prior(self, references: list[dict], label: str) -> str | None:
         """A stored prior candidate the orchestrator handed in under `label`, written for the
