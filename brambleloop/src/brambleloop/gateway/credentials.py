@@ -134,6 +134,50 @@ def _key(provider: str, env) -> str:
     return (env.get(PROVIDERS[provider]["var"]) or "").strip()
 
 
+_UUID_RE = None
+
+
+def key_shape(key: str) -> dict:
+    """BFL-KEY-SHAPE: what a credential looks like, as booleans and a length bucket only.
+
+    Never the value, a prefix, a suffix or any character of it. Used to tell an owner whether
+    a pasted key carries quotes, a header name or stray whitespace, without reading it.
+    """
+    import re
+
+    global _UUID_RE
+    if _UUID_RE is None:
+        _UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+                              r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+    raw = key or ""
+    k = raw.strip()
+    n = len(k)
+    low = k.lower()
+    return {
+        "present": n > 0,
+        "length_bucket": "none" if n == 0 else "<20" if n < 20 else "20-60" if n <= 60 else ">60",
+        "surrounding_quotes": n >= 2 and k[0] == k[-1] and k[0] in "\"'",
+        "starts_with_header_name": low.startswith("x-key") or low.startswith("bearer"),
+        "internal_whitespace_or_newline": any(c.isspace() for c in k),
+        "outer_whitespace_trimmed": raw != k,
+        "looks_like_uuid": bool(_UUID_RE.match(k)),
+    }
+
+
+def key_shapes(env=None) -> dict:
+    """`key_shape` for each registered provider's credential as the code reads it."""
+    import os
+
+    e = env if env is not None else os.environ
+    out = {}
+    for prov in PROVIDERS:
+        try:
+            out[prov] = key_shape(_key(prov, e))
+        except Exception:  # noqa: BLE001 - a shape is diagnostics, never a failure
+            out[prov] = {"present": False, "length_bucket": "unreadable"}
+    return out
+
+
 #: Largest response body read for parsing (security review M-1: never truncate BEFORE parsing;
 #: Venice's model list is far longer than the old 2,000-character cut). Larger is refused.
 MAX_BODY_BYTES = 2 * 1024 * 1024
