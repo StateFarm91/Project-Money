@@ -153,7 +153,8 @@ def make_router(db) -> APIRouter:
 
     @router.get("/home")
     def home(request: Request):
-        return ok(page_cache.get("home", lambda: tabs.home(db)))
+        return ok(tabs.home_live(db, page_cache.get("home", lambda: tabs.home(db),
+                                                    deps=providers.resolution_fingerprint)))
 
     @router.post("/home/seen")
     def home_seen(request: Request):
@@ -177,7 +178,8 @@ def make_router(db) -> APIRouter:
 
     @router.get("/store")
     def store(request: Request):
-        return ok(page_cache.get("store", lambda: tabs.store(db)))
+        return ok(page_cache.get("store", lambda: tabs.store(db),
+                                  deps=providers.resolution_fingerprint))
 
     @router.get("/customers")
     def customers(request: Request):
@@ -236,7 +238,8 @@ def make_router(db) -> APIRouter:
             w = tabs.money_window((window or period)[:20])
         except ValueError as exc:
             return ok({"error": str(exc), "code": "BAD_PERIOD"}, 400)
-        return ok(page_cache.get(f"money:{w}", lambda: tabs.money(db, w)))
+        return ok(page_cache.get(f"money:{w}", lambda: tabs.money(db, w),
+                                  deps=providers.resolution_fingerprint))
 
     @router.get("/money/drill")
     def money_drill(request: Request, metric: str = "", period: str = "", window: str = ""):
@@ -248,12 +251,14 @@ def make_router(db) -> APIRouter:
 
     @router.get("/operations")
     def operations(request: Request):
-        return ok(page_cache.get("operations", lambda: tabs.operations(db)))
+        return ok(page_cache.get("operations", lambda: tabs.operations(db),
+                                  deps=providers.resolution_fingerprint))
 
     @router.get("/truth")
     def truth(request: Request):
         # wave-3 K7: the ops-truth provider (owner inventory, tester roster, controls, ...).
-        return ok(page_cache.get("truth", lambda: providers.call("ops_truth", db)))
+        return ok(page_cache.get("truth", lambda: providers.call("ops_truth", db),
+                                  deps=providers.resolution_fingerprint))
 
     @router.get("/drill")
     def drill(request: Request, provider: str = "", index: int = 0):
@@ -273,11 +278,13 @@ def make_router(db) -> APIRouter:
     # owner write (page_cache). /learn is the same body as /autonomy and shares it.
     @router.get("/autonomy")
     def autonomy(request: Request):
-        return ok(page_cache.get("autonomy", lambda: tabs.autonomy(db)))
+        return ok(page_cache.get("autonomy", lambda: tabs.autonomy(db),
+                                  deps=providers.resolution_fingerprint))
 
     @router.get("/learn")
     def learn(request: Request):
-        return ok(page_cache.get("autonomy", lambda: tabs.autonomy(db)))
+        return ok(page_cache.get("autonomy", lambda: tabs.autonomy(db),
+                                  deps=providers.resolution_fingerprint))
 
     # ENG-AUTOCODER: the coding team's panel (read-only, owner session; the same /api/cc/*
     # default-deny gate as every route here).
@@ -290,7 +297,8 @@ def make_router(db) -> APIRouter:
     # W4-CC: the company overview and the completion-effort board (read-only, owner session).
     @router.get("/company")
     def company_view(request: Request):
-        return ok(page_cache.get("company", lambda: company_mod.company(db)))
+        return ok(page_cache.get("company", lambda: company_mod.company(db),
+                                  deps=providers.resolution_fingerprint))
 
     # W4-CCPACKET (F-878): the Launch-0 launch packet, read-only, owner session (the same
     # `/api/cc/*` default-deny gate as every route here; no new auth logic).

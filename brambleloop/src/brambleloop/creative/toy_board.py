@@ -275,7 +275,7 @@ def _claim(db, slug: str, fp: str, job_id, now: datetime) -> tuple[bool, str]:
     """Write the REQUESTED row under the budget lock, or say why not. Check and write are one
     decision, so two workers cannot both buy the same board."""
     from ..core.models import AuditLog
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw
 
     with gw.budget_lock(db) as s:
         rows = _rows(s, slug)
@@ -323,7 +323,7 @@ def render_board(db, slug: str, *, job_id=None, today: date | None = None,
     from ..gateway import flux_provider
     from ..gateway import images
     from ..gateway import paid_provider_gate as gate
-    from ..gateway.anthropic import BudgetExceeded
+    from ..gateway.providers import BudgetExceeded
     from ..products.moment_candidates import BOARD_ACTION
 
     now = now or datetime.now(timezone.utc)

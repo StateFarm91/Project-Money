@@ -17,6 +17,13 @@ What this does, and what it never does:
   an approval, a decision) clears every snapshot, so the next read after the owner acts is
   recomputed live. `invalidate()` is also callable directly.
 * A failed computation is never cached.
+* A snapshot is tied to the provider modules that computed it (`deps`): a provider lane
+  installed, replaced or removed in this process since then forces a recomputation, so a
+  source that has just started failing is never hidden behind its previous answer.
+* Home's job counts -- work completed (24 h) and work in progress per department, the counts
+  F-884 says must move with the database -- are re-read live on every snapshot hit
+  (`tabs.home_live`, one jobs read) and listed in `snapshot.live`; the rest of the body is
+  the snapshot, with its age.
 * Only read-only page bodies go here. Approvals, the approve-all / approve-everything
   previews and every POST are never cached: a press re-checks each item live at the time
   of the press, and step-up auth is untouched.
@@ -49,10 +56,11 @@ def _ttl(default: float) -> float:
 
 
 class _Entry:
-    __slots__ = ("value", "at", "mono", "generation")
+    __slots__ = ("value", "at", "mono", "generation", "deps")
 
-    def __init__(self, value, at, mono, generation):
+    def __init__(self, value, at, mono, generation, deps=None):
         self.value, self.at, self.mono, self.generation = value, at, mono, generation
+        self.deps = deps
 
 
 _lock = threading.Lock()
@@ -82,7 +90,7 @@ def _stamp(body, entry: _Entry, ttl: float, cached: bool):
     if not isinstance(body, dict):
         return body
     out = dict(body)
-    out["snapshot"] = {"computed_at": entry.at.isoformat(),
+    out["snapshot"] = {"computed_at": entry.at.isoformat(), "live": [],
                        "age_s": round(max(0.0, time.monotonic() - entry.mono), 1),
                        "ttl_s": ttl, "served_from_snapshot": cached,
                        "basis": ("precomputed page snapshot; recomputed after ttl_s or on "
@@ -94,27 +102,38 @@ def _ok(body) -> bool:
     return isinstance(body, dict)
 
 
-def get(key: str, compute, *, ttl: float = DEFAULT_TTL_S):
-    """The page body for `key`: a snapshot younger than `ttl`, else computed now (once)."""
+def get(key: str, compute, *, ttl: float = DEFAULT_TTL_S, deps=None):
+    """The page body for `key`: a snapshot younger than `ttl`, else computed now (once).
+
+    `deps`, when given, is a cheap callable naming what the body was computed from (for the
+    Command Center pages: which provider module each contract path resolves to). A snapshot
+    is served only while `deps()` still returns what it returned when the body was computed;
+    otherwise the body describes inputs that are gone, and it is recomputed."""
     ttl = _ttl(ttl)
     if ttl <= 0:
         return compute()
+    now_deps = deps() if deps is not None else None
+
+    def _fresh(e):
+        return (e is not None and time.monotonic() - e.mono < ttl
+                and e.deps == now_deps)
+
     with _lock:
         e = _entries.get(key)
-        if e is not None and time.monotonic() - e.mono < ttl:
+        if _fresh(e):
             STATS["hits"] += 1
             return _stamp(e.value, e, ttl, True)
         flight = _flights.setdefault(key, threading.Lock())
     with flight:
         with _lock:                     # another reader may have filled it while we waited
             e = _entries.get(key)
-            if e is not None and time.monotonic() - e.mono < ttl:
+            if _fresh(e):
                 STATS["hits"] += 1
                 return _stamp(e.value, e, ttl, True)
             gen = _generation
             STATS["misses"] += 1
         body = compute()
-        e = _Entry(body, datetime.now(timezone.utc), time.monotonic(), gen)
+        e = _Entry(body, datetime.now(timezone.utc), time.monotonic(), gen, now_deps)
         if _ok(body):
             with _lock:
                 if gen == _generation:  # not invalidated while computing

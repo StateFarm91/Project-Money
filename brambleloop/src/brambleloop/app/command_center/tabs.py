@@ -378,6 +378,34 @@ def reconcile_owner_actions(owner: dict, box: dict) -> dict:
                            "list and may list more decisions than are live here")}
 
 
+def _headline_autonomy(autonomy: dict, jw: dict) -> dict:
+    return {"status": autonomy["status"], "reason": autonomy.get("reason"),
+            "jobs_completed_24h": jw.get("completed") if jw["status"] == "OK" else None}
+
+
+#: The Home fields re-read on every snapshot hit (`home_live`).
+HOME_LIVE_FIELDS = ("sections.autonomy", "headline.autonomy")
+
+
+def home_live(db, body):
+    """F-884: work completed and work in progress are the two counts a reader acts on, and
+    they must move with the database. A Home body served from the page snapshot
+    (`page_cache`) has them re-read now -- the department reading (jobs by status) and the
+    24 h jobs window, both bounded jobs-table reads -- and says so in `snapshot.live`. The
+    rest of the body (finance, store, inbox, overview) is the snapshot, with its age."""
+    snap = (body or {}).get("snapshot") if isinstance(body, dict) else None
+    if not snap or not snap.get("served_from_snapshot"):
+        return body
+    autonomy = providers.call("autonomy", db)
+    jw = readers.jobs_window(db, 24)
+    out = dict(body)
+    out["sections"] = {**(body.get("sections") or {}), "autonomy": autonomy}
+    out["headline"] = {**(body.get("headline") or {}),
+                       "autonomy": _headline_autonomy(autonomy, jw)}
+    out["snapshot"] = {**snap, "live": list(HOME_LIVE_FIELDS), "live_read_at": now_iso()}
+    return out
+
+
 def home(db) -> dict:
     ensure_tables(db)
     with db.session() as s:
@@ -415,8 +443,7 @@ def home(db) -> dict:
                   "status": prods["status"], "reason": prods.get("reason")},
         "launch": {"phase": (launch["items"][0]["phase"] if launch["items"] else "UNKNOWN"),
                    "status": launch["status"]},
-        "autonomy": {"status": autonomy["status"], "reason": autonomy.get("reason"),
-                     "jobs_completed_24h": jw.get("completed") if jw["status"] == "OK" else None},
+        "autonomy": _headline_autonomy(autonomy, jw),
         "incidents_open": inc.get("open_total") if inc["status"] != "UNKNOWN" else None,
         "owner_decisions": box["open"],
     }

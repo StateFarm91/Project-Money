@@ -320,7 +320,11 @@ NEUTRAL = frozenset({"BudgetExceeded", "AgentCeilingExceeded", "IMAGE_TOKENS_EST
                      # agent's daily ceiling and the assumed USD->CAD rate: ledger and probe
                      # readings, not a model call (F-091 rest, FMBATCH2).
                      "usable", "last_probe", "spent_this_month_cad", "agent_daily_ceiling",
-                     "USD_TO_CAD"})
+                     "USD_TO_CAD",
+                     # The spend-ledger lock (pg advisory / BEGIN IMMEDIATE) every
+                     # check-and-write of a ceiling row takes; a lock on the ledger, not a
+                     # model call (toy_board, owner_directives).
+                     "budget_lock", "budget_lock_held"})
 
 
 def __getattr__(name: str):

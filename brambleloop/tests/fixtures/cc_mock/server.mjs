@@ -86,7 +86,8 @@ export function createMock() {
         autonomy: "autonomy", learn: "autonomy", insights: "insights", timeline: "timeline", notifications: "notifications",
         account: "account", "account/sessions": "sessions", emergency: "emergency",
         company: "company", completion: "completion", "launch/packet": "launchPacket", "first-sale": "firstSale", "launch-review": "launchReview", credentials: "credentials",
-        checks: "checks", "store/settings": "storeSettings" };
+        checks: "checks", "store/settings": "storeSettings", mission: "mission",
+        "approve-everything": "approveEverything" };
       if (route === "daily") return send(res, 200, DATA.daily());
       if (route === "p0-board") return send(res, 200, DATA.p0Board(st.p0Sales || "partial"));
       // ENG-CATALOGUE: the catalogue honours its query (filters, search, paging) like the server.

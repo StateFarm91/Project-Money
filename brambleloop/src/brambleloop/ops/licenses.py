@@ -56,8 +56,11 @@ PACKAGES: dict[str, dict] = {
     "watchfiles": _pkg("MIT"), "websockets": _pkg("BSD-3-Clause"),
 }
 
-_FONT_FAMILIES = ("Allison", "ArsenalSC", "CormorantGaramond", "Gloock", "LibreBaskerville",
-                  "Lora", "Outfit", "PlayfairDisplay", "WorkSans", "YoungSerif")
+# Lato and NotoSerifDisplay: the owner's master-template faces (D-OWNER-PDF-TEMPLATE),
+# embedded from brand/fonts/pdf/ (see pdf/SOURCES.txt); both SIL OFL 1.1, texts beside them.
+_FONT_FAMILIES = ("Allison", "ArsenalSC", "CormorantGaramond", "Gloock", "Lato",
+                  "LibreBaskerville", "Lora", "NotoSerifDisplay", "Outfit", "PlayfairDisplay",
+                  "WorkSans", "YoungSerif")
 FONTS_REGISTER: dict[str, dict] = {
     f: {"kind": "font", "licence": "SIL Open Font License 1.1",
         "commercial_use": "permitted, including embedding in sold PDFs and images",
