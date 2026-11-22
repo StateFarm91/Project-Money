@@ -92,7 +92,7 @@ ROWS = {
     "brand_clearance": (AE.OUTSIDE, 0.0, "stated"),
     "etsy_surface:policy_violations_check": (AE.OUTSIDE, 0.0, "stated"),
     "storefront:write_authority": (AE.OUTSIDE, 0.0, "stated"),
-    "something.nobody.named": (AE.OWN_CARD, 0.0, "stated"),
+    "something.nobody.named": (AE.OWNER_APPROVED, 0.0, "stated"),
     "decision.api_vision_equivalence": (AE.OWN_CARD, 0.0, "stated"),
     "first_public_listing:approve": (AE.PUBLISHING_COVERED, 0.0, "stated"),
     "phase": (AE.OWN_CARD, 0.0, "stated"),
@@ -327,6 +327,7 @@ def test_every_class_is_handled_as_the_decision_says():
     for key, (bucket, _c, _b) in ROWS.items():
         want = {AE.ROUTINE: None, AE.SPEND: owner_queue.SATISFIED,
                 AE.DECISION: owner_queue.SATISFIED,
+                AE.OWNER_APPROVED: owner_queue.SATISFIED,
                 AE.PHYSICAL_DIRECTIVE: owner_queue.WITHDRAWN}.get(bucket, owner_queue.OPEN)
         if want is None:
             assert st[ids[key]] in owner_queue.CLOSED_STATES, (key, st[ids[key]])
@@ -603,7 +604,8 @@ def test_the_counts_the_owner_sees_are_right():
     assert all(not str(o["card_id"]).startswith("owner_action:")
                for o in pv["not_owner_action_rows"])
     expected_acted = sum(1 for b, _c, _b in ROWS.values()
-                         if b in (AE.ROUTINE, AE.SPEND, AE.DECISION, AE.PHYSICAL_DIRECTIVE))
+                         if b in (AE.ROUTINE, AE.SPEND, AE.DECISION, AE.PHYSICAL_DIRECTIVE,
+                                  AE.OWNER_APPROVED))
     assert sum(1 for i in pv["acted"] if "id" in i) == expected_acted
     # Mission Control shows the same "can decide" number the button shows.
     assert home["can_decide"] == pv["count"], home
