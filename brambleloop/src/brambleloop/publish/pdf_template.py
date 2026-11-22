@@ -851,8 +851,15 @@ def build_template_pdf(cir: CIR, *, terminology: str = "US", twin: TwinModel | N
                        released_on: date | None = None, gallery: list[dict] | None = None,
                        proof: bool = False, designer: str = P.COPYRIGHT_HOLDER,
                        childrens: tuple[str, str] | None = None,
-                       family: str | None = None) -> TemplateDocument:
+                       family: str | None = None,
+                       lesson_links: list[dict] | None = None) -> TemplateDocument:
     """Render `cir` in the owner's master template.
+
+    `lesson_links` are the approved, revision-pinned technique-help links
+    (`learn.service.pdf_help_links`) every runtime render site passes; they are printed and
+    linked on the notes page exactly as the engine layout prints them ("Technique help"),
+    each checked by the same `publish.pdf.checked_lesson_link`. An unsafe or unversioned link
+    refuses the document.
 
     Refuses (TemplateBlocked) whatever `publish.pdf.build_pattern_pdf` refuses -- a CIR that
     does not compile, a terminology it cannot name truthfully, an undecided or refused
@@ -877,6 +884,10 @@ def build_template_pdf(cir: CIR, *, terminology: str = "US", twin: TwinModel | N
     P._refuse_an_undecided_childrens_title(cir, childrens)
     if childrens is not None:
         P._refuse_what_the_childrens_assessment_refuses(cir, childrens)
+    try:
+        links = [(dict(link), P.checked_lesson_link(link)) for link in (lesson_links or [])]
+    except (ValueError, KeyError, TypeError) as e:
+        raise TemplateBlocked(f"technique help: {e}", slug=cir.slug, section="notes") from e
     fam = family or template_family(cir, childrens)
     if fam not in FAMILIES:
         raise TemplateBlocked(f"unknown family {fam!r}", slug=cir.slug)
@@ -904,6 +915,7 @@ def build_template_pdf(cir: CIR, *, terminology: str = "US", twin: TwinModel | N
     twin = dataclasses.replace(twin, yarn_metres_by_color=_pattern_yardage(cir, result, twin))
     facts = _Facts(cir, result, twin, text, terminology, released_on, fam, childrens)
     facts.has_gallery = bool(plan["slots"])
+    facts.lesson_links = links
     slots = plan["slots"]
     total = 0
     for _ in range(4):
@@ -2186,6 +2198,7 @@ def _notes(t: _T, f: _Facts) -> None:
         helpful.append(f"{tip.title}. {tip.text}")
     if helpful:
         _flow_card(t, "HELPFUL NOTES", helpful, fill=SAGE)
+    _technique_help(t, f)
     if f.family == AMIGURUMI:
         _flow_card(t, "EYE OPTIONS", f.eye_options(), fill=CREAM)
     if f.childrens is not None:
@@ -2205,6 +2218,29 @@ def _notes(t: _T, f: _Facts) -> None:
         t.prose.append(P.CHILDRENS_HEADING)
         _flow_card(t, "SAFETY / AGE / USE NOTES", body, fill=PAPER, stroke=RULE,
                    title_color=ROSE, size=MIN_PT + 0.5)
+
+
+def _technique_help(t: _T, f: _Facts) -> None:
+    """The approved lesson links, each topic line followed by its URL and a link annotation
+    over both, as the engine layout prints them (`publish.pdf`, "Technique help")."""
+    links = getattr(f, "lesson_links", None) or []
+    if not links:
+        return
+    t.need(40)
+    t.label(CONTENT_X, t.top, P.TECHNIQUE_HELP_HEADING, color=ROSE)
+    t.prose.append(P.TECHNIQUE_HELP_HEADING)
+    t.top += 18
+    for link, target in links:
+        topics = ", ".join(link["topics"])
+        h = t.para_h(topics, CONTENT_W, size=10) + t.para_h(target, CONTENT_W, size=MIN_PT) + 10
+        t.need(h)
+        start = t.top
+        t.top = t.para(CONTENT_X, t.top, CONTENT_W, topics, size=10)
+        t.top = t.para(CONTENT_X, t.top, CONTENT_W, target, size=MIN_PT, color=BROWN)
+        t.c.linkURL(target, (CONTENT_X, t.y(t.top), CONTENT_X + CONTENT_W, t.y(start)),
+                    relative=0, thickness=0)
+        t.top += 10
+    t.top += 4
 
 
 def _gallery_cell(t: _T, x: float, top: float, slot: dict | None, n: int, label: str) -> None:
@@ -2480,6 +2516,13 @@ def build_customer_pdf(cir: CIR, *, layout: str | None = None, db=None, **kw):
 
 INTERIM = "engine_interim"      # the engine PDF standing in until the gallery is certified
 
+# Every keyword `build_template_pdf` takes from a caller's engine-shaped kwargs. A keyword the
+# engine takes and this set drops is silently missing from the template document (REDFIX-A:
+# `lesson_links` was, so the illustrated PDF lost its approved technique-help links);
+# tests/test_pdf_template_lesson_links.py pins this set to the function's signature.
+TEMPLATE_KWARGS = frozenset({"terminology", "twin", "released_on", "gallery", "proof",
+                             "designer", "childrens", "family", "lesson_links"})
+
 
 def _contents_cycle(cir: CIR, doc, db, kw) -> str | None:
     """IMAGE-AD finding G: the certified gallery's CONTENTS frame is a preview of the
@@ -2496,7 +2539,7 @@ def _contents_cycle(cir: CIR, doc, db, kw) -> str | None:
         return None
     preview = doc
     if doc.terminology != CF.TERMINOLOGY:
-        allowed = {"twin", "released_on", "gallery", "designer", "childrens", "family"}
+        allowed = TEMPLATE_KWARGS - {"terminology", "proof"}
         preview = build_template_pdf(cir, terminology=CF.TERMINOLOGY,
                                      **{k: v for k, v in kw.items() if k in allowed})
     return contents_preview_mismatch(cir.slug, framed, preview.pdf_bytes, P.TERMINOLOGIES)
@@ -2520,8 +2563,7 @@ def build_customer_pdf_with_layout(cir: CIR, *, layout: str | None = None, db=No
     if layout is None:
         from ..runtime.release import PDF_LAYOUT as layout  # noqa: N811
     if layout == "template":
-        allowed = {"terminology", "twin", "released_on", "gallery", "proof", "designer",
-                   "childrens", "family"}
+        allowed = TEMPLATE_KWARGS
         if explicit:
             if kw.get("gallery") is None and db is not None and not kw.get("proof"):
                 kw["gallery"] = gallery_from_release(db, cir.slug, cir.version)

@@ -1022,6 +1022,25 @@ def construction_overview(cir: CIR) -> list[str] | None:
     return lines
 
 
+TECHNIQUE_HELP_HEADING = "Technique help"
+
+
+def checked_lesson_link(lesson_link: dict) -> str:
+    """The URL of an approved lesson link (`learn.service.pdf_help_links`), refused unless it
+    is https, carries no credentials or fragment, is under /learn/ and pins exactly its own
+    lesson revision. Shared by both PDF layouts so they print the same links or none."""
+    from urllib.parse import urlsplit
+
+    target = lesson_link["url"]
+    parsed_url = urlsplit(target)
+    revision = lesson_link["revision"]
+    if (parsed_url.scheme != "https" or parsed_url.username or parsed_url.password
+            or parsed_url.query != "revision=" + revision
+            or not parsed_url.path.startswith("/learn/") or parsed_url.fragment):
+        raise ValueError("unsafe or unversioned lesson link")
+    return target
+
+
 def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
                       twin: TwinModel | None = None,
                       designer: str = "Brambleloop Studio",
@@ -3326,16 +3345,9 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
 
     # Approved contextual links supplied by assets.build, bound to lesson revisions.
     if lesson_links:
-        from urllib.parse import urlsplit
-        doc.heading("Technique help")
+        doc.heading(TECHNIQUE_HELP_HEADING)
         for lesson_link in lesson_links:
-            target = lesson_link["url"]
-            parsed_url = urlsplit(target)
-            revision = lesson_link["revision"]
-            if (parsed_url.scheme != "https" or parsed_url.username or parsed_url.password
-                    or parsed_url.query != "revision=" + revision
-                    or not parsed_url.path.startswith("/learn/") or parsed_url.fragment):
-                raise ValueError("unsafe or unversioned lesson link")
+            target = checked_lesson_link(lesson_link)
             label = ", ".join(lesson_link["topics"])
             doc.para(label, size=10)
             doc.need(6 * mm)

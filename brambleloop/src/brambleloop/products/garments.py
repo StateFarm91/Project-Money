@@ -470,7 +470,11 @@ RAGLAN_REQUIRES = ("bust", "back_length", "cross_back", "arm_length", "upper_arm
 # 1.3.0 / 1.2.0 (2026-10-07, F-762/F-763): every size now carries the whole family's size
 # matrix and the design's stated fit (`CIR.grading`), which the PDF prints as its size chart
 # -- new customer-visible content, so a new minor.
-HARBOUR_VERSION = "1.3.0"
+# Harbour 1.4.0 (2026-11-22, D-CERTFIX3-SEWN-JOIN-NOTES): CERTFIX-3 (a3334a5d) added "sew
+# through both loops of every stitch and bury the tails" to the printed sleeve->body and
+# neckband->body seam notes of every drop-shoulder release but left the version at 1.3.0, so
+# two different printed patterns carried "1.3.0". Changed text is a new release.
+HARBOUR_VERSION = "1.4.0"
 PEBBLE_VERSION = "1.2.0"
 
 

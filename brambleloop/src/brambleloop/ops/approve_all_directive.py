@@ -22,7 +22,7 @@ How each is recorded (never a forged step-up, login or attestation):
   directive. Nothing here claims the owner logged in or performed a step-up;
 * a physical-attestation card is WITHDRAWN, `attested: false`, `sample_exists: false`. The
   directive approves proceeding WITHOUT the physical claim; no copy may claim a sample was
-  made, tested or measured (`sample_photo.copy_problems` still refuses that);
+  made, tested or measured (the sample-photo gate's `copy_problems` still refuses that);
 * a child-family card is SATISFIED as the owner's ruling to proceed. Content keeps its legally
   required safety warnings: no generator or gate that writes those is touched here;
 * spend stays inside the code-enforced caps. A card that would cross the company cap, has no
