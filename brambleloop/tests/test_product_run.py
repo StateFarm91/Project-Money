@@ -461,6 +461,11 @@ def test_a_pipeline_upgrade_reaches_products_that_already_shipped():
             if job.idempotency_key and f":c{CHAIN_VERSION}" in job.idempotency_key:
                 job.idempotency_key = job.idempotency_key.replace(f":c{CHAIN_VERSION}", "")
 
+    from sqlalchemy import func as _func
+
+    from brambleloop.core.models import AuditLog as _AL
+    with db.session() as s:
+        before_rebuild = s.scalar(_select(_func.max(_AL.id))) or 0
     q.enqueue("listing", "chain.rebuild", {})
     for _ in range(3000):
         if not w.run_once():
@@ -479,8 +484,13 @@ def test_a_pipeline_upgrade_reaches_products_that_already_shipped():
         # accessory, and this warehouse certifies exactly two nordic-forest members, so the
         # stage's evidence is the assessment and the refusal, not a Collection row.
         from brambleloop.core.models import AuditLog as _AuditLog
-        collection_stage = [a for a in s.scalars(_select(_AuditLog)) if a.action in (
-            "collection.assessed", "collection.refused", "collection.assembled")]
+        # Since the stricter certification gates this warehouse certifies fewer than two
+        # nordic-forest members, so collection.assemble runs and records its honest wait
+        # (`collection.waiting`: a bundle never advertises a pattern nobody certified). The
+        # stage is reached either way; only rows written by THIS rebuild's job count.
+        collection_stage = [a for a in s.scalars(_select(_AuditLog)) if a.id > before_rebuild
+                            and a.action in ("collection.assessed", "collection.refused",
+                                             "collection.assembled", "collection.waiting")]
         certified = {p.slug for p in s.scalars(_select(Product))
                      if p.status == "certified"}
     assert not broken, broken
