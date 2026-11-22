@@ -570,6 +570,16 @@
    "override": "D-OWNER-DEPLOY-19i16",
    "authorization": "D-OWNER-AUTODEPLOY-24H-2",
    "rollback_to": "5297dbbabc15e1861d2e69a65a272a5416e67d41"
+  },
+  {
+   "sha": "e5b4d2853dd78c67aa5bdb23d07f9373e3c0a47c",
+   "batch": "19i17",
+   "code": "9bb44cdaf",
+   "at": "2026-11-22T20:01:21Z",
+   "verify_deploy": "DEPLOYED",
+   "override": "D-OWNER-DEPLOY-19i17",
+   "authorization": "D-OWNER-AUTODEPLOY-24H-2",
+   "rollback_to": "9c18ab5e0e3cf7e0a5abd1d798364e8381468365"
   }
  ]
 }
