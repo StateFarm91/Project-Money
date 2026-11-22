@@ -4639,3 +4639,7 @@ The readback reports which source is in use (`owner_grant_key_source`: explicit,
 ## D-OWNER-DEPLOY-19i10 — 2026-11-22T06:51:55Z
 
 Batch 19i10 (code a71b80b88) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to eb941ffe74f1817df93ee9143a890ec202288499 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-DEPLOY-19i11 — 2026-11-22T06:56:33Z
+
+Batch 19i11 (code 8764a7471) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to 6c7c4d2d005aacbd39c48af3680de39d4cbcd2cf was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
