@@ -392,10 +392,12 @@ def make_router(db) -> APIRouter:
     # press needs the owner session, CSRF + nonce (the gate), a FRESH step-up (passphrase +
     # TOTP; consumed by the press), the preview's digest and `confirm: true`.
     @router.get("/approve-everything")
-    def approve_everything_preview(request: Request):
+    def approve_everything_preview(request: Request, cards: int = 1):
         from . import approve_everything
 
-        return ok(approve_everything.preview(db))
+        # APPROVE-FIX: the page passes cards=0 -- it already reads the inbox itself, and the
+        # second full inbox read was a large part of a 2-minute preview.
+        return ok(approve_everything.preview(db, include_cards=bool(cards)))
 
     @router.post("/approve-everything")
     async def approve_everything_execute(request: Request):
@@ -410,11 +412,21 @@ def make_router(db) -> APIRouter:
 
         try:
             with _ogk.owner_request(sid or "owner"):
-                out = await run_in_threadpool(
-                    lambda: AE.execute(db, actor=actor(request),
-                                       expected_digest=str(body.get("expected_digest") or ""),
-                                       confirm=body.get("confirm") is True,
-                                       session_public_id=sid))
+                if "items" in body:
+                    # APPROVE-FIX: the exact previewed items, approved one savepoint each;
+                    # a failure is reported for its item and never undoes the others.
+                    out = await run_in_threadpool(
+                        lambda: AE.execute_items(db, actor=actor(request),
+                                                 items=body.get("items"),
+                                                 confirm=body.get("confirm") is True,
+                                                 session_public_id=sid))
+                else:
+                    out = await run_in_threadpool(
+                        lambda: AE.execute(db, actor=actor(request),
+                                           expected_digest=str(body.get("expected_digest")
+                                                               or ""),
+                                           confirm=body.get("confirm") is True,
+                                           session_public_id=sid))
         except AE.Refused as exc:
             raise auth.refuse(db, request, 409, "REFUSED_BY_AUTHORITY", str(exc),
                               kind="action", session_public_id=sid) from None

@@ -4521,7 +4521,17 @@ Batch 19h18 (code 1de83403a) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the o
 ## D-OWNER-DEPLOY-19i1 — 2026-11-22T00:27:56Z
 
 Batch 19i1 (code c99d110c6) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to b253437a2efd640a26334d0fc9f8f04a5394be50 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
-
+## D-APPROVE-FIX — the press approves the previewed items one savepoint each, and covers every in-app owner card (APPROVE-FIX, 2026-11-22; owner report)
+**Owner, verbatim:** "the approve thing on the website doesnt even work ... when I click approve and do the password and auth. I expect it to be approved." / "I want the approve all button to literally be all thing ... ALL."
+**Root cause (production http log, read-only).** `GET /api/cc/approve-everything` took 122-166 s. The press re-ran that whole preview before writing. Both presses on 2026-11-22 (00:19 and 00:22 UTC) ended HTTP 499: the browser closed the request before any answer came back. A container restart at 00:25 then ended the run. Nothing was committed and nothing was shown. One refusing row would also have rolled back every other row.
+**Rule (supersedes D-APPROVE-ALL-V2's "one press, one transaction" for the page's press only).**
+- The page sends `items` (the preview's `items`). `approve_everything.execute_items` re-reads only those rows and re-routes each one at the write. It approves an item only while it is still exactly what the owner previewed: same bucket, target, stated amount and grant content digest. Each item is written in its own savepoint, and a failure is reported for that item. The outcome is stored in the batch audit row, and the preview shows it as `last_press`. The legacy `expected_digest`-only body keeps the v2 all-or-nothing behaviour.
+- New acted bucket `owner_approved_step_up`. It covers an unclassified owner card with no guard subject (child, physical, spend, publishing) and no key that needs a choice or is read as a decision elsewhere (`decision.*`, acceptance ruling, launch decisions, phase, ads, buyer messages, storefront, Etsy auth, certification or safety). It closes `satisfied` with "owner-approved via step-up; not an attestation".
+- Every guard is unchanged. Child safety and physical attestation are never moved. Spend headroom is re-read at the press, and the CA$100/month cap is never raised. Grants go through their own signing path, bound to the previewed digest, with the publication evidence check. Fresh step-up is required and consumed.
+- The page shows the result on the card ("Approved N. Needs your action elsewhere M (listed below)", with reasons for any failures) and never only in a toast.
 ## D-OWNER-DEPLOY-19h19 — 2026-11-22T00:37:11Z
-
 Batch 19h19 (code 7ce92f9ad) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 5ea431fb63c7b5e6e79bb4e63191bf92c05f336b was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-DEPLOY-19i2 — 2026-11-22T00:47:55Z
+
+Batch 19i2 (code 3a5bfc6a1) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 9e6a8df33d21e8cb90898b77438af27b0a8e9d29 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
