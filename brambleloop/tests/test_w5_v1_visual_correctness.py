@@ -613,7 +613,7 @@ def test_basket_prompt_names_six_corners_two_wine_stripes_and_the_plain_cream_ri
     from brambleloop.creative import flux_prompt as FP
 
     assert built.receipt()["builder_version"] == FP.BUILDER_VERSION == \
-        "flux3-prompt-builder/2.2.0"
+        "flux3-prompt-builder/2.3.0"
     # derived, not hard-coded: the medium basket's own rounds and rim
     from brambleloop.products.vessels import build_basket
 
