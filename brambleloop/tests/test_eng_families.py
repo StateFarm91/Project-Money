@@ -431,6 +431,7 @@ def test_router_admits_only_verified_or_physical_gated_families():
                         FC.AMIGURUMI, FC.ENVELOPE, FC.APPLIQUE, FC.LOVEY,
                         FC.AMIGURUMI_ANIMAL,                                # ENG-AMIGURUMI-BREADTH
                         CF.GARMENT_RAGLAN, CF.GARMENT_ONE_PIECE,           # ENG-GARMENT
+                        CF.GARMENT_DROP_SHOULDER,                           # D6
                         *CF.WEARABLE_FAMILIES,                              # ENG-GARMENT-2
                         *HD.VARIANTS}, admitted                             # ENG-HOMEDECOR
     # Every admitted family names the test that proves it, and that test exists (ENG-PLUSH:
@@ -707,7 +708,9 @@ def test_every_admitted_family_category_pair_names_an_existing_certifying_proof(
                ("sweater", "fitted_garment", "flat_rows", "Puddle Lane Kids Sweater"),
                ("sweater", "fitted_garment", "flat_rows", "Cosy Adult Sweater"),
                ("vest", "fitted_garment", "side_to_side", "Driftline Vest"),
-               ("pullover", "fitted_garment", "bottom_up", "Kestrel Pullover")]
+               ("pullover", "fitted_garment", "bottom_up", "Kestrel Pullover"),
+               # D6 (catalogue-unblock): the adult drop-shoulder pullover, pinned on intake.
+               ("sweater", "fitted_garment", "bottom_up", "Tallowmere Drop Shoulder Pullover")]
     # ENG-GARMENT-2: wearable families (each pair pinned in tests/test_eng_garment2.py).
     probes += WEARABLE_PROBES
     admitted = set()

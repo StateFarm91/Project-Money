@@ -562,6 +562,27 @@ def semantic_duplicates(tags: list[str]) -> list[list[str]]:
     return [g for g in groups.values() if len(g) > 1]
 
 
+def is_semantic_repeat(phrase: str, chosen: list[str]) -> bool:
+    """Whether `phrase` is a search one of `chosen` already answers (the gate's own rule).
+
+    The same `intent_key` that `semantic_duplicates` groups on, so a tag generator that adds
+    a tag only when this is False can never emit what `tag_diversity_problems` blocks.
+    """
+    key = intent_key(phrase)
+    if not key:
+        return False
+    return any(intent_key(c) == key for c in chosen)
+
+
+def distinct_tags(tags: list[str]) -> list[str]:
+    """`tags` in order, keeping the first of each semantic-duplicate group (F-013)."""
+    out: list[str] = []
+    for t in tags:
+        if not is_semantic_repeat(t, out):
+            out.append(t)
+    return out
+
+
 def intent_coverage(tags: list[str], queries: list[Query]) -> dict:
     """Which buyer intents the tag set answers, and which reachable ones it leaves out.
 

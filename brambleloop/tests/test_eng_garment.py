@@ -364,6 +364,12 @@ CHILD_PROPOSAL = _garment_proposal(
     "puddle-lane-kids-sweater", "Puddle Lane Kids Sweater", "sweater", "flat_rows", "child",
     "A relaxed kids sweater in one piece with built-in sleeves, for school mornings",
     "back_to_school")
+# D6 (catalogue-unblock): the drop-shoulder pullover, pinned through intake on the adult table.
+PULLOVER_PROPOSAL = _garment_proposal(
+    "tallowmere-drop-shoulder-pullover", "Tallowmere Drop Shoulder Pullover", "sweater",
+    "bottom_up", "self",
+    "A relaxed drop-shoulder pullover worked in panels and seamed, an easy layer for crisp "
+    "autumn walks", "winter_nesting")
 BABY_PROPOSAL = _garment_proposal(
     "hush-baby-cardigan", "Hush Baby Cardigan", "baby", "top_down_yoke", "new_parent",
     "A relaxed baby cardigan whose fronts meet edge to edge, nothing to fasten, for a new "
@@ -462,6 +468,19 @@ def test_a_research_baby_cardigan_runs_concept_to_pdf():
     for cir in out["release"].cirs.values():
         assert GF.facts_of(cir).buttons == 0
     assert CS.SECTION_HEADING in " ".join(out["docs"]["UK"].text.split())
+
+
+def test_a_research_adult_drop_shoulder_pullover_runs_concept_to_pdf():
+    """D6: the drop-shoulder engine certifies every size, so a research concept is pinned
+    through intake -> draft -> every size compiled and certified -> US/UK PDF."""
+    from brambleloop.creative import construction_families as CF
+
+    got = CF.route(category="sweater", title=PULLOVER_PROPOSAL["title"], form="fitted_garment",
+                   construction="bottom_up")
+    assert got["admitted"] and got["family"] == "garment_drop_shoulder", got
+    out = _research_garment_to_pdf(PULLOVER_PROPOSAL)
+    _assert_concept_to_pdf(out, ("XS", "S", "M", "L", "XL", "2X", "3X", "4X", "5X"),
+                           "garment_drop_shoulder")
 
 
 def test_every_admitted_garment_pair_has_a_pinned_proof_and_others_are_held():

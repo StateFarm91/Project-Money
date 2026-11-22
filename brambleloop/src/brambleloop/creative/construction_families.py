@@ -188,10 +188,12 @@ FAMILIES: dict[str, Family] = {f.key: f for f in (
            ("CYC woman XS-5X",), "cir.graded WOMAN + stated ease",
            "every size certifies and renders (tests/test_eng_garment.py) but no research "
            "concept is pinned through intake yet"),
-    Family(GARMENT_DROP_SHOULDER, "products.garment_release (drop_shoulder_pullover)", PARTIAL,
-           "", ("CYC woman XS-5X",), "cir.graded WOMAN + stated ease",
-           "every size certifies and renders (tests/test_eng_garment.py) but no research "
-           "concept is pinned through intake yet"),
+    # D6 (catalogue-unblock, 2026-11-22): pinned through intake on the adult table.
+    Family(GARMENT_DROP_SHOULDER, "products.garment_release (drop_shoulder_pullover)", VERIFIED,
+           f"{GARMENT_PROOF}::test_a_research_adult_drop_shoulder_pullover_runs_concept_to_pdf",
+           ("CYC woman XS-5X",), "cir.graded WOMAN + stated ease",
+           "sweater/pullover/jumper worked bottom-up in panels with dropped shoulders; adult "
+           "only; relaxed or oversized fit (fitted is class C, refused); no hood or texture"),
     # ENG-GARMENT-2: a beanie graded on the CYC head chart, preemie to man, every size
     # certified with the wearable gates and rendered US/UK; research concepts pinned below.
     Family(HAT_BEANIE, "products.wearables (beanie)", VERIFIED,
@@ -290,8 +292,8 @@ UNBUILT: dict[str, str] = {
     "mosaic": "overlay mosaic needs stitches that reach past the previous row or round; no "
               "radar engine charts them",
     "colourwork_overlay_mosaic": "overlay mosaic: stitches that reach down past the previous "
-                                 "row; the CIR has no reach-down primitive yet (ENG-COLOURWORK "
-                                 "slice 2)",
+                                 "row; the CIR expresses them (Op.below, D2) but no engine "
+                                 "charts them yet (ENG-COLOURWORK slice 2)",
     "colourwork_inset_mosaic": "inset mosaic: chain spaces filled by stitches dropped from the "
                                "row above; no reach-down primitive yet (ENG-COLOURWORK slice 2)",
     "colourwork_c2c": "corner-to-corner: diagonal tiles increased and decreased; no tile "
@@ -471,6 +473,7 @@ PAIR_PROOFS: dict[tuple[str, str], str] = {
     (GARMENT_RAGLAN, "baby"): f"{GARMENT_PROOF}::test_a_research_baby_cardigan_runs_concept_"
                               f"to_pdf",
     (GARMENT_ONE_PIECE, "sweater"): FAMILIES[GARMENT_ONE_PIECE].proof,
+    (GARMENT_DROP_SHOULDER, "sweater"): FAMILIES[GARMENT_DROP_SHOULDER].proof,
 }
 # ENG-GARMENT-2: the wearable pairs, each proven end to end on the audiences named.
 WEARABLE_PAIR_AUDIENCE: dict[tuple[str, str], frozenset] = {
@@ -513,6 +516,7 @@ PAIR_PROOFS.update({
 GARMENT_PAIR_AUDIENCE: dict[tuple[str, str], str] = {
     (GARMENT_RAGLAN, "cardigan"): "adult", (GARMENT_RAGLAN, "baby"): "baby",
     (GARMENT_ONE_PIECE, "sweater"): "child",
+    (GARMENT_DROP_SHOULDER, "sweater"): "adult",
 }
 # Families admitted pair by pair: a (family, category) the table above does not name is held.
 PAIR_GATED: frozenset[str] = frozenset({CW_TAPESTRY})

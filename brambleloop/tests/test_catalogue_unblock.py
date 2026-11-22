@@ -264,12 +264,12 @@ if __name__ == "__main__":
         if name.startswith("test_") and callable(fn):
             try:
                 fn()
-                print(f"  ok  {name}")
+                print(f"OK   {name}")
             except Exception as exc:  # noqa: BLE001
                 import traceback
 
                 fails += 1
-                print(f"FAIL  {name}: {type(exc).__name__}: {exc}")
+                print(f"FAIL {name}: {type(exc).__name__}: {exc}")
                 traceback.print_exc()
     print(f"{'FAILED' if fails else 'PASSED'}: {fails} failing")
     sys.exit(1 if fails else 0)
