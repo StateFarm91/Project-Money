@@ -304,6 +304,13 @@ def test_real_stage_retry_reuses_candidate_after_follow_enqueue_failure(monkeypa
             return result
 
     monkeypatch.setattr(gallery, "gates_now", lambda *a, **kw: {"image_generation": True})
+    # BATCH19F: a paid stage first re-checks both spend admissions (vis-gallery
+    # `sale_admission` and the sale pipeline's `spend_admitted`, tested in
+    # test_sale_pipeline). Admitted here, as in test_w5_v0_paid_provider_gate, so the
+    # retry and recovery behaviour under test is what runs.
+    from brambleloop.publish import sale_pipeline as _SPL
+    monkeypatch.setattr(IP, "sale_admission", lambda *a, **k: {"admitted": True, "test_double": True, "why": "admitted for the retry test"})
+    monkeypatch.setattr(_SPL, "spend_admitted", lambda *a, **k: True)
     db = O.make_db()
     key = IP._ensure_run(db, "item", "1", "a" * 64, "")
     gen = Paid()
@@ -478,6 +485,13 @@ def test_stage_recovers_candidate_after_marker_completion_interruption(monkeypat
             return result
 
     monkeypatch.setattr(gallery, "gates_now", lambda *a, **kw: {"image_generation": True})
+    # BATCH19F: a paid stage first re-checks both spend admissions (vis-gallery
+    # `sale_admission` and the sale pipeline's `spend_admitted`, tested in
+    # test_sale_pipeline). Admitted here, as in test_w5_v0_paid_provider_gate, so the
+    # retry and recovery behaviour under test is what runs.
+    from brambleloop.publish import sale_pipeline as _SPL
+    monkeypatch.setattr(IP, "sale_admission", lambda *a, **k: {"admitted": True, "test_double": True, "why": "admitted for the retry test"})
+    monkeypatch.setattr(_SPL, "spend_admitted", lambda *a, **k: True)
     db = O.make_db()
     key = IP._ensure_run(db, "item", "1", "a" * 64, "")
     inputs = {"slug": "item", "version": "1", "release": "a" * 64,
@@ -565,6 +579,10 @@ def test_registered_handler_recovers_via_durable_queue_after_reopen(monkeypatch)
     db, gen = O.make_db(), Paid()
     key = IP._ensure_run(db, "item", "1", "a" * 64, "")
     monkeypatch.setattr(gallery, "gates_now", lambda *a, **kw: {"image_generation": True})
+    # BATCH19F: both spend admissions admitted here, as in the two retry tests above.
+    from brambleloop.publish import sale_pipeline as _SPL
+    monkeypatch.setattr(IP, "sale_admission", lambda *a, **k: {"admitted": True, "test_double": True, "why": "admitted for the recovery test"})
+    monkeypatch.setattr(_SPL, "spend_admitted", lambda *a, **k: True)
     monkeypatch.setattr(IP, "resolve_generator", lambda db: gen)
     monkeypatch.setattr(CG, "RealJudges", lambda db: O.StubJudges())
     inputs = {"slug": "item", "version": "1", "release": "a" * 64,
