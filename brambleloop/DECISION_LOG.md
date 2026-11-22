@@ -4668,3 +4668,7 @@ Three more over-broad admission blocks for paid gallery production, each now ima
 ## D-OWNER-DEPLOY-19i14 — 2026-11-22T08:20:16Z
 
 Batch 19i14 (code 8feb01036) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to d1c2ff10b0e026ba17f6c30e63363b49f881e934 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-DEPLOY-19i15 — 2026-11-22T14:03:15Z
+
+Batch 19i15 (code 07ce62efd) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to 83d05dbfcd370773d718639d24300ebf78fb863a was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
