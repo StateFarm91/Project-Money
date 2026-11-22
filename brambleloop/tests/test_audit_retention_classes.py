@@ -57,8 +57,9 @@ def test_a_windowed_paid_call_guard_reads_far_inside_the_horizon():
     from brambleloop.visual import vision_route as VR
 
     horizon = timedelta(days=retention.AUDIT_RETENTION_DAYS)
-    for mod, actions in ((CJ, (CJ.ATTEMPT_ACTION,)),
+    for mod, actions in ((CJ, (CJ.ATTEMPT_ACTION, CJ.FAILED_ACTION)),
                          (VR, (VR.ATTEMPT_ACTION, VR.ANSWER_ACTION))):
+        assert actions, mod
         for a in actions:
             assert (mod.RETRY_AFTER * 2 < horizon
                     or a in retention.PROTECTED_ACTIONS), (a, mod.RETRY_AFTER)

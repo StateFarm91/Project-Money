@@ -709,6 +709,11 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "concept.judge_attempt": ("windowed",
         "creative.concept_judge.attempted: one paid judgement per (concept, board sha, "
         "provider) per RETRY_AFTER (24 h)"),
+    # CONCEPT-GATE: an attempt the provider refused unbilled; `attempted` reads it inside the
+    # same RETRY_AFTER window only to stop it from blocking a later judgement. A pruned row
+    # could only re-block for the rest of a window already 90 days gone (fail closed).
+    "concept.judge_attempt_refused_unbilled": ("windowed",
+        "creative.concept_judge.attempted: refusals inside RETRY_AFTER (24 h) do not block"),
     "asset_inspection.openai_attempt": ("windowed",
         "visual.vision_route.kept_answer: an attempt inside RETRY_AFTER (24 h) blocks a "
         "repeat paid call"),
