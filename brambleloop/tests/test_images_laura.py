@@ -121,6 +121,7 @@ def test_laura_references_are_byte_identical_to_the_canonical_set():
     gen = OwnerGen()
     _go(db, gen, O.StubJudges())
     canon = _canonical_bytes()
+    assert len(gen.handed) == 4, [h["role"] for h in gen.handed]
     for h in gen.handed:
         if h["role"] == IP.ANCHOR_ROLE:
             assert not any(k == "laura_canonical" for k, *_ in h["refs"])

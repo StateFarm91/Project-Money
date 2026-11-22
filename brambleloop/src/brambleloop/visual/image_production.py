@@ -1593,7 +1593,7 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
                     f"refused")
             return out
 
-        owner_method = bool(getattr(gen, "accepts_owner_method", False)) and exp is None
+        owner_method = _owner_method_applies(db, key, gen, exp)
         owner_cache = {}
 
         def owner_inputs():
@@ -1724,10 +1724,10 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
                                           slug=slug, version=version, release=release,
                                           operation_for=operation_for)
 
-        if stage in ("lifestyle_generation", "remaining_roles") and (
+        if owner_method and stage in ("lifestyle_generation", "remaining_roles") and (
                 _accepted_product_frame(db, key, run["listing"]) is None):
-            # ENG-IMAGES-LAURA: nothing after step 1 runs (or spends) before a product frame
-            # of this gallery is accepted, however the job got here.
+            # ENG-IMAGES-LAURA: under the owner's method nothing after step 1 runs (or spends)
+            # before a product frame of this gallery is accepted, however the job got here.
             return block("no product frame accepted: lifestyle and every later role start "
                          "only after the product frame passes the fidelity gate")
 
@@ -2244,6 +2244,13 @@ def redrive_capability_blocked(db, *, follow) -> dict:
 
 # ---- the owner's two-step method (ENG-IMAGES-LAURA) ---------------------------------------------
 
+def _owner_method_applies(db, key: str, gen, exp) -> bool:
+    """The owner's method runs for normal gallery runs of a generator that declares it.
+    Experiments and controlled runs keep the pipeline definition they were approved with."""
+    return (bool(getattr(gen, "accepts_owner_method", False)) and exp is None
+            and "#" not in key and not _controlled_of(db, key))
+
+
 def _accepted_product_frame(db, key: str, listing: str) -> dict | None:
     """Step 1's output: this gallery's product frame that PASSed the fidelity gate, as a
     reference whose bytes are re-read from the artifact store and must hash to the stored
@@ -2251,8 +2258,8 @@ def _accepted_product_frame(db, key: str, listing: str) -> dict | None:
     b = _best(db, listing=listing, role=ANCHOR_ROLE, run=key)
     if not b or b.get("technical_status") != "PASS" or not b.get("sha256"):
         return None
-    if _image_has_negative_decision(db, slug=b["slug"], version=b["version"], sha=b["sha256"]):
-        return None
+    if b.get("owner_visual_approval") is False:
+        return None                       # the owner vetoed this product frame
     ref = _prior_ref(db, b["sha256"], PRODUCT_FRAME_LABEL)
     if ref is None:
         return None
@@ -2394,7 +2401,7 @@ def _stage_identity_anchor(db, key, run, inputs, *, gen, judges, exp, laura_role
     from . import identity_gate
 
     stage = "identity_anchor"
-    owner = exp is None and bool(getattr(gen, "accepts_owner_method", False))
+    owner = _owner_method_applies(db, key, gen, exp)
     if (not laura_roles or exp is not None or owner
             or not getattr(gen, "accepts_staged_method", False)):
         why = ("no Laura in this listing's shot plan" if not laura_roles else
