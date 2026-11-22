@@ -478,6 +478,27 @@ def _startup() -> None:
         BOOT_ENQUEUES.append({"name": "search_recertify", "outcome": "error",
                               "detail": f"{type(e).__name__}: {e}"[:300]})
 
+    # D-OWNER-RESEARCH-BAR: re-score concepts refused only on the old research bar (or on
+    # the Class C physical-testing rule, D-OWNER-NO-SAMPLE-SIZING). Each re-score goes through
+    # the ordinary radar.score -> products.supply admission and its WIP limit.
+    try:
+        from datetime import timedelta as _td
+
+        from ..ops import research_rescore as _rescore
+
+        _q2 = JobQueue(db)
+        _rs = _rescore.run(db, lambda a, jt, inp, idempotency_key: _q2.enqueue(
+            a, jt, inp, idempotency_key=idempotency_key,
+            run_after=utcnow() + _td(seconds=BOOT_JOB_DELAY_SECONDS)),
+            commit=build_identity().get("commit", "") or "dev")
+        BOOT_ENQUEUES.append({"name": "research_rescore", "job_type": "radar.score",
+                              "outcome": "enqueued" if _rs["enqueued"] else "not needed",
+                              "detail": (f"{len(_rs['enqueued'])} of {_rs['candidates']} "
+                                         f"candidates, {_rs['duplicates']} duplicate")})
+    except Exception as e:  # noqa: BLE001 - never block a boot
+        BOOT_ENQUEUES.append({"name": "research_rescore", "outcome": "error",
+                              "detail": f"{type(e).__name__}: {e}"[:300]})
+
     # Halt 380: the stale-artefact sentinel (hourly) closes rows whose rebuild verified, and
     # the health sweep's truth pass re-evaluates the systemic halt. Run each once per deployed
     # commit, so a fix to either does not wait an hour; both are read-and-record, no spend.

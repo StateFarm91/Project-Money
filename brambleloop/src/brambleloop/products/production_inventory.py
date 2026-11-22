@@ -578,6 +578,21 @@ def _jobs_for(rec: dict, slug: str, version: str | None, head: bool) -> list:
             if j.version == version or (head and j.version is None)]
 
 
+def _live_certification_halts(db, rec: dict, slug: str) -> list[str] | None:
+    """Signatures of the open incidents that stop `gate.certify` for `slug` NOW, read with
+    `IncidentTracker.certification_halts` (memoised per record load); None if unreadable."""
+    memo = rec.setdefault("_live_certification_halts", {})
+    if slug not in memo:
+        try:
+            from ..gates.incidents import IncidentTracker
+
+            memo[slug] = sorted(str(i.signature) for i in
+                                IncidentTracker(db).certification_halts(slug))
+        except Exception:  # noqa: BLE001 - an unreadable halt is never read as cleared
+            memo[slug] = None
+    return memo[slug]
+
+
 def _latest(jobs, job_type: str, *, statuses=("done",)):
     found = [j for j in jobs if j.job_type == job_type and j.status in statuses]
     return max(found, key=lambda j: j.id) if found else None
@@ -896,9 +911,23 @@ def derive_row(db, rec: dict, row: dict, *, gate_mode: str = "recorded",
     if not certified:
         if certify is not None and certify.outputs.get("granted") is False:
             if certify.outputs.get("halted_by_incident"):
-                holds.append(_hold(HOLD_POLICY, "certification halted by an open P0/P1 incident",
-                                   job_id=certify.id))
-                return result(PATTERN_VALIDATED, "certification halted by an open incident")
+                # CATALOGUE-UNBLOCK D4: the halt is re-read live with the predicate
+                # gate.certify applies. A recorded halt whose incidents have all closed (the
+                # systemic hold cleared, or the product's own row resolved) is not shown as
+                # an open incident: `release_recovery.retry_halted` re-drives the same
+                # certification on the next whole-catalogue chain.rebuild. A halt that is
+                # still open, or one that cannot be read, stays a hold (fail closed).
+                live = _live_certification_halts(db, rec, slug)
+                if live is None or live:
+                    holds.append(_hold(HOLD_POLICY, "certification halted by an open P0/P1 "
+                                       "incident" + (f": {', '.join(live[:3])}" if live else
+                                                     " (incidents could not be read)"),
+                                       job_id=certify.id))
+                    return result(PATTERN_VALIDATED, "certification halted by an open incident"
+                                  + (f" ({', '.join(live[:3])})" if live else ""))
+                return result(PATTERN_VALIDATED, "certification halt cleared: no open incident "
+                              "stops it now; re-certification is re-driven by chain.rebuild",
+                              halt_cleared=True, job_id=certify.id)
             return result(REVISION_REQUIRED, "certification refused: " + "; ".join(
                 str(r)[:120] for r in (certify.outputs.get("reasons") or [])[:3]),
                 failed_stage="independent_review", job_id=certify.id)

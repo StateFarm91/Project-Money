@@ -57,15 +57,19 @@ def _score(db, key):
         return dict(row.outputs)
 
 
-def test_stale_foreign_evidence_discounts_the_score_below_promotion():
+def test_stale_foreign_evidence_is_recorded_but_no_longer_discounts_the_score():
+    # D-OWNER-RESEARCH-BAR (2026-11-22, "Drop discount, bar 0.45"): the discount is still
+    # computed and recorded (and the stale US data is still not presentable as current CA
+    # demand), but it no longer multiplies the score that decides promotion.
     db = _db()
     _insight(db, "chunky scarf", "united states", date(2025, 6, 1))
     provenance.stamp_all(db, today=TODAY)
     out = _score(db, "stale")
     assert out["raw_score"] > pipeline.PROMOTION_THRESHOLD
     assert out["evidence"]["measured"] and out["evidence"]["discount"] < 1.0
-    assert out["score"] < pipeline.PROMOTION_THRESHOLD and out["promoted"] is False
-    assert "evidence discount" in out["reason"]
+    assert out["evidence"]["applied"] is False
+    assert out["evidence_score"] == out["raw_score"]
+    assert "evidence discount" not in str(out["reason"] or "")
     with db.session() as s:
         row = s.scalar(select(AuditLog).where(AuditLog.action == "radar.evidence_discount"))
         assert row.detail["not_presentable"], "stale US data was presentable as current CA"
