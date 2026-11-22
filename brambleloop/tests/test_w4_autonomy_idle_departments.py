@@ -247,6 +247,13 @@ def _running(db, agent, job_type):
                   started_at=utcnow(), attempts=1))
 
 
+# HALT-380 H4 (2026-11-21): protected work (customer_incident / truth_defect tiers, e.g.
+# ops.queue_check) never yields to ordinary work, so the #30 function mix is exercised here with
+# an ORDINARY-tier infrastructure job. An infra job from a protected tier would make "held" impossible
+# and "not held" vacuous.
+INFRA_ORDINARY = "ops.retention"
+
+
 def _held(db):
     with db.session() as s:
         return [r.job_id for r in s.scalars(select(AuditLog).where(
@@ -259,7 +266,7 @@ def test_runnable_work_is_not_held_for_a_model_job_that_would_only_be_parked():
     _spent_balance(db)
     _running(db, "orchestrator", "ops.health")
     q = JobQueue(db)
-    infra = q.enqueue("orchestrator", "ops.queue_check", {}, priority=0,
+    infra = q.enqueue("orchestrator", INFRA_ORDINARY, {}, priority=0,
                       idempotency_key="infra").id
     q.enqueue("creative_director", "creative.tournament", {}, priority=50,
               idempotency_key="model")
@@ -271,10 +278,11 @@ def test_runnable_work_is_not_held_for_a_model_job_that_would_only_be_parked():
 
 def test_with_the_provider_up_the_starved_model_job_still_wins_the_hold():
     db = _db()
+    assert orc.claim_tier(INFRA_ORDINARY) == orc.ORDINARY_TIER, "the mix binds ordinary work only"
     _capacity_reading(db)
     _running(db, "orchestrator", "ops.health")
     q = JobQueue(db)
-    infra = q.enqueue("orchestrator", "ops.queue_check", {}, priority=0,
+    infra = q.enqueue("orchestrator", INFRA_ORDINARY, {}, priority=0,
                       idempotency_key="infra").id
     q.enqueue("creative_director", "creative.tournament", {}, priority=50,
               idempotency_key="model")
