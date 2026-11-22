@@ -4702,3 +4702,7 @@ Batch 19i15 (code 07ce62efd) is deployed under D-OWNER-AUTODEPLOY-24H-2, the own
 **Images page.** `api.get` resolves `{data, stale, fetchedAt}`, but `views/images.js` and `_visual_studio.js` read `.products`, `.canonical` and `.frames` off that envelope. So the dropdown, Gallery production and every gallery card were always empty. Both views now unwrap the envelope. `status_board` now also lists listings outside LAUNCH0_SLUGS that have runs or candidates (market-basket-small is not a Launch-0 slug). Each product has all of its runs, and every candidate frame has a thumbnail (the existing `/api/cc/images/candidates/{id}/image`), its verdict, its codes and its failed checks. Owner `#owner` sets are listed too. The service-worker shell version moves to v48.
 
 **Not changed.** No threshold, no gate, no publication rule, no deploy. Tests: `tests/test_images_dialin.py`. Report: `IMAGES-DIALIN.md`.
+
+## D-OWNER-DEPLOY-19i16 — 2026-11-22T16:22:28Z
+
+Batch 19i16 (code 648a33656) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to 5297dbbabc15e1861d2e69a65a272a5416e67d41 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
