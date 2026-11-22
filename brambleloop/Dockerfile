@@ -1,7 +1,9 @@
 # python:3.11-slim (Debian trixie) multi-arch index, pinned by digest 2026-10-07 (F-416). Bump deliberately.
 FROM python:3.11-slim@sha256:0dd364ba7e10242f07755449e3a3d0e35f9efd987952737b90def6709ab0c5ce
 
-ENV PYTHONUNBUFFERED=1 \
+# F-12: daily keys, caps and windows use date.today(); the process zone is UTC by contract.
+ENV TZ=UTC \
+    PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PYTHONPATH=/app/src
