@@ -6114,6 +6114,22 @@ def _marketing_followup(ctx: JobContext, slug: str, stale: list, i: dict, verify
                             and not (r.inputs or {}).get("fix_only")), None)
     if plan_inputs is None:
         return None
+    # Only when the marketing gate's own rebuild exception holds NOW (nothing but this
+    # product's own stale marketing, window open): a follow-up the gate would refuse anyway
+    # (e.g. published content kept out of plan, another halting row) is not enqueued.
+    try:
+        from datetime import date as _date
+
+        from ..publish.release_gates import for_marketing as _for_marketing
+
+        g = _for_marketing(ctx.db, slug=slug, version=str(plan_inputs.get("version") or ""),
+                           today=(_date.fromisoformat(plan_inputs["as_of"])
+                                  if plan_inputs.get("as_of") else None),
+                           positioning=plan_inputs.get("positioning"))
+        if g["blocks"] and not g.get("only_own_marketing_stale"):
+            return None
+    except Exception:  # noqa: BLE001 - an unreadable gate asks for nothing
+        return None
     try:
         job = ctx.enqueue("growth", "marketing.schedule", plan_inputs,
                           idempotency_key=f"rebuild-mkt-followup:{slug}:{ctx.job.id}:{verify}")
