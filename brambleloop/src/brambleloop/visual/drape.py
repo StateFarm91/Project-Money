@@ -258,7 +258,9 @@ PROVENANCE = {
                         "form in its infinite limit: a vertex the support touched keeps its "
                         "tangential position. Needed because a frictionless sphere gives the "
                         "fabric no equilibrium short of sliding off (measured: rms motion still "
-                        "growing after 6,400 iterations)",
+                        "growing after 6,400 iterations). With it off (the default) support "
+                        "friction is NOT MODELLED -- the support is frictionless, and the "
+                        "swatch is not claimed to be in the configuration friction would give",
     "polish_passes": "DERIVED, no new constant, OFF BY DEFAULT. Alternating contact and length "
                      "projections after the last iteration, ending on the hard floor, so that "
                      "the configuration handed to `validate` satisfies the floor it was "
@@ -280,9 +282,6 @@ PROVENANCE = {
                         "stands aside on an input that is already broken. 2.168ms an iteration "
                         "against 97.673ms for a full topology pass, which is why this half of "
                         "continuous validation is affordable and that half is not",
-    "support_friction": "NOT MODELLED -- the support is frictionless, which is stated "
-                        "because friction would resist sliding and the swatch is not "
-                        "claimed to be in the configuration friction would give",
 }
 
 

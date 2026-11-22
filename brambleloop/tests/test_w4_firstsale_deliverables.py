@@ -199,11 +199,14 @@ def test_assets_build_keeps_the_certified_pdfs_and_frames():
     assert "deliverables_mod.secure_release(" in src
 
 
+class _Skip(Exception):
+    """A test that did not run. Reported as a column-zero SKIP line, never as OK."""
+
+
 def test_on_postgres_when_available():
     url = os.environ.get("BL_TEST_PG_URL")
     if not url:
-        print("     (BL_TEST_PG_URL unset: Postgres run skipped, SQLite only)")
-        return
+        raise _Skip("BL_TEST_PG_URL unset: Postgres run skipped, SQLite only")
     for case in (case_kept_bytes_survive_a_redeploy,
                  case_rerender_must_be_byte_identical_then_kept,
                  case_drifting_rerender_is_refused_never_served,
@@ -216,15 +219,21 @@ if __name__ == "__main__":
              if n.startswith("test_") and callable(f)]
     assert tests
     failed = 0
+    skipped = 0
     for name, fn in tests:
         try:
             fn()
             print(f"OK   {name}")
+        except _Skip as exc:
+            # Repo convention (test_codex_v0_postgres, test_eng_stale_rebuild_loop): a test
+            # that did not run prints SKIP, which run_tests.sh counts, and no OK line.
+            skipped += 1
+            print(f"SKIP {name}: {exc}")
         except Exception as exc:  # noqa: BLE001
             failed += 1
             import traceback
 
             print(f"FAIL {name}: {type(exc).__name__}: {exc}"[:1500])
             traceback.print_exc(limit=4)
-    print(f"{len(tests) - failed}/{len(tests)} passed")
+    print(f"{len(tests) - failed - skipped}/{len(tests)} passed, {skipped} skipped")
     sys.exit(1 if failed else 0)
