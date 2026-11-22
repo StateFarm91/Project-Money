@@ -116,3 +116,14 @@ New suite: `tests/test_images_pdfref.py`, 12 tests, all passing:
 
 The results for the touched suites and `test_vacuity` are in the commit message for this
 branch.
+
+## Inherited from the `eng/images-dialin` merge (not caused by this branch)
+
+`tests/test_w4_visnext2.py` fails 3 tests on the merged tree, and on `origin/eng/images-dialin`
+by itself (b9718dc). It passes on this branch's pre-merge commit 9d3e5e4. The cause is
+dialin's `flux_prompt.BUILDER_VERSION` bump from 2.2.0 to 2.3.0. That bump trips the
+controlled-experiment drift check against the frozen
+`experiments/definitions/exp-2026-10-21-cloudline-acceptance/definition.json`
+(`prompt_builder: flux3-prompt-builder/2.2.0`). The drift check is a spend-safety gate, so this
+branch does not re-freeze the definition. The fix belongs with dialin: either a recorded
+amendment to the definition (like its existing 2.1.1 → 2.2.0 amendment) or its retirement.
