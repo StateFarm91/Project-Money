@@ -77,6 +77,36 @@ def certified(db, slug: str, version: str, release: str = "") -> dict:
     return {"pdfs": dict(pdfs), "frames": frames}
 
 
+def _release_on_file(db, slug: str, version: str) -> str:
+    """The certified release hash on the PatternVersion row ('' when none)."""
+    from sqlalchemy import select
+
+    from ..core.models import PatternVersion, Product
+
+    with db.session() as s:
+        product = s.scalar(select(Product).where(Product.slug == slug))
+        pv = s.scalar(select(PatternVersion).where(
+            PatternVersion.product_id == product.id,
+            PatternVersion.version == version)) if product is not None else None
+        return (pv.release_hash or "") if pv is not None else ""
+
+
+def _valid_certificate_frames(db, slug: str, version: str) -> list[str]:
+    """Frame hashes of the newest valid listing-set certificate ([] when none)."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import ListingSetCertificateRecord
+
+    with db.session() as s:
+        rec = s.scalar(select(ListingSetCertificateRecord).where(
+            ListingSetCertificateRecord.product_slug == slug,
+            ListingSetCertificateRecord.version == version,
+            ListingSetCertificateRecord.state == "valid")
+            .order_by(desc(ListingSetCertificateRecord.id)).limit(1))
+        return [str(f.get("sha256")) for f in ((rec.certificate or {}).get("frames") or [])
+                if isinstance(f, dict) and f.get("sha256")] if rec is not None else []
+
+
 def render_certified_pdfs(db, slug: str, version: str) -> dict[str, bytes]:
     """Re-render both documents exactly as `assets.build` did: certified CIR, stored
     calibration, lesson links, and the release date pinned to the release row."""
@@ -111,7 +141,7 @@ def render_certified_pdfs(db, slug: str, version: str) -> dict[str, bytes]:
 
 
 def resolve_pdf(db, slug: str, version: str, terminology: str = "US", *, release: str = "",
-                store=None, render=None) -> dict:
+                store=None, render=None, want: str = "") -> dict:
     """The certified PDF's bytes, or `DeliveryRefused`. Never a different file, never None.
 
     Order: disk -> Postgres -> byte-identical re-render (then kept). `render` is injectable
@@ -119,7 +149,7 @@ def resolve_pdf(db, slug: str, version: str, terminology: str = "US", *, release
     """
     from ..core.artifacts import ArtifactMissing, ArtifactStore
 
-    want = certified(db, slug, version, release)["pdfs"].get(terminology)
+    want = want or certified(db, slug, version, release)["pdfs"].get(terminology)
     if not want:
         raise DeliveryRefused(f"no certified {terminology} PDF hash is on record for "
                               f"{slug}@{version}; nothing can be shown to be the sold file")
@@ -155,11 +185,21 @@ def secure_release(db, slug: str, version: str, *, store=None, render=None,
     from ..core.artifacts import ArtifactMissing, ArtifactStore
 
     store = store or ArtifactStore()
-    want = certified(db, slug, version)
+    # The set the rollback drill checks and `store.publish` re-verifies is the one bound to
+    # the release on file. Reading the unbound newest build here kept a different set than
+    # the drill demands, so a reproducible release failed `deliverables_restorable` after a
+    # redeploy (the bound PDFs were never kept nor re-rendered).
+    release = _release_on_file(db, slug, version)
+    want = certified(db, slug, version, release)
+    if release and not want["pdfs"]:
+        from ..launch.rollback import _built_job_pdfs  # the drill's own fallback
+
+        want["pdfs"] = _built_job_pdfs(db, slug, version, release)
     pdfs, frames = {}, {}
     for t, sha in sorted(want["pdfs"].items()):
         try:
-            got = resolve_pdf(db, slug, version, t, store=store, render=render)
+            got = resolve_pdf(db, slug, version, t, release=release, store=store,
+                              render=render, want=sha)
             pdfs[t] = {"sha256": sha, "held": held(db, sha), "source": got["source"]}
         except DeliveryRefused as exc:
             pdfs[t] = {"sha256": sha, "held": False, "refused": str(exc)[:300]}
@@ -170,6 +210,9 @@ def secure_release(db, slug: str, version: str, *, store=None, render=None,
                        certified_frames(db, slug, version)["frames"]]
     except Exception:  # noqa: BLE001 - no certificate: nothing more to keep
         listing_set = []
+    # The drill reads the valid certificate record's frames directly (not only when
+    # `certified_frames` would upload them), so those are the frames kept here too.
+    listing_set += _valid_certificate_frames(db, slug, version)
     for sha in sorted(set(want["frames"]) | {x for x in listing_set if x}):
         if held(db, sha):
             frames[sha] = True

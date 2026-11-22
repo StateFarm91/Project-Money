@@ -879,6 +879,26 @@ def handle_assets_build(ctx: JobContext) -> dict:
     return payload
 
 
+def _review_reused_hero(ctx: JobContext, slug: str, version: str, rec: dict, store) -> None:
+    """Describe a reused disclosed hero that has no successful blind review on file."""
+    from ..visual import hero_review
+
+    hero = next((f for f in rec.get("frames") or [] if f.get("role") == "hero"), None)
+    sha = ((hero or {}).get("image") or {}).get("sha256") or ""
+    if not sha or not rec.get("usable_as_listing_asset"):
+        return
+    filed = hero_review.latest_for(ctx.db, slug, sha)
+    if filed and filed.get("described") is True:
+        return
+    try:
+        reviewed = hero_review.review_disclosed_hero(ctx.db, slug, store=store)
+    except Exception as exc:  # noqa: BLE001 - an unmade review leaves HERO unjudged
+        reviewed = {"reviewed": False, "why": f"{type(exc).__name__}: {exc}"[:200]}
+    ctx.audit("assets.disclosed_hero_review", artifact=f"{slug}@{version}",
+              detail={k: reviewed.get(k) for k in ("reviewed", "why", "sha256")}
+              | {"reused_set": True})
+
+
 def _disclosed_render_set(ctx: JobContext, cir, slug: str, version: str, store,
                           lineage) -> dict | None:
     """Render, verify, QA and file the disclosed listing set for a Launch-0 release.
@@ -898,6 +918,11 @@ def _disclosed_render_set(ctx: JobContext, cir, slug: str, version: str, store,
     if (current and current.get("kind") == "disclosed_render"
             and current.get("version") == version
             and current.get("cir_fingerprint") == cir.fingerprint):
+        # W4-HEROVISION follow-up: a reused set whose hero was never described (built while
+        # image_vision was closed, or the call failed) is described now, once per build, so
+        # parity HERO is not left unjudged for the life of the release. A hero already
+        # described for these exact bytes is never re-bought.
+        _review_reused_hero(ctx, slug, version, current, store)
         return {"reused": True, "usable": current.get("usable_as_listing_asset"),
                 "frames": [f["image"]["sha256"] for f in current.get("frames") or []]}
     try:
