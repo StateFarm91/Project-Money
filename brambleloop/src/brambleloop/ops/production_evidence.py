@@ -653,6 +653,8 @@ def _paid_refusals(db, *, now: datetime, since: datetime) -> dict:
             "last_regate_radar_held": len(reg.get("radar_held") or []),
             # CONCEPT-GATE: why each held concept was not judged, as fixed codes only.
             "last_regate_radar_held_by_code": _held_codes(reg.get("radar_held") or []),
+            # CONCEPT-BOARDS: which step drew no board, for held `board_missing` concepts.
+            "last_regate_board_missing_by_why": _board_why_codes(reg.get("radar_held") or []),
             "route_now": vendor or "none",
             "openai_route_usable": bool(CJ.openai_vision_usable(db, now=now)),
             "openai_key_present": _openai_key_present()}
@@ -664,6 +666,19 @@ def _paid_refusals(db, *, now: datetime, since: datetime) -> dict:
 HELD_CODES = ("no_vision", "cap_spent", "board_cap_spent", "board_render_failed",
               "board_missing", "board_no_digest", "board_bytes_missing", "retry_window",
               "budget", "provider_refused", "provider_transient", "answer_unparsed")
+
+
+def _board_why_codes(held) -> dict:
+    from ..creative.intake import BOARD_WHY_CODES
+
+    out: dict[str, int] = {}
+    for h in held:
+        if not isinstance(h, dict) or h.get("code") != "board_missing":
+            continue
+        code = h.get("board_why")
+        code = code if code in BOARD_WHY_CODES else "other"
+        out[code] = out.get(code, 0) + 1
+    return out
 
 
 def _held_codes(held) -> dict:
