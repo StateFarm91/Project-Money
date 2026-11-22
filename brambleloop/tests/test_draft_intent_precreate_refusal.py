@@ -61,6 +61,30 @@ class PreCreateRefusal(unittest.TestCase):
                                               return_value=copy.deepcopy(self.kw["payload"])))
         self.stack.enter_context(patch.object(etsy_ops, "certified_images", return_value={
             **copy.deepcopy(self.kw["listing_images"]), "problems": []}))
+        # ENG-SALE-PIPELINE (19f): the pre-create revalidation also re-reads the certified
+        # premium editions (`publish.sale_pipeline.certified_premium_pdfs`). This synthetic
+        # release has no sale-pipeline run, so -- like parity, release gates, payload and
+        # images above -- that lookup is held to this fixture's own docs (a declared stand-in,
+        # as in test_etsy_readback_observe); the real certificate check is exercised by
+        # tests/test_sale_pipeline.py and tests/test_sale_pipeline_e2e.py.
+        # The stand-in keeps the real rule that matters here: the editions count only while
+        # bound to this release's `assets.built` PDF hashes (a missing build record is None).
+        from brambleloop.publish import sale_pipeline as _SPL
+        docs = self.kw["docs"]
+        db = self.db
+
+        def _premium(_db, slug, version, release, **_k):
+            with db.session() as s:
+                rows = s.scalars(select(AuditLog).where(
+                    AuditLog.action == "assets.built",
+                    AuditLog.artifact == f"{slug}@{version}")).all()
+            built = [dict(r.detail or {}).get("pdf_sha256_by_terminology") or {} for r in rows]
+            want = {t: hashlib.sha256(d.pdf_bytes).hexdigest() for t, d in docs.items()}
+            if not any(b == want for b in built):
+                return None
+            return {t: d.pdf_bytes for t, d in docs.items()}
+        self.stack.enter_context(patch.object(_SPL, "certified_premium_pdfs",
+                                              side_effect=_premium))
         # F-299: the env phase must agree with the owner's recorded transition.
         from phase_fixture import record_phase_path
         record_phase_path(self.db, OWNER_TOKEN, "production")
