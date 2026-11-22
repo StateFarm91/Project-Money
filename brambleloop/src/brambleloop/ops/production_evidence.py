@@ -111,6 +111,10 @@ _CLASS = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\
 _CLASS_NAME = re.compile(r"^[A-Z][A-Za-z0-9_]{1,63}$")
 
 
+_REARM_VOCAB = frozenset(("rearmed", "not_held", "parked", "failed_attempts", "other_refusal",
+                          "protected_wording", "no_deploy", "same_build",
+                          "already_this_deploy", "unreadable"))
+
 def _known_exception_names() -> frozenset[str]:
     """L1 (READBACK review): the names of every exception class loaded in this process. A name
     is emitted only when it is one of these, so one word of error text ("JaneDoe: refund
@@ -360,6 +364,12 @@ def stale_rebuilds(db, *, now: datetime) -> dict:
         "sentinel_age_hours": _age_h(sentinel.at, now) if sentinel is not None else None,
         "sentinel_stale_artefacts": stale,
         "sentinel_checked": sd.get("checked") if isinstance(sd.get("checked"), int) else None,
+        # eng/halt-380-redeploy: why each open rebuild-incomplete row was or was not re-armed
+        # by this deploy (fixed vocabulary: rebuild_graph.REARM_VERDICTS, counts only).
+        "sentinel_rearm_verdicts": {k: int(v) for k, v in
+                                    (sd.get("rebuild_incomplete_rearm_verdicts") or {}).items()
+                                    if k in _REARM_VOCAB and isinstance(v, int)},
+        "sentinel_redeploy_rearmed": len(sd.get("rebuild_incomplete_redeploy_rearmed") or []),
         "last_propagation_at": _iso(propagated.at) if propagated is not None else None,
         "last_propagation_enqueued": len(pd.get("rebuild_enqueued") or []),
         "last_propagation_retried": len(pd.get("rebuild_retried") or []),

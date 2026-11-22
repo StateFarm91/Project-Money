@@ -481,6 +481,33 @@ def _only_halt_refusals(refused) -> bool:
     return all(str(r).strip().startswith(_HALT_REFUSAL_PREFIX) for r in (refused or []))
 
 
+REARM_VERDICTS = ("rearmed", "not_held", "parked", "failed_attempts", "other_refusal",
+                  "protected_wording", "no_deploy", "same_build", "already_this_deploy")
+
+
+def rearm_verdict(db, detail) -> str:
+    """The fixed-vocabulary reason `held_before_deploy` re-arms a hold or not (visibility)."""
+    d = detail or {}
+    if not d.get("held"):
+        return "not_held"
+    if d.get("parked"):
+        return "parked"
+    if d.get("failed_attempts"):
+        return "failed_attempts"
+    if not _only_halt_refusals(d.get("refused_by")):
+        return "other_refusal"
+    if any(w in _hold_text(d).lower() for w in _NEVER_REARM_WORDS):
+        return "protected_wording"
+    commit, _started = _current_deploy(db)
+    if not commit:
+        return "no_deploy"
+    if str(d.get("held_commit") or "") == commit:
+        return "same_build"
+    if str((d.get(HOLD_RELEASE_KEY) or {}).get("deploy") or "") == commit:
+        return "already_this_deploy"
+    return "rearmed"
+
+
 def held_before_deploy(db, detail):
     """eng/halt-380-redeploy: an attempt-cap hold filed under an EARLIER deploy -- or None.
 

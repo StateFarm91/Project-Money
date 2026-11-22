@@ -136,6 +136,27 @@ def test_other_holds_are_never_rearmed_by_a_deploy():
         build.identity = real
 
 
+def test_the_verdict_vocabulary_matches_the_decision():
+    db = _db()
+    real = _running("newsha")
+    try:
+        _boot(db, "newsha", NOW - timedelta(minutes=10))
+        from brambleloop.ops import production_evidence as PE
+        cases = {"rearmed": _detail(held_commit="oldsha"),
+                 "same_build": _detail(held_commit="newsha"),
+                 "parked": _detail(parked={"gate": "g"}),
+                 "other_refusal": _detail(refused_by=["#39 policy"]),
+                 "not_held": dict(_detail(), held="")}
+        assert len(cases) == 5
+        with db.session() as s:
+            for want, d in cases.items():
+                assert RG.rearm_verdict(s, d) == want, (want, d)
+                assert (RG.held_before_deploy(s, d) is not None) == (want == "rearmed")
+        assert set(RG.REARM_VERDICTS) | {"unreadable"} == set(PE._REARM_VOCAB)
+    finally:
+        build.identity = real
+
+
 def test_unknown_deploy_rearms_nothing():
     db = _db()
     real = _running("dev")
