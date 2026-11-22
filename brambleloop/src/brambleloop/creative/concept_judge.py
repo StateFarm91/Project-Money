@@ -39,6 +39,7 @@ from datetime import datetime, timedelta, timezone
 
 ANTHROPIC, OPENAI = "anthropic", "openai"
 ATTEMPT_ACTION = "concept.judge_attempt"
+FAILED_ACTION = "concept.judge_attempt_refused_unbilled"
 RETRY_AFTER = timedelta(hours=24)
 
 
@@ -118,15 +119,43 @@ def attempted(db, board_sha: str, provider_name: str, *, slug: str | None = None
 
     now = _aware(now) or datetime.now(timezone.utc)
     with db.session() as s:
-        q = select(AuditLog.at, AuditLog.detail).where(
+        q = select(AuditLog.id, AuditLog.detail).where(
             AuditLog.action == ATTEMPT_ACTION, AuditLog.at >= now - RETRY_AFTER)
+        f = select(AuditLog.detail).where(
+            AuditLog.action == FAILED_ACTION, AuditLog.at >= now - RETRY_AFTER)
         if slug is not None:
             q = q.where(AuditLog.artifact == slug)
-        for at, d in s.execute(q):
+            f = f.where(AuditLog.artifact == slug)
+        # CONCEPT-GATE: an attempt the provider refused outright (a PermanentError: an
+        # authentication, permission or request error) was never billed, so it is not a paid
+        # call a redrive could repeat. Repeated refusals are still held back, by the route
+        # closure in `openai_vision_usable`, which counts the gate's own call rows.
+        refused = {(d or {}).get("attempt_id") for (d,) in s.execute(f)}
+        for row_id, d in s.execute(q):
             d = d or {}
+            if row_id in refused:
+                continue
             if d.get("board_sha256") == board_sha and d.get("provider") == provider_name:
                 return True
     return False
+
+
+def record_unbilled_failure(ctx, *, slug: str, board_sha: str, provider_name: str) -> None:
+    """The latest attempt of this (concept, bytes, provider) was refused before any bill."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    with ctx.db.session() as s:
+        rows = s.execute(select(AuditLog.id, AuditLog.detail).where(
+            AuditLog.action == ATTEMPT_ACTION, AuditLog.artifact == slug)
+            .order_by(AuditLog.id.desc()).limit(20)).all()
+    for row_id, d in rows:
+        d = d or {}
+        if d.get("board_sha256") == board_sha and d.get("provider") == provider_name:
+            ctx.audit(FAILED_ACTION, artifact=slug, detail={
+                "attempt_id": row_id, "board_sha256": board_sha, "provider": provider_name})
+            return
 
 
 def record_attempt(ctx, *, slug: str, board_sha: str, provider_name: str, model: str) -> None:

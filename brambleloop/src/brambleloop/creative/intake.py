@@ -1006,7 +1006,7 @@ def judge_held(ctx, *, slug: str, board: str, provider=None) -> dict:
     if not board_sha:
         return {"judged": False,
                 "why": "the board on file has no content digest; a judgement could not be "
-                       "bound to the bytes it saw"}
+                       "bound to the bytes it saw", "code": "board_no_digest"}
     # W4-B2VISION 2026-10-12: the board reference on file is the render's path in the
     # container that made it; by the time a vision judge exists it is usually gone (the same
     # defect production's first grid tournament paid for). Resolve the bytes by the digest
@@ -1017,7 +1017,7 @@ def judge_held(ctx, *, slug: str, board: str, provider=None) -> dict:
                                             "image": {"sha256": board_sha}})
     if not shown:
         return {"judged": False, "why": f"the board's bytes cannot be shown to a judge: "
-                                        f"{missing}"[:200]}
+                                        f"{missing}"[:200], "code": "board_bytes_missing"}
     guard = None
     if provider is None:
         # ENG-ADMIT-TO-BUILD: whichever owner-activated vision provider is usable
@@ -1026,7 +1026,8 @@ def judge_held(ctx, *, slug: str, board: str, provider=None) -> dict:
 
         vendor, provider = concept_judge.choose(ctx.db)
         if provider is None:
-            return {"judged": False, "why": "no owner-activated vision provider is usable"}
+            return {"judged": False, "why": "no owner-activated vision provider is usable",
+                    "code": "no_vision"}
         if vendor == concept_judge.OPENAI:
             # The openai-vision route is idempotent per (concept, board bytes): one paid
             # attempt per RETRY_AFTER, recorded just before the send (after the budget
@@ -1034,7 +1035,8 @@ def judge_held(ctx, *, slug: str, board: str, provider=None) -> dict:
             guard = str(getattr(provider, "name", "") or "openai")[:40]
             if concept_judge.attempted(ctx.db, board_sha, guard, slug=slug):
                 return {"judged": False, "why": "this board was already sent to this judge "
-                                                "within the retry window; not sent again"}
+                                                "within the retry window; not sent again",
+                        "code": "retry_window"}
     held = None
     try:
         reservation = gw.check_budget(
@@ -1052,10 +1054,20 @@ def judge_held(ctx, *, slug: str, board: str, provider=None) -> dict:
                                 max_tokens=JUDGE_MAX_TOKENS)
     except gw.BudgetExceeded as exc:
         gw.release_reservation(ctx.db, held)
-        return {"judged": False, "why": f"budget: {exc}"[:200], "stopped": True}
-    except (PermanentError, TransientError) as exc:
+        return {"judged": False, "why": f"budget: {exc}"[:200], "stopped": True,
+                "code": "budget"}
+    except PermanentError as exc:
         gw.release_reservation(ctx.db, held)
-        return {"judged": False, "why": str(exc)[:200]}
+        if guard is not None:
+            # CONCEPT-GATE: refused before any bill; this does not block a later judgement.
+            from . import concept_judge
+
+            concept_judge.record_unbilled_failure(ctx, slug=slug, board_sha=board_sha,
+                                                  provider_name=guard)
+        return {"judged": False, "why": str(exc)[:200], "code": "provider_refused"}
+    except TransientError as exc:
+        gw.release_reservation(ctx.db, held)
+        return {"judged": False, "why": str(exc)[:200], "code": "provider_transient"}
     cost = round(response.input_tokens * provider.cost_per_1k_input_cad / 1000
                  + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
     gw.release_reservation(ctx.db, held, actual_cad=cost)
@@ -1068,7 +1080,8 @@ def judge_held(ctx, *, slug: str, board: str, provider=None) -> dict:
     try:
         verdict = parse_judgement(response.text)
     except JudgeRefused as exc:
-        return {"judged": False, "why": str(exc)[:200], "cost_cad": cost}
+        return {"judged": False, "why": str(exc)[:200], "cost_cad": cost,
+                "code": "answer_unparsed"}
     ctx.audit(JUDGED_ACTION, artifact=slug,
               detail={**verdict, "judge": provider.model, "board": board[-120:],
                       "board_sha256": board_sha,
@@ -1285,11 +1298,11 @@ def judge_radar_waiting(ctx, *, today: date | None = None, provider=None,
             continue
         if not vision_ok:
             # Nothing is rendered or asked while the judge cannot answer.
-            held.append({"slug": slug,
+            held.append({"slug": slug, "code": "no_vision",
                          "waiting_on": ["vision_model (no vision probe has succeeded)"]})
             continue
         if stopped or asked_n >= limit:
-            held.append({"slug": slug, "waiting_on": [
+            held.append({"slug": slug, "code": "cap_spent", "waiting_on": [
                 "a vision judgement (this run's judge-call cap or budget is spent)"]})
             continue
         board = board_for(ctx.db, slug)
@@ -1301,19 +1314,19 @@ def judge_radar_waiting(ctx, *, today: date | None = None, provider=None,
                 # refuses it. If the animal engine drafts it, it gets one disclosed FLUX
                 # concept render prompted from that draft, paid once (creative.toy_board).
                 if renders_n >= toy_board.MAX_RENDERS_PER_RUN:
-                    held.append({"slug": slug, "waiting_on": [
+                    held.append({"slug": slug, "code": "board_cap_spent", "waiting_on": [
                         "board_image (this run's toy concept render cap is spent)"]})
                     continue
                 toy = toy_board.render_board(ctx.db, slug, job_id=ctx.job.id, today=today)
                 renders_n += 1 if toy.get("asked") else 0
                 board = toy["board"]
                 if not board:
-                    entry = {"slug": slug, "waiting_on": [
+                    entry = {"slug": slug, "code": "board_render_failed", "waiting_on": [
                         f"board_image (toy concept render: {toy['why']})"[:240]]}
                     held.append(entry)
                     continue
             if not board:
-                held.append({"slug": slug, "waiting_on": [
+                held.append({"slug": slug, "code": "board_missing", "waiting_on": [
                     f"board_image (no board could be drawn: {filed['why']})"[:240]]})
                 continue
         asked_n += 1
@@ -1321,7 +1334,8 @@ def judge_radar_waiting(ctx, *, today: date | None = None, provider=None,
         stopped = bool(asked.get("stopped"))
         if not asked.get("judged"):
             held.append({"slug": slug, "waiting_on": ["a vision judgement of the board on file"],
-                         "judge_said": str(asked.get("why") or "")[:200]})
+                         "judge_said": str(asked.get("why") or "")[:200],
+                         "code": str(asked.get("code") or "other")[:30]})
             continue
         judged_now.append({"slug": slug, **{k: asked.get(k) for k in (
             "thumbnail_reads_small", "craft_impression", "judge")}})
