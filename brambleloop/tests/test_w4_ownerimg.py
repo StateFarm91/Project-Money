@@ -382,7 +382,12 @@ def test_shot_plans_for_all_eight_and_wearable_template():
     life = [r for r in cl["roles"] if r["role"] == "lifestyle"][0]
     assert life["laura"] and life["sources"][SP.DISCLOSED] == SP.NOT_DRAWABLE
     assert life["sources"][SP.GENERATED] == SP.BLOCKED_F852 and "F-030" in life["required_by"]
-    assert "lifestyle" not in [r["role"] for r in plans["nordic-star-ornaments"]["roles"]]
+    # D-OWNER-LAURA-ALL-FAMILIES: the ornaments had no lifestyle role (their catalogue jobs omit
+    # LIFESTYLE); the owner ruled every family carries a Laura lifestyle frame, so the plan adds
+    # one (Laura hanging an ornament), with the same sources as any other lifestyle role.
+    orn = [r for r in plans["nordic-star-ornaments"]["roles"] if r["role"] == "lifestyle"]
+    assert len(orn) == 1 and orn[0]["laura"] and "Laura" in orn[0]["brief"], orn
+    assert orn[0]["sources"] == life["sources"]
     w = SP.wearable_template()
     roles = {r["role"]: r for r in w["roles"]}
     assert {"fit", "angle", "construction"} <= set(roles)
