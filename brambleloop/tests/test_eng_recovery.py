@@ -48,6 +48,12 @@ from brambleloop.runtime import pipeline, release  # noqa: E402,F401 - registers
 from brambleloop.runtime.worker import CADENCES, Scheduler  # noqa: E402
 from brambleloop.swarm import orchestrate as orc  # noqa: E402
 
+# D-OWNER-NO-PAUSE (19i20): pipeline job types are never idle-parked any more
+# (tests/test_no_pause.py). These tests exercise the generic backoff / rearm / input-probe
+# mechanics that non-pipeline polls still use, with pipeline job types as fixtures, so here
+# every job type is treated as an ordinary poll.
+orc.is_pipeline_job = lambda jt: False
+
 OLD = "f34c25ae" + "0" * 32
 NEW = "8bc96eef" + "1" * 32
 # The scheduler stamps created_at with the wall clock, and rearm_probe compares it with the

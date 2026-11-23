@@ -3,7 +3,8 @@
 Owner, 2026-11-23: "None of this should be paused. Ridiculous" and "Laura and model
 photography is mandatory". An idle production-pipeline job is never parked by the free-poll
 backoff, an existing park is cleared at boot, a failing job is still backed off (the
-SUSPENDED breaker), and a gallery is never ready without an accepted Laura lifestyle frame.
+SUSPENDED breaker), and a gallery is never ready without an accepted Laura lifestyle frame
+(tests/test_v2_gallery_consistency.py).
 """
 from __future__ import annotations
 
@@ -73,7 +74,9 @@ def test_the_owner_named_jobs_are_pipeline_jobs():
 
 def test_an_idle_pipeline_job_is_never_parked():
     db = _db()
-    for jt in sorted(j for j in SCHEDULED if orc.is_pipeline_job(j)):
+    pipeline = sorted(j for j in SCHEDULED if orc.is_pipeline_job(j))
+    assert len(pipeline) > 40, pipeline
+    for jt in pipeline:
         with db.session() as s:
             out = orc._free_poll_backoff(s, _idle(jt), now=NOW)
         assert out["applied"] == [], (jt, out)
@@ -114,15 +117,18 @@ def test_a_failing_pipeline_job_is_still_backed_off():
     assert _open(db, jt), "the error-thrash breaker must survive the boot clear"
 
 
-def test_a_gallery_without_an_accepted_laura_lifestyle_frame_is_not_ready():
-    src = (ROOT / "src/brambleloop/visual/image_production.py").read_text()
-    assert "laura_lifestyle_missing" in src and "standard[\"ok\"] and laura_ok" in src
-
-
 if __name__ == "__main__":
     import inspect
-    fns = [f for n, f in sorted(globals().items()) if n.startswith("test_")
-           and inspect.isfunction(f)]
-    for f in fns:
-        f()
-    print(f"{len(fns)} passed")
+    import traceback
+    failed = 0
+    for name, fn in sorted(globals().items()):
+        if name.startswith("test_") and inspect.isfunction(fn):
+            try:
+                fn()
+                print(f"OK   {name}")
+            except Exception as exc:  # noqa: BLE001
+                failed += 1
+                traceback.print_exc()
+                print(f"FAIL {name} {exc!r}")
+    print(f"PASS: {failed} failing" if not failed else f"FAIL: {failed} failing")
+    sys.exit(1 if failed else 0)

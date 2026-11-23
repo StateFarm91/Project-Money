@@ -39,6 +39,21 @@ deployed); 6 are not; 2 name no resolvable branch.
 
 ---
 
+## 19i20 — NO-PAUSE + LAURA-MANDATORY + REDRIVE-REFUSAL (2026-11-23 ~05:00Z)
+
+The release contents are recorded here; deployment is recorded in DEPLOYED_HISTORY.
+- D-OWNER-NO-PAUSE. Production-pipeline job types are never parked by the idle free-poll
+  backoff (`orchestrate.is_pipeline_job`), and existing parks are cleared at web boot. The
+  error-thrash breaker (SUSPENDED) and every paid cap are unchanged.
+- D-OWNER-LAURA-MANDATORY. `readiness.gallery_ready` requires an accepted Laura LIFESTYLE
+  frame; without one the set check carries the problem `laura_lifestyle_missing`.
+- eng/redrive-refusal (5b16400cc) is merged: unbilled 403-era attempts no longer consume
+  restarts or calls.
+- eng/backoff-cap never landed and is not included.
+- Tests: tests/test_no_pause.py, plus a Laura test in test_v2_gallery_consistency. The
+  touched suites and vacuity pass (filtered run). The full-suite record run follows the
+  release.
+
 ## REDRIVE-FIRE — 2026-11-23 (branch eng/redrive-fire from b48ff952, NOT merged, NOT deployed)
 
 Production 19i18 at 01:50Z: neither image redrive fired (3 daily-ceiling stops from yesterday,

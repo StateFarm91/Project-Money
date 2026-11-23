@@ -43,6 +43,12 @@ from brambleloop.runtime import pipeline  # noqa: E402,F401 - registers handlers
 from brambleloop.runtime.worker import CADENCES, Scheduler, Worker  # noqa: E402
 from brambleloop.swarm import orchestrate as orc  # noqa: E402
 
+# D-OWNER-NO-PAUSE (19i20): pipeline job types are never idle-parked any more
+# (tests/test_no_pause.py). These tests exercise the generic backoff / rearm / input-probe
+# mechanics that non-pipeline polls still use, with pipeline job types as fixtures, so here
+# every job type is treated as an ordinary poll.
+orc.is_pipeline_job = lambda jt: False
+
 import test_w4_intelrec_watchlist as intelrec  # noqa: E402 - the recorded fixture reader
 
 SCAN = "intel.watchlist_scan"

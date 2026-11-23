@@ -4810,7 +4810,8 @@ should be paused. Ridiculous".
    - `MANDATORY_JOB_TYPES`;
    - every job type with prefix `radar.`, `creative.`, `assets.`, `visual.`, `listing.`,
      `chain.`, `cir.`, `gate.`, `supply.`, `sale.`, `launch.` or `laura.`;
-   - intel.watchlist_compare, intel.gallery_analysis and store.draft_reconcile.
+   - intel.watchlist_compare and store.draft_reconcile. intel.gallery_analysis is competitor
+     research, not the product chain, so it keeps the idle backoff.
 2. Pipeline job types are never parked by the idle free-poll backoff (kind BACKOFF):
    - `_free_poll_backoff` never applies one and resolves any open one;
    - `suspended_job_types` ignores any that are still open;
@@ -4839,7 +4840,7 @@ should be paused. Ridiculous".
   creative.reference_reading, creative.regate, creative.salvage_review,
   creative.style_learning, creative.tournament, creative.white_space
 - gate.lanes, gate.quality
-- intel.gallery_analysis, intel.watchlist_compare
+- intel.watchlist_compare
 - launch.readiness
 - laura.executive_tick
 - listing.cross_sell_graph, listing.outcomes, listing.package,

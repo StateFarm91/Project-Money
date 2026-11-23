@@ -404,7 +404,7 @@ PIPELINE_JOB_PREFIXES: tuple[str, ...] = (
     "supply.", "sale.", "launch.", "laura.",
 )
 PIPELINE_JOB_TYPES_EXTRA: frozenset[str] = frozenset({
-    "intel.watchlist_compare", "intel.gallery_analysis", "store.draft_reconcile",
+    "intel.watchlist_compare", "store.draft_reconcile",
 })
 
 

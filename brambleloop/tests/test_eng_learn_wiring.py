@@ -27,6 +27,12 @@ from brambleloop.core.models import Incident, Job, JobStatus  # noqa: E402
 from brambleloop.learning import progress, stats  # noqa: E402
 from brambleloop.swarm import orchestrate as O  # noqa: E402
 
+# D-OWNER-NO-PAUSE (19i20): pipeline job types are never idle-parked any more
+# (tests/test_no_pause.py). These tests exercise the generic backoff / rearm / input-probe
+# mechanics that non-pipeline polls still use, with pipeline job types as fixtures, so here
+# every job type is treated as an ordinary poll.
+O.is_pipeline_job = lambda jt: False
+
 NOW = datetime(2026, 11, 20, tzinfo=timezone.utc)
 SUSPENDED = ("creative.image_benchmark", "creative.outcome_learning",
              "creative.reference_reading", "visual.rnd.cycle", "improve.monitor")

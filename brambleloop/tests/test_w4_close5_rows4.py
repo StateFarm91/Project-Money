@@ -73,7 +73,7 @@ def test_f487_departments_route_serves_a_backed_off_job_type_instead_of_a_500():
 
     main.db.create_all()
     Registry(main.db).seed_defaults()
-    backoff, suspended = "intel.gallery_analysis", "listing.seo"
+    backoff, suspended = "intel.benchmark_refresh", "listing.seo"
     _backoff_and_suspension(main.db, backoff_type=backoff, suspended_type=suspended)
     parked = orchestrate.suspended_job_types(main.db)
     assert parked[backoff]["kind"] == orchestrate.BACKOFF and "why" not in parked[backoff], \
