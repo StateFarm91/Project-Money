@@ -82,14 +82,27 @@ _DISCLOSED: dict[str, tuple[str, str, str] | None] = {
 # Briefs for the generated source. They are code defaults. A change is adopted only as a
 # promoted `improve.league` prompt version (`image_production.PROMPT_KEY`), never edited
 # around a gate.
+#
+# D-OWNER-LAURA-ALL-FAMILIES (owner ruling D-OWNER-LAURA-MANDATORY, "Laura and model
+# photography is mandatory"; the owner's own references show Laura holding the striped basket
+# and at a table with the hexagon coasters): every family's lifestyle frame is a Laura frame,
+# Laura using the piece naturally. No category is Laura-free, and an unlisted category gets
+# the generic Laura brief. Laura is always the canonical identity (laura.identity); these
+# briefs never describe her, and the product pixels and fidelity gates are unchanged.
 LIFESTYLE_BRIEF: dict[str, tuple[bool, str]] = {
     "blanket": (True, "the finished blanket draped over Laura's lap on a sofa, soft daylight"),
     "baby": (True, "the finished baby blanket folded over Laura's arm beside a nursery chair"),
-    "basket": (False, "the finished basket(s) on a shelf holding everyday things"),
-    "coaster": (False, "all coasters on a wooden table, a mug beside (never on) one"),
-    "placemat": (False, "both placemats set on a dining table with plates beside them"),
+    "basket": (True, "Laura holding the finished basket(s), filling one with everyday things "
+                     "at a shelf"),
+    "coaster": (True, "all coasters on a wooden table where Laura sits, her mug beside (never "
+                      "on) one"),
+    "ornament": (True, "Laura hanging one finished ornament on a plain evergreen tree, soft "
+                       "daylight"),
+    "placemat": (True, "Laura setting a dining table with both placemats, plates beside them"),
     "garment": (True, "Laura wearing the finished garment, full length, natural light"),
 }
+DEFAULT_LIFESTYLE_BRIEF: tuple[bool, str] = (True, "Laura using the finished piece where it "
+                                                   "lives")
 
 
 def _sources(job: str) -> dict[str, str]:
@@ -122,6 +135,12 @@ def plan_for_category(category: str, *, sizes: int = 1, colours: int = 1,
                       extra: dict[str, str] | None = None) -> dict:
     applicable = dict(el.gallery_jobs_for(category, sizes=sizes, colours=colours))
     applicable.update(extra or {})
+    laura, brief = LIFESTYLE_BRIEF.get(category, DEFAULT_LIFESTYLE_BRIEF)
+    if laura:
+        # D-OWNER-LAURA-ALL-FAMILIES: a Laura lifestyle frame is in every plan, including a
+        # category whose catalogue jobs (eligibility.gallery_jobs_for) omit LIFESTYLE.
+        applicable.setdefault(el.LIFESTYLE, "D-OWNER-LAURA-ALL-FAMILIES: Laura using the "
+                                            "piece is mandatory in every gallery")
     applicable.setdefault(el.PROOF, "conditional: only once a physical sample photograph "
                                     "exists (F-030 'category-specific proof')")
     roles = []
@@ -129,7 +148,6 @@ def plan_for_category(category: str, *, sizes: int = 1, colours: int = 1,
         if job not in applicable:
             continue
         srcs = _sources(job)
-        laura, brief = LIFESTYLE_BRIEF.get(category, (False, "the finished piece in use"))
         roles.append({
             "position": len(roles) + 1, "role": ROLE_OF_JOB[job], "job": job,
             "why": applicable[job], "required_by": list(REQUIRED_BY[job]),
@@ -196,7 +214,9 @@ CAMPAIGN_GENERATED: dict[str, str] = {
 }
 # W5-V1 (audit P1-c): a listing whose shot plan has no Laura is generated product-only ("The
 # product alone; no person."), so its briefs never ask for her. The same three jobs, without a
-# person; size is shown against everyday objects of known size.
+# person; size is shown against everyday objects of known size. Since
+# D-OWNER-LAURA-ALL-FAMILIES no category plan is Laura-free; these briefs remain only for a
+# caller-supplied plan without a Laura role (which the gallery rule then refuses).
 CAMPAIGN_GENERATED_PRODUCT_ONLY: dict[str, str] = {
     el.LIFESTYLE: "lifestyle: the piece in use where it lives, no person",
     el.SCALE: "the piece from another angle beside everyday objects of known size, which "
@@ -333,7 +353,8 @@ FLUX_BRIEFS: dict[str, dict[str, tuple[bool, str]]] = {
         el.DESIRE: (False, "hero: the finished piece in use, styled table or shelf"),
         el.COLOUR_CONTEXT: (False, "the finished piece(s) flat-lay, every piece visible, "
                                    "plain surface"),
-        el.LIFESTYLE: (False, "the finished piece in everyday use, no person"),
+        # D-OWNER-LAURA-ALL-FAMILIES: Laura in every family's lifestyle frame.
+        el.LIFESTYLE: (True, "Laura using the finished piece in everyday life at home"),
         el.ANGLE: (False, "the finished piece from another angle showing its construction: "
                           "base, joins or back"),
         el.DETAIL: (False, "close-up of the stitch texture of the finished piece"),

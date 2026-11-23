@@ -4870,3 +4870,33 @@ Batch 19i20 (code 5d87f2974) is deployed under D-OWNER-AUTODEPLOY-24H-2, the own
   job, must hold a generated Laura frame that no check FAILed (PASS or UNKNOWN). UNKNOWN is
   allowed because the Laura identity verifier is not production-qualified, so production reads
   UNKNOWN. A missing or FAILed Laura frame still blocks.
+
+## D-OWNER-LAURA-ALL-FAMILIES — 2026-11-23T22:05Z
+
+**Authority:** owner ruling D-OWNER-LAURA-MANDATORY, verbatim: "Laura and model photography is
+mandatory". The owner's own reference photos show Laura holding the striped basket and sitting
+at a table with the hexagon coasters. A Laura-free shot plan contradicts that ruling. This is
+the owner's direct ruling, not a prompt experiment, so the `improve.league` promotion route
+does not apply.
+
+**Decision (19i23).** `visual.shot_plans`:
+1. Every `LIFESTYLE_BRIEF` is a Laura frame, with Laura using the piece naturally:
+   - basket: Laura holding the basket(s), filling one at a shelf;
+   - coaster: all coasters on a table where Laura sits, her mug beside (never on) one;
+   - ornament: Laura hanging one ornament on a plain evergreen tree;
+   - placemat: Laura setting a dining table with both placemats.
+   A category with no entry gets `DEFAULT_LIFESTYLE_BRIEF` ("Laura using the finished piece
+   where it lives").
+2. `plan_for_category` adds the LIFESTYLE job wherever `eligibility.gallery_jobs_for` omits it
+   (ornaments, garments and other non-lived-with categories), so every plan has a Laura frame.
+   The catalogue's `gallery_jobs_for` itself is unchanged.
+3. The FLUX small-goods family's LIFESTYLE frame is a Laura frame.
+
+**Not changed:** the briefs never describe Laura. Laura is always the canonical identity
+laura-r2-a42aeac7 (`laura.identity`), never modified or substituted. The product pixels,
+references, fidelity gates, the Laura-mandatory gallery rule and the knitted/crocheted-decoy
+rules are unchanged.
+
+**Consequence:** the previously Laura-free Launch-0 listings (bread basket, key basket, coaster
+set, star ornaments, placemat pair) now generate Laura lifestyle, size and colour frames and can
+satisfy `laura_lifestyle_ok`.

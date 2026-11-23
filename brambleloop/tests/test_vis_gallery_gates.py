@@ -202,7 +202,10 @@ def test_flux_campaign_seven_distinct_jobs_per_family():
     assert worn[el.DESIRE] and worn[el.ANGLE] and worn[el.SCALE] and worn[el.LIFESTYLE]
     assert not worn[el.DETAIL] and not worn[el.COLOUR_CONTEXT]
     small = SP.flux_campaign_for("coaster")
-    assert not small["laura_in_campaign"]
+    # D-OWNER-LAURA-ALL-FAMILIES: small goods were Laura-free; the owner ruled Laura is in
+    # every family's lifestyle frame (her references show Laura at a table with the coasters).
+    assert small["laura_in_campaign"]
+    assert [r["job"] for r in small["roles"] if r["laura"]] == [el.LIFESTYLE]
     assert "construction" in [r for r in small["roles"] if r["job"] == el.ANGLE][0]["brief"]
     soft = {r["job"]: r["brief"] for r in SP.flux_campaign_for("pillow")["roles"]}
     assert "room" in soft[el.DESIRE] and "texture" in soft[el.DETAIL]

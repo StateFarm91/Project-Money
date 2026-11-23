@@ -1,7 +1,7 @@
 """ENG-SALE-PIPELINE end to end: a certified, for-sale release becomes READY with no owner step
 (D-OWNER-SALE-PIPELINE, HARD RULE).
 
-Real: `gate.certify` and `assets.build` for the Cloudline baby blanket (both text PDFs rendered,
+Real: `gate.certify` and `assets.build` for the hexagon coaster set (both text PDFs rendered,
 hashed and stored); every `sale.pipeline` stage and every `visual.image_production` stage
 through the real worker handlers on the durable queue; the release.py hand-off from image
 production to the gallery stage; the premium US/UK render with the certified images in the
@@ -159,13 +159,11 @@ def _chain():
     with db.session() as s:
         s.add(EtsyTaxonomySnapshot(sha256="fixture", node_count=len(snap["nodes"]),
                                    nodes=snap["nodes"], properties=snap["properties"]))
-    # D-OWNER-LAURA-MANDATORY: a gallery is never ready without a generated Laura frame, and
-    # only a Laura listing's plan asks for one (shot_plans.LIFESTYLE_BRIEF). The chain runs on
-    # the Cloudline baby blanket, whose campaign plan marks its lifestyle, size and colour
-    # frames for Laura, so the generator produces them exactly as production would. A
-    # Laura-free plan (coasters, baskets, placemats) correctly stops at the gallery stage with
-    # laura_lifestyle_missing (test_v2_gallery_consistency).
-    cir = L.cir_for("cloudline_blanket")
+    # D-OWNER-LAURA-MANDATORY: a gallery is never ready without a generated Laura frame. Since
+    # D-OWNER-LAURA-ALL-FAMILIES every plan asks for one, the coaster set included (the owner's
+    # references show Laura at a table with these coasters), so the generator produces Laura
+    # lifestyle, size and colour frames exactly as production would.
+    cir = L.cir_for("hexagon_coasters")
     job = _run_job(db, "quality_director", "gate.certify", {"cir": cir.to_dict()}, "certify")
     assert job.outputs.get("granted"), job.outputs
     with db.session() as s:

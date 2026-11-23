@@ -668,22 +668,53 @@ def test_single_colour_and_charted_fabrics_state_no_spurious_bands():
 # ---- P1-c ---------------------------------------------------------------------------------
 
 def test_briefs_follow_whether_the_listing_uses_laura():
+    """W5-V1 P1-c, updated for D-OWNER-LAURA-ALL-FAMILIES: the basket was the Laura-free
+    example; the owner ruled every family's lifestyle frame is a Laura frame (her references
+    show Laura holding the striped basket). The pin that briefs follow the plan's Laura flag
+    stays: a Laura plan gets the Laura briefs, and the product-only briefs (still used for a
+    caller-supplied plan with no Laura role) never name her."""
     from brambleloop.visual import shot_plans as SP
 
     basket = SP.campaign_plan(BASKET_LISTING)
-    assert basket["laura_in_campaign"] is False
+    assert basket["laura_in_campaign"] is True
     gen = [r for r in basket["roles"] if r.get("generate")]
     assert gen and {r["role"] for r in gen} >= {"lifestyle", "size"}
-    for r in basket["roles"]:
-        assert "Laura" not in (r.get("brief") or "") and "Laura" not in str(
-            r.get("campaign_role")), r
+    life = next(r for r in gen if r["role"] == "lifestyle")
+    assert life["laura"] and "Laura" in life["brief"] and "basket" in life["brief"], life
     size = next(r for r in gen if r["role"] == "size")
-    assert "no person" in size["brief"] and "known size" in size["brief"]
+    assert size["laura"] and size["brief"] == SP.CAMPAIGN_GENERATED[size["job"]]
+    for b in SP.CAMPAIGN_GENERATED_PRODUCT_ONLY.values():
+        assert "Laura" not in b and "no person" in b
+    assert "known size" in SP.CAMPAIGN_GENERATED_PRODUCT_ONLY[size["job"]]
+    assert SP.campaign_briefs(False) is SP.CAMPAIGN_GENERATED_PRODUCT_ONLY
     cloud = SP.campaign_plan("cloudline-baby-blanket")
     assert cloud["laura_in_campaign"] is True
     csize = next(r for r in cloud["roles"] if r.get("generate") and r["role"] == "size")
     assert csize["brief"] == SP.CAMPAIGN_GENERATED[csize["job"]] and "Laura" in csize["brief"]
 
+
+def test_every_launch0_plan_and_family_has_a_laura_lifestyle_frame():
+    """D-OWNER-LAURA-ALL-FAMILIES: no category plan is Laura-free (owner ruling
+    D-OWNER-LAURA-MANDATORY), including ornaments, whose catalogue jobs omit LIFESTYLE."""
+    import re
+
+    from brambleloop.products import launch0
+    from brambleloop.visual import laura_home as LH
+    from brambleloop.visual import shot_plans as SP
+
+    for slug in launch0.LAUNCH0_SLUGS:
+        p = SP.campaign_plan(slug)
+        life = [r for r in p["roles"] if r["job"] == "LIFESTYLE"]
+        assert len(life) == 1 and life[0]["laura"] and life[0]["generate"], (slug, life)
+        assert "Laura" in life[0]["brief"], (slug, life[0]["brief"])
+        assert SP.campaign_standard(p)["ok"], slug
+        assert SP.flux_campaign_plan(slug)["laura_in_campaign"], slug
+    for cat, (laura, brief) in list(SP.LIFESTYLE_BRIEF.items()) + [
+            ("other", SP.DEFAULT_LIFESTYLE_BRIEF)]:
+        assert laura and "Laura" in brief and not LH.problems(brief), cat
+        if cat not in ("blanket", "baby"):       # the product itself is a blanket there
+            assert not re.search(LH.KNITTED_OR_CROCHETED, brief, re.I), (cat, brief)
+    assert SP.plan_for_category("unlisted_category")["roles"][1]["job"] == "LIFESTYLE"
 
 if __name__ == "__main__":
     fails = passes = 0
