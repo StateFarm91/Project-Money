@@ -4724,3 +4724,58 @@ Batch 19i17 (code 9bb44cdaf) is deployed under D-OWNER-AUTODEPLOY-24H-2, the own
 ## D-OWNER-DEPLOY-19i18 — 2026-11-23T01:44:03Z
 
 Batch 19i18 (code 98a1591dc) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to e5b4d2853dd78c67aa5bdb23d07f9373e3c0a47c was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-REDRIVE-FIRE — 2026-11-23T02:10Z (branch eng/redrive-fire, not deployed)
+
+**Problem.** Production 19i18 (b48ff952) at 01:50Z: 3 runs blocked yesterday on the provider's
+daily ceiling and 2 runs blocked at the fidelity gate under an older generation method. The
+ceiling reset at 00:00Z. Neither redrive (eng/image-blocked, eng/image-method-redrive) fired.
+
+**Trace.** `runtime.worker.CADENCES` → `chain_successors` (hourly, agent `listing`) →
+`Scheduler.tick` → `release.handle_chain_successors` → `chain_successors.sweep` →
+`image_production.redrive_capability_blocked` → `restartable` / `restart`. `tick` skips any
+job type in `swarm.orchestrate.suspended_job_types`. BUILD_STATE records `chain.successors`
+in the free-poll backoff at x32 (32 hours). The backoff reads three identical outputs as an
+idle poll. A run waiting for the UTC day produces identical outputs, because only the clock
+moves. The ENG-RECOVERY re-arm gives a parked free loop one probe per release. That probe ran
+under 19i18 before midnight, saw "waiting" and parked the sweep again. So no restart could
+fire on the new day. The method redrive depended on the same single probe.
+
+Ruled out:
+- the job not being scheduled (it is in CADENCES and FREE_JOB_TYPES, and not boot-deferred);
+- a department block: it can't be read offline, and it isn't needed to explain the silence (UNVERIFIED);
+- SHADOW: the boot guard forces SHADOW on Railway, but no code on the image path reads the
+  phase (`paid_provider_gate`, `image_production`), and production spent CA$0.07 on FLUX today
+  in SHADOW;
+- the unproven-build halt: it binds publication (`publication_refusal_reasons`), not generation;
+- `restartable` reading a missing field: `updated_at` is set on every block, and unstamped
+  candidates read as `pre-method`.
+
+The readback gap was real: `production_evidence._vp_runs` never read
+`stages._method_redrive`, so `method_redrives` was absent.
+
+**Decision.**
+1. `swarm.orchestrate.INPUT_PROBES["chain.successors"]` is added. It reads
+   `image_production.redrive_due(session, since)` from the rows. A due restart is one of:
+   - a daily-ceiling stop whose UTC day has changed since the backoff was recorded, and which
+     has not been redriven today;
+   - a fidelity block whose FAIL frames are all from another method version, with no restart
+     and no readback under the current version.
+   Both exclude runs at MAX_RESTARTS and experiment runs. While a restart is due, the backoff
+   lifts. Once the sweep acts, the run stops being due, so the sweep cannot be held at hourly.
+   This is the existing mechanism for "the input changed" (ENG-LEARN), not a new exemption.
+   `chain.successors` stays out of LIVENESS_JOB_TYPES: an idle sweep still backs off.
+2. A method redrive whose restart is refused (cap or race) records the readback as `eligible`
+   under the current version, so it is judged once.
+3. Evidence: `visual_pipeline.galleries.method_redrives` holds `{eligible, done, no_headroom}`
+   counts under the current method, and is always present. `galleries.redrive_due` holds the
+   kind or None. The `chain.successors_swept` audit adds `method_redrives` and image run keys.
+
+**Unchanged.**
+- Every cap: per-gallery spend, call cap, daily and monthly ceilings, MAX_RESTARTS.
+- One restart per UTC day and one per method version.
+- Spend, calls and attempts are not reset.
+- The publication gate, SHADOW, and the boot guard. No block was lifted: SHADOW does not
+  block image production, so there was nothing over-broad to lift. The owner wants galleries
+  made before publication; they already are, and publication stays gated.
+

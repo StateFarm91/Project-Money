@@ -39,6 +39,22 @@ deployed); 6 are not; 2 name no resolvable branch.
 
 ---
 
+## REDRIVE-FIRE — 2026-11-23 (branch eng/redrive-fire from b48ff952, NOT merged, NOT deployed)
+
+Production 19i18 at 01:50Z: neither image redrive fired (3 daily-ceiling stops from yesterday,
+2 old-method fidelity blocks). Root cause: both run only inside the hourly `chain.successors`
+sweep, and that cadence was parked by the thrash breaker's free-poll backoff (x32). A sweep
+that waits for the UTC day returns identical outputs, and its one re-arm probe per release ran
+before 00:00Z. Fix: `orchestrate.INPUT_PROBES["chain.successors"]` reads
+`image_production.redrive_due` from the rows, so the backoff lifts while a restart is due.
+Caps, one-per-day, one-per-method and MAX_RESTARTS are unchanged. Spend is not reset. Also
+wired: `visual_pipeline.galleries.method_redrives` and `.redrive_due` in the production
+readback, and `method_redrives` plus image run keys in the `chain.successors_swept` audit.
+SHADOW does not gate paid image generation (no lift made). Live effect is UNVERIFIED until
+deployed. Report: `REDRIVE-FIRE.md`. Test: `tests/test_redrive_fire.py`.
+
+---
+
 > **2026-11-22 — IMAGES-PDFREF on `eng/images-pdfref` (from 5297dbba; NOT merged, NOT deployed; production
 > unchanged; no paid call made).** The owner's hand method ("PDF pages as images") is now part of the autonomous
 > pipeline. The release's certified premium US PDF is rendered deterministically (`creative/pdf_page_refs.py`:

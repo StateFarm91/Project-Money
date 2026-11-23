@@ -11506,8 +11506,13 @@ def handle_chain_successors(ctx: JobContext) -> dict:
     from . import chain_successors
 
     out = chain_successors.sweep(ctx.db, ctx.queue)
+    images = out.get("images") or {}
     ctx.audit("chain.successors_swept", detail={k: out[k] for k in (
-        "open", "redriven", "resolved", "commit")} | {"waiting": out["waiting"][:20]})
+        "open", "redriven", "resolved", "commit")} | {"waiting": out["waiting"][:20]} | {
+        # REDRIVE-FIRE: the image redrives, as counts and run keys (fixed vocabulary)
+        "method_redrives": out.get("method_redrives") or {},
+        "images": {k: [r.get("run_key") for r in images.get(k) or []][:20]
+                   for k in ("restarted", "waiting", "refused")}})
     return out
 
 

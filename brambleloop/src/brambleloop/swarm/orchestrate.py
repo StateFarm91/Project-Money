@@ -612,10 +612,23 @@ def _configs_since(session, since) -> dict | None:
 # arrived: a promotion made on day 3 waited up to 32 days for the monitor that can roll it
 # back. These probes are those inputs, read directly from the rows (a job-level
 # `made_progress` cannot see them), so a backoff lifts the sweep after new input appears.
+def _image_redrive_due(session, since) -> dict | None:
+    """REDRIVE-FIRE: an image restart the hourly sweep would make now but could not have
+    made when its backoff was recorded (a daily-ceiling stop whose UTC day has changed, or a
+    fidelity block under an older generation method). Read from the rows only; see
+    `visual.image_production.redrive_due`."""
+    from ..visual import image_production as IP
+
+    return IP.redrive_input_probe(session, since)
+
+
 INPUT_PROBES: dict[str, object] = {
     "improve.monitor": _promotions_since,
     "improve.sandbox": _proposals_since,
     "improve.league": _configs_since,
+    # REDRIVE-FIRE: the clock (a new UTC day) and a new generation method are this sweep's
+    # inputs. Its outputs cannot change before it runs, so only the rows can say so.
+    "chain.successors": _image_redrive_due,
 }
 
 

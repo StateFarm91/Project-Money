@@ -1494,13 +1494,24 @@ def _vp_runs(db) -> dict:
 
     from ..visual.image_records import ImageProductionRun as R
 
+    from ..visual import image_production as IP
+
     by_state = {k: 0 for k in _RUN_STATES}
     grouped: dict[str, int] = {}
     blocked_examples: list[str] = []
+    # REDRIVE-FIRE: the method-redrive readback (`stages._method_redrive`) under the current
+    # generation method, as counts in the sweep's fixed vocabulary. Always present: zero
+    # means no run was judged under this method, not that the field is missing.
+    current = IP.current_method_version()
+    method = {k: 0 for k in IP.METHOD_REDRIVE_EVIDENCE}
     with db.session() as s:
-        for status, stage, reason, exhausted, slug, version in s.execute(
+        for status, stage, reason, exhausted, slug, version, stages in s.execute(
                 select(R.status, R.stage, R.blocked_reason, R.attempts_exhausted, R.slug,
-                       R.version)):
+                       R.version, R.stages)):
+            mr = (stages or {}).get(IP.METHOD_REDRIVE_KEY) if isinstance(stages, dict) else None
+            if isinstance(mr, dict) and mr.get("version") == current \
+                    and mr.get("status") in method:
+                method[mr["status"]] += 1
             st = status if status in _RUN_STATES else "other"
             by_state[st] = by_state.get(st, 0) + 1
             if status == "blocked":
@@ -1514,7 +1525,23 @@ def _vp_runs(db) -> dict:
     return {"runs": sum(by_state.values()), "by_state": by_state,
             "valid": valid, "blocked": by_state.get("blocked", 0),
             "blocked_reasons_grouped": dict(sorted(grouped.items())),
-            "blocked_releases": blocked_examples}
+            "blocked_releases": blocked_examples,
+            "method_redrives": method,
+            # REDRIVE-FIRE: whether the hourly sweep has a restart to make now (the breaker
+            # lifts its backoff while this is true); a fixed-vocabulary kind or None.
+            "redrive_due": _redrive_due_kind(db)}
+
+
+def _redrive_due_kind(db):
+    from ..visual import image_production as IP
+
+    try:
+        with db.session() as s:
+            hit = IP.redrive_due(s, None)
+    except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN, never "nothing due"
+        return {"readable": False, "error_class": _safe_class(type(exc).__name__)}
+    return hit["kind"] if hit and hit.get("kind") in ("daily_ceiling_reset",
+                                                      "method_redrive") else None
 
 
 def _count_fidelity_rejection(acc: dict, checks) -> None:

@@ -65,7 +65,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Protocol
 
 from . import candidate_gates as CG
@@ -2496,6 +2496,89 @@ def _sweep_method_redrive(db, key: str, *, follow, method: dict, restarted: list
             method["no_headroom"].append(key)
             _record_method_readback(db, key, out.get("method_redrive") or chk, "no_headroom")
         refused.append({"run_key": key, **{k: out[k] for k in ("code", "why") if k in out}})
+        # REDRIVE-FIRE: an eligible run whose restart was refused (the restart cap, a
+        # concurrent change) is judged under this version: `redrive_due` stops asking.
+        _record_method_readback(db, key, {**chk, "code": out.get("code") or chk.get("code"),
+                                          "why": out.get("why") or chk.get("why")},
+                                "eligible")
+
+
+# ---- REDRIVE-FIRE: the sweep's own input, for the scheduler's backoff -----------------------
+#
+# Production 19i18 (2026-11-23T01:50Z): neither redrive fired. Both live inside the hourly
+# `chain.successors` sweep, and that cadence sits in the thrash breaker's free-poll backoff at
+# 32x (32 hours; BUILD_STATE). The backoff reads "three identical outputs" as an idle poll. A
+# run waiting for the UTC day to change does produce identical outputs, because only the
+# clock moves. The breaker re-arms a parked free loop once per new release. That probe ran
+# under 19i18 before 00:00Z, saw "waiting" again and parked the sweep for another 32 hours.
+# The new day came and nothing was left to look at it. The method redrive had the same
+# dependency: it fired only if that single per-release probe happened to see the run at the
+# right moment.
+#
+# `redrive_due` is the sweep's input, read from the rows themselves: a restart the sweep
+# would make NOW that it could not have made when the backoff was recorded. The breaker
+# (`swarm.orchestrate.INPUT_PROBES`) lifts the backoff while one is due. The probe never
+# restarts anything: the sweep does that, and its once-per-day and once-per-method rules,
+# the restart cap and every spend cap stay where they are. A due restart leaves the "due"
+# set once the sweep acts: the run is unblocked, the day's redrive is in its history, or the
+# method readback names the current version. So this cannot hold the sweep at hourly
+# forever.
+
+def _midnight_after(day) -> datetime:
+    return datetime(day.year, day.month, day.day, tzinfo=timezone.utc) + timedelta(days=1)
+
+
+def redrive_due(session, since, *, now: datetime | None = None) -> dict | None:
+    """The first blocked run the hourly sweep would restart now but could not have restarted
+    at `since`, as {"at", "run_key", "kind"}; None when there is none. Reads rows only."""
+    from sqlalchemy import select
+
+    from .image_records import ImageCandidate, ImageProductionRun
+
+    now = (now or _now()).astimezone(timezone.utc)
+    since = since if since is None or since.tzinfo else since.replace(tzinfo=timezone.utc)
+    today = now.date()
+    current = None
+    for r in session.scalars(select(ImageProductionRun).where(
+            ImageProductionRun.status == "blocked").order_by(ImageProductionRun.id)):
+        key, reason, stages = r.run_key, r.blocked_reason or "", dict(r.stages or {})
+        if "#" in key:
+            continue
+        rec = stages.get(RESTART_KEY) or {}
+        if int(rec.get("epoch") or 0) >= MAX_RESTARTS:
+            continue
+        history = rec.get("history") or []
+        if reason.startswith("budget stop") and DAILY_CEILING_CODE in reason:
+            blocked_day = _utc_day(r.updated_at.isoformat() if r.updated_at else None)
+            if blocked_day is None or today <= blocked_day:
+                continue
+            reset_at = _midnight_after(blocked_day)
+            if since is not None and reset_at <= since:
+                continue      # the backoff was recorded after the reset: the sweep saw it
+            day = str(today)
+            if any(h.get("by") == DAILY_REDRIVE_BY and day in str(h.get("reason", ""))
+                   for h in history):
+                continue
+            return {"at": reset_at.isoformat(), "run_key": key, "kind": "daily_ceiling_reset"}
+        if r.stage == "fidelity_gate" and not reason.startswith("budget stop"):
+            current = current or current_method_version()
+            if any(h.get("method_version") == current for h in history):
+                continue
+            if (stages.get(METHOD_REDRIVE_KEY) or {}).get("version") == current:
+                continue      # already judged under this method (no headroom, refused)
+            fails = [candidate_method_version(c) for (c,) in session.execute(
+                select(ImageCandidate.checks).where(ImageCandidate.run_key == key,
+                                                    ImageCandidate.technical_status == "FAIL"))]
+            if not fails or current in fails:
+                continue
+            return {"at": now.isoformat(), "run_key": key, "kind": "method_redrive"}
+    return None
+
+
+def redrive_input_probe(session, since) -> dict | None:
+    """`swarm.orchestrate.INPUT_PROBES` entry for `chain.successors`."""
+    hit = redrive_due(session, since)
+    return {"at": hit["at"], "input": hit["kind"]} if hit else None
 
 
 # ---- the owner's two-step method (ENG-IMAGES-LAURA) ---------------------------------------------
