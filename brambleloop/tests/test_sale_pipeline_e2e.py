@@ -1,7 +1,7 @@
 """ENG-SALE-PIPELINE end to end: a certified, for-sale release becomes READY with no owner step
 (D-OWNER-SALE-PIPELINE, HARD RULE).
 
-Real: `gate.certify` and `assets.build` for the hexagon coaster set (both text PDFs rendered,
+Real: `gate.certify` and `assets.build` for the Cloudline baby blanket (both text PDFs rendered,
 hashed and stored); every `sale.pipeline` stage and every `visual.image_production` stage
 through the real worker handlers on the durable queue; the release.py hand-off from image
 production to the gallery stage; the premium US/UK render with the certified images in the
@@ -159,7 +159,13 @@ def _chain():
     with db.session() as s:
         s.add(EtsyTaxonomySnapshot(sha256="fixture", node_count=len(snap["nodes"]),
                                    nodes=snap["nodes"], properties=snap["properties"]))
-    cir = L.cir_for("hexagon_coasters")
+    # D-OWNER-LAURA-MANDATORY: a gallery is never ready without a generated Laura frame, and
+    # only a Laura listing's plan asks for one (shot_plans.LIFESTYLE_BRIEF). The chain runs on
+    # the Cloudline baby blanket, whose campaign plan marks its lifestyle, size and colour
+    # frames for Laura, so the generator produces them exactly as production would. A
+    # Laura-free plan (coasters, baskets, placemats) correctly stops at the gallery stage with
+    # laura_lifestyle_missing (test_v2_gallery_consistency).
+    cir = L.cir_for("cloudline_blanket")
     job = _run_job(db, "quality_director", "gate.certify", {"cir": cir.to_dict()}, "certify")
     assert job.outputs.get("granted"), job.outputs
     with db.session() as s:
@@ -223,6 +229,10 @@ def test_the_release_reaches_ready_with_no_owner_step():
 def test_image_production_ran_through_its_stages_and_handed_on():
     R = _chain()
     assert R["image"]["state"] == "ready_for_owner_review", R["image"]
+    # D-OWNER-LAURA-MANDATORY: the gallery holds a generated Laura frame no check FAILed
+    rd = IP.readiness(R["db"], R["image"]["listing"], run_key_=R["image"]["run_key"])
+    assert rd["laura_lifestyle_ok"] is True and rd["gallery_ready"], rd["set_check"]
+    assert any(e["laura"] and e["source"] == "generated" for e in rd["roles"]), rd["roles"]
     assert R["gen"].calls >= 1 and R["image"]["spent_cad"] == 0.0
     img_jobs = [x for x in R["ran"] if x[0] == IP.JOB_TYPE]
     assert len(img_jobs) >= 10, img_jobs
