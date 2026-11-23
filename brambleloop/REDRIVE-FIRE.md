@@ -120,9 +120,17 @@ as production showed.
 - **Not due.** A ceiling stop from today, any other budget stop, and a run at MAX_RESTARTS.
 - **Readback.** The field is present with zeros when nothing was judged.
 
-Suites run: test_redrive_fire, test_image_method_redrive, test_image_daily_ceiling_redrive,
-test_vacuity and every suite that touches the breaker, the sweep or the readback. Results are in
-the commit message.
+Suites run (`SUITE_REGISTRY=0 SUITES=... JOBS=$(nproc) PY=python3 bash run_tests.sh`, run record
+20261123T015808Z-1683): **21 suites, TOTAL PASSING 251, suites failing 0.** They are:
+- test_redrive_fire, test_image_method_redrive, test_image_daily_ceiling_redrive and
+  test_vacuity;
+- test_eng_recovery, test_swarm_runtime, test_r2_autonomy_useful_work, test_watchlist_cadence,
+  test_eng_learn_wiring, test_eng_improve, test_eng_daily and test_eng_catalogue_agents;
+- test_opus2_chain_deadends, test_v2_capability_redrive and test_p0_storefront_asset_fix;
+- test_visual_pipeline_evidence, test_visual_factory_e2e, test_vis_gallery_e2e,
+  test_w4_readback_evidence, test_w4_ccgap_live and test_w4_close5_rows4.
+
+test_audit_build_state_current also passes (4/4). The full suite was not run.
 
 ## Not verified
 
