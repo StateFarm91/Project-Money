@@ -76,7 +76,7 @@ def _evidence_shape():
 
 #: name -> (current version, shape function, what it is)
 CONTRACTS: dict[str, tuple[int, object, str]] = {
-    "cir": (4, _cir_shape, "the CIR dataclasses every department builds, checks and renders"),
+    "cir": (5, _cir_shape, "the CIR dataclasses every department builds, checks and renders"),
     "etsy_write_schemas": (1, _etsy_write_shape,
                            "what may be sent to Etsy (draft payload, updateListing, updateShop)"),
     "shop_policy_sections": (1, _policy_shape, "the shop's policy sections and text fields"),
@@ -104,7 +104,13 @@ CHANGELOG: dict[str, dict[int, str]] = {
                "a low-sew join, the piece an op's stitches are worked through (cir.low_sew). "
                "Additive and optional: to_dict omits it when None, so every existing CIR "
                "serialises byte-identically; consumers quality_ops and engineering_ops read no "
-               "Op fields and are re-pinned to v4"},
+               "Op fields and are re-pinned to v4",
+            5: "2026-11-22: Op.below (int | None, default None, >= 2) added by CATALOGUE-UNBLOCK "
+               "D2: a drop-down stitch worked into the stitches `below` rows down, the "
+               "primitive overlay mosaic is defined by. Additive and optional: to_dict omits it "
+               "when None, so every existing CIR serialises byte-identically; consumers "
+               "quality_ops and engineering_ops read no Op fields and are re-pinned to v5 "
+               "(declared by RECORD-REDS)"},
     "etsy_write_schemas": {1: "2026-10-26: first pinned version, incl. updateShop + sections"},
     "shop_policy_sections": {1: "2026-10-26: first pinned version"},
     "storefront_proposal": {1: "2026-10-26: first pinned version"},

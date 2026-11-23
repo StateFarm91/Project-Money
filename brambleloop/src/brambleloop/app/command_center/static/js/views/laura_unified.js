@@ -1,9 +1,5 @@
-// W4-LAURAONE (D-W4-LAURA-UNIFIED, ADD-LCONT-01..10): ONE Laura, ONE thread. Shown instead of
-// the split business / private cards only when the owner has switched the unified thread on
-// (BRAMBLELOOP_LAURA_UNIFIED=venice). Every turn, whatever its subject, is kept encrypted;
-// content is fetched by POST only (no GET cache). Laura (Venice) decides when to use a
-// business tool; anything from our private conversation crosses to the business side only
-// after the owner approves the exact text shown, with a fresh step-up.
+// W4-LAURAONE (D-W4-LAURA-UNIFIED): one Laura thread, encrypted, POST-only content; private
+// text crosses to business only after owner approval of the exact text with fresh step-up.
 import { h, clear } from "../dom.js";
 import { api, authState } from "../api.js";
 import { card, statusPill, toast, guardedAction, confirmDialog } from "../components.js";

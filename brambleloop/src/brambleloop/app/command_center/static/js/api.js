@@ -1,7 +1,5 @@
-// Typed client for the Owner Command Center API (research/final_build/v1_1/COMMAND_CENTER_API.md).
-// Guarantees: same-origin only (HttpOnly cookie); every non-GET carries X-CSRF-Token, a fresh
-// X-CC-Nonce and X-CC-Timestamp (§0); STEP_UP_REQUIRED re-authenticates, then retries once with a
-// NEW nonce; responses are never persisted -- only an in-tab Map, shown *labelled stale* offline (F-883, F-898).
+// Owner Command Center API client (COMMAND_CENTER_API.md): same-origin; non-GET sends CSRF +
+// fresh nonce + timestamp; STEP_UP retries once with a new nonce; nothing persisted (F-883, F-898).
 
 export const API_BASE = "/api/cc";
 export const H_CSRF = "X-CSRF-Token";
@@ -179,10 +177,7 @@ function errMessage(body, fallback) {
   return (body && (body.error || body.detail || body.reason)) || fallback;
 }
 
-/**
- * GET a JSON resource. Resolves {data, stale:false, fetchedAt} or, when the network is down
- * and this tab fetched it before, {data, stale:true, fetchedAt}. Rejects otherwise.
- */
+// GET: {data, stale, fetchedAt}; stale only when offline and fetched before in this tab.
 export async function get(path) {
   let res;
   try {
@@ -218,10 +213,7 @@ async function rawPost(path, payload, { withReplayGuard = true } = {}) {
   return { res, body: await parse(res) };
 }
 
-/**
- * POST with CSRF + nonce + timestamp. On STEP_UP_REQUIRED, asks the owner to re-authenticate
- * (if a prompt is installed) and retries exactly once with a fresh nonce.
- */
+// POST with CSRF + nonce + timestamp; STEP_UP_REQUIRED re-auths and retries once.
 export async function post(path, payload = {}) {
   if (!auth.csrf) {
     try { await loadStatus(); } catch (_) { /* handled below */ }
@@ -366,8 +358,7 @@ export const api = {
   lauraCosts: () => get(ENDPOINTS.lauraCosts()),
   lauraPresence: () => get(ENDPOINTS.lauraPresence()),
   lauraVoiceSpec: () => get(ENDPOINTS.lauraVoiceSpec()),
-  // Owner-private context: status is non-content; every content call is a POST, so nothing
-  // private enters this tab's GET memory or any cache.
+  // Owner-private: content calls are POSTs, so nothing private is cached.
   privateStatus: () => get(ENDPOINTS.privateStatus()),
   privateOpen: () => post(ENDPOINTS.privateOpen(), {}),
   privateClose: () => post(ENDPOINTS.privateClose(), {}),

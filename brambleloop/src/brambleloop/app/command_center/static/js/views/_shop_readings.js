@@ -1,8 +1,5 @@
-// W4-LISTREADY (review F7): the owner's dated Shop Manager readings that first-sale readiness
-// needs and no Etsy API can see -- where buyer messages reach (messages) and identity
-// verification plus the tax position (legal_and_tax). Owner session + step-up only
-// (POST /api/cc/etsy/shop-observation); the server validates every value and records the
-// signed-in owner as the one who read it. Nothing is written to Etsy.
+// W4-LISTREADY (F7): owner's dated Shop Manager readings (messages, legal_and_tax); step-up
+// POST /api/cc/etsy/shop-observation; nothing is written to Etsy.
 import { h } from "../dom.js";
 import { api } from "../api.js";
 import { card, guardedAction, toast } from "../components.js";

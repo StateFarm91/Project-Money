@@ -81,7 +81,15 @@ def _run(tmp, verifier, sources=("owner", "auto")):
 
 def test_the_harness_dry_run_sends_the_owners_exact_six_then_the_auto_equivalents():
     out = Path(tempfile.mkdtemp(prefix="b6-dry-")) / "out"
-    s = H.run(live=False, out=out, baseline=("owner", "auto"))
+    # The EXPERIMENT envelope exists for a release certification REFUSES. Since
+    # D-OWNER-NO-SAMPLE-SIZING (2026-11-22) the cable wrap's primitives carry documented
+    # standard-gauge defaults and it certifies, so the fixture restores a refusing release
+    # the way a primitive registered without a default would be refused (fail-closed F-074).
+    from unittest.mock import patch
+
+    from brambleloop.cir import stitches as S
+    with patch.object(S, "STANDARD_GAUGE_DEFAULTS", {}):
+        s = H.run(live=False, out=out, baseline=("owner", "auto"))
     assert s["mode"] == "dry-run baseline-six-ref" and s["spent_cad"] == 0.0
     assert [i["source"] for i in s["images"]] == ["owner", "auto"]
     assert s["images"][0]["transmitted_references"] == OWNER_SHAS

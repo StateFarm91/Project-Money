@@ -156,32 +156,38 @@ def _render(pdf: bytes) -> dict:
     from ..visual.contents_frame import PDFIUM_LOCK, _pdfium
 
     pdfium = _pdfium()
-    with PDFIUM_LOCK:
-        try:
+    opened = False
+    try:
+        # The open sits directly under the lock (CERTFIX: every PdfDocument open is inside
+        # `with PDFIUM_LOCK`); only an open failure becomes PdfPagesRefused.
+        with PDFIUM_LOCK:
             doc = pdfium.PdfDocument(pdf)
-        except Exception as exc:  # noqa: BLE001
-            raise PdfPagesRefused(f"the PDF cannot be opened: {exc}"[:300]) from exc
-        try:
-            texts = _page_texts(doc)
-            chosen = select(texts, MAX_PAGES)
-            pages = []
-            for c in chosen:
-                page = doc[c["index"]]
-                try:
-                    pw, ph = page.get_size()
-                    bitmap = page.render(scale=LONG_SIDE_PX / max(pw, ph))
+            opened = True
+            try:
+                texts = _page_texts(doc)
+                chosen = select(texts, MAX_PAGES)
+                pages = []
+                for c in chosen:
+                    page = doc[c["index"]]
                     try:
-                        img = bitmap.to_pil().convert("RGB")
+                        pw, ph = page.get_size()
+                        bitmap = page.render(scale=LONG_SIDE_PX / max(pw, ph))
+                        try:
+                            img = bitmap.to_pil().convert("RGB")
+                        finally:
+                            bitmap.close()
                     finally:
-                        bitmap.close()
-                finally:
-                    page.close()
-                raw = _png(img)
-                pages.append({**c, "page": c["index"] + 1, "px": [img.width, img.height],
-                              "sha256": hashlib.sha256(raw).hexdigest(), "data": raw})
-            count = len(texts)
-        finally:
-            doc.close()
+                        page.close()
+                    raw = _png(img)
+                    pages.append({**c, "page": c["index"] + 1, "px": [img.width, img.height],
+                                  "sha256": hashlib.sha256(raw).hexdigest(), "data": raw})
+                count = len(texts)
+            finally:
+                doc.close()
+    except Exception as exc:  # noqa: BLE001
+        if opened:
+            raise
+        raise PdfPagesRefused(f"the PDF cannot be opened: {exc}"[:300]) from exc
     return {"pages": pages, "page_count": count}
 
 

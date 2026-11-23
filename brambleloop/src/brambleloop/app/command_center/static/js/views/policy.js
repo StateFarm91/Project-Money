@@ -1,9 +1,5 @@
-// W4-LAUNCHFIX: Etsy policy page readings from the owner's phone (#/policy).
-// One card per watched source: its URL (tap to open in your own browser), its state, and the
-// questions to answer. Recording needs step-up and goes through the same server path as the
-// operator intake (record_page_reading): only the SHA-256 of the pasted text is kept, and the
-// reader is the signed-in owner. Nothing is pre-filled. A later reading whose text differs is a
-// policy change: it opens the review card in Approvals and blocks publishing until reviewed.
+// W4-LAUNCHFIX: Etsy policy readings (#/policy). Step-up; only the text's SHA-256 is kept;
+// a differing later reading opens a review card and blocks publishing until reviewed.
 import { h } from "../dom.js";
 import { api } from "../api.js";
 import { card, statusPill, guardedAction, toast } from "../components.js";

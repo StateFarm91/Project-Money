@@ -229,7 +229,18 @@ def test_a_childrens_listing_carries_its_statements_through_the_real_chain():
     from brambleloop.products import launch0 as l0
     from brambleloop.publish import pdf as pdf_module
 
-    db = _run_once()["db"]
+    # RECORD-REDS (2026-11-22): the drain is one cycle with no scheduler, and the 15-minute
+    # `supply.admit` cadence (runtime.worker, "supply_admit") is the pass that fills a slot
+    # already open when a chain ends (CERTFIX-1 suppresses the chain-end refill then). Under
+    # D-OWNER-NO-SAMPLE-SIZING the heirloom cable blanket certifies and holds the fourth
+    # work-in-progress slot at the cycle's only admission pass, so the Launch-0 children's
+    # product is admitted by the next cadence pass, which is run here exactly as production
+    # runs it. The assertion below is unchanged.
+    tmp, db, q, w = _cycle_copy("childrens", "childrens", 900)
+    q.enqueue("orchestrator", "supply.admit", {"cadence": "supply_admit"})
+    for _ in range(900):
+        if not w.run_once():
+            break
     rows = [(o, l0.childrens_assignment(o.get("slug", "")))
             for o in _outputs(db, "listing.seo")]
     childrens = [(o, a) for o, a in rows if a is not None]

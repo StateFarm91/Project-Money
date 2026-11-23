@@ -1187,7 +1187,7 @@ def unknowns(db, requirements: list[Requirement] | None = None) -> list[dict]:
     """
     from sqlalchemy import func, select
 
-    from ..cir.stitches import UNCALIBRATED, calibration_table
+    from ..cir.stitches import STANDARD_GAUGE, UNCALIBRATED, calibration_table
     from ..core.models import PhysicalTest
 
     out: list[dict] = []
@@ -1204,11 +1204,20 @@ def unknowns(db, requirements: list[Requirement] | None = None) -> list[dict]:
             "figure is arithmetic from a stated gauge (twin.calibrated is False)",
             "size and yardage claims, Class C release, first-customer gauge_and_size_claims")
 
-    uncalibrated = sorted(c for c, st in calibration_table().items() if st == UNCALIBRATED)
-    if uncalibrated:
+    # D-OWNER-NO-SAMPLE-SIZING sizes a primitive with a documented default from standard
+    # gauge, but nothing has MEASURED it: it stays an unknown in the register the owner reads.
+    table = calibration_table()
+    uncalibrated = sorted(c for c, st in table.items() if st == UNCALIBRATED)
+    standard = sorted(c for c, st in table.items() if st == STANDARD_GAUGE)
+    if uncalibrated or standard:
+        parts = []
+        if uncalibrated:
+            parts.append(f"no documented default: {', '.join(uncalibrated)}")
+        if standard:
+            parts.append(f"sized from standard-gauge defaults: {', '.join(standard)}")
         add("uncalibrated_primitives", "cir.stitches.calibration_table",
-            f"{len(uncalibrated)} stitch primitives have no measured height or yarn draw: "
-            f"{', '.join(uncalibrated)}", "any pattern using them (F-074)")
+            f"{len(uncalibrated) + len(standard)} stitch primitives have no measured height "
+            f"or yarn draw ({'; '.join(parts)})", "any pattern using them (F-074)")
 
     try:
         from ..intel import etsy_surfaces

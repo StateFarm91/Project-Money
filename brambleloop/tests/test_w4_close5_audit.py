@@ -102,12 +102,25 @@ def test_f073_a_new_construction_primitive_raises_the_class_until_calibrated():
     assert "uncalibrated_primitive" not in [f["key"] for f in base["features"]], base
     cir.components[0].rows.append(Row(index=5, ops=[Op("sc", 19), Op("bob"), Op("sc", 20)],
                                       declared_count=40, color="forest", turning_chain=1))
-    m = rm.matrix_for(cir)
-    feats = {f["key"]: f for f in m["features"]}
-    assert "uncalibrated_primitive" in feats and "bob" in feats["uncalibrated_primitive"]["detail"]
-    assert rm.RANK[m["effective"]] >= rm.RANK["B"] and m["required_physical"], m
-    calibrated = rm.matrix_for(cir, calibrated_primitives={"bob"})
-    assert "uncalibrated_primitive" not in [f["key"] for f in calibrated["features"]], calibrated
+    # D-OWNER-NO-SAMPLE-SIZING (2026-11-22): a primitive WITH a documented standard-gauge
+    # default (bob: a dc row) is sized from standard gauge and does not raise the class.
+    sg = rm.matrix_for(cir)
+    assert "uncalibrated_primitive" not in [f["key"] for f in sg["features"]], sg
+    # F-073/F-074 still fails closed for a primitive with NO documented default: take bob's
+    # default away (a primitive registered tomorrow without one) and the class is raised.
+    from unittest.mock import patch
+
+    from brambleloop.cir import stitches as S
+    no_default = {k: v for k, v in S.STANDARD_GAUGE_DEFAULTS.items() if k != "bob"}
+    with patch.object(S, "STANDARD_GAUGE_DEFAULTS", no_default):
+        m = rm.matrix_for(cir)
+        feats = {f["key"]: f for f in m["features"]}
+        assert ("uncalibrated_primitive" in feats
+                and "bob" in feats["uncalibrated_primitive"]["detail"]), m
+        assert rm.RANK[m["effective"]] >= rm.RANK["B"] and m["required_physical"], m
+        calibrated = rm.matrix_for(cir, calibrated_primitives={"bob"})
+        assert "uncalibrated_primitive" not in [f["key"] for f in calibrated["features"]], (
+            calibrated)
 
 
 # ---- F-057: a material the pattern does not use is never claimed ---------------------------

@@ -1,15 +1,15 @@
-## PRODUCTION NOW (verified 2026-11-22T14:02Z)
+## PRODUCTION NOW (verified 2026-11-23T01:29Z)
 
 Keep this block first and current: `tests/test_audit_build_state_current.py` fails when it names a SHA
 older than the last two entries of `release/DEPLOYED_HISTORY.json`, or when its `release-record:` line
 disagrees with `release_record.verify_build` for the checked-out tree.
 
-**Verified from git** (tree `claude/rc2-fixes`, the record-candidate tree):
+**Verified from git** (tree `claude/release-19i18`, the record-candidate tree):
 
-- production-sha: 83d05dbfcd370773d718639d24300ebf78fb863a
-- Batch 19i14, code 8feb01036, deployed 2026-11-22T08:22:26Z (`verify_deploy` DEPLOYED, override
-  D-OWNER-DEPLOY-19i14, authorization D-OWNER-AUTODEPLOY-24H-2); rollback target
-  d1c2ff10b0e026ba17f6c30e63363b49f881e934 (Batch 19i13). This is entry 65 of 65 in
+- production-sha: e5b4d2853dd78c67aa5bdb23d07f9373e3c0a47c
+- Batch 19i17, code 9bb44cdaf, deployed 2026-11-22T20:01:21Z (`verify_deploy` DEPLOYED, override
+  D-OWNER-DEPLOY-19i17, authorization D-OWNER-AUTODEPLOY-24H-2); rollback target
+  9c18ab5e0e3cf7e0a5abd1d798364e8381468365 (Batch 19i16). This is entry 68 of 68 in
   `release/DEPLOYED_HISTORY.json`.
 - release-record: NONE. No committed release record names this tree: with `PYTHONPATH=src`,
   `release_record.verify_build(env={'RAILWAY_ENVIRONMENT':'production'})` returns `ok: False`

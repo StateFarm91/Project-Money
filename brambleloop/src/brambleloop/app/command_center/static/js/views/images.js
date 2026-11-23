@@ -1,5 +1,4 @@
-// LISTING IMAGES (W-OWNERIMG): gallery status per product and the owner upload fallback (same
-// gates). Owner approval of the look is never technical verification and never overrides a gate.
+// LISTING IMAGES (W-OWNERIMG): per-product galleries + owner upload (same gates; no override).
 import { h, clear } from "../dom.js";
 import { api } from "../api.js";
 import { card, statusPill, toast } from "../components.js";
@@ -80,9 +79,7 @@ function uploadForm(products, out) {
   return form;
 }
 
-// ---- gallery approval card (W-VISNEXT) ----
-// Three separate decisions: your look (read by no gate), technical certification (automated)
-// and publication authorization (step-up; every gate re-checked).
+// ---- gallery approval card (W-VISNEXT): look, certification, publication are separate ----
 
 const DECISION_PILL = { approved: "OK", available: "OK", PASS: "OK", rejected: "BAD", FAIL: "BAD", not_available: "BAD" };
 
@@ -105,8 +102,7 @@ function decisionBlock(title, d, ...extra) {
     h("p", { class: "muted small" }, String(d.what || "")), ...extra);
 }
 
-// Stage A (W-VISNEXT2): the Laura identity anchor. Confirming lets it be used as identity
-// context for this listing; it never turns any check into a pass.
+// Stage A (W-VISNEXT2): Laura identity anchor; confirming never passes a check.
 function anchorBlock(c, reload) {
   const a = c.identity_anchor;
   const decide = async (decision) => {
@@ -283,9 +279,7 @@ export function wardrobeEditor(w, listings, reload) {
     newOutfitForm(w, reload));
 }
 
-// ---- controlled experiments (W-VISNEXT) ----
-// Owner-only. Authorize and Run both need step-up. The output is an EXPERIMENT: shown in the
-// same gallery card, never publishable.
+// ---- controlled experiments (W-VISNEXT): step-up; EXPERIMENT output never publishes ----
 
 function experimentDetails(c) {
   const costs = c.costs || {};
@@ -328,8 +322,7 @@ function experimentsCard(list, slot, reload) {
 }
 
 export async function render({ rerender } = {}) {
-  // IMAGES-DIALIN: GET resolves {data, stale, fetchedAt}; the page read `.products` off that
-  // envelope, so the product list, the dropdown and every gallery were always empty.
+  // IMAGES-DIALIN: read .products from the GET envelope's data.
   const [boardRes, wardrobeRes, expsRes] = await Promise.all([api.images(), api.wardrobe().catch(() => null),
     api.experiments().catch(() => null)]);
   const board = body(boardRes);

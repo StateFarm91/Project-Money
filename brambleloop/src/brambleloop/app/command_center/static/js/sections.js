@@ -1,10 +1,5 @@
-// W4-CCUX: long pages on a phone. A tab with many titled cards gets a small toolbar:
-//   * "On this page" -- a list of its sections; tapping one opens it and scrolls to it;
-//   * "Collapse all" / "Expand all" -- folds every card down to its header (title + status),
-//     so the page reads as a scannable list. A folded card has a "Show" button.
-// Nothing is removed from the DOM: a folded card's evidence links and actions are hidden, not
-// dropped, and come back on Show / Expand all. Cards start expanded unless the owner folded
-// this tab earlier in the same page session (kept in memory only: no browser storage).
+// W4-CCUX: long-page toolbar (On this page; Collapse/Expand all). Folding hides, never removes;
+// fold state is in memory only.
 import { h, icon } from "./dom.js";
 
 export const LONG_PAGE_MIN = 5;

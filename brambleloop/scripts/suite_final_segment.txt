@@ -317,3 +317,4 @@ tests/test_keys_19i4.py
 tests/test_mc_perf.py
 tests/test_paid_refusals.py
 tests/test_run_alone_tail.py
+tests/test_images_dialin.py
