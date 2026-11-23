@@ -846,8 +846,13 @@ def unbilled_calls(session, row) -> int:
 
 
 def counted_calls(session, row) -> int:
-    """`generation_calls` less the calls the provider never accepted: what the call cap reads."""
-    return max(0, int(row.generation_calls or 0) - unbilled_calls(session, row))
+    """`generation_calls` less the calls the provider never accepted: what the call cap reads.
+    A corrupt persisted counter (not a nonnegative integer) is returned as it is, so the spend
+    plan's guard refuses it rather than this hiding it."""
+    calls = row.generation_calls
+    if isinstance(calls, bool) or not isinstance(calls, int) or calls < 0:
+        return calls
+    return max(0, calls - unbilled_calls(session, row))
 
 
 def restarts_spent(session, row) -> int:
