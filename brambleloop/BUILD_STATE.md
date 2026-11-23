@@ -1,16 +1,20 @@
-## PRODUCTION NOW (verified 2026-11-23T01:29Z)
+## PRODUCTION NOW (verified 2026-11-23T21:10Z)
 
 Keep this block first and current: `tests/test_audit_build_state_current.py` fails when it names a SHA
 older than the last two entries of `release/DEPLOYED_HISTORY.json`, or when its `release-record:` line
 disagrees with `release_record.verify_build` for the checked-out tree.
 
-**Verified from git** (tree `claude/release-19i18`, the record-candidate tree):
+**Verified from git** (tree `claude/w6-release-19i23`, built on 19i22 release candidate dd8a6b180):
 
-- production-sha: e5b4d2853dd78c67aa5bdb23d07f9373e3c0a47c
-- Batch 19i17, code 9bb44cdaf, deployed 2026-11-22T20:01:21Z (`verify_deploy` DEPLOYED, override
-  D-OWNER-DEPLOY-19i17, authorization D-OWNER-AUTODEPLOY-24H-2); rollback target
-  9c18ab5e0e3cf7e0a5abd1d798364e8381468365 (Batch 19i16). This is entry 68 of 68 in
-  `release/DEPLOYED_HISTORY.json`.
+- production-sha: f1b6e0430daf1c77b46d35b0b10712c7548c8921
+- Batch 19i20, code 5d87f2974, deployed 2026-11-23T04:53:36Z (`verify_deploy` DEPLOYED, override
+  D-OWNER-DEPLOY-19i20, authorization D-OWNER-AUTODEPLOY-24H-2); rollback target
+  29b8d03a2856bdb31550d4e5a1c30943be5ddada (Batch 19i19). This is entry 71 of 71 in
+  `release/DEPLOYED_HISTORY.json`. Its record-only commit (56cde5605) had been pushed only on
+  `claude/w6-release-19i20`; it is carried into this tree so the history names what production
+  runs and deploy.sh's rollback rehearsal can find it. The release operator reports production
+  still at f1b6e0430 (release branches 19i21 and 19i22 not deployed); this record did not query
+  Railway itself. When the next deploy's record-only commit lands, this SHA is one behind (allowed).
 - release-record: NONE. No committed release record names this tree: with `PYTHONPATH=src`,
   `release_record.verify_build(env={'RAILWAY_ENVIRONMENT':'production'})` returns `ok: False`
   ("no committed release record names this build's tree digest"). On Railway the boot guard
