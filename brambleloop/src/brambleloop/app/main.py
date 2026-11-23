@@ -237,6 +237,17 @@ def _startup() -> None:
         _sg.process_report(db, _sg.WEB_COMPONENT)
     except Exception:  # noqa: BLE001
         pass
+    # D-OWNER-NO-PAUSE / D-OWNER-LAURA-MANDATORY: clear every idle-backoff park on a
+    # production-pipeline job type (model and Laura photography included) at boot.
+    try:
+        from ..swarm.orchestrate import clear_pipeline_backoffs as _clear_parks
+
+        _cleared = _clear_parks(db)
+        if _cleared:
+            Registry(db).audit("orchestrator", "thrash.pipeline_parks_cleared",
+                               detail={"job_types": _cleared})
+    except Exception:  # noqa: BLE001 - a boot clear must never prevent a boot
+        pass
     # One row per container start, carrying the commit it started on.
     #
     # `runner.STATE.worker_restarts` looks like a restart count and cannot be one: it counts

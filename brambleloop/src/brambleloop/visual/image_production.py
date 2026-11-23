@@ -3037,6 +3037,16 @@ def readiness(db, listing: str, *, run_key_: str | None = None, plan: dict | Non
     if not standard["ok"]:
         set_check = {"ok": False, "problems": list(set_check["problems"])
                      + list(standard["problems"])}
+    # D-OWNER-LAURA-MANDATORY (owner, 2026-11-23: "Laura and model photography is
+    # mandatory"): a gallery is never ready without an accepted (publishable, generated)
+    # Laura lifestyle frame. A disclosed render or a missing frame does not satisfy it.
+    laura_ok = any(e["job"] == el.LIFESTYLE and e.get("laura")
+                   and e.get("source") == "generated" and e["status"] == "publishable"
+                   for e in roles)
+    if not laura_ok:
+        set_check = {"ok": False, "problems": list(set_check["problems"]) + [
+            {"kind": "laura_lifestyle_missing",
+             "why": "D-OWNER-LAURA-MANDATORY: an accepted Laura lifestyle frame is required"}]}
     consistency = CG.campaign_consistency(chosen) if chosen else CG._c(
         CG.NA, "no generated images yet")
     # F-226 (W4-C08): two Laura frames that are one photograph are copy-paste sameness, not a
@@ -3060,7 +3070,8 @@ def readiness(db, listing: str, *, run_key_: str | None = None, plan: dict | Non
             "gallery_ready": all(e["status"].startswith(("disclosed", "publishable"))
                                  for e in roles) and bool(set_check["ok"])
                              and consistency["status"] in (CG.PASS, CG.NA) and not ambiguous
-                             and standard["ok"],
+                             and standard["ok"] and laura_ok,
+            "laura_lifestyle_ok": laura_ok,
             "basis": "visual.shot_plans.campaign_plan + campaign_standard + candidate_gates + "
                      "eligibility.check_set"}
 

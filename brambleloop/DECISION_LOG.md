@@ -4783,3 +4783,72 @@ The readback gap was real: `production_evidence._vp_runs` never read
 ## D-OWNER-DEPLOY-19i19 — 2026-11-23T03:01:17Z
 
 Batch 19i19 (code 9c816f9a8) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to b48ff952f5a8b359bedfb55975671a2d650cb3e9 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+
+## D-OWNER-LAURA-MANDATORY — 2026-11-23T04:40Z
+
+**Owner, verbatim:** "Laura and model photography is mandatory".
+
+**Decision (19i20).**
+1. `swarm.orchestrate.MANDATORY_JOB_TYPES` = assets.model_photography,
+   assets.owned_photography, assets.photo_review, creative.model_reference_pack,
+   visual.identity_drift. The idle free-poll backoff never parks them (see D-OWNER-NO-PAUSE,
+   which widens this to the whole production pipeline).
+2. `visual.image_production.readiness`: `gallery_ready` now also requires an accepted
+   (generated, publishable) Laura LIFESTYLE frame. Without one, the set check carries the
+   problem `laura_lifestyle_missing` and the gallery is not ready. A disclosed render or a
+   missing frame does not satisfy it. The response exposes `laura_lifestyle_ok`.
+
+## D-OWNER-NO-PAUSE — 2026-11-23T04:45Z
+
+**Owner, verbatim**, about the parked concept pool, model and Laura photography, the model
+concept board, photo review, listing packaging and the image restart job: "None of this
+should be paused. Ridiculous".
+
+**Decision (19i20).**
+1. `swarm.orchestrate.is_pipeline_job(jt)` is true for:
+   - `MANDATORY_JOB_TYPES`;
+   - every job type with prefix `radar.`, `creative.`, `assets.`, `visual.`, `listing.`,
+     `chain.`, `cir.`, `gate.`, `supply.`, `sale.`, `launch.` or `laura.`;
+   - intel.watchlist_compare, intel.gallery_analysis and store.draft_reconcile.
+2. Pipeline job types are never parked by the idle free-poll backoff (kind BACKOFF):
+   - `_free_poll_backoff` never applies one and resolves any open one;
+   - `suspended_job_types` ignores any that are still open;
+   - `clear_pipeline_backoffs(db)` resolves them at web boot (`app.main._startup`) and
+     audits `thrash.pipeline_parks_cleared`.
+3. **Kept.** The error-thrash breaker (kind SUSPENDED: repeated failures, or paid calls
+   repeating an identical result) still applies to pipeline jobs, so a crashing job cannot
+   hot-loop. Every paid-call cap is unchanged: per-gallery spend, call cap, daily and monthly
+   ceilings, MAX_RESTARTS.
+4. Non-pipeline polls (improve.*, intel.* readers, seasonal.*, etc.) keep the idle backoff.
+5. This supersedes eng/backoff-cap for pipeline jobs. That branch never landed and is not
+   in 19i20.
+6. **Tests.** `tests/test_no_pause.py`. `tests/test_redrive_fire.py` now treats
+   chain.successors as an ordinary poll, so it still exercises the redrive-lift mechanism
+   that non-pipeline types use.
+
+**Pipeline job types enumerated from `runtime.worker.CADENCES` at 19i20.**
+- assets.model_photography, assets.motif_backlog, assets.owned_photography,
+  assets.photo_review
+- chain.rebuild, chain.successors
+- creative.benchmark_memory, creative.blind_review, creative.blinded,
+  creative.candidates_file, creative.capability_scorecard, creative.expedition,
+  creative.family_engine, creative.four_season, creative.grid_tournament,
+  creative.image_benchmark, creative.model_reference_pack, creative.model_tournament,
+  creative.north_star, creative.outcome_learning, creative.photo_principles,
+  creative.reference_reading, creative.regate, creative.salvage_review,
+  creative.style_learning, creative.tournament, creative.white_space
+- gate.lanes, gate.quality
+- intel.gallery_analysis, intel.watchlist_compare
+- launch.readiness
+- laura.executive_tick
+- listing.cross_sell_graph, listing.outcomes, listing.package,
+  listing.search_visibility_aging, listing.search_visibility_watch,
+  listing.taxonomy_refresh, listing.window_captures
+- radar.competitor_snapshot, radar.concept_intake, radar.concept_pool, radar.scan
+- sale.pipeline_sweep
+- store.draft_reconcile
+- supply.admit
+- visual.identity_drift, visual.image_production, visual.model_ledger, visual.rnd.cycle
+- cir.* and gate.* jobs that are enqueued by the chain rather than on a cadence are covered
+  by prefix.

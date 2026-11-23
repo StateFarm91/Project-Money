@@ -47,6 +47,12 @@ from brambleloop.visual.image_records import (ImageCandidate, ImageProductionRun
                                               ensure_tables)
 
 JT = "chain.successors"
+# D-OWNER-NO-PAUSE (19i20): production-pipeline job types, chain.successors included, are
+# never parked by the idle backoff, so the 32x park these tests reproduce cannot happen in
+# production any more (tests/test_no_pause.py). The redrive-lift mechanism they cover still
+# serves every non-pipeline type, so here JT is treated as an ordinary poll.
+_is_pipeline = orc.is_pipeline_job
+orc.is_pipeline_job = lambda jt: jt != JT and _is_pipeline(jt)
 DAILY = ("budget stop: paid provider gate refused before sending (provider_daily_ceiling): "
          "flux-3-image has CA$0.0700 reserved or billed today against the owner's CA$0.07 "
          "daily ceiling; this call is CA$0.0700")

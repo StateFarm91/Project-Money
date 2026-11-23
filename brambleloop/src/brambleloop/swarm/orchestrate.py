@@ -389,6 +389,32 @@ LIVENESS_JOB_TYPES: frozenset[str] = frozenset({
     # (up to 32 x 15 min) the next product would wait hours for nothing. CA$0, a DB read.
     "supply.admit",
 })
+# D-OWNER-NO-PAUSE / D-OWNER-LAURA-MANDATORY (owner, 2026-11-23): "None of this should be
+# paused. Ridiculous" and "Laura and model photography is mandatory". Production-pipeline job
+# types are never parked by the idle free-poll backoff, and any such park left in the
+# database is cleared at boot (`clear_pipeline_backoffs`). Only the error-thrash protection
+# (kind SUSPENDED: repeated failures or paid calls with an identical result) still applies to
+# them; spend stays bounded by the paid-call caps, which are unchanged.
+MANDATORY_JOB_TYPES: frozenset[str] = frozenset({
+    "assets.model_photography", "assets.owned_photography", "assets.photo_review",
+    "creative.model_reference_pack", "visual.identity_drift",
+})
+PIPELINE_JOB_PREFIXES: tuple[str, ...] = (
+    "radar.", "creative.", "assets.", "visual.", "listing.", "chain.", "cir.", "gate.",
+    "supply.", "sale.", "launch.", "laura.",
+)
+PIPELINE_JOB_TYPES_EXTRA: frozenset[str] = frozenset({
+    "intel.watchlist_compare", "intel.gallery_analysis", "store.draft_reconcile",
+})
+
+
+def is_pipeline_job(job_type: str) -> bool:
+    """A production-pipeline job type: exempt from the idle free-poll backoff (D-OWNER-NO-PAUSE)."""
+    jt = job_type or ""
+    return (jt in MANDATORY_JOB_TYPES or jt in PIPELINE_JOB_TYPES_EXTRA
+            or jt.startswith(PIPELINE_JOB_PREFIXES))
+
+
 # ENG watchlist-cadence (prod 2026-11-18): a reader gated on a credential that a probe
 # re-tests. While the probe says the key is refused, the reader correctly does nothing and
 # says so (outputs `credential_refused`): a CA$0 no-op that waits is not a poll without
@@ -1013,6 +1039,12 @@ def _free_poll_backoff(session, progress: dict, *, now: datetime,
         signature = f"{BACKOFF_SIGNATURE_PREFIX}{jt}"
         open_row = session.scalar(select(Incident).where(Incident.signature == signature,
                                                          Incident.resolved.is_(False)))
+        if is_pipeline_job(jt):
+            # D-OWNER-NO-PAUSE: an idle pipeline job is never parked; a stale park lifts.
+            if open_row is not None:
+                open_row.resolved = True
+                lifted.append(jt)
+            continue
         if row["identical_tail"] and row.get("last_finished_at") and \
                 input_changed_since(session, jt, _parse_when(row["last_finished_at"])):
             # ENG watchlist-cadence: the credential its runs waited on has been fixed, or an
@@ -1102,11 +1134,34 @@ def suspended_job_types(db, *, now: datetime | None = None) -> dict[str, dict]:
                                   "hypothesis (a change to the code that runs it) or a "
                                   "resolved incident"}
             elif sus.get("kind") == BACKOFF:
+                if is_pipeline_job(jt):
+                    continue          # D-OWNER-NO-PAUSE: idle backoff never parks the pipeline
                 until = datetime.fromisoformat(sus["suspend_until"])
                 if until > now:
                     out[jt] = {"kind": BACKOFF, "until": sus["suspend_until"],
                                "factor": sus.get("factor"), "incident": inc.signature}
     return out
+
+
+def clear_pipeline_backoffs(db) -> list[str]:
+    """Boot: resolve every open idle-backoff park on a pipeline job type (D-OWNER-NO-PAUSE).
+
+    Only kind BACKOFF is cleared; a SUSPENDED (failing / paid-loop) breaker stays."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+
+    cleared: list[str] = []
+    with db.session() as s:
+        for inc in s.scalars(select(Incident).where(
+                Incident.resolved.is_(False),
+                Incident.signature.like(f"{THRASH_SIGNATURE_PREFIX}%"))):
+            sus = (inc.detail or {}).get("suspension") or {}
+            jt = sus.get("job_type")
+            if jt and sus.get("kind") == BACKOFF and is_pipeline_job(jt):
+                inc.resolved = True
+                cleared.append(jt)
+    return sorted(cleared)
 
 
 def rearmed_job_types(db) -> list[dict]:
