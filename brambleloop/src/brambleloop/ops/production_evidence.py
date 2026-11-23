@@ -1499,6 +1499,7 @@ def _vp_runs(db) -> dict:
     by_state = {k: 0 for k in _RUN_STATES}
     grouped: dict[str, int] = {}
     blocked_examples: list[str] = []
+    provider_reasons: list[str] = []
     # REDRIVE-FIRE: the method-redrive readback (`stages._method_redrive`) under the current
     # generation method, as counts in the sweep's fixed vocabulary. Always present: zero
     # means no run was judged under this method, not that the field is missing.
@@ -1518,6 +1519,11 @@ def _vp_runs(db) -> dict:
                 stg = stage if isinstance(stage, str) and _SOURCE_NAME.match(stage) else "other"
                 k = f"{stg}:{block_family(reason)}" + (":exhausted" if exhausted else "")
                 grouped[k] = grouped.get(k, 0) + 1
+                if block_family(reason) == "provider" and len(provider_reasons) < 8:
+                    # ENG-FLUX-PROVIDER: the provider's own words (HTTP status and body head),
+                    # so a 503 is diagnosable from the readback. Never a key: the gateway
+                    # error carries the status and the provider's body only.
+                    provider_reasons.append(f"{slug}@{version}: {str(reason)[:240]}")
                 if len(blocked_examples) < SLUGS_PER_STAGE:
                     blocked_examples.append(f"{slug}@{version}")
     valid = by_state.get("ready_for_owner_review", 0) + by_state.get(
@@ -1525,6 +1531,7 @@ def _vp_runs(db) -> dict:
     return {"runs": sum(by_state.values()), "by_state": by_state,
             "valid": valid, "blocked": by_state.get("blocked", 0),
             "blocked_reasons_grouped": dict(sorted(grouped.items())),
+            "provider_block_reasons": provider_reasons,
             "blocked_releases": blocked_examples,
             "method_redrives": method,
             # REDRIVE-FIRE: whether the hourly sweep has a restart to make now (the breaker

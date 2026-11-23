@@ -54,6 +54,12 @@ from . import flux_prompt
 MODEL = "flux-3-image"
 MAX_ATTEMPTS = 3
 DEFAULT_ATTEMPTS = 2
+# ENG-FLUX-PROVIDER (2026-11-23): a transient provider answer (BFL 503 on submit, unreachable)
+# used to be retried at once -- a busy BFL answers the instant retry with another 503, and the
+# gallery then blocked on a provider error. The retry now waits. A submit the provider never
+# accepted is unbilled, so waiting costs nothing.
+TRANSIENT_BACKOFF_S: tuple[float, ...] = (10.0, 30.0)
+_sleep = time.sleep
 AGENT = "creative_director"
 # The listing floor (W-OWNERIMG `candidate_gates.quality`): at least 2000 px on EACH side,
 # opaque, PNG or JPEG. FLUX 3's `resolution` is an equal-area tier ("about" 1/2/4/16 MP; exact
@@ -427,6 +433,44 @@ def _limit(renderer) -> int:
     return int(getattr(renderer, "reference_limit", 10))
 
 
+# ENG-FLUX-PROVIDER (insurance): FLUX 3 Image documents 4 MP as the ceiling when references
+# are sent. A reference above it is downscaled to a copy in the work dir (aspect kept, PNG)
+# before the request, and the copy's hash is what the receipt carries. The canonical Laura
+# references are never touched (they are 1 MP and their exact bytes are the identity lock).
+MAX_REFERENCE_MP = 4.0
+
+
+def _bounded_references(refs: dict, work_dir: str) -> dict:
+    from PIL import Image
+
+    canon = set(canonical_laura_hashes())
+    paths, shas, scaled = list(refs["paths"]), list(refs["sha256s"]), []
+    for i, (p, h) in enumerate(zip(paths, shas)):
+        if h in canon:
+            continue
+        try:
+            with Image.open(p) as im:
+                w, h_px = im.size
+                mp = w * h_px / 1_048_576
+                if mp <= MAX_REFERENCE_MP:
+                    continue
+                k = (MAX_REFERENCE_MP / mp) ** 0.5
+                small = im.convert("RGB").resize((max(1, int(w * k)), max(1, int(h_px * k))),
+                                                 Image.LANCZOS)
+        except Exception:  # noqa: BLE001 - unreadable here: the gateway decides, as before
+            continue
+        out = Path(work_dir) / f"ref-{i + 1}-bounded.png"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        small.save(out, format="PNG")
+        paths[i] = str(out)
+        shas[i] = hashlib.sha256(out.read_bytes()).hexdigest()
+        scaled.append({"position": i + 1, "from_sha256": h, "from_px": [w, h_px],
+                       "to_px": list(small.size)})
+    if not scaled:
+        return refs
+    return {**refs, "paths": paths, "sha256s": shas, "downscaled": scaled}
+
+
 def _run(stage: str, role: str, release: Release, refs: dict, built, size: str, *,
          features_laura: bool, renderer, work_dir: str, db, job_id, max_attempts: int,
          purpose: str, intermediate: bool = False) -> Candidate:
@@ -440,6 +484,7 @@ def _run(stage: str, role: str, release: Release, refs: dict, built, size: str, 
                            f"{LISTING_MIN_PX} px listing floor on each side; ask for a tier "
                            f"that meets it (1:1 at 2k, 4:5 at 4k). Nothing is upscaled")
     tries = _attempts(max_attempts)
+    refs = _bounded_references(refs, work_dir)
     if features_laura:
         # Checked again here, the last moment before the request: the three originals lead.
         if tuple(refs["sha256s"][:3]) != canonical_laura_hashes():
@@ -463,6 +508,7 @@ def _run(stage: str, role: str, release: Release, refs: dict, built, size: str, 
             errors.append(f"attempt {attempt}: {type(exc).__name__}: {str(exc)[:200]}")
             if attempt == tries:
                 raise
+            _sleep(TRANSIENT_BACKOFF_S[min(attempt, len(TRANSIENT_BACKOFF_S)) - 1])
             continue
         path = str(out.get("path") or "")
         out_sha = out.get("sha256") or _sha(path)
@@ -491,6 +537,7 @@ def _run(stage: str, role: str, release: Release, refs: dict, built, size: str, 
             # ENG-IMAGES-PDFREF: the certified-PDF pages this request carried, by position
             "pdf_reference_pages": list(refs.get("pdf_pages") or []),
             "pdf_sha256": refs.get("pdf_sha256") or "",
+            "references_downscaled": list(refs.get("downscaled") or []),
             "combined_sheet": refs["combined_sheet"], "limitation": refs["limitation"],
             "size": size, "task_id": pr.get("task_id") or pr.get("id"), "seed": pr.get("seed"),
             "request": {"provider_task": pr, "conditioning_proven": cond.get("proven"),

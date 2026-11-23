@@ -921,6 +921,9 @@ BFL_POLL_SECONDS = 2.0
 # was reporting the second as the first.
 BFL_POLL_ATTEMPTS = 150
 # FLUX 3 Image took 37-216 s per image by the owner's hand measurement, inside the 300 s bound.
+# ENG-FLUX-PROVIDER: consecutive transient poll failures tolerated on an accepted job.
+BFL_POLL_TRANSIENT_MAX = 5
+_poll_sleep = time.sleep
 BFL_IN_PROGRESS = frozenset({"pending", "reasoning", "generating", "queued", "processing"})
 
 
@@ -1517,8 +1520,20 @@ def _generate_reserved(provider: ImageProvider, url: str, headers: dict, payload
         poll = str(body["polling_url"])
         submitted = {k: body.get(k) for k in ("id", "cost", "input_mp", "output_mp")}
         billing["provider_submit"] = submitted
+        transient = 0
         for _ in range(BFL_POLL_ATTEMPTS):
-            body = _get(poll, headers, label=provider.key, timeout=timeout)
+            try:
+                body = _get(poll, headers, label=provider.key, timeout=timeout)
+            except TransientError:
+                # ENG-FLUX-PROVIDER: the job is accepted and billed; re-polling it is free.
+                # A 503 without a status body, or a dropped connection, used to abandon a
+                # paid render (UNCERTAIN). Keep polling through a short run of them.
+                transient += 1
+                if transient > BFL_POLL_TRANSIENT_MAX:
+                    raise
+                _poll_sleep(min(BFL_POLL_SECONDS * (2 ** transient), 30.0))
+                continue
+            transient = 0
             # BFL's statuses are "Request Moderated", "Task not found", ...: normalised, so a
             # moderation verdict ends the poll instead of polling to the timeout.
             status = str(body.get("status") or "").strip().lower().replace(" ", "_")
@@ -1530,7 +1545,7 @@ def _generate_reserved(provider: ImageProvider, url: str, headers: dict, payload
             if status not in BFL_IN_PROGRESS:
                 raise ImagesRefused(f"{provider.key} returned {status or 'no status'}: "
                                     f"{json.dumps(body)[:300]}")
-            time.sleep(BFL_POLL_SECONDS)
+            _poll_sleep(BFL_POLL_SECONDS)
         else:
             raise TransientError(
                 f"{provider.key} did not finish within "

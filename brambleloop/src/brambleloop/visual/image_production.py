@@ -2503,6 +2503,41 @@ def restart(db, key: str, *, follow, by: str, reason: str = "") -> dict:
 CAPABILITY_GATES = (("image_generation gate closed", "image_generation"),)
 REDRIVE_BY = "capability_redrive"
 
+# ENG-FLUX-PROVIDER (2026-11-23): a run blocked on a TRANSIENT provider answer (BFL 503, an
+# unreachable host, a timeout) used to stay blocked for good -- nothing re-drove it, so one busy
+# spell at BFL parked the gallery (production: 4 runs at product_generation:provider, no FLUX
+# call for hours). Such a run is restarted by the hourly sweep, at most once per UTC hour and
+# not before PROVIDER_REDRIVE_AFTER has passed since it blocked. Every cap still binds:
+# MAX_RESTARTS, the per-role attempt cap, the call cap, the per-gallery and daily ceilings.
+PROVIDER_REDRIVE_BY = "provider_transient_redrive"
+PROVIDER_REDRIVE_AFTER = timedelta(minutes=15)
+_PROVIDER_CONTEXT = ("provider error", "could not be rendered", "generator refused")
+_PROVIDER_TRANSIENT = re.compile(
+    r"TransientError|\b(?:500|502|503|504)\b|unreachable|timed out|did not finish within",
+    re.IGNORECASE)
+
+
+def provider_transient_block(reason) -> bool:
+    """A block whose recorded cause is a transient provider answer (never a budget stop)."""
+    text = str(reason or "")
+    if text.startswith("budget stop"):
+        return False
+    low = text.lower()
+    return any(c in low for c in _PROVIDER_CONTEXT) and bool(_PROVIDER_TRANSIENT.search(text))
+
+
+def _provider_redrive_due(stages: dict, updated_at, now: datetime) -> str | None:
+    """The UTC hour key a provider-transient redrive may use now, else None."""
+    at = _utc(updated_at)
+    if at is not None and now - at < PROVIDER_REDRIVE_AFTER:
+        return None
+    hour = now.strftime("%Y-%m-%dT%HZ")
+    history = (stages.get(RESTART_KEY) or {}).get("history") or []
+    if any(h.get("by") == PROVIDER_REDRIVE_BY and hour in str(h.get("reason", ""))
+           for h in history):
+        return None
+    return hour
+
 
 # A budget stop whose only cause is the provider's DAILY ceiling is a window, not a verdict:
 # nothing was billed (the gate refused before sending) and the ceiling resets at the next UTC
@@ -2582,6 +2617,8 @@ def redrive_capability_blocked(db, *, follow) -> dict:
         rows = [(r.run_key, r.blocked_reason or "", dict(r.stages or {}))
                 for r in s.scalars(select(ImageProductionRun).where(
                     ImageProductionRun.status == "blocked"))]
+        updated = {r.run_key: r.updated_at for r in s.scalars(select(ImageProductionRun).where(
+            ImageProductionRun.status == "blocked"))}
     gates = {g for _n, g in CAPABILITY_GATES}
     open_now = gates_now(db, keys=tuple(sorted(gates)))
     restarted, waiting, refused = [], [], []
@@ -2591,6 +2628,22 @@ def redrive_capability_blocked(db, *, follow) -> dict:
         if gate is None and _method_redrive_candidate(db, key, reason, stages):
             _sweep_method_redrive(db, key, follow=follow, method=method,
                                   restarted=restarted, refused=refused)
+            continue
+        if gate is None and provider_transient_block(reason) and "#" not in key:
+            hour = _provider_redrive_due(stages, updated.get(key), _now())
+            if hour is None:
+                waiting.append({"run_key": key, "why": "transient provider block; re-driven "
+                                                       "at most once per UTC hour"})
+                continue
+            try:
+                out = restart(db, key, follow=follow, by=PROVIDER_REDRIVE_BY,
+                              reason=f"transient provider answer; retried at {hour}")
+            except Exception as exc:  # noqa: BLE001 - restart rolled back; stays blocked
+                out = {"restarted": False,
+                       "why": f"restart not enqueued ({type(exc).__name__})"}
+            (restarted if out.get("restarted") else refused).append(
+                {"run_key": key, **{k: out[k] for k in ("epoch", "resume_at", "why")
+                                    if k in out}})
             continue
         if gate is None:
             if DAILY_CEILING_CODE in reason and reason.startswith("budget stop"):
@@ -2739,6 +2792,10 @@ def redrive_due(session, since, *, now: datetime | None = None) -> dict | None:
                 >= MAX_RESTARTS:
             continue
         history = rec.get("history") or []
+        if provider_transient_block(reason) and _gate_of(reason) is None:
+            if _provider_redrive_due(stages, r.updated_at, now) is not None:
+                return {"at": now.isoformat(), "run_key": key, "kind": "provider_transient"}
+            continue
         if reason.startswith("budget stop") and DAILY_CEILING_CODE in reason:
             blocked_day = _utc_day(r.updated_at.isoformat() if r.updated_at else None)
             if blocked_day is None or today <= blocked_day:
