@@ -4857,3 +4857,14 @@ should be paused. Ridiculous".
 ## D-OWNER-DEPLOY-19i20 — 2026-11-23T04:51:17Z
 
 Batch 19i20 (code 5d87f2974) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to 29b8d03a2856bdb31550d4e5a1c30943be5ddada was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+
+## D-OWNER-LAURA-MANDATORY (amended) — 2026-11-23T06:20Z
+
+19i20's `gallery_ready` rule wrongly required a *publishable* Laura LIFESTYLE frame.
+- Publishability is the separate publication gate, false in SHADOW, so every gallery stopped
+  at `owner_card` with `laura_lifestyle_missing`.
+- Seven image suites (e2e, visnext2, ownerimg and others) caught it; the 19i20 filtered run
+  had not included them.
+- Corrected in eng/flux-provider: at least one Laura-marked role of the plan, whatever its
+  job, must hold a generated frame whose own verification PASSed.
