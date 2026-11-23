@@ -856,16 +856,24 @@ def _post(url: str, headers: dict, payload: bytes, *, label: str,
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode(errors="replace")[:500]
         if exc.code == 402 or (exc.code == 429 and _is_permanent_quota(detail)):
-            raise QuotaUnavailable(
+            err = QuotaUnavailable(
                 f"{label} {exc.code}: {detail}. This is the account's balance or plan "
                 f"rather than traffic or the brief, so it is neither retried nor recorded "
-                f"as a content refusal. The answer is a top-up, not a new prompt") from exc
-        if exc.code in (429, 500, 502, 503, 504):
-            raise TransientError(f"{label} {exc.code}: {detail}") from exc
-        # A content refusal is permanent and is a fact about the brief rather than the
-        # wiring. It must surface as a refusal with the provider's words, not as an empty
-        # gallery somebody later explains as a rendering bug.
-        raise ImagesRefused(f"{label} {exc.code}: {detail}") from exc
+                f"as a content refusal. The answer is a top-up, not a new prompt")
+        elif exc.code in (429, 500, 502, 503, 504):
+            err = TransientError(f"{label} {exc.code}: {detail}")
+        else:
+            # A content refusal is permanent and is a fact about the brief rather than the
+            # wiring. It must surface as a refusal with the provider's words, not as an empty
+            # gallery somebody later explains as a rendering bug.
+            err = ImagesRefused(f"{label} {exc.code}: {detail}")
+        if 400 <= exc.code < 500:
+            # REDRIVE-REFUSAL: a 4xx on the submit is the provider refusing the request before
+            # it issued a task id -- never accepted, never billed by the provider. The run's
+            # call, attempt and restart counts read this; the spend ledger keeps its own
+            # (conservative) classification and every money cap still binds.
+            err.never_accepted_status = exc.code
+        raise err from exc
     except urllib.error.URLError as exc:
         raise TransientError(f"{label} unreachable: {exc.reason}") from exc
 
