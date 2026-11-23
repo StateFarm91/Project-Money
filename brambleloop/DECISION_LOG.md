@@ -4779,3 +4779,7 @@ The readback gap was real: `production_evidence._vp_runs` never read
   block image production, so there was nothing over-broad to lift. The owner wants galleries
   made before publication; they already are, and publication stays gated.
 
+
+## D-OWNER-DEPLOY-19i19 — 2026-11-23T03:01:17Z
+
+Batch 19i19 (code 9c816f9a8) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to b48ff952f5a8b359bedfb55975671a2d650cb3e9 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
