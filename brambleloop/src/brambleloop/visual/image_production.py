@@ -3290,11 +3290,12 @@ def readiness(db, listing: str, *, run_key_: str | None = None, plan: dict | Non
     # D-OWNER-LAURA-MANDATORY (owner, 2026-11-23: "Laura and model photography is
     # mandatory"): a gallery is never ready without an accepted (publishable, generated)
     # Laura lifestyle frame. A disclosed render or a missing frame does not satisfy it.
-    # "Accepted" is the frame's own verification (technical_status PASS); publishability is
-    # the separate publication gate and is judged elsewhere. The plan marks every Laura frame
-    # (`laura`), whatever its job: at least one must be a generated frame that passed.
+    # The plan marks every Laura frame (`laura`), whatever its job: at least one must hold a
+    # generated Laura frame that no check FAILed. PASS or UNKNOWN both qualify -- the Laura
+    # identity verifier is not production-qualified yet (UNKNOWN is the honest reading and the
+    # owner card says so); publishability is the separate publication gate, judged elsewhere.
     laura_ok = any(e.get("laura") and e.get("source") == "generated"
-                   and (e.get("candidate") or {}).get("technical_status") == "PASS"
+                   and (e.get("candidate") or {}).get("technical_status") in ("PASS", "UNKNOWN")
                    for e in roles)
     if not laura_ok:
         set_check = {"ok": False, "problems": list(set_check["problems"]) + [

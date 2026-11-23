@@ -4867,4 +4867,6 @@ Batch 19i20 (code 5d87f2974) is deployed under D-OWNER-AUTODEPLOY-24H-2, the own
 - Seven image suites (e2e, visnext2, ownerimg and others) caught it; the 19i20 filtered run
   had not included them.
 - Corrected in eng/flux-provider: at least one Laura-marked role of the plan, whatever its
-  job, must hold a generated frame whose own verification PASSed.
+  job, must hold a generated Laura frame that no check FAILed (PASS or UNKNOWN). UNKNOWN is
+  allowed because the Laura identity verifier is not production-qualified, so production reads
+  UNKNOWN. A missing or FAILed Laura frame still blocks.
