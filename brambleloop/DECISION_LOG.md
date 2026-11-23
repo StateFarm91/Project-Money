@@ -4720,3 +4720,7 @@ Asked whether sizes may come from gauge maths instead of a physical sample, the 
 ## D-OWNER-DEPLOY-19i17 — 2026-11-22T19:58:51Z
 
 Batch 19i17 (code 9bb44cdaf) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to 9c18ab5e0e3cf7e0a5abd1d798364e8381468365 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-DEPLOY-19i18 — 2026-11-23T01:44:03Z
+
+Batch 19i18 (code 98a1591dc) is deployed under D-OWNER-AUTODEPLOY-24H-2, the owner's standing authorization (given 2026-11-22 about 05:30Z) until 2026-11-23T05:30Z. Its changed and overlap suites pass. A rollback to e5b4d2853dd78c67aa5bdb23d07f9373e3c0a47c was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
