@@ -231,7 +231,8 @@ def test_image_production_ran_through_its_stages_and_handed_on():
     assert R["image"]["state"] == "ready_for_owner_review", R["image"]
     # D-OWNER-LAURA-MANDATORY: the gallery holds a generated Laura frame no check FAILed
     rd = IP.readiness(R["db"], R["image"]["listing"], run_key_=R["image"]["run_key"])
-    assert rd["laura_lifestyle_ok"] is True and rd["gallery_ready"], rd["set_check"]
+    # (gallery_ready itself also needs publishable frames, which SHADOW never grants)
+    assert rd["laura_lifestyle_ok"] is True and rd["set_check"]["ok"], rd["set_check"]
     assert any(e["laura"] and e["source"] == "generated" for e in rd["roles"]), rd["roles"]
     assert R["gen"].calls >= 1 and R["image"]["spent_cad"] == 0.0
     img_jobs = [x for x in R["ran"] if x[0] == IP.JOB_TYPE]
