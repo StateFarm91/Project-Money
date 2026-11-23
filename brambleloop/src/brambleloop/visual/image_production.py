@@ -65,6 +65,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Protocol
 
@@ -753,12 +754,154 @@ def _attempts(db, run: str, role: str) -> int:
 
     scoped = _redriven_method(db, run)
     with db.session() as s:
-        if scoped is None:
-            return int(s.scalar(select(func.count()).select_from(ImageCandidate).where(
-                ImageCandidate.run_key == run, ImageCandidate.role == role)) or 0)
-        rows = s.execute(select(ImageCandidate.checks).where(
+        rows = s.execute(select(ImageCandidate.checks, ImageCandidate.outcome,
+                                ImageCandidate.sha256).where(
             ImageCandidate.run_key == run, ImageCandidate.role == role)).all()
-    return sum(1 for (checks,) in rows if candidate_method_version(checks) == scoped)
+    # REDRIVE-REFUSAL: a call the provider never accepted is not an attempt.
+    return sum(1 for checks, outcome, sha in rows
+               if not candidate_unaccepted(outcome, sha, checks)
+               and (scoped is None or candidate_method_version(checks) == scoped))
+
+
+# ---- REDRIVE-REFUSAL: a call the provider never accepted is not spent ----------------------
+# Production 19i19 (2026-11-23): the BFL key was rejected (403) before any task id, and the
+# paid gate refused daily-ceiling calls before sending. Nothing was billed, but each such call
+# still counted toward `MAX_GENERATION_CALLS`, the per-role attempt cap and the restart cap, so
+# runs re-driven after the key fix and the daily reset had no budget left to run. A call that
+# was never accepted -- a 4xx on the submit (`gateway.images._post` marks it), or the paid gate
+# refusing before any I/O -- is now excluded from those counts. `generation_calls` itself
+# still records every call (audit); billed and uncertain calls count in full; spend, and every
+# money cap, are untouched.
+UNACCEPTED_KEY = "_unaccepted"          # candidate.checks marker: {"accepted": False, ...}
+GATE_REFUSED_TEXT = "paid provider gate refused before sending"
+# Rows written before the marker: the submit's own words, "<provider> 401: " / "<provider> 403: "
+# (an auth refusal before a task id). A poll error reads "<provider> poll <code>" and never
+# matches, so an accepted-then-failed render is never taken for an unbilled one.
+_LEGACY_UNACCEPTED = re.compile(r"(?:^|[\s:])[\w.\-]+ 40[13]: ")
+
+
+def never_accepted_status(exc: BaseException | None) -> int | None:
+    """The provider's 4xx status when `exc`'s chain says the submit was refused before a task
+    id (`never_accepted_status` on the gateway's error); None otherwise."""
+    seen = set()
+    while exc is not None and id(exc) not in seen:
+        seen.add(id(exc))
+        st = getattr(exc, "never_accepted_status", None)
+        if isinstance(st, int) and not isinstance(st, bool) and 400 <= st < 500:
+            return st
+        exc = exc.__cause__ or exc.__context__
+    return None
+
+
+def candidate_unaccepted(outcome, sha256, checks) -> bool:
+    """A provider-error candidate whose call the provider never accepted (no bytes, no bill)."""
+    if outcome != "provider_error" or sha256:
+        return False
+    checks = checks if isinstance(checks, dict) else {}
+    mark = checks.get(UNACCEPTED_KEY)
+    if isinstance(mark, dict):
+        return mark.get("accepted") is False
+    why = str((checks.get("provider") or {}).get("why") or "")
+    return bool(_LEGACY_UNACCEPTED.search(why))
+
+
+def _utc(dt):
+    if dt is None:
+        return None
+    if isinstance(dt, str):
+        try:
+            dt = datetime.fromisoformat(dt)
+        except ValueError:
+            return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def _unaccepted_rows(session, key: str) -> list:
+    """created_at of each never-accepted candidate of run `key`."""
+    from sqlalchemy import select
+
+    from .image_records import ImageCandidate as IC
+
+    return [_utc(at) for at, outcome, sha, checks in session.execute(
+        select(IC.created_at, IC.outcome, IC.sha256, IC.checks).where(
+            IC.run_key == key, IC.outcome == "provider_error"))
+        if candidate_unaccepted(outcome, sha, checks)]
+
+
+def _gate_refused(reason) -> bool:
+    return GATE_REFUSED_TEXT in str(reason or "")
+
+
+def unbilled_calls(session, row) -> int:
+    """Calls of run `row` (an ImageProductionRun) that the provider never accepted: every
+    never-accepted candidate, plus one per block the paid gate caused by refusing before
+    sending (that call was counted, then released unbilled)."""
+    stages = dict(row.stages or {})
+    history = (stages.get(RESTART_KEY) or {}).get("history") or []
+    n = len(_unaccepted_rows(session, row.run_key))
+    n += sum(1 for h in history if isinstance(h, dict) and _gate_refused(h.get("blocked_reason")))
+    if row.status == "blocked" and _gate_refused(row.blocked_reason):
+        n += 1
+    return n
+
+
+def counted_calls(session, row) -> int:
+    """`generation_calls` less the calls the provider never accepted: what the call cap reads.
+    A corrupt persisted counter (not a nonnegative integer) is returned as it is, so the spend
+    plan's guard refuses it rather than this hiding it."""
+    calls = row.generation_calls
+    if isinstance(calls, bool) or not isinstance(calls, int) or calls < 0:
+        return calls
+    return max(0, calls - unbilled_calls(session, row))
+
+
+def restarts_spent(session, row) -> int:
+    """Restarts that count toward `MAX_RESTARTS`: every epoch except one whose every call was
+    never accepted (it made at least one call and none of them reached the provider's bill).
+    An epoch with no call at all still counts: the cap is also a thrash bound."""
+    stages = dict(row.stages or {})
+    rec = stages.get(RESTART_KEY) or {}
+    epoch = int(rec.get("epoch") or 0)
+    history = [h for h in (rec.get("history") or []) if isinstance(h, dict)]
+    if not history:
+        return epoch
+    unaccepted = _unaccepted_rows(session, row.run_key)
+    free = 0
+    for i, h in enumerate(history):
+        start, start_calls = _utc(h.get("at")), h.get("generation_calls")
+        if i + 1 < len(history):
+            nxt = history[i + 1]
+            end, end_calls, end_reason = _utc(nxt.get("at")), nxt.get("generation_calls"), \
+                nxt.get("blocked_reason")
+        elif row.status == "blocked":
+            end, end_calls, end_reason = None, row.generation_calls, row.blocked_reason
+        else:
+            continue          # the current epoch is still running: it counts
+        if start is None or not isinstance(start_calls, int) or not isinstance(end_calls, int):
+            continue
+        made = end_calls - start_calls
+        if made <= 0:
+            continue
+        lost = sum(1 for at in unaccepted
+                   if at is not None and at >= start and (end is None or at < end))
+        lost += 1 if _gate_refused(end_reason) else 0
+        if lost >= made:
+            free += 1
+    return max(0, epoch - free)
+
+
+def _run_counts(db, key: str) -> dict:
+    """{"counted_calls", "restarts_spent", "unbilled_calls"} for run `key`."""
+    from sqlalchemy import select
+
+    from .image_records import ImageProductionRun
+
+    with db.session() as s:
+        r = s.scalar(select(ImageProductionRun).where(ImageProductionRun.run_key == key))
+        if r is None:
+            return {"counted_calls": 0, "restarts_spent": 0, "unbilled_calls": 0}
+        return {"counted_calls": counted_calls(s, r), "restarts_spent": restarts_spent(s, r),
+                "unbilled_calls": unbilled_calls(s, r)}
 
 
 # ---- one generation, through the budget --------------------------------------------------
@@ -810,7 +953,7 @@ def _begin_generation(db, key, *, stage, paid, next_cost):
             raise BudgetStop("prior paid image call has an unresolved cost; review required")
         try:
             spend_plan.guard(_spend_plan(key, db), spent_cad=row.spent_cad,
-                             calls_made=row.generation_calls, next_cost_cad=next_cost)
+                             calls_made=counted_calls(session, row), next_cost_cad=next_cost)
         except spend_plan.PlanRefused as exc:
             raise BudgetStop(str(exc)) from None
         row.generation_calls += 1
@@ -996,7 +1139,7 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
         return recovered
     with db.session() as s:
         r = _run(s, key)
-        calls, spent = r.generation_calls, r.spent_cad
+        calls, spent = counted_calls(s, r), r.spent_cad
     paid = getattr(gen, "paid", True) is not False
     next_cost = getattr(gen, "max_cost_cad_per_call", 0.0)
     try:
@@ -1060,6 +1203,12 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
             _release_refused_generation(db, key, call_token)
             raise BudgetStop(f"paid provider gate refused before sending "
                              f"({refused.code}): {str(refused)[:300]}") from None
+        unaccepted = never_accepted_status(exc)
+        if paid and unaccepted is not None:
+            # REDRIVE-REFUSAL: the provider refused the submit before a task id (e.g. a 403
+            # on a rejected key): nothing was billed, so this call's hold is released and the
+            # candidate below is marked; it counts toward no call, attempt or restart cap.
+            _release_refused_generation(db, key, call_token)
         with db.session() as s:
             s.add(ImageCandidate(sha256="", run_key=key, method="autonomous",
                                  provenance_kind="ai_generated_autonomous", slug=slug,
@@ -1071,7 +1220,10 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
                                  checks={"provider": {"status": "FAIL",
                                                       "why": f"{type(exc).__name__}: "
                                                              f"{str(exc)[:300]}"},
-                                         METHOD_KEY: dict(base[METHOD_KEY])}))
+                                         METHOD_KEY: dict(base[METHOD_KEY]),
+                                         **({UNACCEPTED_KEY: {
+                                             "accepted": False, "http_status": unaccepted}}
+                                            if unaccepted is not None else {})}))
         return {"provider_error": f"{type(exc).__name__}: {str(exc)[:300]}"}
     cost = out.get("cost_cad")
     if paid:
@@ -2144,7 +2296,7 @@ def method_headroom(db, key: str, run: dict) -> dict:
     plan = _spend_plan(key, db)
     calls = 2 if is_vessel_release(db, run["slug"], run["version"]) else 1
     cost = _redrive_call_cost_cad()
-    calls_left = int(plan["call_count"]) - int(run.get("generation_calls") or 0)
+    calls_left = int(plan["call_count"]) - int(_run_counts(db, key)["counted_calls"])
     spend_left = round(float(plan["max_spend_cad"]) - float(run.get("spent_cad") or 0.0), 4)
     ok = calls_left >= calls and spend_left + 1e-9 >= calls * cost
     return {"ok": ok, "calls_needed": calls, "calls_left": calls_left,
@@ -2228,13 +2380,19 @@ def restartable(db, key: str) -> dict:
                                              "submit a new run from the Command Center"}
     if run["state"] != "blocked":
         return {"restartable": False, "why": f"run is {run['status']}, not blocked"}
-    if run.get("restarts", 0) >= MAX_RESTARTS:
-        return {"restartable": False, "why": f"already restarted {run['restarts']} times "
+    spent = _run_counts(db, key)["restarts_spent"]
+    if spent >= MAX_RESTARTS:
+        return {"restartable": False, "why": f"already restarted {spent} times "
                                              f"(cap {MAX_RESTARTS})"}
     reason = str(run.get("blocked_reason") or "")
-    if reason.startswith("budget stop") and not daily_ceiling_reset(run):
+    daily = reason.startswith("budget stop") and daily_ceiling_reset(run)
+    if reason.startswith("budget stop") and not daily:
         return {"restartable": False, "why": "a budget stop is final for this run: " + reason}
-    failed = _run_candidates_failed(db, key, run["listing"])
+    # REDRIVE-REFUSAL: a daily-ceiling stop interrupted generation (often mid-repair, with an
+    # earlier FAILed candidate the repair was answering): it was stopped by the window, not
+    # by spent attempts. It resumes where it stopped; the per-role attempt cap, the call cap
+    # and the spend plan still bind when it does.
+    failed = [] if daily else _run_candidates_failed(db, key, run["listing"])
     if failed:
         chk = method_redrive_check(db, key, run, failed)
         if chk["eligible"] and not chk["ok"]:
@@ -2367,6 +2525,27 @@ def _utc_day(iso: str | None):
         return None
 
 
+DAILY_REDRIVE_KEY = "_daily_redrive"   # stages: {"day", "why", "at"} of a refused daily redrive
+
+
+def _record_daily_refusal(db, key: str, day: str, why: str) -> None:
+    """Record that today's daily redrive of `key` was refused (status, reason and
+    `updated_at` untouched: the blocked day is read from `updated_at`)."""
+    from sqlalchemy import select
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from .image_records import ImageProductionRun
+
+    with db.session() as s:
+        r = s.scalar(select(ImageProductionRun).where(ImageProductionRun.run_key == key))
+        if r is None or r.status != "blocked":
+            return
+        st = dict(r.stages or {})
+        st[DAILY_REDRIVE_KEY] = {"day": day, "why": why[:500], "at": _now().isoformat()}
+        r.stages = st
+        flag_modified(r, "stages")
+
+
 def daily_ceiling_reset(run: dict, now=None) -> bool:
     """True when `run` is a budget stop caused only by the provider's daily ceiling and the
     UTC day has changed since it blocked."""
@@ -2426,12 +2605,23 @@ def redrive_capability_blocked(db, *, follow) -> dict:
                        for h in history):
                     refused.append({"run_key": key, "why": f"already re-driven on {day}"})
                     continue
+                judged = stages.get(DAILY_REDRIVE_KEY) or {}
+                if isinstance(judged, dict) and judged.get("day") == day:
+                    refused.append({"run_key": key, "why": f"already judged on {day}: "
+                                                           f"{judged.get('why', '')}"[:500]})
+                    continue
                 try:
                     out = restart(db, key, follow=follow, by=DAILY_REDRIVE_BY,
                                   reason=f"provider daily ceiling reset on {day}")
                 except Exception as exc:  # noqa: BLE001 - restart rolled back; stays blocked
                     out = {"restarted": False,
                            "why": f"restart not enqueued ({type(exc).__name__})"}
+                if not out.get("restarted") and out.get("restartable") is False:
+                    # REDRIVE-REFUSAL: a preflight refusal is judged once per UTC day, so
+                    # `redrive_due` stops reporting the run as due (it lifted the backoff
+                    # every hour for a restart that could not happen). A transient failure
+                    # (enqueue error, concurrent change) is retried by the next sweep.
+                    _record_daily_refusal(db, key, day, str(out.get("why") or ""))
                 (restarted if out.get("restarted") else refused).append(
                     {"run_key": key, **{k: out[k] for k in ("epoch", "resume_at", "why")
                                         if k in out}})
@@ -2545,7 +2735,8 @@ def redrive_due(session, since, *, now: datetime | None = None) -> dict | None:
         if "#" in key:
             continue
         rec = stages.get(RESTART_KEY) or {}
-        if int(rec.get("epoch") or 0) >= MAX_RESTARTS:
+        if int(rec.get("epoch") or 0) >= MAX_RESTARTS and restarts_spent(session, r) \
+                >= MAX_RESTARTS:
             continue
         history = rec.get("history") or []
         if reason.startswith("budget stop") and DAILY_CEILING_CODE in reason:
@@ -2559,6 +2750,8 @@ def redrive_due(session, since, *, now: datetime | None = None) -> dict | None:
             if any(h.get("by") == DAILY_REDRIVE_BY and day in str(h.get("reason", ""))
                    for h in history):
                 continue
+            if (stages.get(DAILY_REDRIVE_KEY) or {}).get("day") == day:
+                continue      # the sweep already judged it today and was refused
             return {"at": reset_at.isoformat(), "run_key": key, "kind": "daily_ceiling_reset"}
         if r.stage == "fidelity_gate" and not reason.startswith("budget stop"):
             current = current or current_method_version()
