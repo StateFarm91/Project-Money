@@ -237,6 +237,21 @@ def _startup() -> None:
         _sg.process_report(db, _sg.WEB_COMPONENT)
     except Exception:  # noqa: BLE001
         pass
+    # BACKOFF-CAP / FLUX UNCERTAIN (19i19): on boot, clamp free-poll backoffs parked past
+    # min(4x period, 6 h) under the old 32x cap, and release the reservations of UNCERTAIN
+    # paid-provider calls whose stored error proves the provider never accepted them.
+    try:
+        from ..swarm.orchestrate import clamp_parked_backoffs as _clamp
+
+        _clamp(db)
+    except Exception:  # noqa: BLE001 - never prevents a boot
+        pass
+    try:
+        from ..gateway.paid_provider_gate import reclassify_uncertain as _reclass
+
+        _reclass(db)
+    except Exception:  # noqa: BLE001 - never prevents a boot
+        pass
     # One row per container start, carrying the commit it started on.
     #
     # `runner.STATE.worker_restarts` looks like a restart count and cannot be one: it counts

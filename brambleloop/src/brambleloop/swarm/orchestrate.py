@@ -258,6 +258,9 @@ def thrash_sweep(db, *, now: datetime | None = None,
 
     now = now or datetime.now(timezone.utc)
     since = now - timedelta(hours=window_hours)
+    # BACKOFF-CAP: every sweep (and the boot, `runtime.worker.Scheduler.tick`) clamps a
+    # standing backoff parked past min(4x period, 6 h), written under the old 32x cap.
+    clamped = clamp_parked_backoffs(db, now=now)
     detector = ThrashDetector()
     tripped: dict[str, dict] = {}
     observed = 0
@@ -346,7 +349,7 @@ def thrash_sweep(db, *, now: datetime | None = None,
     return {"observed": observed, "window_hours": window_hours,
             "tripped": len(tripped), "incidents": incidents, "cancelled": cancelled,
             "limit": THRASH_LIMIT,
-            "progress": progress, "backoff": backoffs,
+            "progress": progress, "backoff": {**backoffs, "clamped": clamped},
             "suspended": sorted(suspended_job_types(db, now=now)),
             "rearmed": rearmed_job_types(db),
             "note": ("no loop: no failing or paid call repeated an identical result three "
@@ -365,7 +368,84 @@ BACKOFF_SIGNATURE_PREFIX = "thrash:backoff:"
 # Three identical states without progress is the requirement's own number.
 IDENTICAL_STATES = THRASH_LIMIT
 # Backoff doubles per unchanged sweep, capped: a poll slowed to a week is a poll abandoned.
-MAX_BACKOFF_FACTOR = 32
+# BACKOFF-CAP (19i19, 2026-11-23): the old cap of 32x parked daily pipeline jobs for a month
+# (radar.concept_pool, the assets.* photographers) and a fortnightly one until 2028
+# (creative.blinded). The breaker exists to stop *hot* idle loops, so the park is now bounded
+# twice: never more than BACKOFF_CAP_PERIODS of the job's own cadence period, and never more
+# than BACKOFF_CAP_SECONDS in absolute terms. A 15-minute poller still slows to 1 h, an hourly
+# one to 4 h; a job whose period is 6 h or longer is never parked past its next window.
+MAX_BACKOFF_FACTOR = 4
+BACKOFF_CAP_PERIODS = MAX_BACKOFF_FACTOR
+BACKOFF_CAP_SECONDS = 6 * 60 * 60
+
+
+def cadence_period(job_type: str) -> int | None:
+    """The shortest cadence period (seconds) `runtime.worker.CADENCES` gives `job_type`."""
+    try:
+        from ..runtime.worker import CADENCES
+    except Exception:  # noqa: BLE001 - no schedule readable: no period
+        return None
+    periods = [int(p) for _n, _a, jt, p in CADENCES if jt == job_type and p]
+    return min(periods) if periods else None
+
+
+def backoff_cap_seconds(job_type: str, period: int | None = None) -> int:
+    """The longest a free-poll backoff may park `job_type`: min(4x period, 6 h)."""
+    period = period if period else cadence_period(job_type)
+    if not period:
+        return BACKOFF_CAP_SECONDS
+    return int(min(BACKOFF_CAP_PERIODS * int(period), BACKOFF_CAP_SECONDS))
+
+
+def capped_until(job_type: str, suspension: dict, recorded_at=None) -> datetime | None:
+    """The backoff deadline a suspension may stand until: its own `suspend_until`, clamped to
+    `since + backoff_cap_seconds`. Rows written under the old 32x cap read clamped."""
+    until = _parse_when(suspension.get("suspend_until"))
+    if until is None:
+        return None
+    since = _parse_when(suspension.get("since")) or _aware(recorded_at)
+    if since is None:
+        return until
+    return min(until, since + timedelta(seconds=backoff_cap_seconds(job_type)))
+
+
+def clamp_parked_backoffs(db, *, now: datetime | None = None) -> list[dict]:
+    """BACKOFF-CAP: rewrite every open free-poll backoff parked past the cap (boot and sweep).
+
+    Only ever moves a deadline earlier, and only for `kind: backoff` (a paid loop's
+    suspension is untouched). Returns what it clamped, for the readback."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+
+    now = now or datetime.now(timezone.utc)
+    out: list[dict] = []
+    try:
+        with db.session() as s:
+            for inc in s.scalars(select(Incident).where(
+                    Incident.resolved.is_(False),
+                    Incident.signature.like(f"{BACKOFF_SIGNATURE_PREFIX}%"))):
+                detail = dict(inc.detail or {})
+                sus = dict(detail.get("suspension") or {})
+                jt = sus.get("job_type")
+                if not jt or sus.get("kind") != BACKOFF:
+                    continue
+                was = _parse_when(sus.get("suspend_until"))
+                capped = capped_until(jt, sus, inc.at)
+                if was is None or capped is None or capped >= was:
+                    continue
+                factor = min(int(sus.get("factor") or 1), MAX_BACKOFF_FACTOR)
+                sus.update({"suspend_until": capped.isoformat(), "factor": factor,
+                            "level": min(int(sus.get("level") or 1),
+                                         MAX_BACKOFF_FACTOR.bit_length() - 1),
+                            "clamped_from": was.isoformat(), "clamped_at": now.isoformat(),
+                            "cap_seconds": backoff_cap_seconds(jt)})
+                inc.detail = {**detail, "suspension": sus}
+                out.append({"job_type": jt, "from": was.isoformat(),
+                            "to": capped.isoformat(), "expired": capped <= now})
+    except Exception:  # noqa: BLE001 - a failed clamp never stops a boot or a sweep
+        return out
+    return out
 # Watchdogs whose whole job is to keep looking: liveness, the queue, the allocator, the
 # sweeps themselves. Backing these off would blind the system to the change they exist to
 # notice, and they cost nothing.
@@ -522,6 +602,18 @@ UPSTREAM_INPUTS: dict[str, tuple[str, ...]] = {
     "visual.rnd.cycle": ("gate.certify", "chain.rebuild"),
     # A promotion is judged once per new production reading: a measurement that measured.
     "improve.monitor": ("improve.measure", "improve.sandbox"),
+    # BACKOFF-CAP (19i19): the photographers and the reference pack render for a certified
+    # product once image generation is usable. Their inputs are a new certified release and
+    # the image capability itself (`_image_capability_since`, an INPUT_PROBE below).
+    "assets.owned_photography": ("gate.certify", "chain.rebuild"),
+    "assets.model_photography": ("gate.certify", "chain.rebuild",
+                                 "creative.model_freeze"),
+    # The photo review approves frames the photographers (and the physical upgrade) made.
+    "assets.photo_review": ("assets.owned_photography", "assets.model_photography",
+                            "assets.physical_upgrade"),
+    "creative.model_reference_pack": ("creative.model_freeze",),
+    # The blinded benchmark judges the certified catalogue against the observed benchmark.
+    "creative.blinded": ("gate.certify", "intel.benchmark_refresh"),
 }
 
 
@@ -622,7 +714,43 @@ def _image_redrive_due(session, since) -> dict | None:
     return IP.redrive_input_probe(session, since)
 
 
+def _image_capability_since(session, since) -> dict | None:
+    """BACKOFF-CAP: new input for a job that renders -- the owner activated (or re-activated)
+    a paid image provider after `since`, or the image probe changed from refused to working.
+    Read from the rows; a routine OK probe after an OK probe is not new input."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+    from ..gateway import images
+    from ..gateway import paid_provider_gate as G
+
+    try:
+        act = session.scalar(select(G.PaidProviderActivation).where(
+            G.PaidProviderActivation.activated_at > since)
+            .order_by(G.PaidProviderActivation.id.desc()).limit(1))
+    except Exception:  # noqa: BLE001 - a table not yet created is no new input
+        act = None
+    if act is not None:
+        return {"input": "paid_provider_activations", "id": act.id,
+                "at": _aware(act.activated_at).isoformat()}
+    after = session.scalar(select(AuditLog).where(AuditLog.action == images.PROBE_ACTION,
+                                                  AuditLog.at > since)
+                           .order_by(AuditLog.id.desc()).limit(1))
+    if after is None or not (after.detail or {}).get("ok"):
+        return None
+    before = session.scalar(select(AuditLog).where(AuditLog.action == images.PROBE_ACTION,
+                                                   AuditLog.at <= since)
+                            .order_by(AuditLog.id.desc()).limit(1))
+    if before is not None and (before.detail or {}).get("ok"):
+        return None
+    return {"input": images.PROBE_ACTION, "id": after.id, "at": _aware(after.at).isoformat()}
+
+
 INPUT_PROBES: dict[str, object] = {
+    # BACKOFF-CAP: the jobs that render wake when image generation becomes usable.
+    "assets.owned_photography": _image_capability_since,
+    "assets.model_photography": _image_capability_since,
+    "creative.model_reference_pack": _image_capability_since,
     "improve.monitor": _promotions_since,
     "improve.sandbox": _proposals_since,
     "improve.league": _configs_since,
@@ -1004,7 +1132,9 @@ def _free_poll_backoff(session, progress: dict, *, now: datetime,
     from ..core.models import Incident
     from ..runtime.worker import CADENCES
 
-    period_of = {jt: period for _n, _a, jt, period in CADENCES}
+    period_of: dict[str, int] = {}
+    for _n, _a, jt, period in CADENCES:
+        period_of[jt] = min(period, period_of.get(jt, period))
     applied, lifted = [], []
     for jt, row in sorted(progress.items()):
         if jt in LIVENESS_JOB_TYPES or jt in skip or jt not in period_of \
@@ -1038,12 +1168,17 @@ def _free_poll_backoff(session, progress: dict, *, now: datetime,
             continue
         level = int(previous.get("level", 0)) + 1 if open_row is not None else 1
         factor = min(MAX_BACKOFF_FACTOR, 2 ** level)
-        until = now + timedelta(seconds=period_of[jt] * factor)
+        level = min(level, MAX_BACKOFF_FACTOR.bit_length() - 1)
+        cap = backoff_cap_seconds(jt, period_of[jt])
+        until = now + timedelta(seconds=min(period_of[jt] * factor, cap))
         if previous.get("suspend_until"):
             # a new unchanged observation extends the deadline; it never pulls it earlier
+            # -- except that no deadline ever stands past the cap from now (BACKOFF-CAP)
             until = max(until, datetime.fromisoformat(previous["suspend_until"]))
+            until = min(until, now + timedelta(seconds=cap))
         suspension = {"kind": BACKOFF, "job_type": jt, "level": level, "factor": factor,
-                      "suspend_until": until.isoformat(), "code_commit": _commit(),
+                      "suspend_until": until.isoformat(), "cap_seconds": cap,
+                      "code_commit": _commit(),
                       "last_counted_job_id": row.get("last_job_id"),
                       "handler_digest": handler_digest(jt),
                       "since": now.isoformat(), **gate_snapshot(session, jt)}
@@ -1102,10 +1237,13 @@ def suspended_job_types(db, *, now: datetime | None = None) -> dict[str, dict]:
                                   "hypothesis (a change to the code that runs it) or a "
                                   "resolved incident"}
             elif sus.get("kind") == BACKOFF:
-                until = datetime.fromisoformat(sus["suspend_until"])
-                if until > now:
-                    out[jt] = {"kind": BACKOFF, "until": sus["suspend_until"],
-                               "factor": sus.get("factor"), "incident": inc.signature}
+                # BACKOFF-CAP: read clamped, so a row parked under the old 32x cap cannot
+                # hold a job past min(4x period, 6 h) even before the clamp rewrites it.
+                until = capped_until(jt, sus, inc.at)
+                if until is not None and until > now:
+                    out[jt] = {"kind": BACKOFF, "until": until.isoformat(),
+                               "factor": min(int(sus.get("factor") or 1), MAX_BACKOFF_FACTOR),
+                               "incident": inc.signature}
     return out
 
 

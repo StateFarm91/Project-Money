@@ -512,7 +512,8 @@ def test_f_a_noop_never_reads_as_improvement():
 
 def test_g_monitor_backoff_lifts_when_a_promotion_arrives():
     db = _db()
-    since = NOW - timedelta(days=3)
+    # BACKOFF-CAP: a backoff stands at most min(4x period, 6 h) from `since`
+    since = NOW - timedelta(hours=3)
     sus = {"kind": orc.BACKOFF, "job_type": "improve.monitor", "level": 5, "factor": 32,
            "suspend_until": (NOW + timedelta(days=20)).isoformat(), "since": since.isoformat()}
     with db.session() as s:
@@ -541,7 +542,8 @@ def test_g_monitor_backoff_lifts_when_a_promotion_arrives():
 
 def test_g_sandbox_and_league_lift_on_their_inputs():
     db = _db()
-    since = NOW - timedelta(days=3)
+    # BACKOFF-CAP: a backoff stands at most min(4x period, 6 h) from `since`
+    since = NOW - timedelta(hours=3)
     for jt in ("improve.sandbox", "improve.league"):
         sus = {"kind": orc.BACKOFF, "job_type": jt, "level": 5, "factor": 32,
                "suspend_until": (NOW + timedelta(days=20)).isoformat(),
@@ -582,7 +584,8 @@ def test_h_the_self_tune_job_is_registered_and_idempotent():
 
 def test_h_a_parked_improve_loop_files_a_failing_loop_request():
     db = _db()
-    since = NOW - timedelta(days=3)
+    # BACKOFF-CAP: a backoff stands at most min(4x period, 6 h) from `since`
+    since = NOW - timedelta(hours=3)
     sus = {"kind": orc.BACKOFF, "job_type": "improve.mine", "level": 6, "factor": 32,
            "suspend_until": (NOW + timedelta(days=20)).isoformat(), "since": since.isoformat()}
     with db.session() as s:

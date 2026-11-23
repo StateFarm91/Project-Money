@@ -39,6 +39,25 @@ deployed); 6 are not; 2 name no resolvable branch.
 
 ---
 
+## BACKOFF-CAP — 2026-11-23 (branch eng/backoff-cap from 29b8d03a2, NOT merged, NOT deployed)
+
+Production 19i19 showed 19 job types parked by the free-poll backoff. Examples:
+`radar.concept_pool` ×32 until 12-01, `assets.*_photography` ×32 until 12-24/25, and
+`creative.blinded` until 2028. FLUX UNCERTAIN calls held CA$4.90 of the CA$5 daily ceiling;
+most were submit-endpoint 403s.
+
+- **Backoff cap.** The park is capped at min(4× cadence period, 6 h). Rows parked under the
+  old 32× cap are clamped on read, on the boot tick and by every `ops.thrash` sweep.
+- **Upstream wakes.** Real upstream inputs were added for `assets.*`,
+  `creative.model_reference_pack` and `creative.blinded`.
+- **FLUX.** A submit 4xx, or a connection that never delivered the request, now RELEASES the
+  reservation. Timeouts, resets, 5xx responses and unreadable 2xx responses stay UNCERTAIN.
+  Accepted calls stay BILLED. Legacy UNCERTAIN rows are reclassified from their stored
+  error at boot.
+
+Not deployed. Report: `BACKOFF-CAP.md`. Tests: `tests/test_backoff_cap.py`,
+`tests/test_flux_uncertain.py`.
+
 ## REDRIVE-FIRE — 2026-11-23 (branch eng/redrive-fire from b48ff952, NOT merged, NOT deployed)
 
 Production 19i18 at 01:50Z: neither image redrive fired (3 daily-ceiling stops from yesterday,

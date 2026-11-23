@@ -58,6 +58,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import re
 import threading
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -985,6 +986,77 @@ def settle(db, ticket: dict, status: str, *, actual_cad: float | None = None,
             row.settled_at = utcnow()
     except Exception:  # noqa: BLE001 - unsettled means still counted, the safe direction
         pass
+
+
+# ---- FLUX UNCERTAIN (19i19): a call the provider provably never accepted -----------------
+#
+# Production: FLUX calls_in_window_by_status {UNCERTAIN: 9..30, BILLED: 21}, CA$4.90 of the
+# CA$5 daily ceiling held by UNCERTAIN reservations while BFL billed cents. Most were
+# `ImagesRefused: bfl 403: {"detail": "not_authenticated"}` -- the submit endpoint refused
+# the request, so no task was created and nothing can have been billed. The classifier
+# called every pre-acceptance exception UNCERTAIN ("does not prove that the provider did not
+# accept work"), which is true of a timeout and false of a 4xx.
+#
+# Proof of non-acceptance, from the submit call (`gateway.images._post`) only:
+# * an HTTP 4xx answer from the submit endpoint (401, 402, 403, 404, 422, 429, ...): the
+#   provider refused it and returned no task id;
+# * `urllib.error.URLError` before any answer (DNS, connect refused/timeout, TLS handshake):
+#   `_post` renders it "<label> unreachable: ..."; urllib raises it only while connecting
+#   or sending, so the provider never received a complete request.
+# Everything else stays UNCERTAIN: a read timeout or reset after the request was sent, a
+# 5xx (a gateway 502/504 can sit in front of a backend that did accept), an unreadable 2xx,
+# and anything after a task id came back (that is BILLED by the caller).
+_SUBMIT_4XX = re.compile(r"^(?:ImagesRefused|TransientError|QuotaUnavailable|PermanentError)"
+                         r": (?P<label>[\w.\-]+) (?P<code>4\d\d): ")
+_SUBMIT_UNREACHABLE = re.compile(r"^TransientError: (?P<label>[\w.\-]+) unreachable: ")
+
+
+def never_accepted(error: str) -> str | None:
+    """Why a failed call's recorded error proves the provider never accepted it, or None.
+
+    `error` is the "<ExceptionName>: <message>" the gate records (`enforce`). Returns a fixed
+    reason ("http_401", "unreachable") -- never the provider's text."""
+    e = str(error or "")
+    m = _SUBMIT_4XX.match(e)
+    if m and " poll " not in e[:m.end()]:
+        return f"http_{m.group('code')}"
+    if _SUBMIT_UNREACHABLE.match(e):
+        return "unreachable"
+    return None
+
+
+def reclassify_uncertain(db, *, provider: str | None = None) -> list[dict]:
+    """FLUX UNCERTAIN: release the reservation of every UNCERTAIN call whose stored error
+    proves the provider never accepted it (`never_accepted`). Idempotent; a call that may
+    have been billed (any other error, a conflicting-outcome escalation, a recorded
+    `actual_cad`) is never touched. Returns {id, provider, reason, estimate_cad} per row."""
+    from sqlalchemy import select
+
+    from . import anthropic as gw
+
+    ensure_tables(db)
+    out: list[dict] = []
+    if gw.budget_lock_held():
+        return out
+    try:
+        with gw.budget_lock(db) as s:
+            q = select(PaidProviderCall).where(PaidProviderCall.status == UNCERTAIN)
+            if provider:
+                q = q.where(PaidProviderCall.provider == provider)
+            for row in s.scalars(q):
+                if row.actual_cad is not None:
+                    continue
+                why = never_accepted(row.error)
+                if not why:
+                    continue
+                row.status = RELEASED
+                row.error = (f"reclassified: never accepted ({why}) | {row.error}")[:300]
+                row.settled_at = utcnow()
+                out.append({"id": row.id, "provider": row.provider, "reason": why,
+                            "estimate_cad": row.estimate_cad})
+    except Exception:  # noqa: BLE001 - unreclassified stays counted, the safe direction
+        return out
+    return out
 
 
 def enforce(db, *, provider: str, scope: str, estimate_cad: float, fingerprint: str,

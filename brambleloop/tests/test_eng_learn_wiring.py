@@ -61,7 +61,8 @@ def test_made_progress_reads_declared_work_not_a_bare_ran():
 
 def test_new_upstream_evidence_lifts_a_parked_learner():
     db = _db()
-    since = NOW - timedelta(days=2)
+    # BACKOFF-CAP: a backoff stands at most min(4x period, 6 h) from `since`
+    since = NOW - timedelta(hours=4)
     with db.session() as s:
         s.add(Incident(severity="P3", signature=f"{O.THRASH_SIGNATURE_PREFIX}creative.outcome_learning",
                        summary="parked", at=since,

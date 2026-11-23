@@ -1430,8 +1430,12 @@ def _gated(db, provider: ImageProvider, scope: str, budget: dict, fp: str, purpo
     def classify(exc: BaseException) -> str:
         if billing.get("billed") or billing.get("accepted"):
             return gate.BILLED
-        # Once the transport is entered, a reset, wrapped timeout, malformed 2xx,
-        # or HTTP error does not prove that the provider did not accept work.
+        # FLUX UNCERTAIN (19i19): a 4xx from the submit endpoint, or a connection that never
+        # delivered the request, proves no task was created -- the reservation is RELEASED.
+        # A reset, read timeout, 5xx or malformed 2xx does not prove that the provider did
+        # not accept work, and stays UNCERTAIN (counted).
+        if gate.never_accepted(f"{type(exc).__name__}: {exc}"):
+            return gate.RELEASED
         return gate.UNCERTAIN
 
     try:

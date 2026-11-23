@@ -1167,6 +1167,10 @@ def _role_cadences() -> list[tuple[str, str, str, int]]:
 
 CADENCES.extend(_role_cadences())
 
+# BACKOFF-CAP: set once the first `Scheduler.tick` of this process has clamped the standing
+# backoffs (`swarm.orchestrate.clamp_parked_backoffs`), per database handle.
+_BACKOFF_CLAMPED_AT_BOOT: set[int] = set()
+
 
 
 # A handler may renew its lease for at most this long. Past it the lease lapses, another
@@ -1420,8 +1424,22 @@ class Scheduler:
         # #34: a loop the thrash breaker suspended, or a poll it backed off, is not re-enqueued
         # by the next cadence window.
         try:
-            from ..swarm.orchestrate import suspended_job_types
+            from ..swarm.orchestrate import clamp_parked_backoffs, suspended_job_types
 
+            # BACKOFF-CAP: the first tick of a process (the boot) rewrites any free-poll
+            # backoff parked past min(4x period, 6 h) -- rows written under the old 32x cap.
+            # `suspended_job_types` reads clamped regardless; this makes the rows say so.
+            if id(self.db) not in _BACKOFF_CLAMPED_AT_BOOT:
+                self.backoff_clamped = clamp_parked_backoffs(self.db, now=now)
+                _BACKOFF_CLAMPED_AT_BOOT.add(id(self.db))
+                # FLUX UNCERTAIN: legacy UNCERTAIN paid-provider calls the stored error
+                # proves were never accepted release their reservation (once per boot).
+                try:
+                    from ..gateway.paid_provider_gate import reclassify_uncertain
+
+                    self.uncertain_reclassified = reclassify_uncertain(self.db)
+                except Exception:  # noqa: BLE001 - never stops the scheduler
+                    self.uncertain_reclassified = []
             suspended = suspended_job_types(self.db, now=now)
         except Exception:  # noqa: BLE001 - a failed read must never stop the scheduler
             suspended = {}

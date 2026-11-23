@@ -80,6 +80,24 @@ class _Release:
         os.environ.pop("RAILWAY_GIT_COMMIT_SHA", None)
 
 
+def _uncapped(fn):
+    """BACKOFF-CAP (19i19): run a test under the old 32x backoff (no min(4x period, 6 h)
+    cap), so the multi-day legacy park it builds still stands and the lift it is about is
+    proved on its own, independent of the cap that now also ends such a park."""
+    import functools
+
+    @functools.wraps(fn)
+    def wrapper(*a, **k):
+        saved = (orc.BACKOFF_CAP_PERIODS, orc.BACKOFF_CAP_SECONDS, orc.MAX_BACKOFF_FACTOR)
+        orc.BACKOFF_CAP_PERIODS, orc.BACKOFF_CAP_SECONDS, orc.MAX_BACKOFF_FACTOR = \
+            10 ** 6, 10 ** 12, 32
+        try:
+            return fn(*a, **k)
+        finally:
+            orc.BACKOFF_CAP_PERIODS, orc.BACKOFF_CAP_SECONDS, orc.MAX_BACKOFF_FACTOR = saved
+    return wrapper
+
+
 def _boot(db, sha, at):
     with db.session() as s:
         s.add(AuditLog(actor="release_guard", action="release.boot_verdict", at=at,
@@ -109,6 +127,7 @@ def _jobs(db, jt):
 
 # --- A. the thrash-breaker re-arm ----------------------------------------------------------
 
+@_uncapped
 def test_a_suspended_free_loop_rearms_once_after_a_release_change():
     db = _db()
     _backoff(db, "chain.rebuild")
@@ -160,6 +179,7 @@ def test_the_probe_is_judged_by_the_next_sweep_and_an_unchanged_result_reparks_i
         assert orc.rearmed_job_types(db) == []
 
 
+@_uncapped
 def test_a_spending_loop_does_not_rearm_on_a_release_change():
     db = _db()
     for jt in ("creative.model_tournament", "assets.owned_photography", "marketing.ads_readiness",
@@ -198,6 +218,7 @@ def test_a_breaker_suspension_of_a_free_loop_rearms_once_and_a_paid_one_does_not
         assert "ops.policy_watch" not in held and "creative.candidates_file" in held, held
 
 
+@_uncapped
 def test_an_unknown_release_never_rearms():
     db = _db()
     _backoff(db, "chain.rebuild")
@@ -211,6 +232,7 @@ def test_an_unknown_release_never_rearms():
         assert "chain.rebuild" in orc.suspended_job_types(db2, now=NOW)
 
 
+@_uncapped
 def test_rearm_probe_itself_refuses_an_unknown_running_commit():
     """Defence in depth: even if a boot time were found, an unknown running build is no
     evidence of a release change (UNKNOWN is never PASS)."""
@@ -225,6 +247,7 @@ def test_rearm_probe_itself_refuses_an_unknown_running_commit():
         orc.release_booted_at = real
 
 
+@_uncapped
 def test_a_changed_handler_digest_is_a_recorded_hypothesis_change():
     db = _db()
     # recorded under this very release but with another handler source: the hypothesis moved
@@ -321,6 +344,7 @@ def test_the_spend_classifier_fails_closed():
         assert not [jt for jt in orc.FREE_JOB_TYPES if jt.startswith(orc.SPENDING_PREFIXES)]
 
 
+@_uncapped
 def test_a_paid_loop_the_deny_list_missed_does_not_rearm():
     db = _db()
     _backoff(db, "intel.serp_capture")

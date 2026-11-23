@@ -49,6 +49,24 @@ SCAN = "intel.watchlist_scan"
 PERIOD = next(p for _n, _a, jt, p in CADENCES if jt == SCAN)
 
 
+def _uncapped(fn):
+    """BACKOFF-CAP (19i19): run a test under the old 32x backoff (no min(4x period, 6 h)
+    cap), so the multi-day legacy park it builds still stands and the lift it is about is
+    proved on its own, independent of the cap that now also ends such a park."""
+    import functools
+
+    @functools.wraps(fn)
+    def wrapper(*a, **k):
+        saved = (orc.BACKOFF_CAP_PERIODS, orc.BACKOFF_CAP_SECONDS, orc.MAX_BACKOFF_FACTOR)
+        orc.BACKOFF_CAP_PERIODS, orc.BACKOFF_CAP_SECONDS, orc.MAX_BACKOFF_FACTOR = \
+            10 ** 6, 10 ** 12, 32
+        try:
+            return fn(*a, **k)
+        finally:
+            orc.BACKOFF_CAP_PERIODS, orc.BACKOFF_CAP_SECONDS, orc.MAX_BACKOFF_FACTOR = saved
+    return wrapper
+
+
 def _db():
     db = Database(f"sqlite:///{tempfile.mkdtemp(prefix='wlcad-')}/w.db")
     db.create_all()
@@ -164,6 +182,7 @@ def test_a_refused_credential_no_op_is_never_backed_off_as_a_thrashing_poll():
         os.environ.pop("ETSY_API_KEY", None)
 
 
+@_uncapped
 def test_a_legacy_backoff_written_before_the_fix_lifts_on_a_successful_probe():
     """Production already holds the backoff the old code wrote (no gate recorded). It must
     lift on the owner's fix too, not only backoffs written by the new code."""
@@ -290,6 +309,7 @@ def _production_silence(db, now):
                                           "last_attempt_at": last.isoformat()}, now=last)
 
 
+@_uncapped
 def test_the_readback_names_the_scheduler_hold_and_each_shop_says_why():
     from brambleloop.ops import production_evidence as PE
 
@@ -320,6 +340,7 @@ def test_the_readback_names_the_scheduler_hold_and_each_shop_says_why():
         assert m.shop_name not in blob, m.shop_name
 
 
+@_uncapped
 def test_a_mandatory_shop_silent_for_twice_its_cadence_raises_a_p1_naming_the_cause():
     from brambleloop.ops import scheduler_readback as SR
 
@@ -529,6 +550,7 @@ def _legacy_backoff(db, at, *, job_type=SCAN):
                                               .isoformat()}}))
 
 
+@_uncapped
 def test_only_a_genuine_gate_change_lifts_a_backoff():
     """Review B (kills M2: dropping 'the probe in force then was refused'). The lift is the
     credential changing, not the 6-hourly probe clock: OK->OK and refused->refused must not
@@ -607,8 +629,11 @@ def test_production_magnitude_32x_backoff_driven_by_the_sweep_lifts_and_cadence_
                                               "last_counted_job_id": last_id - 1}}))
     out = orc.thrash_sweep(db, now=now)            # key still refused: level 4 -> 5
     hold = orc.suspended_job_types(db, now=now)[SCAN]
-    assert hold["factor"] == orc.MAX_BACKOFF_FACTOR == 32, (hold, out["backoff"])
-    assert hold["until"] >= (now + timedelta(seconds=PERIOD * 32)).isoformat(), hold
+    # BACKOFF-CAP (19i19): the level still climbs, but the park is capped at
+    # min(4x period, 6 h) -- it used to reach 32x (eight days for this 6-hourly scan).
+    assert hold["factor"] == orc.MAX_BACKOFF_FACTOR == 4, (hold, out["backoff"])
+    assert hold["until"] <= (now + timedelta(seconds=orc.backoff_cap_seconds(SCAN))
+                             ).isoformat(), hold
     try:
         window = _fix_and_tick(db, now + timedelta(minutes=30))
         assert SCAN not in orc.suspended_job_types(db, now=window)

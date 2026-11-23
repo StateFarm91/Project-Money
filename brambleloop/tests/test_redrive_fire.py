@@ -127,6 +127,24 @@ def _sweep_once(db, at):
         return dict(job.outputs or {})
 
 
+def _uncapped(fn):
+    """BACKOFF-CAP (19i19): run a test under the old 32x backoff (no min(4x period, 6 h)
+    cap), so the multi-day legacy park it builds still stands and the lift it is about is
+    proved on its own, independent of the cap that now also ends such a park."""
+    import functools
+
+    @functools.wraps(fn)
+    def wrapper(*a, **k):
+        saved = (orc.BACKOFF_CAP_PERIODS, orc.BACKOFF_CAP_SECONDS, orc.MAX_BACKOFF_FACTOR)
+        orc.BACKOFF_CAP_PERIODS, orc.BACKOFF_CAP_SECONDS, orc.MAX_BACKOFF_FACTOR = \
+            10 ** 6, 10 ** 12, 32
+        try:
+            return fn(*a, **k)
+        finally:
+            orc.BACKOFF_CAP_PERIODS, orc.BACKOFF_CAP_SECONDS, orc.MAX_BACKOFF_FACTOR = saved
+    return wrapper
+
+
 def _park_at_32x(db, *, since):
     """Identical hourly sweeps, judged by the real thrash sweep, then held at the 32x cap
     production showed (BUILD_STATE: chain.successors x32)."""
@@ -155,6 +173,7 @@ def _history(db, key):
                 list(((r.stages or {}).get(IP.RESTART_KEY) or {}).get("history") or []))
 
 
+@_uncapped
 def test_blocked_yesterday_on_the_daily_ceiling_restarts_today_through_the_scheduler():
     db = _db()
     key = _run(db, "market-basket", stage="product_generation", reason=DAILY, when=YESTERDAY)
@@ -231,6 +250,7 @@ def test_the_restart_cap_holds_the_probe_too():
         assert IP.redrive_due(s, None) is None
 
 
+@_uncapped
 def test_an_old_method_fidelity_block_restarts_through_the_scheduler_once():
     db = _db()
     slug = "hexagon-coaster-set"
