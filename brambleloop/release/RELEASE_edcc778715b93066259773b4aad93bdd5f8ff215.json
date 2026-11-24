@@ -1,0 +1,76 @@
+{
+  "deployable": {
+    "dirs": [
+      "src/"
+    ],
+    "excluded": [
+      "__pycache__/",
+      "*.pyc",
+      "*.pyo",
+      "symlinks"
+    ],
+    "files": [
+      "requirements.lock"
+    ],
+    "prefix_stripped": "brambleloop/"
+  },
+  "full_log": {
+    "note": "per-test log, outside the image; release/ holds its summary",
+    "path": "research/release_evidence/20261124T004518Z-184.full.log",
+    "relative_to": "brambleloop/",
+    "sha256": "eb0a89be4c8a1248f3bde306e897a139be01b2746c04feff2af3d037cdf31dc3"
+  },
+  "kind": "brambleloop.release_record",
+  "note": "commit this file, suite_runs/ and full_log on top of `sha`; the deploy guard and the runtime boot guard read it from git / the image, never from artifacts/",
+  "recorded_at": "2026-11-24T04:45:47Z",
+  "release_eligible": true,
+  "sha": "edcc778715b93066259773b4aad93bdd5f8ff215",
+  "signing": {
+    "allowed_signers": {
+      "configured": false,
+      "readable": false
+    },
+    "claimed": false,
+    "independently_verifiable": false,
+    "intentional_unsigned": true,
+    "required": false,
+    "status": "unavailable",
+    "unsigned": [
+      {
+        "sha": "edcc778715b93066259773b4aad93bdd5f8ff215",
+        "status": "N"
+      }
+    ],
+    "why": "no commit is signed and no usable signing key is configured: signing is unavailable here, and is not claimed"
+  },
+  "source_tree_sha256": "7821eefd475d4423a80b25fedf0e20ebb90a39cfd69a05afd0cbb1760a8a73cb",
+  "suite_log": {
+    "path": "suite_runs/20261124T004518Z-184.log",
+    "sha256": "08f58cdba6ba7a4f21e972d0b6415b8a30ad8f7f031bdf5b00809ae12940f6eb"
+  },
+  "suite_record": {
+    "path": "suite_runs/20261124T004518Z-184.json",
+    "sha256": "d7c34caea243a2087ee76234d32126f112a60d33a09e561fc8746d27dbbdd381"
+  },
+  "supply_chain": {
+    "change_since_deployed": {
+      "added": [],
+      "base": "f1b6e0430daf1c77b46d35b0b10712c7548c8921",
+      "base_had_lock": true,
+      "hash_changed_same_version": [],
+      "material": false,
+      "removed": [],
+      "version_changed": []
+    },
+    "distributions": 39,
+    "findings": [],
+    "hashes": 1471,
+    "lock_sha256": "7cf62ec5f56537a19ea2b53ea969e095a9cbec04c4a7f31c75b84b62425e9ddc",
+    "ok": true,
+    "problems": [],
+    "sbom_components": 39,
+    "sbom_sha256": "9d682282848ae47621765ba235acf2964fcdae18b84e8b9ce77e5a4fb34ec481",
+    "status": "verified"
+  },
+  "version": 1
+}
