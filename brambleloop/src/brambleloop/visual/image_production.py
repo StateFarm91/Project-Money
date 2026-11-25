@@ -2777,9 +2777,13 @@ def _provider_redrive_due(stages: dict, updated_at, now: datetime) -> str | None
 # nothing is generated and no attempt is added. A FAIL then takes the existing bounded repair
 # loop (per-role attempt cap); an UNKNOWN blocks again and is not re-driven again under the
 # same version. Every cap binds: MAX_RESTARTS, the attempt cap, the call cap, the spend plan.
+# IMAGE-FIDELITY-3 (19i27): "version" is the pair (judge version, deterministic check version,
+# `fidelity.FIDELITY_CHECK_VERSION`): a corrected deterministic check re-drives an UNKNOWN-
+# parked run once too (the coaster palette read the table through the fabric as yarn).
 FIDELITY_UNKNOWN_PREFIX = "product fidelity cannot be verified"
 FIDELITY_REDRIVE_BY = "fidelity_unknown_redrive"
-FIDELITY_REDRIVE_KEY = "_fidelity_unknown_redrive"  # stages: {"judge_version", "day", "why", "at"}
+FIDELITY_REDRIVE_KEY = "_fidelity_unknown_redrive"  # stages: {"judge_version", "check_version",
+#                                                     "day", "why", "at"}
 
 
 def fidelity_unknown_block(reason) -> bool:
@@ -2793,17 +2797,28 @@ def fidelity_judge_version() -> str:
     return FIDELITY_JUDGE_VERSION
 
 
+def fidelity_check_version() -> str:
+    """IMAGE-FIDELITY-3: the deterministic checks' version (`fidelity.FIDELITY_CHECK_VERSION`).
+    An UNKNOWN-parked run is re-driven once per (judge version, check version)."""
+    from .fidelity import FIDELITY_CHECK_VERSION
+
+    return FIDELITY_CHECK_VERSION
+
+
 def _fidelity_redriven(stages: dict, version: str) -> bool:
     history = (stages.get(RESTART_KEY) or {}).get("history") or []
+    checks = fidelity_check_version()
     return any(isinstance(h, dict) and h.get("by") == FIDELITY_REDRIVE_BY
-               and h.get("judge_version") == version for h in history)
+               and h.get("judge_version") == version and h.get("check_version") == checks
+               for h in history)
 
 
 def _fidelity_refusal_holds(stages: dict, version: str, day: str) -> bool:
     """The sweep judged this run under `version` and was refused: for good when the restart
     itself was refused, for the UTC day when no vision route was usable."""
     rec = stages.get(FIDELITY_REDRIVE_KEY) or {}
-    if not isinstance(rec, dict) or rec.get("judge_version") != version:
+    if not isinstance(rec, dict) or rec.get("judge_version") != version \
+            or rec.get("check_version") != fidelity_check_version():
         return False
     return rec.get("day") in (None, day)
 
@@ -2822,8 +2837,9 @@ def _record_fidelity_refusal(db, key: str, version: str, why: str, *,
         if r is None or r.status != "blocked":
             return
         st = dict(r.stages or {})
-        st[FIDELITY_REDRIVE_KEY] = {"judge_version": version, "day": day, "why": why[:500],
-                                    "at": _now().isoformat()}
+        st[FIDELITY_REDRIVE_KEY] = {"judge_version": version,
+                                    "check_version": fidelity_check_version(), "day": day,
+                                    "why": why[:500], "at": _now().isoformat()}
         r.stages = st
         flag_modified(r, "stages")
 
@@ -2853,7 +2869,8 @@ def _sweep_fidelity_unknown(db, key: str, stages: dict, *, follow, restarted: li
         return False
     if _fidelity_redriven(stages, version):
         refused.append({"run_key": key, "why": f"already re-driven for an UNKNOWN fidelity "
-                                               f"verdict under {version}"})
+                                               f"verdict under {version} "
+                                               f"({fidelity_check_version()})"})
         return True
     if _fidelity_refusal_holds(stages, version, day):
         prior = str((stages.get(FIDELITY_REDRIVE_KEY) or {}).get("why") or "")
@@ -2867,8 +2884,10 @@ def _sweep_fidelity_unknown(db, key: str, stages: dict, *, follow, restarted: li
         return True
     try:
         out = restart(db, key, follow=follow, by=FIDELITY_REDRIVE_BY,
-                      reason=f"product frame re-judged under {version}",
-                      record={"judge_version": version})
+                      reason=f"product frame re-judged under {version} "
+                             f"({fidelity_check_version()})",
+                      record={"judge_version": version,
+                              "check_version": fidelity_check_version()})
     except Exception as exc:  # noqa: BLE001 - restart rolled back; stays blocked
         out = {"restarted": False, "why": f"restart not enqueued ({type(exc).__name__})"}
     if not out.get("restarted") and out.get("restartable") is False:

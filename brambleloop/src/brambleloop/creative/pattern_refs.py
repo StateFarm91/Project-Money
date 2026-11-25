@@ -34,7 +34,10 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-VERSION = "pattern-refs/3.1.5"   # 3.1: layout rows at compiled heights (W4-WRAPTEST)
+VERSION = "pattern-refs/3.1.6"   # 3.1: layout rows at compiled heights (W4-WRAPTEST)
+# 3.1.6 (IMAGE-FIDELITY-3): a flat round piece with a side count (the hexagon coaster) is drawn
+# in the layout as that polygon, its rounds as concentric polygons on the plain ground. The
+# rounds render drew a circle on a cream square, and the generator copies the layout's shape.
 # 3.1.5 (IMAGE-FIDELITY-2): a vessel's wall bands are stated and drawn at their share of the
 # wall's height (row heights by stitch), not of its round count; equal for an all-sc wall.
 # 3.1.4 (IMAGES-DIALIN): a vessel's layout adds its side elevation (the wall's colour bands at
@@ -539,7 +542,9 @@ def _render_layout(cir, parts):
             copies = min(int(getattr(comp, "make", 1) or 1), MAX_COPIES_DRAWN)
             drawn.append((img, twin, copies, "vessel"))
             continue
-        img = (charts.render_round_fabric(cir, twin) if is_round
+        sides = int(getattr(twin, "sides", None) or 0) if is_round else 0
+        img = (polygon_fabric(charts.render_round_fabric(cir, twin), sides) if sides >= 3
+               else charts.render_round_fabric(cir, twin) if is_round
                else _weighted_rows(cir, comp, twin,
                                    charts.render_fabric(cir, twin, cell_px=12).convert("RGB")))
         copies = min(int(getattr(comp, "make", 1) or 1), MAX_COPIES_DRAWN)
@@ -581,6 +586,46 @@ def _render_layout(cir, parts):
             canvas.paste(im.convert("RGB"), (x, gap + (height - 2 * gap - im.size[1]) // 2))
             x += im.size[0] + gap
     return canvas, basis
+
+
+def polygon_fabric(disc, sides: int):
+    """IMAGE-FIDELITY-3: a round-worked flat piece with `sides` stacked-increase corners, drawn
+    as that polygon. Each round of the circular render (`charts.render_round_fabric`) becomes
+    a concentric polygon: a pixel at polygon-radius t (1 on the outline) takes the colour of
+    the disc at radius t along the same direction. One vertex points right, so the width is
+    across the points and the height across the flats (the twin's width_cm x height_cm for a
+    hexagon). Outside the outline is the plain ground."""
+    import math
+
+    import numpy as np
+    from PIL import Image
+
+    src = np.asarray(disc.convert("RGB"))
+    h, w = src.shape[:2]
+    r_src = min(h, w) / 2.0
+    n = int(sides)
+    verts = [(math.cos(2 * math.pi * k / n), math.sin(2 * math.pi * k / n)) for k in range(n)]
+    span_x = max(x for x, _ in verts) - min(x for x, _ in verts)
+    span_y = max(y for _, y in verts) - min(y for _, y in verts)
+    out_w = max(16, int(round(min(h, w))))
+    rad = out_w / span_x                                  # circumradius in output pixels
+    out_h = max(16, int(round(rad * span_y)))
+    cx = out_w / 2.0 - rad * (max(x for x, _ in verts) + min(x for x, _ in verts)) / 2
+    cy = out_h / 2.0 - rad * (max(y for _, y in verts) + min(y for _, y in verts)) / 2
+    yy, xx = np.mgrid[0:out_h, 0:out_w]
+    px, py = xx + 0.5 - cx, yy + 0.5 - cy
+    apothem = rad * math.cos(math.pi / n)
+    t = np.zeros((out_h, out_w))
+    for k in range(n):                                    # edge normals between the vertices
+        a = 2 * math.pi * (k + 0.5) / n
+        t = np.maximum(t, (px * math.cos(a) + py * math.sin(a)) / apothem)
+    ang = np.arctan2(py, px)
+    rs = np.minimum(t, 1.0) * (r_src - 1)
+    sx = np.clip(np.round((w - 1) / 2 + rs * np.cos(ang)), 0, w - 1).astype(int)
+    sy = np.clip(np.round((h - 1) / 2 + rs * np.sin(ang)), 0, h - 1).astype(int)
+    out = src[sy, sx].copy()
+    out[t > 1.0] = BACKGROUND
+    return Image.fromarray(out.astype(np.uint8), "RGB")
 
 
 def top_outline(vspec: dict, *, size_px: int):

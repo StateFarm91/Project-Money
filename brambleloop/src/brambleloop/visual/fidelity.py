@@ -107,6 +107,21 @@ EDGE_RATIO = 2.0            # ... and above 2x the interior's mismatch + 0.1 is 
 COUNT_CONF = 0.40           # autocorrelation at the found period
 COUNT_FRAC = 0.30           # |count - round(count)|
 COUNT_MIN_PX_PER_STITCH = 1.5
+# IMAGE-FIDELITY-3 (19i27): a round piece's palette and colour layout are read inside its own
+# outline (an inset by distance from the outline, so a hexagon's flats are inset like a disc's
+# rim), and the surface seen THROUGH the fabric -- the magic-ring centre, the eyelets an
+# increase leaves at a hexagon's corners, a shadowed notch between edge stitches -- is the
+# table, not yarn. A pixel is "see-through" when it is off the palette (no colour or mix
+# explains it within `OFF_PALETTE_DE`) and the fitted background, lit or in shade
+# (`SEE_THROUGH_SHADE`), explains it within `SEE_THROUGH_DE`. Only small separate patches count (`SEE_THROUGH_PATCH`, of the piece); a
+# ring, band or motif in a table-like colour is one large patch and is measured as before.
+# Above `SEE_THROUGH_MAX` of the piece the fabric is not readable: UNKNOWN.
+SEE_THROUGH_DE = 8.0
+SEE_THROUGH_SHADE = (0.08, 1.10)
+SEE_THROUGH_PATCH = 0.01
+SEE_THROUGH_MAX = 0.08
+SEE_THROUGH_RING_FROM = 0.2    # outside the magic-ring centre (radius / equivalent radius) ...
+SEE_THROUGH_RING_MAX = 0.30    # ... no radial bin may be more than this see-through
 LIFESTYLE_ON_PALETTE = 0.60  # share of a declared product region on the palette
 LIFESTYLE_EXTRA_CLUSTER = 0.15
 
@@ -124,6 +139,9 @@ TOLERANCES = {
                      f"{LAYOUT_BAD_ROWS:.0%}, alignment +-{SHIFT_MAX:.0%}",
     "end_bands": f"each band row >= {BAND_SOLID:.0%} band colour; width {BAND_EXTENT} of "
                  f"declared",
+    "see_through": f"round pieces: surface seen through the fabric within {SEE_THROUGH_DE} "
+                   f"dE76 of the background (shade {SEE_THROUGH_SHADE}), patches <= "
+                   f"{SEE_THROUGH_PATCH:.0%} of the piece, <= {SEE_THROUGH_MAX:.0%} in all",
     "edges": f"outer {EDGE_STRIP:.0%} mismatch > {EDGE_SCORE} and > {EDGE_RATIO}x interior + 0.1",
     "repeat_count": f"autocorrelation >= {COUNT_CONF}, |count - round| <= {COUNT_FRAC}, "
                     f">= {COUNT_MIN_PX_PER_STITCH} px per stitch; exact count",
@@ -139,6 +157,8 @@ BLIND_SPOTS = (
     "counts along an axis the CIR declares no repeat on, and every count on round pieces "
     "other than the number of pieces",
     "a colour that lies on the line between two palette colours (a mix of them)",
+    "round pieces: a small patch (<= 1 % of the piece) in the table's colour, lit or shaded, "
+    "reads as the table seen through the fabric",
     "anything on the back of the piece",
     "lifestyle images: only palette and consistency, never geometry",
 )
@@ -178,6 +198,14 @@ def _lab_from_lin(lin: np.ndarray) -> np.ndarray:
     f = np.where(xyz > (6 / 29) ** 3, np.cbrt(xyz), xyz / (3 * (6 / 29) ** 2) + 4 / 29)
     return np.stack([116 * f[..., 1] - 16, 500 * (f[..., 0] - f[..., 1]),
                      200 * (f[..., 1] - f[..., 2])], axis=-1)
+
+
+def _lin_from_lab(lab: np.ndarray) -> np.ndarray:
+    lab = np.asarray(lab, dtype=np.float64)
+    fy = (lab[..., 0] + 16) / 116
+    f = np.stack([fy + lab[..., 1] / 500, fy, fy - lab[..., 2] / 200], axis=-1)
+    xyz = np.where(f > 6 / 29, f ** 3, 3 * (6 / 29) ** 2 * (f - 4 / 29)) * _WHITE
+    return np.clip(xyz @ np.linalg.inv(_M).T, 0.0, None)
 
 
 def _lab(rgb: np.ndarray) -> np.ndarray:
@@ -551,7 +579,7 @@ def _isolate(rgb: np.ndarray, exp: Expectation) -> dict:
     return {"check": _check("isolation", PASS, f"{len(pieces)} object(s) isolated on a plain "
                                                f"background", threshold_de=round(t, 2),
                             objects=len(pieces), **measured),
-            "pieces": pieces, "lab": lab}
+            "pieces": pieces, "lab": lab, "bg_lab": bg}
 
 
 def _min_area_rect(mask: np.ndarray) -> dict:
@@ -935,6 +963,40 @@ def _verify_flat(rgb, piece: dict, model: PieceModel, exp: Expectation) -> list[
     return checks
 
 
+def _see_through(lin: np.ndarray, lab: np.ndarray, bg_lab, region: np.ndarray,
+                 exp: Expectation) -> tuple[np.ndarray, dict]:
+    """IMAGE-FIDELITY-3: the surface seen through a round piece's fabric (see SEE_THROUGH_DE).
+
+    A pixel in `region` is the background when no palette colour or two-colour mix explains
+    it (it would read off-palette) and the fitted background plane, scaled by one shade factor
+    in linear light (lit table or table in the fabric's shadow), does, within SEE_THROUGH_DE
+    dE76. A pixel the palette explains stays yarn, as before. Only
+    connected patches no larger than SEE_THROUGH_PATCH of the piece qualify: eyelets, the
+    centre ring, a notch. Returns (mask, measured)."""
+    from scipy import ndimage
+
+    n = int(region.sum())
+    none = {"share": 0.0, "patches": 0}
+    if bg_lab is None or n == 0:
+        return np.zeros_like(region), none
+    bg = _lin_from_lab(np.asarray(bg_lab)[region])
+    px = lin[region]
+    k = np.clip((px * bg).sum(-1) / np.maximum((bg * bg).sum(-1), 1e-12), *SEE_THROUGH_SHADE)
+    d_bg = _de(lab[region], _lab_from_lin(bg * k[:, None]))
+    d_pal = _seg_distance(lab[region], exp.palette_lab)
+    cand = np.zeros_like(region)
+    cand[region] = (d_bg <= SEE_THROUGH_DE) & (d_pal > OFF_PALETTE_DE)
+    if not cand.any():
+        return cand, none
+    lbl, m = ndimage.label(cand)
+    sizes = ndimage.sum(cand, lbl, index=range(1, m + 1))
+    piece_px = max(n, 1)
+    small = [i + 1 for i, a in enumerate(sizes) if a <= SEE_THROUGH_PATCH * piece_px]
+    see = np.isin(lbl, small)
+    return see, {"share": round(float(see.sum()) / piece_px, 4), "patches": len(small),
+                 "large_patches_measured": int(m - len(small))}
+
+
 def _verify_round(rgb, piece: dict, model: PieceModel, exp: Expectation, lab_full) -> list[dict]:
     name = model.name
     rect = _min_area_rect(piece["mask"])
@@ -948,18 +1010,42 @@ def _verify_round(rgb, piece: dict, model: PieceModel, exp: Expectation, lab_ful
                   f"long/short {ratio:.3f} vs {model.ratio:.3f} ({rel:+.1%})",
                   code=WRONG_ASPECT_RATIO, measured=round(ratio, 4),
                   expected=round(model.ratio, 4))]
+    from scipy import ndimage
+
     mask = piece["mask"]
     ys, xs = np.nonzero(mask)
     cy, cx = ys.mean(), xs.mean()
     r_eq = math.sqrt(mask.sum() / math.pi)
     yy, xx = np.mgrid[0:mask.shape[0], 0:mask.shape[1]]
     rr = np.hypot(xx - cx, yy - cy) / r_eq
-    inner = mask & (rr < 1.0 - INSET * 2)
+    # IMAGE-FIDELITY-3: inset by distance from the piece's own outline. For a disc this is the
+    # old `rr < 1 - 2 * INSET`; a hexagon's flats lie at 0.95 r_eq, so a radius cut left their
+    # outline (contact shadow, the table between edge stitches) inside the measured region.
+    inner = mask & (ndimage.distance_transform_edt(mask) > INSET * 2 * r_eq)
     lin = _lin(rgb)
+    see, see_m = _see_through(lin, lab_full, piece.get("bg_lab"), inner, exp)
+    # Eyelets lie on the corner spokes and the ring at the centre; a band of "table" running
+    # round the piece is a colour worked into it (or an edging), never holes.
+    rb = np.floor(rr * RADIAL_BINS).astype(int)
+    ring = [float((see & (rb == k)).sum()) / max(int((inner & (rb == k)).sum()), 1)
+            for k in range(int(RADIAL_BINS * SEE_THROUGH_RING_FROM), RADIAL_BINS)]
+    see_m["ring_max"] = round(max(ring, default=0.0), 3)
+    if see_m["ring_max"] > SEE_THROUGH_RING_MAX:
+        return out + [_check(f"{name}:palette", UNKNOWN,
+                             f"{see_m['ring_max']:.0%} of one round of the piece reads as the "
+                             f"surface beneath it: a band, not holes; cannot tell which",
+                             code=FC.UNVERIFIABLE_COUNT, see_through=see_m)]
+    if see_m["share"] > SEE_THROUGH_MAX:
+        return out + [_check(f"{name}:palette", UNKNOWN,
+                             f"{see_m['share']:.1%} of the piece reads as the surface beneath "
+                             f"it: the fabric is not readable", code=FC.UNVERIFIABLE_COUNT,
+                             see_through=see_m)]
+    inner &= ~see
     ill = _illumination(lin[inner], exp)
     lin_c = lin * ill["gain"]
     lab_c = _lab_from_lin(lin_c)
     pal, _ = _palette_check(lab_c, lin_c, inner, exp, structured=False, name=f"{name}:palette")
+    pal["see_through"] = see_m
     out.append(pal)
     cls = _de(lab_c[..., None, :], exp.palette_lab).argmin(axis=-1)
     ok = inner & (_seg_distance(lab_c, exp.palette_lab) <= OFF_PALETTE_DE)
@@ -1231,6 +1317,16 @@ FIDELITY_JUDGE_VERSION = "fidelity-judge/2"
 # the vessel verifier's near-wall reading (`visual.vessel` 1.2.0). Runs FAILed on a check
 # this version reads differently are re-judged once (`image_production` rejudge redrive).
 REJUDGED_CHECKS = ("craft_texture", ":wall_bands", ":palette", ":rim")
+# IMAGE-FIDELITY-3 (19i27): the deterministic checks' own version, apart from the vision judge's.
+# Production 19i26: both hexagon-coaster-set@1.2.1 runs parked at `fidelity_gate` UNKNOWN on
+# `coaster:palette` (18 readings over 5 frames, every coaster): the table seen through the
+# coaster (magic-ring centre, corner eyelets, shadowed notches at a hexagon's flats) counted
+# as off-palette yarn, above the 3 % "occlusion, prop or invented motif" limit. A run parked on
+# an UNKNOWN verdict is re-judged once per (judge version, check version)
+# (`image_production` fidelity_unknown redrive); bumping this re-drives them once.
+# `VERIFIER_VERSION` is unchanged on purpose: it is part of `CHECKER`, which accepted anchors
+# are matched on, and no accepted PASS reads differently.
+FIDELITY_CHECK_VERSION = "fidelity-checks/2"
 
 
 class RoutedVisionJudge(GatewayVisionJudge):
@@ -1303,6 +1399,7 @@ def _verdict(checks: list[dict], *, data: bytes, exp: Expectation | None, kind: 
             "cir_fingerprint": exp.cir_fingerprint if exp else None,
             "slug": exp.slug if exp else None, "version": exp.version if exp else None,
             "judge_version": FIDELITY_JUDGE_VERSION,
+            "check_version": FIDELITY_CHECK_VERSION,
             "reads_generator_claims": False}
 
 
@@ -1357,6 +1454,8 @@ def verify_anchor(data: bytes, cir, *, judge=None, side: bytes | None = None) ->
         checks.append(craft_texture(data, exp, judge))
         return _verdict(checks, data=data, exp=exp, kind="anchor")
     pieces = iso["pieces"]
+    for p in pieces:
+        p["bg_lab"] = iso.get("bg_lab")
     want = exp.piece_count
     areas = [p["area"] for p in pieces]
     med = float(np.median(areas))

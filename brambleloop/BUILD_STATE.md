@@ -23,6 +23,28 @@ deployed); 6 are not; 2 name no resolvable branch.
 
 ---
 
+## IMAGE-FIDELITY-3 — 2026-11-25 (branch claude/w6-release-19i27 from 0d295aecf, NOT deployed)
+
+Production 19i26 (readback 10:16Z): both hexagon-coaster-set@1.2.1 runs park at `fidelity_gate`
+UNKNOWN; `fidelity_unknowns.by_check {"coaster:palette": 18}` over 5 frames (every coaster),
+`needs_vision_judge 0`, no coaster check FAILed. Root cause (reproduced with deterministic
+renders, tests/test_image_fidelity_3.py; the production frames' pixels were NOT read): the round
+palette check counts every pixel off the palette and every two-colour mix; above 3 % it reads
+UNKNOWN. A crochet hexagon shows the table THROUGH the fabric (magic-ring centre, corner-spoke
+eyelets, shadowed notches); on wood that shaded brown is off-palette, 4-6 % per coaster, while
+`colour_layout` (which skips off-palette pixels) PASSes: the production signature. Also the
+region was cut at radius 0.97 r_eq, which insets a disc's rim but not a hexagon's flats (0.95).
+Fix (`visual.fidelity`): inset by distance from the outline; small off-palette patches the
+fitted table (lit or shaded) explains are see-through, not yarn, bounded (patch <= 1 %, total
+<= 8 %, no ring > 30 %, else UNKNOWN). Wrong colour / missing wine round still FAIL; a band in
+the table's colour, a lacy piece, a mug, a grained table never PASS. `pattern_refs` 3.1.6 draws
+the coaster layout as hexagons (it drew discs on cream squares). The UNKNOWN redrive is keyed by
+(judge version, `FIDELITY_CHECK_VERSION` "fidelity-checks/2"), so the two runs are re-judged
+once (reverify, no generation; MAX_RESTARTS, attempt, call and spend caps bind).
+`VERIFIER_VERSION`/`CHECKER` unchanged (accepted anchors are matched on it). The pattern-refs
+bump moves the generation-method version: FAILed fidelity_gate runs become method-redrive
+eligible (paid FLUX regeneration under the existing caps).
+
 ## IMAGE-FIDELITY-2 — 2026-11-25 (branch claude/w6-release-19i26 from 3f1727b65, NOT deployed)
 
 Production 19i25 (evidence 07:24Z): FLUX generates again (41 candidates, 14 accepted), and every
