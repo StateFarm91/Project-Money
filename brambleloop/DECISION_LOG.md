@@ -4988,3 +4988,12 @@ Batch 19i29 (D-RESTART-PER-METHOD, 2b7bb3694) is deployed under the owner's chat
 ## D-GATE-EPISODE — 2026-11-25
 
 A probe that our own budget or idempotency ceiling refused, or that met a transient provider answer, is not evidence about the provider. It is recorded as `image.probe_inconclusive` and never closes `image_generation`. Only a real provider or auth failure, or a missing, expired or revoked activation, closes the gate, and the last success stays in force while its activation holds. The capability redrive is made once per gate-closure episode. The episode is keyed on the image.probe row the gate read when the run blocked, so an unrelated later closure is redriven once. It is not made forever-once. MAX_RESTARTS per method is unchanged, and a capability restart is not spent while the provider's daily ceiling has no headroom for one call. No spend cap is changed. Reason: production 19i29 blocked both hexagon-coaster runs at Laura lifestyle generation because our own CA$5.00 FLUX daily ceiling refused the 18:00Z re-probe.
+
+## D-OWNER-DEPLOY-19i30 — 2026-11-25
+
+Batch 19i30 (GATE-EPISODE, 8d5a69b90) is deployed under the owner's chat approval of 2026-11-25 for photo fixes, before the 00:00Z FLUX reset. It does three things:
+- A probe refused by our own ceiling, or a transient one, never closes image_generation.
+- The capability redrive is allowed once per gate-closure episode.
+- The chain.successors headroom pre-check is read-only, which fixes test_eng_recovery. That test was also red on 19i29, so 19i29 could never be recorded.
+
+All 129 suites pass (1309 tests). SHADOW remains until a full-suite record on the deployed tree exists.

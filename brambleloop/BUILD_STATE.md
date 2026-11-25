@@ -4,8 +4,8 @@ Keep this block first and current: `tests/test_audit_build_state_current.py` fai
 older than the last two entries of `release/DEPLOYED_HISTORY.json`, or when its `release-record:` line
 disagrees with `release_record.verify_build` for the checked-out tree.
 
-- production-sha: 563da3bed30274bc98643f6d32bd3790a862045e
-- Batch 19i28 (REDRIVE-ELIGIBILITY, code e11d0f835, deployed 2026-11-25T15:26Z, rollback 211745f9d). Before it: Batch 19i27 (IMAGE-FIDELITY-3, code cc3058b25, deployed 2026-11-25T11:42Z, rollback 0d295aecf). Before it: Batch 19i26 (IMAGE-FIDELITY-2, code 74bd8d57a, deployed 2026-11-25T08:45Z, rollback 3f1727b65). Before it: Batch 19i25 (IMAGE-FIDELITY-ROUTE, code 674b967b5). It was deployed 2026-11-25T06:07Z under the owner's chat approval for photo fixes; `verify_deploy` reported DEPLOYED. Rollback target: afe3df8fe (19i24). The deploys before it were 19i23 (6d9f73733, 00:31Z), which had a full-suite record of 13194 passing and 0 failing, and 19i24 (afe3df8fe, 05:03Z).
+- production-sha: 41de0b6b38851bdfed532baf4e4dbc616e23e9cd
+- Batch 19i29 (D-RESTART-PER-METHOD, code 2b7bb3694, deployed 2026-11-25T17:39Z, rollback 563da3bed). Before it: Batch 19i28 (REDRIVE-ELIGIBILITY, code e11d0f835, deployed 2026-11-25T15:26Z, rollback 211745f9d). Before it: Batch 19i27 (IMAGE-FIDELITY-3, code cc3058b25, deployed 2026-11-25T11:42Z, rollback 0d295aecf). Before it: Batch 19i26 (IMAGE-FIDELITY-2, code 74bd8d57a, deployed 2026-11-25T08:45Z, rollback 3f1727b65). Before it: Batch 19i25 (IMAGE-FIDELITY-ROUTE, code 674b967b5). It was deployed 2026-11-25T06:07Z under the owner's chat approval for photo fixes; `verify_deploy` reported DEPLOYED. Rollback target: afe3df8fe (19i24). The deploys before it were 19i23 (6d9f73733, 00:31Z), which had a full-suite record of 13194 passing and 0 failing, and 19i24 (afe3df8fe, 05:03Z).
 - release-record: NONE. No committed release record names this tree, so the boot guard forces SHADOW until a plain full REQUIRE_CLEAN run on the deployed tree is recorded with deploy_guard record.
 
 **As REPORTED BY THE OPERATOR READBACK at 2026-11-22T05:15Z** (not verified by this record):
