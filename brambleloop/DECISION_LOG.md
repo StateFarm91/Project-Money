@@ -4980,3 +4980,7 @@ redrive's version, or the version production ran at its time (19i27 11:42Z: 2.4.
 the cap still binds. A method redrive waits, without spending a restart, while the generation
 provider's own daily ceiling cannot cover one attempt or while a sibling run of the same release
 is being re-judged.
+
+## D-OWNER-DEPLOY-19i29 — 2026-11-25
+
+Batch 19i29 (D-RESTART-PER-METHOD, 2b7bb3694) is deployed under the owner's chat approval of 2026-11-25 for photo fixes. It is deployed before the 00:00Z FLUX budget reset, so the capped basket runs restart under the current generation method. All 81 suites pass (822 tests). SHADOW remains until a full-suite record on the deployed tree exists.
