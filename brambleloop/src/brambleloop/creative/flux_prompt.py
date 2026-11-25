@@ -22,7 +22,11 @@ from ..gateway import prompts
 
 # 2.1.0 (W5-V1): PRODUCT v3 states the CIR's shape (polygon side count), colour bands and final
 # round/rim explicitly; the AI flat lay is labelled as AI-generated, never a photograph.
-BUILDER_VERSION = "flux3-prompt-builder/2.3.0"   # 2.3: vessel wall, palette and sides
+BUILDER_VERSION = "flux3-prompt-builder/2.4.0"   # 2.3: vessel wall, palette and sides
+# 2.4 (IMAGE-FIDELITY-2): a declared contrast round/row is named as part of the fabric, never an
+# edging, and its loss is forbidden (a repair for INVENTED_EDGING drove the coaster's wine
+# round away); a vessel's two anchor views name their camera and refuse the angled one of the
+# PDF renderings; vessel band shares are by height.
 _IMG = dict(system="", output_schema=("image",), max_output_tokens=1)
 
 # The references, by position. The hierarchy is stated, not implied: identity comes from the
@@ -241,8 +245,40 @@ def _colour_layout(rules: Mapping, detail: str) -> str:
         parts.append(f"{len(bs)} {col} stripe{'s' if len(bs) > 1 else ''} of {cnt} "
                      f"{unit}{'s' if cnt > 1 else ''}{' each' if len(bs) > 1 else ''} "
                      f"({where}{more})")
+    note = ""
+    if unit == "round" and f.get("piece_shape") != "vessel":
+        note = ("; each contrast round is worked into the fabric (" + "; ".join(
+            declared_contrast(rules)) + "): part of the design, not an edging or border")
     return (f"{_colour_name(ground, hexes.get(ground))} ground with " + "; ".join(parts)
-            + f"; {len(bands)} stripe{'s' if len(bands) != 1 else ''} in total, no others")
+            + f"; {len(bands)} stripe{'s' if len(bands) != 1 else ''} in total, no others"
+            + note)
+
+
+def declared_contrast(rules: Mapping) -> list[str]:
+    """IMAGE-FIDELITY-2: each declared contrast band, named as part of the fabric.
+
+    A contrast round near a round piece's outer edge (the coaster's wine round 6 of 7) reads
+    like a border; a generic "no edging, no border" then drove the generator to drop it. The
+    bands come from the certified facts (`pattern_refs.fabric_facts` colour bands); nothing
+    is said for charted colourwork or a multi-component product."""
+    f = rules.get("fabric") or {}
+    if f.get("multi_component") or f.get("colour_layout") != "stripes":
+        return []
+    bands = f.get("colour_bands") or []
+    unit, total = f.get("unit") or "row", int(f.get("rows") or 0)
+    vessel = f.get("piece_shape") == "vessel"
+    out = []
+    for b in bands:
+        lo, hi = b["span"]
+        where = _span(unit, lo, hi)
+        if unit == "round" and not vessel and total:
+            inside = total - hi
+            pos = (" (the outermost " + unit + ")" if inside == 0 else
+                   f" ({inside} {unit}{'s' if inside != 1 else ''} inside the outer edge)")
+        else:
+            pos = ""
+        out.append(f"{_colour_name(b['colour'], b.get('hex'))} {where}{pos}")
+    return out
 
 
 def _edge(rules: Mapping) -> str:
@@ -251,6 +287,12 @@ def _edge(rules: Mapping) -> str:
     if f.get("multi_component"):
         return "each piece exactly as charted"
     last, unit = f.get("final_round") or {}, f.get("unit") or "row"
+    if (last and not last.get("plain") and not f.get("edging_declared") and unit == "round"
+            and last.get("colour") and f.get("piece_shape") != "vessel"):
+        hexes = {c["id"]: c.get("hex") for c in rules.get("colours") or []}
+        return (f"the outer edge is the final round (round {last.get(unit)}) in "
+                f"{_colour_name(last['colour'], hexes.get(last['colour']))}, exactly as "
+                f"charted; nothing is worked beyond it")
     if not last or not last.get("plain") or f.get("edging_declared"):
         return "exactly as charted"
     where = ("the top rim is" if f.get("piece_shape") == "vessel" else "the outer edge is"
@@ -446,6 +488,13 @@ def build(*, rules: Mapping, roles: Sequence[str], role: str,
     if not negs or not negs[0].startswith("knitting"):
         raise PromptBuildRefused("certified rules carry no fabric negatives; the prompt "
                                  "would not forbid knitting, invented edging or end bands")
+    # IMAGE-FIDELITY-2: after every other negative (a repair's included), so no "no border"
+    # can be read as removing a declared colour band.
+    kept = declared_contrast(rules)
+    if kept:
+        negs.append("a missing, moved, merged or recoloured contrast band: "
+                    + "; ".join(kept) + " -- each is worked into the fabric as charted and is "
+                    "part of the design, never an edging, border or trim, and must be shown")
     texts.append(NEGATIVES.render(negatives="; ".join(negs)))
     used.append(NEGATIVES)
     if features_laura:

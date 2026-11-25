@@ -125,8 +125,10 @@ def test_a_routed_fail_is_retried_at_most_twice_with_the_repair_negatives():
     assert attempts == [("owner", 1), ("owner", 2), ("owner", 3), ("auto", 1)], attempts
     assert rep["retries_used"] == B.MAX_RETRIES == 2
     assert len(e["log"]) == 4                                          # 1 + 2 retries + 1
-    assert rep["images"][1]["extra_negatives"] and "no edging" in rep["images"][1][
-        "extra_negatives"]
+    # IMAGE-FIDELITY-2: the INVENTED_EDGING repair names what an edging is ("no edging
+    # worked beyond the charted rows or rounds: ...") and keeps every charted colour round.
+    assert rep["images"][1]["extra_negatives"] and any(
+        n.startswith("no edging") for n in rep["images"][1]["extra_negatives"])
     p2 = (tmp / "baseline" / rep["images"][1]["prompt_file"]).read_text()
     assert "no edging" in p2
     assert all(i["result"]["status"] == "FAIL" for i in rep["images"])

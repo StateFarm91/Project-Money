@@ -4912,3 +4912,15 @@ Batch 19i24 (stale-reference re-prepare and redrive, 25c1c0bc1) is deployed unde
 ## D-OWNER-DEPLOY-19i25 — 2026-11-25
 
 Batch 19i25 (674b967b5) fixes product-truth UNKNOWN parks. The craft judge now routes to the owner-activated openai-vision route, the same rule as ASSET-VISION. A bounded fidelity_unknown redrive re-judges stored frames only, with no generation. It is deployed under the owner's chat approval of 2026-11-25 for photo fixes. 1082 tests across 104 suites pass. A full-suite record is not yet present, so the boot guard forces SHADOW until one is committed.
+
+## D-IMAGE-FIDELITY-2 — 2026-11-25
+
+The craft judge is now told the certified colour layout. Before this, it was blind to the claim.
+This is a deliberate, versioned exception (`fidelity-judge/2`). The colour layout itself is never
+the judge's call, because the deterministic layout check measures it from the pixels. The judge is
+asked only whether anything was worked beyond the declared design. Without that, a declared
+contrast round near an edge cannot be told apart from an edging. The vessel side view reads the
+near wall only, and it reads band shares by height. Both changes were checked against wrong
+products from eye level to 30 degrees: each still FAILs. Runs that exhausted their attempts under
+the old reading are re-judged once per judge version, without generation and inside every cap.
+

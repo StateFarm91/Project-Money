@@ -34,7 +34,9 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-VERSION = "pattern-refs/3.1.4"   # 3.1: layout rows at compiled heights (W4-WRAPTEST)
+VERSION = "pattern-refs/3.1.5"   # 3.1: layout rows at compiled heights (W4-WRAPTEST)
+# 3.1.5 (IMAGE-FIDELITY-2): a vessel's wall bands are stated and drawn at their share of the
+# wall's height (row heights by stitch), not of its round count; equal for an all-sc wall.
 # 3.1.4 (IMAGES-DIALIN): a vessel's layout adds its side elevation (the wall's colour bands at
 # their round shares, bottom to top) beside the top-down rounds, and the rules carry the wall
 # model the fidelity gate measures (`visual.vessel.vessel_models`).
@@ -497,10 +499,12 @@ def vessel_spec(cir) -> dict | None:
             base_cols.append(c)
     first = m.base_rows + 1
     bands = []
-    for cid, n in zip(m.wall_bands, m.wall_rows):
+    for cid, n, share in zip(m.wall_bands, m.wall_rows, m.wall_shares):
+        # IMAGE-FIDELITY-2: the share of the wall's HEIGHT (a dc round is taller than an sc
+        # round, a slip-stitch rim a sliver), as the gate measures it -- not of its rounds.
         bands.append({"colour": cid, "hex": m.palette.get(cid), "rounds": n,
                       "span": [first, first + n - 1],
-                      "share": round(n / m.wall_total_rows, 3)})
+                      "share": round(share, 3)})
         first += n
     return {"component": m.component, "sides": m.sides, "base_rounds": m.base_rows,
             "base_colours": base_cols, "wall_rounds": m.wall_total_rows,
@@ -612,7 +616,7 @@ def top_outline(vspec: dict, *, size_px: int):
 def side_elevation(vspec: dict, *, width_px: int, height_cm, width_cm):
     """A vessel standing, seen from the side with one flat side toward the camera.
 
-    Deterministic, no text: the wall's colour bands bottom to top at their round shares
+    Deterministic, no text: the wall's colour bands bottom to top at their height shares
     (`vessel_spec`), the front face full-toned and the two flanking faces of a polygon a shade
     darker and foreshortened, the plain rim the top band's own colour. Proportion is the
     twin's height over its width when both are known."""
@@ -632,10 +636,15 @@ def side_elevation(vspec: dict, *, width_px: int, height_cm, width_cm):
     face = 0.5 if n >= 3 else 1.0
     x0, x1 = margin, margin + w
     fx0, fx1 = margin + w * (1 - face) / 2, margin + w * (1 + face) / 2
-    total = sum(b["rounds"] for b in vspec["wall_bands"]) or 1
+    total = sum(float(b.get("share") or 0.0) for b in vspec["wall_bands"])
+    n_rounds = sum(b["rounds"] for b in vspec["wall_bands"]) or 1
+    # an all-one-height wall keeps the exact round fractions (byte-identical drawing)
+    by_share = total > 0 and any(abs(float(b.get("share") or 0.0) - b["rounds"] / n_rounds)
+                                 > 0.002 for b in vspec["wall_bands"])
+    total = total if by_share else (sum(b["rounds"] for b in vspec["wall_bands"]) or 1)
     y = margin + h
     for b in vspec["wall_bands"]:
-        bh = h * b["rounds"] / total
+        bh = h * (float(b["share"]) if by_share else b["rounds"]) / total
         rgb = charts._hex_to_rgb(b["hex"]) if b.get("hex") else (200, 200, 200)
         shade = tuple(int(v * 0.86) for v in rgb)
         top_y = y - bh

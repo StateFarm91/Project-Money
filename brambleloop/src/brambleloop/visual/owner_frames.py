@@ -305,7 +305,7 @@ def stripe_layout(judge, data: bytes, cir) -> dict:
                                  f"the CIR's wall is {want} ({stripes_want} stripe(s))",
                      code="WRONG_COLOUR_LAYOUT", **measured)
     shares = [n / height for _l, n in runs]
-    expect = [r / m.wall_total_rows for r in m.wall_rows]
+    expect = list(m.wall_shares)     # IMAGE-FIDELITY-2: share of the wall's height
     rel = [abs(s - e) / e for s, e in zip(shares, expect)]
     worst = max(rel)
     measured.update(shares=[round(s, 3) for s in shares],

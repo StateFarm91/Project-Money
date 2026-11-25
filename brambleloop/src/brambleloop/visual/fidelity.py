@@ -248,6 +248,9 @@ class Expectation:
     expected_share: np.ndarray
     edge_ambiguity: str = ""
     cables_declared: bool = False
+    # IMAGE-FIDELITY-2: the certified colour layout, stated to the craft judge so a declared
+    # contrast round near the edge is not read as an edging (`craft_prompt`).
+    declared_layout: str = ""
 
     @property
     def piece_count(self) -> int:
@@ -403,8 +406,60 @@ def expectation(cir) -> Expectation:
                       "declared_edging_and_bands" if facts.get("end_bands") and
                       facts.get("edging_declared") else
                       "end_bands" if facts.get("end_bands") else "", has_cables)
+    exp.declared_layout = declared_layout(cir, facts)
     _CACHE[key] = exp
     return exp
+
+
+def _span_text(unit: str, lo: int, hi: int) -> str:
+    return f"{unit} {lo}" if lo == hi else f"{unit}s {lo}-{hi}"
+
+
+def declared_layout(cir, facts: dict | None) -> str:
+    """IMAGE-FIDELITY-2: the certified colour layout in words, for the craft judge.
+
+    From the certified fabric facts only (`pattern_refs.fabric_facts`): the rows or rounds
+    and the colour of each, which one is the outer edge (or the rim), and that a declared
+    colour round is part of the fabric. "" for a multi-component product (its edges are the
+    components' own and stay ambiguous) or when no layout can be stated."""
+    if not facts or facts.get("multi_component"):
+        return ""
+    unit, n = facts.get("unit") or "row", int(facts.get("rows") or 0)
+    if n <= 0:
+        return ""
+    colours = dict(getattr(cir, "colors", None) or {})
+
+    def name(c):
+        return f"{c} {colours[c]}" if colours.get(c) else str(c or "the yarn colour")
+
+    vessel = facts.get("piece_shape") == "vessel"
+    order = ("from the centre of the base outward and then up the wall" if vessel else
+             "from the centre outward" if unit == "round" else "from the first row to the last")
+    last = (f"round {n} is the top rim" if vessel else
+            f"{unit} {n} is the outermost {unit}, the outer edge" if unit == "round" else
+            f"rows 1 and {n} are the two ends and the row ends form the side edges")
+    bands = facts.get("colour_bands")
+    if bands is None:
+        return (f"DECLARED DESIGN (from the certified pattern): worked in {n} {unit}s {order} "
+                f"with charted colourwork; {last}. Every colour change inside the fabric is "
+                f"part of the design, not an edging.")
+    per = [facts.get("ground_colour")] * n
+    for b in bands:
+        for i in range(int(b["span"][0]), int(b["span"][1]) + 1):
+            if 1 <= i <= n:
+                per[i - 1] = b["colour"]
+    runs: list[list] = []
+    for i, c in enumerate(per, start=1):
+        if runs and runs[-1][0] == c:
+            runs[-1][2] = i
+        else:
+            runs.append([c, i, i])
+    seq = ", ".join(f"{_span_text(unit, lo, hi)} {name(c)}" for c, lo, hi in runs)
+    text = f"DECLARED DESIGN (from the certified pattern): worked in {n} {unit}s {order}: {seq}; {last}."
+    if bands:
+        text += (f" Each colour {unit} listed here is worked into the fabric itself: it is part "
+                 f"of the design, never an edging or a border.")
+    return text
 
 
 # ---- isolation ------------------------------------------------------------------------------
@@ -932,13 +987,20 @@ def _verify_round(rgb, piece: dict, model: PieceModel, exp: Expectation, lab_ful
 
 CRAFT_FIELDS = ("craft", "ribbing_visible", "border_or_edging_visible", "edge_placement",
                 "all_edges_visible", "cable_style",
-                "fabric_visible_clearly")
+                "fabric_visible_clearly", "added_edging_visible")
 CRAFT_SYSTEM = ("You are a textile expert looking at a photograph of a handmade item. Say "
                 "only what the picture shows. Say 'unclear' whenever you cannot tell.")
 
 
-def craft_prompt() -> str:
-    return ("Reply with a single JSON object and nothing else. Keys:\n"
+def craft_prompt(exp: Expectation | None = None) -> str:
+    """The craft question. IMAGE-FIDELITY-2 (judge `fidelity-judge/2`): with `exp`, the
+    certified colour layout is stated first and `added_edging_visible` asks only about what
+    is worked onto or beyond it, so a declared contrast round near the edge is not an edging.
+    The colour layout itself is never the judge's call: the deterministic layout check
+    measures it from the pixels."""
+    layout = str(getattr(exp, "declared_layout", "") or "") if exp is not None else ""
+    return ((layout + "\n" if layout else "") +
+            "Reply with a single JSON object and nothing else. Keys:\n"
             "- craft: one of crochet, knitting, woven, printed, unclear\n"
             "- ribbing_visible: true, false or unclear\n"
             "- border_or_edging_visible: true, false or unclear (a band of different "
@@ -950,7 +1012,13 @@ def craft_prompt() -> str:
             "boundary of the product is clearly visible and unobscured\n"
             "- cable_style: one of none, crochet_post_stitch_crossings, knitted_rope, "
             "unclear\n"
-            "- fabric_visible_clearly: true or false")
+            "- fabric_visible_clearly: true or false\n"
+            "- added_edging_visible: true, false or unclear; true only when something is "
+            "worked onto or beyond the declared design along an edge: a separately worked "
+            "edging in a different stitch (picot, scallop, shell, bobbles, crab stitch / "
+            "reverse single crochet), a fringe or trim, or an extra round or row beyond the "
+            "declared outermost one; false when every edge is the declared last round or "
+            "row; a colour round or row listed in the declared design is never added edging")
 
 
 def compare_craft(reading: dict, exp: Expectation, *, end_bands_verified: bool = False) -> dict:
@@ -1013,10 +1081,15 @@ def compare_craft(reading: dict, exp: Expectation, *, end_bands_verified: bool =
                         and v["all_edges_visible"] in ("true", "yes"))
     if edging_source_valid and source_edging is None and not known_bands_only:
         unclear.append("visible edge treatment cannot be distinguished from declared bands or components")
-    edging = (source_edging is False and
-              v["border_or_edging_visible"] in ("true", "yes"))
+    # IMAGE-FIDELITY-2: with no edging declared, the question is whether anything is worked
+    # onto or beyond the declared design (`added_edging_visible`); a declared contrast round
+    # near the edge is not that. A reading without the key (an older judge) is read by the
+    # stricter old field, so nothing passes that failed before.
+    added = (v["added_edging_visible"] if isinstance(reading, dict) and
+             "added_edging_visible" in reading else v["border_or_edging_visible"])
+    edging = (source_edging is False and added in ("true", "yes"))
     if (source_edging is False and
-            v["border_or_edging_visible"] not in ("true", "yes", "false", "no")):
+            added not in ("true", "yes", "false", "no")):
         unclear.append("edging is not clearly observed")
     if source_edging is True:
         if v["border_or_edging_visible"] in ("false", "no"):
@@ -1150,7 +1223,14 @@ class GatewayVisionJudge:
 # `vision_route.choose`; the fidelity questions now use that same rule. Same prompts, same
 # deterministic comparison (`compare_craft`), same reservation and bill; no route usable is
 # still unanswered, and UNKNOWN still blocks.
-FIDELITY_JUDGE_VERSION = "fidelity-judge-route/1"
+FIDELITY_JUDGE_VERSION = "fidelity-judge/2"
+# IMAGE-FIDELITY-2 (19i26): "fidelity-judge/2". The craft question states the certified colour
+# layout and asks `added_edging_visible` (anything worked onto or beyond it); a declared
+# contrast round is never edging. Production 19i25: the coaster's wine round 6 of 7 read as
+# `border_or_edging_visible: true` -> INVENTED_EDGING on 10 frames. Same version also names
+# the vessel verifier's near-wall reading (`visual.vessel` 1.2.0). Runs FAILed on a check
+# this version reads differently are re-judged once (`image_production` rejudge redrive).
+REJUDGED_CHECKS = ("craft_texture", ":wall_bands", ":palette", ":rim")
 
 
 class RoutedVisionJudge(GatewayVisionJudge):
@@ -1197,7 +1277,7 @@ def craft_texture(data: bytes, exp: Expectation, judge, *, end_bands_verified: b
     if judge is None:
         return _check("craft_texture", UNKNOWN, "no vision judge is configured",
                       code=None, needs="vision judge")
-    got = judge.read(craft_prompt(), [data])
+    got = judge.read(craft_prompt(exp), [data])
     if not got.get("answered"):
         return _check("craft_texture", UNKNOWN, f"craft texture not judged: {got.get('why')}",
                       needs="vision judge")
@@ -1222,6 +1302,7 @@ def _verdict(checks: list[dict], *, data: bytes, exp: Expectation | None, kind: 
             "image_sha256": hashlib.sha256(data).hexdigest() if data else "",
             "cir_fingerprint": exp.cir_fingerprint if exp else None,
             "slug": exp.slug if exp else None, "version": exp.version if exp else None,
+            "judge_version": FIDELITY_JUDGE_VERSION,
             "reads_generator_claims": False}
 
 

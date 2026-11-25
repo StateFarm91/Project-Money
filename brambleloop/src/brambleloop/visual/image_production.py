@@ -1768,7 +1768,12 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
             return {"run_key": key, "next": go(_next(stage), rnd=got.get("attempt", attempt) - 1)}
 
         if stage == "fidelity_gate":
-            if inputs.get("reverify"):
+            if inputs.get("rejudge"):
+                # IMAGE-FIDELITY-2: every stored anchor frame FAILed by the older verifier
+                # (bounded) is judged again; nothing is generated, no attempt is added.
+                for cid in rejudge_candidate_ids(db, key)[:MAX_REJUDGE_CANDIDATES]:
+                    reverify(db, cid, judges=judges, exp=exp)
+            elif inputs.get("reverify"):
                 # W-VISNEXT restart: the stored anchor bytes are judged again with today's
                 # judges; nothing is regenerated and no attempt is added.
                 b = _best(db, listing=run["listing"], role=ANCHOR_ROLE, run=key)
@@ -2465,7 +2470,7 @@ def _record_method_readback(db, key: str, chk: dict, status: str) -> None:
         flag_modified(r, "stages")
 
 
-def restartable(db, key: str) -> dict:
+def restartable(db, key: str, *, rejudge: bool = False) -> dict:
     """Whether a blocked run may be restarted, and from which stage.
 
     Allowed: a run blocked by a missing capability (gate closed, no generator, a check the
@@ -2503,6 +2508,14 @@ def restartable(db, key: str) -> dict:
     # own per-role attempt cap, the call cap and the spend plan still bind.
     stale = stale_references_block(reason)
     failed = [] if (daily or stale) else _run_candidates_failed(db, key, run["listing"])
+    if failed and rejudge and failed == [ANCHOR_ROLE] and run["stage"] == "fidelity_gate" \
+            and rejudge_candidate_ids(db, key):
+        # IMAGE-FIDELITY-2: the anchor's FAILs were judged by a verifier that has since been
+        # corrected (`fidelity.FIDELITY_JUDGE_VERSION`). Its stored frames are judged again;
+        # nothing is generated, no attempt is added. A FAIL then stays a FAIL.
+        return {"restartable": True, "resume_at": "fidelity_gate", "reverify": True,
+                "rejudge": True, "blocked_at": run["stage"], "blocked_reason": reason,
+                "epoch": run.get("restarts", 0) + 1}
     if failed:
         chk = method_redrive_check(db, key, run, failed)
         if chk["eligible"] and not chk["ok"]:
@@ -2537,7 +2550,7 @@ def restartable(db, key: str) -> dict:
 
 
 def restart(db, key: str, *, follow, by: str, reason: str = "",
-            record: dict | None = None) -> dict:
+            record: dict | None = None, rejudge: bool = False) -> dict:
     """Restart a blocked run under a new epoch (W-VISNEXT; OWNERIMG E4).
 
     The next job carries `epoch` and its idempotency key ends `:e<epoch>`, so it never collides
@@ -2552,9 +2565,13 @@ def restart(db, key: str, *, follow, by: str, reason: str = "",
 
     if not str(by or "").strip():
         raise ValueError("a restart names who asked for it")
-    can = restartable(db, key)
+    can = restartable(db, key, rejudge=rejudge)
     if not can["restartable"]:
         return {"restarted": False, **can}
+    if rejudge and not can.get("rejudge"):
+        # a rejudge request never becomes another kind of restart (a method redrive)
+        return {"restarted": False, "rejudge": False,
+                "why": "no FAILed anchor frame is this verifier version's to re-read"}
     run = get_run(db, key)
     epoch = can["epoch"]
     with db.session() as s:
@@ -2598,6 +2615,8 @@ def restart(db, key: str, *, follow, by: str, reason: str = "",
             inputs["route"] = route
         if can["reverify"]:
             inputs["reverify"] = True
+        if can.get("rejudge"):
+            inputs["rejudge"] = True
         job = follow(inputs, stage_key(run["slug"], run["version"], run["release"],
                                        can["resume_at"], 0, epoch, route=route), session=s)
         if job is None:
@@ -2860,6 +2879,130 @@ def _sweep_fidelity_unknown(db, key: str, stages: dict, *, follow, restarted: li
     return True
 
 
+# IMAGE-FIDELITY-2 (19i26): five gallery runs ended `fidelity_gate:product_truth:exhausted`
+# (production 19i25, evidence 07:24Z) on FAILs the verifier itself got wrong: the coaster's
+# declared wine round read as an edging by the craft judge (INVENTED_EDGING x10), and the
+# basket's side view read through its opening (the far wall's inner stripes counted as wall
+# bands; band shares by round count on a dc/slip-stitch wall). Both readings are corrected
+# under `fidelity.FIDELITY_JUDGE_VERSION`. Such a run is restarted by the hourly sweep ONCE
+# per judge version, only while a vision route is usable, at `fidelity_gate` with `rejudge`:
+# its stored anchor frames that FAILed on a check this version reads differently
+# (`fidelity.REJUDGED_CHECKS`), judged under an older version, are judged again (at most
+# MAX_REJUDGE_CANDIDATES). Nothing is generated and no attempt is added. A frame that still
+# FAILs stays FAILed: the run blocks again, and the method redrive (a new generation method)
+# then decides. Every cap binds: MAX_RESTARTS, the attempt cap, the call cap, the spend plan.
+FIDELITY_REJUDGE_BY = "fidelity_rejudge_redrive"
+FIDELITY_REJUDGE_KEY = "_fidelity_rejudge"   # stages: {"judge_version", "day", "why", "at"}
+FIDELITY_FAIL_PREFIX = "product fidelity FAIL after"
+MAX_REJUDGE_CANDIDATES = 6
+
+
+def fidelity_fail_block(reason) -> bool:
+    """A block whose recorded cause is the anchor's fidelity FAIL with its attempts spent."""
+    return str(reason or "").startswith(FIDELITY_FAIL_PREFIX)
+
+
+def _rejudge_wanted(checks, version: str) -> bool:
+    """A stored anchor verdict that the current verifier would read differently: FAILed on a
+    `fidelity.REJUDGED_CHECKS` check, judged under another (or no recorded) judge version."""
+    from .fidelity import REJUDGED_CHECKS
+
+    fid = ((checks or {}).get("product_truth") or {}).get("fidelity") \
+        if isinstance(checks, dict) else None
+    if not isinstance(fid, dict) or fid.get("judge_version") == version:
+        return False
+    failed = [str(c) for c in fid.get("failed") or []]
+    return any(c == k or (k.startswith(":") and c.endswith(k))
+               for c in failed for k in REJUDGED_CHECKS)
+
+
+def _rejudge_ids_in(session, key: str, version: str) -> list[int]:
+    from sqlalchemy import select
+
+    from .image_records import ImageCandidate
+
+    rows = session.execute(select(ImageCandidate.id, ImageCandidate.checks,
+                                  ImageCandidate.sha256).where(
+        ImageCandidate.run_key == key, ImageCandidate.role == ANCHOR_ROLE,
+        ImageCandidate.technical_status == "FAIL").order_by(ImageCandidate.id.desc())).all()
+    return [cid for cid, checks, sha in rows if sha and _rejudge_wanted(checks, version)]
+
+
+def rejudge_candidate_ids(db, key: str) -> list[int]:
+    """This run's FAILed anchor frames the current fidelity judge version would re-read,
+    newest first."""
+    with db.session() as s:
+        return _rejudge_ids_in(s, key, fidelity_judge_version())
+
+
+def _rejudged(stages: dict, version: str, day: str) -> bool:
+    """Already re-judged under `version`, or judged and refused (for good, or for the UTC
+    day when no vision route was usable)."""
+    history = (stages.get(RESTART_KEY) or {}).get("history") or []
+    if any(isinstance(h, dict) and h.get("by") == FIDELITY_REJUDGE_BY
+           and h.get("judge_version") == version for h in history):
+        return True
+    rec = stages.get(FIDELITY_REJUDGE_KEY) or {}
+    return (isinstance(rec, dict) and rec.get("judge_version") == version
+            and rec.get("day") in (None, day))
+
+
+def _record_rejudge_refusal(db, key: str, version: str, why: str, *, day: str | None) -> None:
+    from sqlalchemy import select
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from .image_records import ImageProductionRun
+
+    with db.session() as s:
+        r = s.scalar(select(ImageProductionRun).where(ImageProductionRun.run_key == key))
+        if r is None or r.status != "blocked":
+            return
+        st = dict(r.stages or {})
+        st[FIDELITY_REJUDGE_KEY] = {"judge_version": version, "day": day, "why": why[:500],
+                                    "at": _now().isoformat()}
+        r.stages = st
+        flag_modified(r, "stages")
+
+
+def _rejudge_redrive_candidate(db, key: str, reason: str, stages: dict) -> bool:
+    """A run the rejudge redrive owns now: blocked at `fidelity_gate` on a spent-attempts
+    FAIL, not an experiment, not yet judged under this version, with a frame to re-read."""
+    if "#" in key or not fidelity_fail_block(reason):
+        return False
+    if (get_run(db, key) or {}).get("stage") != "fidelity_gate":
+        return False
+    if _rejudged(stages, fidelity_judge_version(), str(_now().date())):
+        return False
+    return bool(rejudge_candidate_ids(db, key))
+
+
+def _sweep_fidelity_rejudge(db, key: str, *, follow, restarted: list, waiting: list,
+                            refused: list) -> None:
+    from .fidelity import vision_route_usable
+
+    version = fidelity_judge_version()
+    if not vision_route_usable(db):
+        why = "no vision route is usable for the fidelity verifier; re-judging would read UNKNOWN"
+        _record_rejudge_refusal(db, key, version, why, day=str(_now().date()))
+        waiting.append({"run_key": key, "why": why})
+        return
+    n = len(rejudge_candidate_ids(db, key))
+    try:
+        out = restart(db, key, follow=follow, by=FIDELITY_REJUDGE_BY, rejudge=True,
+                      reason=f"anchor frames re-judged under {version} "
+                             f"({min(n, MAX_REJUDGE_CANDIDATES)} frame(s))",
+                      record={"judge_version": version})
+    except Exception as exc:  # noqa: BLE001 - restart rolled back; stays blocked
+        out = {"restarted": False, "why": f"restart not enqueued ({type(exc).__name__})"}
+    if not out.get("restarted") and (out.get("restartable") is False
+                                     or out.get("rejudge") is False):
+        # Judged under this version: `redrive_due` stops asking; the method redrive decides.
+        _record_rejudge_refusal(db, key, version, str(out.get("why") or ""), day=None)
+    (restarted if out.get("restarted") else refused).append(
+        {"run_key": key, "kind": "fidelity_rejudge",
+         **{k: out[k] for k in ("epoch", "resume_at", "reverify", "why") if k in out}})
+
+
 # A budget stop whose only cause is the provider's DAILY ceiling is a window, not a verdict:
 # nothing was billed (the gate refused before sending) and the ceiling resets at the next UTC
 # day. Every other budget stop (the per-gallery cap, a monthly ceiling, a reservation) stays
@@ -2949,6 +3092,10 @@ def redrive_capability_blocked(db, *, follow) -> dict:
         if gate is None and _fidelity_redrive_candidate(db, key, reason) and \
                 _sweep_fidelity_unknown(db, key, stages, follow=follow, restarted=restarted,
                                         waiting=waiting, refused=refused):
+            continue
+        if gate is None and _rejudge_redrive_candidate(db, key, reason, stages):
+            _sweep_fidelity_rejudge(db, key, follow=follow, restarted=restarted,
+                                    waiting=waiting, refused=refused)
             continue
         if gate is None and _method_redrive_candidate(db, key, reason, stages):
             _sweep_method_redrive(db, key, follow=follow, method=method,
@@ -3151,6 +3298,13 @@ def redrive_due(session, since, *, now: datetime | None = None) -> dict | None:
             if not (_fidelity_redriven(stages, version) or _fidelity_refusal_holds(
                     stages, version, str(today))):
                 return {"at": now.isoformat(), "run_key": key, "kind": "fidelity_unknown"}
+        if r.stage == "fidelity_gate" and fidelity_fail_block(reason):
+            # IMAGE-FIDELITY-2: due once per fidelity judge version while a FAILed anchor
+            # frame would be read differently; a refusal holds for the day or the version.
+            version = fidelity_judge_version()
+            if not _rejudged(stages, version, str(today)) and _rejudge_ids_in(
+                    session, key, version):
+                return {"at": now.isoformat(), "run_key": key, "kind": "fidelity_rejudge"}
         if r.stage == "fidelity_gate" and not reason.startswith("budget stop"):
             current = current or current_method_version()
             if any(h.get("method_version") == current for h in history):

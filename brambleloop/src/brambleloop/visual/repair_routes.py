@@ -28,9 +28,17 @@ ROUTES: dict[str, dict] = {
         "kind": PROMPT_NEGATIVE,
         "negatives": ["no ribbing in the end bands", "no stripe in the end bands",
                       "end bands exactly as the pattern's plain rows"]},
+    # IMAGE-FIDELITY-2: "no border" alone read as "remove the contrast round near the edge"
+    # (hexagon-coaster-set@1.2.1: the repair drove the generator away from the certified
+    # design). The repair names what an invented edging is, and keeps every charted round;
+    # the prompt builder also states each declared contrast band as part of the fabric.
     FC.INVENTED_EDGING: {
         "kind": PROMPT_NEGATIVE,
-        "negatives": ["no edging", "no border", "plain row edges exactly as the pattern"]},
+        "negatives": ["no edging worked beyond the charted rows or rounds: no picot, scallop, "
+                      "shell, crab-stitch (reverse single crochet), fringe, trim or extra "
+                      "round or row",
+                      "edges exactly as the pattern's last row or round, with every charted "
+                      "colour row or round kept where the pattern puts it"]},
     FC.WRONG_CRAFT_TEXTURE: {
         "kind": REFERENCE_CHANGE,
         "reference": "stitch-texture reference rendered from the stitch definitions",

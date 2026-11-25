@@ -1550,7 +1550,8 @@ def _redrive_due_kind(db):
     return hit["kind"] if hit and hit.get("kind") in ("daily_ceiling_reset",
                                                       "method_redrive",
                                                       "stale_references",
-                                                      "fidelity_unknown") else None
+                                                      "fidelity_unknown",
+                                                      "fidelity_rejudge") else None
 
 
 def _count_fidelity_rejection(acc: dict, checks) -> None:

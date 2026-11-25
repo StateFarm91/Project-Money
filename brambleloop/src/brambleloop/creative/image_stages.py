@@ -626,15 +626,32 @@ FLAT_LAY_SCENE = {
 # V2 / P0-c: a basket cannot be "laid completely flat and unfolded". A vessel's product-only
 # anchor is two views of it standing, which `visual.vessel.verify` reads together: the top
 # view shows the outline's corners, the side view the wall's colour bands and its rim.
+# IMAGE-FIDELITY-2: the certified PDF's cover and gallery renderings, sent as references
+# (the owner's method), show the basket from above at an angle with the inside of the far
+# wall visible. FLUX copied that camera for both views; the gate then counted the far wall's
+# inner stripes as wall bands and the angled prism's outline corners as the rim's. Each view
+# now says which reference shows its camera, and that the angled renderings do not.
+VESSEL_ANGLED_REFERENCES = (
+    "The certified PDF's cover and gallery pictures show this basket from above at an angle, "
+    "with the inside visible: use them for its colours, stripes and shape only, never for "
+    "the camera angle of this image.")
 VESSEL_TOP_SCENE = {
-    "pose": ("the product standing upright on its base, empty, seen from directly above so "
-             "the whole outline of the rim and every corner is visible; nothing inside it"),
+    "pose": ("the product standing upright on its base, empty, seen from directly above: the "
+             "camera points straight down at 90 degrees over the centre of the opening, so "
+             "the outline of the image is the top rim and every corner of it is visible; you "
+             "see the rim, the inside of the walls and the base, and none of the outside of "
+             "the wall; nothing inside it. As in the base-from-above drawing on the right of "
+             "the layout reference. " + VESSEL_ANGLED_REFERENCES),
     "framing": ("the whole object in frame with a margin on every side, the camera square "
                 "above its centre, so every side of the outline can be counted"),
 }
 VESSEL_SIDE_SCENE = {
     "pose": ("the product standing upright on its base, empty, seen from the side with the "
-             "camera level with the middle of the wall; one flat side facing the camera"),
+             "camera level with the middle of the wall and looking horizontally; one flat "
+             "side facing the camera. The opening and the inside are NOT visible: the top "
+             "rim is seen edge-on as a straight line, exactly as in the side elevation on "
+             "the left of the layout reference and in the PDF's schematic drawing. "
+             + VESSEL_ANGLED_REFERENCES),
     "framing": ("the whole object in frame with a margin on every side, from the base to the "
                 "top of the rim, so every colour band up the wall and the rim can be counted"),
 }
@@ -709,7 +726,9 @@ def product_only(release: Release, refs: Sequence[str] | None = None, *,
                                reference_limit=_limit(render), work_dir=work_dir)
     palette = [c.get("hex") for c in (release.rules or {}).get("colours") or []]
     built = flux_prompt.build(rules=release.rules, roles=_prompt_roles(plan),
-                              role="product-only flat lay",
+                              role=(f"product-only {view} view, standing"
+                                    if is_vessel_release(release.rules)
+                                    else "product-only flat lay"),
                               scene={**product_scene(release.rules, palette, view=view),
                                      **dict(scene or {})})
     return _run("product_only", "product_flat_lay", release, plan, built, size,

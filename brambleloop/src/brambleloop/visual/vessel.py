@@ -36,7 +36,8 @@ import numpy as np
 
 from . import fidelity as F
 
-CHECKER = "visual.vessel 1.1.0"   # 1.1: illumination-corrected palette and bands (IMAGES-DIALIN)
+CHECKER = "visual.vessel 1.2.0"   # 1.1: illumination-corrected palette and bands (IMAGES-DIALIN)
+                                  # 1.2: near wall only; band shares by height (IMAGE-FIDELITY-2)
 SEP_DE = 12.0               # product pixel: at least this far (dE76) from the fitted surface
 PEAK_WINDOW_DEG = 18        # a corner is a radius maximum over +- this many degrees
 PEAK_PROMINENCE = 0.035     # ... standing this far (fraction of the mean radius) above the
@@ -57,6 +58,17 @@ PALETTE_COVERAGE_MIN = 0.85  # share of wall pixels within OFF_PALETTE_DE of the
 OFF_ROW_FRAC = 0.5          # a row with more off-palette pixels than this is labelled "off"
 OFF_MIN_ROWS = 0.5          # an "off" run under this many wall rows tall is edge blending
 CENTRE_COLUMN = (0.30, 0.70)  # band labels read from the middle of the wall only
+# IMAGE-FIDELITY-2: a side view taken from above the rim shows the opening, and through it
+# the INSIDE of the far wall, whose bands are the same wall's bands again. Read as wall, a
+# correct two-stripe basket counted four stripes (production 19i25: basket:wall_bands FAIL on
+# market-basket-small, and the certified PDF's own renderings FAIL the same way). The near
+# wall's projected height is read from the steep part of the side outlines (`near_wall`);
+# the centre column is taller than that by the opening, and only the near wall is read.
+STEEP_SLOPE = 0.36          # |dx/dy| of a side outline that is the wall (within ~20 deg)
+SLOPE_WINDOW = 0.02         # the slope is read over +- 2 % of the silhouette's height
+WALL_SLOPE_TOL = 0.12       # ... and the wall is the rows within this of its own median slope
+OPENING_MIN = 0.15          # centre taller than the sides by more than this: an opening shows
+                            # (eye-level perspective makes the near face up to ~10 % taller)
 
 BLIND_SPOTS = (
     "a rim worked in the wall's own colour whose silhouette is the wall's (texture only)",
@@ -79,6 +91,20 @@ class VesselModel:
     # False when the twin says "vessel" but no wall can be modelled (review V2 F4): the
     # verdict is then UNKNOWN by name, never the round-piece check.
     modelled: bool = True
+    # IMAGE-FIDELITY-2: each band's height in cm (`cir.geometry.row_height_cm`, the twin's
+    # rule). A double-crochet round stands taller than a single-crochet one and a slip-stitch
+    # rim is a fraction of either, so a band's share of the wall is its height, not its round
+    # count. Empty when the rounds could not be resolved (shares then fall back to counts).
+    wall_heights_cm: list[float] = field(default_factory=list)
+
+    @property
+    def wall_shares(self) -> list[float]:
+        """Each wall band's share of the wall's HEIGHT, bottom to top (what a picture shows)."""
+        if self.wall_heights_cm and len(self.wall_heights_cm) == len(self.wall_rows):
+            total = sum(self.wall_heights_cm)
+            if total > 0:
+                return [h / total for h in self.wall_heights_cm]
+        return [n / max(self.wall_total_rows, 1) for n in self.wall_rows]
 
 
 def vessel_models(cir) -> list[VesselModel]:
@@ -111,16 +137,32 @@ def vessel_models(cir) -> list[VesselModel]:
             continue
         rows = comp.rows[-wall_n:]
         colours = [getattr(r, "color", None) or "" for r in rows]
-        bands, sizes = [], []
-        for c in colours:
+        heights = _row_heights(cir, result, comp.name, rows)
+        bands, sizes, band_h = [], [], []
+        for i, c in enumerate(colours):
             if bands and bands[-1] == c:
                 sizes[-1] += 1
+                band_h[-1] += heights[i] if heights else 0.0
             else:
                 bands.append(c)
                 sizes.append(1)
+                band_h.append(heights[i] if heights else 0.0)
         out.append(VesselModel(comp.name, twin.sides, bands, sizes, colours[-1],
-                               len(counts) - wall_n, wall_n, dict(cir.colors)))
+                               len(counts) - wall_n, wall_n, dict(cir.colors),
+                               wall_heights_cm=[round(h, 4) for h in band_h] if heights
+                               else []))
     return out
+
+
+def _row_heights(cir, result, component: str, rows) -> list[float]:
+    """Each row's height in cm by the twin's rule, or [] when a row cannot be resolved."""
+    try:
+        from ..cir.geometry import row_height_cm
+
+        by_index = {r.index: r for r in result.rows if r.component == component}
+        return [float(row_height_cm(by_index[r.index], cir)) for r in rows]
+    except Exception:  # noqa: BLE001 - unresolvable heights: shares fall back to counts
+        return []
 
 
 def _takes_component() -> bool:
@@ -257,6 +299,100 @@ def colour_centres(lab_c: np.ndarray, mask: np.ndarray, palette: dict[str, str])
     return out
 
 
+def _steep_run(xs: np.ndarray, win: int) -> tuple[int, int]:
+    """The longest run of rows over which an outline x(y) is the wall's own side line.
+
+    Two passes: the rows within STEEP_SLOPE of vertical, then, around that run's own median
+    slope (a flared or tapered wall is straight, not vertical), only the rows within
+    WALL_SLOPE_TOL of it at either end, so the curve of a rounded rim or base is not counted
+    as wall."""
+    n = len(xs)
+    if n < 3:
+        return 0, n
+    from scipy import ndimage
+
+    k = max(1, win)
+    xs = ndimage.median_filter(np.asarray(xs, dtype=float), size=2 * k + 1, mode="nearest")
+    slopes = np.array([(float(xs[min(n - 1, y + k)]) - float(xs[max(0, y - k)]))
+                       / max(min(n - 1, y + k) - max(0, y - k), 1) for y in range(n)])
+
+    def longest(ok):
+        best_len = cur = 0
+        best = (0, 0)
+        for y in range(n):
+            cur = cur + 1 if ok[y] else 0
+            if cur > best_len:
+                best_len, best = cur, (y - cur + 1, y + 1)
+        return best
+
+    a, b = longest(np.abs(slopes) <= STEEP_SLOPE)
+    if b <= a:
+        return 0, 0
+    own = float(np.median(slopes[a:b]))
+    on = np.nonzero(np.abs(slopes[a:b] - own) <= WALL_SLOPE_TOL)[0]
+    # Only the ends are trimmed (the rim's and the base's curves); a bump in the middle of
+    # the wall (a raised round, a stitch) never splits it.
+    return (int(a + on[0]), int(a + on[-1] + 1)) if on.size else (0, 0)
+
+
+def near_wall(mask: np.ndarray) -> dict:
+    """Where the near wall ends in a side view: rows above it are the opening (IMAGE-FIDELITY-2).
+
+    The wall's projected height is read where the outline IS the wall: the left and right
+    outlines run steeply (within STEEP_SLOPE of vertical) from the base corner to the rim
+    corner, or along the tangent line of a round wall; above and below they turn inward
+    along the rim and the base. The centre column runs from the near base up to the FAR rim;
+    when it is taller than the wall by more than OPENING_MIN, the rows above
+    `cut_from_bottom_px` show the inside of the far wall and are not wall bands. At eye level
+    the outline is steep from base to rim, the centre is no taller and nothing is cut."""
+    rows = np.nonzero(mask.any(axis=1))[0]
+    top, bottom = int(rows.min()), int(rows.max())
+    height = bottom - top + 1
+    left = np.array([np.nonzero(mask[y])[0].min() if mask[y].any() else -1
+                     for y in range(top, bottom + 1)], dtype=float)
+    right = np.array([np.nonzero(mask[y])[0].max() if mask[y].any() else -1
+                      for y in range(top, bottom + 1)], dtype=float)
+    win = max(2, int(round(SLOPE_WINDOW * height)))
+    (la, lb), (ra, rb) = _steep_run(left, win), _steep_run(right, win)
+    side_l, side_r = lb - la, rb - ra
+    side = (side_l + side_r) / 2.0
+    cols = np.nonzero(mask.any(axis=0))[0]
+    x0, x1 = int(cols.min()), int(cols.max())
+    width = x1 - x0 + 1
+    a, b = int(x0 + CENTRE_COLUMN[0] * width), int(x0 + CENTRE_COLUMN[1] * width)
+    centre = []
+    for x in range(a, b + 1):
+        ys = np.nonzero(mask[:, x])[0]
+        if ys.size:
+            centre.append(int(ys.max() - ys.min() + 1))
+    centre_px = float(np.median(centre)) if centre else 0.0
+    ratio = centre_px / side if side else 1.0
+    opening = bool(side > 0 and ratio > 1.0 + OPENING_MIN)
+    return {"side_px": round(side, 1), "left_px": int(side_l), "right_px": int(side_r),
+            "centre_px": round(centre_px, 1), "ratio": round(ratio, 3), "opening": opening,
+            "bottom": bottom, "cut_from_bottom_px": round(side, 1) if opening else None,
+            "wall_rows": [top + max(la, ra), top + min(lb, rb)]}
+
+
+def _rim_bulge_through_opening(mask: np.ndarray, view: dict) -> float:
+    """The rim check for a view that shows the opening: the silhouette's width just above
+    and at the top of the rows where both side outlines are the wall, over its width there.
+    A rim that juts out (rolled, braided) widens the outline where the wall line ends."""
+    ya, yb = view["wall_rows"]
+    if yb - ya < 4:
+        return 1.0
+    widths = {}
+    for y in range(max(0, ya - int(0.1 * (yb - ya))), yb):
+        xs = np.nonzero(mask[y])[0]
+        if xs.size:
+            widths[y] = int(xs.max() - xs.min() + 1)
+    wall = [w for y, w in widths.items() if ya <= y < yb]
+    rim = [w for y, w in widths.items() if y < ya + max(1, int(RIM_STRIP * (yb - ya)))]
+    if not wall or not rim:
+        return 1.0
+    return float(np.percentile(rim, 90) / max(np.median(wall), 1e-9))
+
+
 def _bands(mask: np.ndarray, lab: np.ndarray, palette: dict[str, str], rows_total: int = 1):
     ys, xs = np.nonzero(mask)
     top, bottom = ys.min(), ys.max()
@@ -355,8 +491,22 @@ def verify_side(data: bytes, model: VesselModel) -> list[dict]:
                          f"the side view is not a decodable image ({exc})")]
     if mask is None:
         return [F._check(f"{name}:wall_bands", F.UNKNOWN, why, code="UNVERIFIABLE_COUNT")]
-    lab, light = illumination_corrected(F._load(data), mask, model.palette)
+    full_mask, rgb = mask, F._load(data)
+    view = near_wall(mask)
+    interior = None
+    if view["opening"]:
+        lab_full, _light = illumination_corrected(rgb, full_mask, model.palette)
+        mask, view = _near_mask(full_mask, lab_full, view, model)
+    lab, light = illumination_corrected(rgb, mask, model.palette)
     runs, widths, height, coverage = _bands(mask, lab, model.palette, model.wall_total_rows)
+    if view["opening"]:
+        # Recorded, not judged: the inside of the far wall seen through the opening.
+        above = full_mask & ~mask
+        above[view["bottom"] - int(round(view["cut_from_bottom_px"])) + 1:, :] = False
+        if above.any():
+            interior = [r[0] for r in _bands(above, lab, model.palette,
+                                             model.wall_total_rows)[0]]
+    light = {**light, "view": {**view, "interior_bands": interior}}
     if height / max(model.wall_total_rows, 1) < MIN_PX_PER_ROW:
         return [F._check(f"{name}:wall_bands", F.UNKNOWN,
                          f"{height} px for {model.wall_total_rows} wall rows",
@@ -377,12 +527,15 @@ def verify_side(data: bytes, model: VesselModel) -> list[dict]:
     out = [pal_check]
     expected = list(model.wall_bands)
     extra_top = len(seen) == len(expected) + 1 and seen[:-1] == expected
-    rim_w = np.median(widths[-max(1, int(RIM_STRIP * len(widths))):])
-    wall_w = np.median(widths[: max(1, int(0.8 * len(widths)))])
-    bulge = float(rim_w / max(wall_w, 1e-9))
+    if view["opening"]:
+        bulge = _rim_bulge_through_opening(full_mask, view)
+    else:
+        rim_w = np.median(widths[-max(1, int(RIM_STRIP * len(widths))):])
+        wall_w = np.median(widths[: max(1, int(0.8 * len(widths)))])
+        bulge = float(rim_w / max(wall_w, 1e-9))
     if seen == expected:
         shares = [r[1] / height for r in runs]
-        want = [n / model.wall_total_rows for n in model.wall_rows]
+        want = list(model.wall_shares)
         worst_rel = max(abs(s - w) / w for s, w in zip(shares, want))
         out.append(F._check(f"{name}:wall_bands",
                             F.PASS if worst_rel <= SHARE_REL_MAX else F.FAIL,
@@ -405,6 +558,29 @@ def verify_side(data: bytes, model: VesselModel) -> list[dict]:
                          f"plain {model.rim_colour} rim; top-strip width {bulge:.3f}x the wall's"),
                         code="INVENTED_EDGING", rim_width_ratio=round(bulge, 3)))
     return out
+
+
+def _near_mask(mask: np.ndarray, lab: np.ndarray, view: dict, model: VesselModel):
+    """The side view's mask cut to the near wall (rows above it are the opening).
+
+    The cut is the measured wall height above the bottom, moved to the nearest colour
+    boundary of the centre column only when one lies within half the thinnest declared band
+    (so a band edge is not split by a few pixels of perspective); never further, so no
+    declared band can be cut away by the snap."""
+    cut = float(view["cut_from_bottom_px"])
+    bottom = view["bottom"]
+    snap = 0.5 * min(model.wall_shares or [1.0]) * cut
+    runs = _bands(mask, lab, model.palette, model.wall_total_rows)[0]
+    boundaries, h = [], 0
+    for _cid, n in runs[:-1]:
+        h += n
+        boundaries.append(h)
+    near = [b for b in boundaries if abs(b - cut) <= snap]
+    if near:
+        cut = float(min(near, key=lambda b: abs(b - cut)))
+    out = mask.copy()
+    out[: bottom - int(round(cut)) + 1, :] = False
+    return out, {**view, "cut_from_bottom_px": round(cut, 1), "snap_px": round(snap, 1)}
 
 
 def verify(top: bytes, side: bytes, cir) -> dict:

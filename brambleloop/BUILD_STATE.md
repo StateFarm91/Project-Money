@@ -43,6 +43,42 @@ deployed); 6 are not; 2 name no resolvable branch.
 
 ---
 
+## IMAGE-FIDELITY-2 — 2026-11-25 (branch claude/w6-release-19i26 from 3f1727b65, NOT deployed)
+
+Production 19i25 (evidence 07:24Z): FLUX generates again (41 candidates, 14 accepted), and every
+gallery ends `fidelity_gate:product_truth:exhausted` (5 runs). Two false rejections, fixed at the
+root. No gate was loosened; every wrong-product negative still FAILs (tests/test_image_fidelity_2.py).
+
+- **Coaster INVENTED_EDGING (10, craft_texture).** The craft judge was asked
+  `border_or_edging_visible` ("a band of different stitches or colour along the edges"). The
+  coaster's certified wine round 6 of 7 is exactly that, so a faithful frame FAILed. The repair
+  ("no edging, no border") then pushed FLUX away from the wine round. Fix: judge version
+  `fidelity-judge/2`. The prompt states the certified colour layout and asks `added_edging_visible`,
+  which is anything worked onto or beyond that layout: picot, scallop, crab stitch, fringe, or an
+  extra round. A declared contrast round is never edging. A reading without the key falls back to
+  the old, stricter field. Edging that was not declared, and any extra round, still FAIL. The
+  prompt builder (2.4.0) names the contrast round as part of the fabric and forbids losing it,
+  after every negative including the repair's. The INVENTED_EDGING repair now names what counts as
+  edging and keeps every charted round.
+- **Basket wall_bands, palette (14, 6).** The side-view check read the whole centre column. From
+  even a few degrees above the rim the opening shows the inside of the far wall, which repeats the
+  same stripes, so a correct two-stripe basket read four stripes. The certified PDF's own
+  renderings, sent to FLUX as references under the owner's method, are angled views, and they FAIL
+  the old check. Fix (`visual.vessel` 1.2.0): the near wall's height comes from the steep side
+  outlines, and only the near wall is read. Band shares are now measured by height, not by round
+  count. The key basket's dc rounds and slip-stitch rim had made even an eye-level faithful render
+  FAIL. The FLUX side and top views now name their camera and say that the angled PDF renderings
+  set colours and shape only (pattern-refs 3.1.5, shares by height).
+- **Open: `basket:sides` (9).** The top-view corner count is unchanged. An angled "top" view
+  counts the prism outline (8 corners), not the rim. The prompt now asks for a straight-down
+  camera, but the check does not yet read angled top views.
+- **Redrive.** `fidelity_rejudge_redrive` runs in the hourly sweep. It takes a run blocked
+  "product fidelity FAIL after N attempts" whose anchor frames FAILed on a check this judge
+  version reads differently, and re-judges them once per version (at most 6 frames). It generates
+  nothing, needs a usable vision route, and every cap binds (MAX_RESTARTS, attempts, calls,
+  spend). A frame that still FAILs then goes to the method redrive, because the generation method
+  changed.
+
 ## 19i20 — NO-PAUSE + LAURA-MANDATORY + REDRIVE-REFUSAL (2026-11-23 ~05:00Z)
 
 The release contents are recorded here; deployment is recorded in DEPLOYED_HISTORY.

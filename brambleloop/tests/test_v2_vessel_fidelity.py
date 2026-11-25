@@ -112,7 +112,9 @@ def side_view(bands=None, rows=None, *, rim=None, rim_bulge=1.0, size=(1600, 120
     top, at their row shares (the twin's width:height). A band may be a palette id or a hex."""
     model = model or MODEL
     bands = model.wall_bands if bands is None else bands
-    rows = model.wall_rows if rows is None else rows
+    # IMAGE-FIDELITY-2: drawn at the twin's band HEIGHTS (a dc round stands taller than an sc
+    # round, a slip-stitch rim is a sliver), which is what a picture of the made piece shows.
+    rows = model.wall_shares if rows is None else rows
     im = Image.new("RGB", size, SURFACE)
     d = ImageDraw.Draw(im)
     w = size[0] * 0.6
