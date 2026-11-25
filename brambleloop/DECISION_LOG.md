@@ -4908,3 +4908,7 @@ Batch 19i23 (code edcc77871, release commit 6d9f73733) was deployed with the own
 ## D-OWNER-DEPLOY-19i24 — 2026-11-25
 
 Batch 19i24 (stale-reference re-prepare and redrive, 25c1c0bc1) is deployed under the owner's chat approval of 2026-11-25: "You have my approval. Just do it." That approval covers the photo fix. 1007 tests across 101 image, gallery and redrive suites passed. There is no full-suite record yet, so the boot guard forces SHADOW until one is committed. A full cloud run was started at deploy time.
+
+## D-OWNER-DEPLOY-19i25 — 2026-11-25
+
+Batch 19i25 (674b967b5) fixes product-truth UNKNOWN parks. The craft judge now routes to the owner-activated openai-vision route, the same rule as ASSET-VISION. A bounded fidelity_unknown redrive re-judges stored frames only, with no generation. It is deployed under the owner's chat approval of 2026-11-25 for photo fixes. 1082 tests across 104 suites pass. A full-suite record is not yet present, so the boot guard forces SHADOW until one is committed.
