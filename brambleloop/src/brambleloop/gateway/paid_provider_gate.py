@@ -570,6 +570,28 @@ def activation_state(db, provider: str, scope: str, *, now: datetime | None = No
                 "error": f"{type(exc).__name__}: {str(exc)[:160]}", "activation": None}
 
 
+def daily_headroom_cad(db, provider: str, scope: str, *,
+                       now: datetime | None = None) -> float | None:
+    """CA$ left today under the owner's daily ceiling for `provider`/`scope`: the active
+    activation's ceiling less what is reserved, billed or uncertain on `provider` since 00:00Z
+    (the sum `authorize` checks). None when not active or unreadable. Reads only; the
+    ceiling itself is enforced by `authorize` at call time, never here."""
+    now = _now(now)
+    if db is None:
+        return None
+    try:
+        ensure_tables(db)
+        day0 = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        with db.session() as s:
+            act, _why = _current(s, provider, scope, now)
+            if act is None:
+                return None
+            today = _sum(s, PaidProviderCall.provider == provider, PaidProviderCall.at >= day0)
+            return round(max(0.0, float(act.daily_ceiling_cad) - today), 6)
+    except Exception:  # noqa: BLE001 - unreadable headroom is no headroom
+        return None
+
+
 def require_active(db, provider: str, scope: str, *, now: datetime | None = None) -> dict:
     st = activation_state(db, provider, scope, now=now)
     if not st["active"]:

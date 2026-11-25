@@ -23,6 +23,34 @@ deployed); 6 are not; 2 name no resolvable branch.
 
 ---
 
+## REDRIVE-ELIGIBILITY (19i28) — 2026-11-25 (branch claude/w6-release-19i28 from 211745f9d, NOT deployed)
+
+Production 19i27 (evidence 12:59Z, ~70 min after deploy): the fidelity-checks/2 re-judgement of
+both hexagon-coaster-set@1.2.1 runs never fired; `redrive_due` None; `chain.successors` DID run
+(12:00:37Z, done). Root cause (from code + evidence timeline; reproduced in
+tests/test_redrive_eligibility.py; the production rows themselves were NOT read): both runs are
+at MAX_RESTARTS (3). Restart 1 = 19i25 UNKNOWN redrive (judge-route/1, repairs made frames 3-5);
+restart 2 = 19i26 rejudge redrive (judge/2, no generation); restart 3 = 19i26's UNKNOWN redrive
+re-driving them AGAIN under judge/2 an hour later, because its "already re-driven" test read
+`fidelity_unknown_redrive` entries only (a duplicate reading that could change nothing). Under
+19i27, `redrive_due` skipped capped runs with a silent `continue` and the sweep's refusal
+("already restarted 3 times (cap 3)") was written only into the run's own stages. NOT the cause:
+the FLUX daily ceiling (no generation ceiling is consulted by a re-judgement), the old-key
+refusal hold, the UNKNOWN reason prefix, scheduler backoff.
+Fix (`visual.image_production`): a re-judgement under (judge version, check version) by either
+fidelity redrive counts as done, and a run whose every stored anchor frame already carries a
+verdict under those versions is not re-driven (no restart spent on an unchangeable reading); the
+rejudge redrive records its check version; before either re-judgement restart the vision
+route's OWN daily ceiling (openai-vision CA$2.00, `paid_provider_gate.daily_headroom_cad`) must
+cover the questions, else the sweep waits for the UTC day (a day hold, read back). Evidence:
+`visual_pipeline.galleries.redrive_eligibility` = per blocked run key {kind, eligible, refused
+(fixed vocabulary, e.g. max_restarts), restarts_spent, max_restarts} + counts. MAX_RESTARTS and
+every cap unchanged: the two coaster runs STAY refused (now visibly). Re-verifying them needs an
+owner/integrator decision (not taken here: it would relax the restart cap).
+Daily-ceiling runs checked: `daily_ceiling_reset` restarts them on the first sweep after 00:00Z;
+403-era and refused daily-ceiling epochs do not count toward MAX_RESTARTS; a run at the cap is
+now reported `max_restarts` instead of skipped.
+
 ## IMAGE-FIDELITY-3 — 2026-11-25 (branch claude/w6-release-19i27 from 0d295aecf, NOT deployed)
 
 Production 19i26 (readback 10:16Z): both hexagon-coaster-set@1.2.1 runs park at `fidelity_gate`

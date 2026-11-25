@@ -1536,7 +1536,38 @@ def _vp_runs(db) -> dict:
             "method_redrives": method,
             # REDRIVE-FIRE: whether the hourly sweep has a restart to make now (the breaker
             # lifts its backoff while this is true); a fixed-vocabulary kind or None.
-            "redrive_due": _redrive_due_kind(db)}
+            "redrive_due": _redrive_due_kind(db),
+            # REDRIVE-ELIGIBILITY (19i28): per blocked run key, whether the sweep would restart
+            # it now and the fixed-vocabulary refusal when not (MAX_RESTARTS is named, never
+            # a silent skip); counts and codes only.
+            "redrive_eligibility": _redrive_eligibility(db)}
+
+
+def _redrive_eligibility(db) -> dict:
+    from ..visual import image_production as IP
+
+    try:
+        with db.session() as s:
+            rb = IP.redrive_readback(s)
+    except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN, never "nothing blocked"
+        return {"readable": False, "error_class": _safe_class(type(exc).__name__)}
+    runs = {}
+    for key, v in (rb.get("runs") or {}).items():
+        k = str(key)
+        if not _RUN_KEY.match(k):
+            k = f"other-{len(runs) + 1}"
+        runs[k] = {"kind": v["kind"] if v.get("kind") in IP.REDRIVE_KINDS else "other",
+                   "eligible": bool(v.get("eligible")),
+                   "refused": v["refused"] if v.get("refused") in IP.REDRIVE_REFUSALS
+                   else (None if v.get("refused") is None else "other"),
+                   "restarts_spent": int(v.get("restarts_spent") or 0),
+                   "max_restarts": int(v.get("max_restarts") or IP.MAX_RESTARTS)}
+    return {"readable": True, "runs": runs, "counts": rb.get("counts") or {}}
+
+
+# an image-production run key: imgprod:<slug>@<version>@<release>[~route] (no free text)
+_RUN_KEY = re.compile(r"^imgprod:[a-z0-9][a-z0-9-]{0,80}@[0-9A-Za-z.+-]{1,40}@"
+                      r"[a-z0-9][a-z0-9-]{0,120}(~[a-z]{1,20})?$")
 
 
 def _redrive_due_kind(db):

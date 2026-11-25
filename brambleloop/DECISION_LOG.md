@@ -4936,3 +4936,14 @@ Batch 19i27 (IMAGE-FIDELITY-3, cc3058b25) is deployed under the owner's chat app
 - The layout reference draws hexagons (pattern-refs 3.1.6).
 
 Parked UNKNOWN runs are re-verified once under fidelity-checks/2. Its 114 suites pass (1277 passing). SHADOW stays until a full-suite record on the deployed tree exists.
+
+## D-REDRIVE-ELIGIBILITY — 2026-11-25
+
+A fidelity re-judgement is keyed by (judge version, check version) across BOTH fidelity
+redrives, and is not made when every stored anchor frame already carries a verdict under those
+versions: production 19i26 spent the coaster runs' third (last) restart re-reading frames the
+rejudge redrive had just read under the same verifier. MAX_RESTARTS is NOT relaxed for the two
+runs that hit it this way; they are reported `max_restarts` per run key in the evidence and
+wait for an explicit owner/integrator decision. A re-judgement generates nothing, so no
+generation ceiling holds it; it waits only on the vision route's own daily ceiling.
+

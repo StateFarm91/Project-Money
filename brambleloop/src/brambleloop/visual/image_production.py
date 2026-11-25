@@ -2805,12 +2805,105 @@ def fidelity_check_version() -> str:
     return FIDELITY_CHECK_VERSION
 
 
+# REDRIVE-ELIGIBILITY (19i28): a restart history entry written before IMAGE-FIDELITY-3 names no
+# check version; its frames were judged by the first deterministic checks.
+LEGACY_CHECK_VERSION = "fidelity-checks/1"
+# The fidelity re-judgements: each re-reads stored frames under (judge version, check version)
+# and generates nothing.
+_REJUDGEMENT_BY = (FIDELITY_REDRIVE_BY, "fidelity_rejudge_redrive")
+
+
+def _entry_check_version(h: dict) -> str:
+    return str(h.get("check_version") or LEGACY_CHECK_VERSION)
+
+
 def _fidelity_redriven(stages: dict, version: str) -> bool:
+    """Already re-judged under (`version`, the current check version) by either fidelity
+    redrive. REDRIVE-ELIGIBILITY (19i28): production 19i26 re-drove both hexagon-coaster runs
+    a second time under fidelity-judge/2 an hour after the rejudge redrive had re-read the same
+    frames under fidelity-judge/2 (this test looked at `fidelity_unknown_redrive` entries only).
+    That restart could not read anything differently, and it was the third: both runs reached
+    MAX_RESTARTS, so the IMAGE-FIDELITY-3 re-judgement (fidelity-checks/2) was refused."""
     history = (stages.get(RESTART_KEY) or {}).get("history") or []
     checks = fidelity_check_version()
-    return any(isinstance(h, dict) and h.get("by") == FIDELITY_REDRIVE_BY
-               and h.get("judge_version") == version and h.get("check_version") == checks
+    return any(isinstance(h, dict) and h.get("by") in _REJUDGEMENT_BY
+               and h.get("judge_version") == version and _entry_check_version(h) == checks
                for h in history)
+
+
+def _frame_judged_now(checks, version: str, check_version: str) -> bool:
+    """A stored anchor verdict already made under (`version`, `check_version`)."""
+    fid = ((checks or {}).get("product_truth") or {}).get("fidelity") \
+        if isinstance(checks, dict) and isinstance(checks.get("product_truth"), dict) else None
+    return (isinstance(fid, dict) and fid.get("judge_version") == version
+            and str(fid.get("check_version") or LEGACY_CHECK_VERSION) == check_version)
+
+
+def _anchor_frames_judged_now(session, key: str, version: str) -> bool:
+    """Every stored anchor frame of run `key` was already judged under (`version`, the current
+    check version): a re-judgement would read nothing differently. False with no frame."""
+    from sqlalchemy import select
+
+    from .image_records import ImageCandidate
+
+    checks = fidelity_check_version()
+    rows = [c for (c,) in session.execute(select(ImageCandidate.checks).where(
+        ImageCandidate.run_key == key, ImageCandidate.role == ANCHOR_ROLE,
+        ImageCandidate.sha256 != ""))]
+    return bool(rows) and all(_frame_judged_now(c, version, checks) for c in rows)
+
+
+# ---- REDRIVE-ELIGIBILITY: the vision judge's own daily ceiling ----------------------------
+# A re-judgement generates nothing, so no generation ceiling (the FLUX daily ceiling, the call
+# cap, the gallery spend plan) holds it back. It does ask the vision judge, and that route has
+# its own owner ceilings (openai-vision: CA$2.00 a day). When today's headroom on the route the
+# verifier would ask cannot cover the questions, re-judging now would read UNKNOWN and spend the
+# run's once-per-version re-judgement and a restart on nothing: the sweep waits for the UTC day.
+VISION_CALLS_PER_FRAME = 2      # the craft reading, plus a vessel's second view (conservative)
+
+
+def _vision_headroom(db, frames: int) -> tuple[bool, str]:
+    """(ok, why): whether today's ceiling on the vision route the fidelity verifier would ask
+    covers `frames` re-judged frames. Unreadable is not ok (fail closed: wait)."""
+    try:
+        from ..gateway import paid_provider_gate as G
+        from . import vision_route
+
+        vendor, provider = vision_route.choose(db)
+        if vendor is None:
+            return False, "no vision route is usable for the fidelity verifier"
+        gate = G.OPENAI_VISION if vendor == vision_route.OPENAI else G.ANTHROPIC_VISION
+        st = G.activation_state(db, gate, G.VISION)
+        if not st["active"]:
+            # the Anthropic route is opened by its own gate (vision_usable); nothing to read
+            return (vendor != vision_route.OPENAI,
+                    f"{gate} is not active ({st.get('reason')})")
+        left = G.daily_headroom_cad(db, gate, G.VISION)
+        need = round(max(1, int(frames)) * VISION_CALLS_PER_FRAME
+                     * _vision_call_estimate_cad(vendor, provider), 6)
+    except Exception as exc:  # noqa: BLE001 - unreadable headroom never spends
+        return False, f"vision headroom unreadable ({type(exc).__name__})"
+    if left is None or left + 1e-9 < need:
+        return False, (f"{gate} daily ceiling: CA${(left or 0.0):.4f} left today, a "
+                       f"re-judgement needs up to CA${need:.4f}; waits for the next UTC day")
+    return True, ""
+
+
+def _vision_call_estimate_cad(vendor: str, provider) -> float:
+    """One fidelity vision question's reservation on `provider` (its own estimate rule)."""
+    from ..gateway import providers as gw
+    from . import vision_route
+    from .fidelity import CRAFT_SYSTEM, craft_prompt
+
+    model = str(getattr(provider, "model", "") or "")
+    tokens = gw.input_tokens(model, system=CRAFT_SYSTEM, user=craft_prompt(), images=1)
+    if vendor == vision_route.OPENAI:
+        from ..gateway import openai_chat
+
+        return float(openai_chat.estimate_cad(model, input_tokens=tokens, output_tokens=300))
+    from ..gateway import anthropic
+
+    return float(anthropic.estimate_cad(model, input_tokens=tokens, output_tokens=300))
 
 
 def _fidelity_refusal_holds(stages: dict, version: str, day: str) -> bool:
@@ -2877,8 +2970,24 @@ def _sweep_fidelity_unknown(db, key: str, stages: dict, *, follow, restarted: li
         refused.append({"run_key": key, "why": f"already judged under {version}: "
                                                f"{prior}"[:500]})
         return True
+    with db.session() as s:
+        judged_now = _anchor_frames_judged_now(s, key, version)
+    if judged_now:
+        # REDRIVE-ELIGIBILITY: every stored frame already carries a verdict under these
+        # versions (e.g. the rejudge redrive just re-read them): a restart would only spend
+        # one of the run's MAX_RESTARTS on the same reading.
+        why = (f"every stored anchor frame is already judged under {version} "
+               f"({fidelity_check_version()}); a re-judgement would read nothing differently")
+        _record_fidelity_refusal(db, key, version, why, day=None)
+        refused.append({"run_key": key, "why": why})
+        return True
     if not vision_route_usable(db):
         why = "no vision route is usable for the fidelity verifier; re-judging would read UNKNOWN"
+        _record_fidelity_refusal(db, key, version, why, day=day)
+        waiting.append({"run_key": key, "why": why})
+        return True
+    ok, why = _vision_headroom(db, 1)
+    if not ok:
         _record_fidelity_refusal(db, key, version, why, day=day)
         waiting.append({"run_key": key, "why": why})
         return True
@@ -2914,6 +3023,7 @@ FIDELITY_REJUDGE_BY = "fidelity_rejudge_redrive"
 FIDELITY_REJUDGE_KEY = "_fidelity_rejudge"   # stages: {"judge_version", "day", "why", "at"}
 FIDELITY_FAIL_PREFIX = "product fidelity FAIL after"
 MAX_REJUDGE_CANDIDATES = 6
+assert FIDELITY_REJUDGE_BY in _REJUDGEMENT_BY
 
 
 def fidelity_fail_block(reason) -> bool:
@@ -3006,11 +3116,19 @@ def _sweep_fidelity_rejudge(db, key: str, *, follow, restarted: list, waiting: l
         waiting.append({"run_key": key, "why": why})
         return
     n = len(rejudge_candidate_ids(db, key))
+    ok, why = _vision_headroom(db, min(n, MAX_REJUDGE_CANDIDATES))
+    if not ok:
+        # REDRIVE-ELIGIBILITY: the vision route's own daily ceiling (never a generation
+        # ceiling: a re-judgement generates nothing) cannot cover the re-reads today.
+        _record_rejudge_refusal(db, key, version, why, day=str(_now().date()))
+        waiting.append({"run_key": key, "why": why})
+        return
     try:
         out = restart(db, key, follow=follow, by=FIDELITY_REJUDGE_BY, rejudge=True,
                       reason=f"anchor frames re-judged under {version} "
                              f"({min(n, MAX_REJUDGE_CANDIDATES)} frame(s))",
-                      record={"judge_version": version})
+                      record={"judge_version": version,
+                              "check_version": fidelity_check_version()})
     except Exception as exc:  # noqa: BLE001 - restart rolled back; stays blocked
         out = {"restarted": False, "why": f"restart not enqueued ({type(exc).__name__})"}
     if not out.get("restarted") and (out.get("restartable") is False
@@ -3266,77 +3384,187 @@ def _midnight_after(day) -> datetime:
     return datetime(day.year, day.month, day.day, tzinfo=timezone.utc) + timedelta(days=1)
 
 
+# REDRIVE-ELIGIBILITY (19i28): the verdict for every blocked run, so the evidence readback can
+# show WHY a run is not due. Production 19i27 (12:59Z): `redrive_due` read None and nothing
+# said that both hexagon-coaster runs sat at MAX_RESTARTS (that branch was a silent
+# `continue`). `refused` is a fixed vocabulary, never free text.
+REDRIVE_KINDS = ("stale_references", "provider_transient", "daily_ceiling_reset",
+                 "fidelity_unknown", "fidelity_rejudge", "method_redrive", "capability_gate",
+                 "none")
+REDRIVE_REFUSALS = ("max_restarts", "experiment_one_shot", "already_redriven",
+                    "refusal_held", "already_judged_now", "hourly_backoff",
+                    "waiting_daily_reset", "seen_by_sweep", "no_frame_to_reread",
+                    "failed_under_current_method", "no_failure", "gate_closed_or_redriven",
+                    "final_block")
+
+
+def _redrive_kind(reason: str, stage: str) -> str:
+    """Which redrive owns a blocked run of this reason and stage (none: a final block)."""
+    if _gate_of(reason) is not None:
+        return "capability_gate"
+    if stale_references_block(reason):
+        return "stale_references"
+    if provider_transient_block(reason):
+        return "provider_transient"
+    if reason.startswith("budget stop") and DAILY_CEILING_CODE in reason:
+        return "daily_ceiling_reset"
+    if stage == "fidelity_gate" and fidelity_unknown_block(reason):
+        return "fidelity_unknown"
+    if stage == "fidelity_gate" and fidelity_fail_block(reason):
+        return "fidelity_rejudge"
+    if stage == "fidelity_gate" and not reason.startswith("budget stop"):
+        return "method_redrive"
+    return "none"
+
+
+def _redrive_verdict(session, r, since, now: datetime, memo: dict) -> dict:
+    """{"kind", "due", "refused", "at", "restarts_spent"} for one blocked run row `r`: whether
+    the hourly sweep would restart it now and could not have at `since` (`due`), else the
+    first refusal that holds (`refused`, from REDRIVE_REFUSALS). Reads rows only."""
+    from sqlalchemy import select
+
+    from .image_records import ImageCandidate
+
+    key, reason, stages = r.run_key, r.blocked_reason or "", dict(r.stages or {})
+    today = now.date()
+    kind = _redrive_kind(reason, r.stage)
+    rec = stages.get(RESTART_KEY) or {}
+    spent = restarts_spent(session, r) if rec else 0
+    out = {"kind": kind, "due": False, "refused": None, "at": None, "restarts_spent": spent}
+
+    def no(code: str) -> dict:
+        return {**out, "refused": code}
+
+    def yes(kind_: str, at: str) -> dict:
+        return {**out, "kind": kind_, "due": True, "at": at}
+
+    if "#" in key:
+        return no("experiment_one_shot")
+    if int(rec.get("epoch") or 0) >= MAX_RESTARTS and spent >= MAX_RESTARTS:
+        # Every restart path refuses this run (`restartable`). Not due: the probe must not lift
+        # the sweep's backoff for it. Visible in the readback, never silently skipped.
+        return no("max_restarts")
+    history = rec.get("history") or []
+    if kind == "capability_gate" and r.stage != "fidelity_gate":
+        # the sweep restarts it once its gate opens (`gates_now`, not a row read)
+        return no("gate_closed_or_redriven")
+    if kind == "stale_references":
+        if not _stale_redriven(stages, references_version()):
+            return yes(kind, now.isoformat())
+        return no("already_redriven")
+    if kind == "provider_transient":
+        if _provider_redrive_due(stages, r.updated_at, now) is not None:
+            return yes(kind, now.isoformat())
+        return no("hourly_backoff")
+    if kind == "daily_ceiling_reset":
+        blocked_day = _utc_day(r.updated_at.isoformat() if r.updated_at else None)
+        if blocked_day is None or today <= blocked_day:
+            return no("waiting_daily_reset")
+        reset_at = _midnight_after(blocked_day)
+        if since is not None and reset_at <= since:
+            return no("seen_by_sweep")    # the backoff was recorded after the reset
+        day = str(today)
+        if any(h.get("by") == DAILY_REDRIVE_BY and day in str(h.get("reason", ""))
+               for h in history if isinstance(h, dict)):
+            return no("already_redriven")
+        if (stages.get(DAILY_REDRIVE_KEY) or {}).get("day") == day:
+            return no("refusal_held")     # the sweep already judged it today and was refused
+        return yes(kind, reset_at.isoformat())
+    first = None
+    if r.stage == "fidelity_gate" and fidelity_unknown_block(reason):
+        # IMAGE-FIDELITY-ROUTE: due once per (judge version, check version); a refusal holds
+        # for the UTC day (no vision route, no vision headroom) or for the versions (restart
+        # refused, or a FAILed role, which the method redrive below then judges).
+        version = fidelity_judge_version()
+        if _fidelity_redriven(stages, version):
+            first = "already_redriven"
+        elif _fidelity_refusal_holds(stages, version, str(today)):
+            first = "refusal_held"
+        elif _anchor_frames_judged_now(session, key, version):
+            first = "already_judged_now"
+        else:
+            return yes("fidelity_unknown", now.isoformat())
+    if r.stage == "fidelity_gate" and fidelity_fail_block(reason):
+        # IMAGE-FIDELITY-2: due once per fidelity judge version while a FAILed anchor
+        # frame would be read differently; a refusal holds for the day or the version.
+        version = fidelity_judge_version()
+        if _rejudged(stages, version, str(today)):
+            first = first or "already_redriven"
+        elif not _rejudge_ids_in(session, key, version):
+            first = first or "no_frame_to_reread"
+        else:
+            return yes("fidelity_rejudge", now.isoformat())
+    if r.stage == "fidelity_gate" and not reason.startswith("budget stop"):
+        if "current" not in memo:
+            memo["current"] = current_method_version()
+        current = memo["current"]
+        if any(isinstance(h, dict) and h.get("method_version") == current for h in history):
+            return no(first or "already_redriven")
+        if (stages.get(METHOD_REDRIVE_KEY) or {}).get("version") == current:
+            return no(first or "refusal_held")    # judged under this method (no headroom...)
+        fails = [candidate_method_version(c) for (c,) in session.execute(
+            select(ImageCandidate.checks).where(ImageCandidate.run_key == key,
+                                                ImageCandidate.technical_status == "FAIL"))]
+        if not fails:
+            return no(first or "no_failure")
+        if current in fails:
+            return no(first or "failed_under_current_method")
+        return yes("method_redrive", now.isoformat())
+    return no(first or "final_block")
+
+
+def _blocked_rows(session):
+    from sqlalchemy import select
+
+    from .image_records import ImageProductionRun
+
+    return session.scalars(select(ImageProductionRun).where(
+        ImageProductionRun.status == "blocked").order_by(ImageProductionRun.id))
+
+
 def redrive_due(session, since, *, now: datetime | None = None) -> dict | None:
     """The first blocked run the hourly sweep would restart now but could not have restarted
     at `since`, as {"at", "run_key", "kind"}; None when there is none. Reads rows only."""
-    from sqlalchemy import select
-
-    from .image_records import ImageCandidate, ImageProductionRun
-
     now = (now or _now()).astimezone(timezone.utc)
     since = since if since is None or since.tzinfo else since.replace(tzinfo=timezone.utc)
-    today = now.date()
-    current = None
-    for r in session.scalars(select(ImageProductionRun).where(
-            ImageProductionRun.status == "blocked").order_by(ImageProductionRun.id)):
-        key, reason, stages = r.run_key, r.blocked_reason or "", dict(r.stages or {})
-        if "#" in key:
-            continue
-        rec = stages.get(RESTART_KEY) or {}
-        if int(rec.get("epoch") or 0) >= MAX_RESTARTS and restarts_spent(session, r) \
-                >= MAX_RESTARTS:
-            continue
-        history = rec.get("history") or []
-        if stale_references_block(reason) and _gate_of(reason) is None:
-            if not _stale_redriven(stages, references_version()):
-                return {"at": now.isoformat(), "run_key": key, "kind": "stale_references"}
-            continue
-        if provider_transient_block(reason) and _gate_of(reason) is None:
-            if _provider_redrive_due(stages, r.updated_at, now) is not None:
-                return {"at": now.isoformat(), "run_key": key, "kind": "provider_transient"}
-            continue
-        if reason.startswith("budget stop") and DAILY_CEILING_CODE in reason:
-            blocked_day = _utc_day(r.updated_at.isoformat() if r.updated_at else None)
-            if blocked_day is None or today <= blocked_day:
-                continue
-            reset_at = _midnight_after(blocked_day)
-            if since is not None and reset_at <= since:
-                continue      # the backoff was recorded after the reset: the sweep saw it
-            day = str(today)
-            if any(h.get("by") == DAILY_REDRIVE_BY and day in str(h.get("reason", ""))
-                   for h in history):
-                continue
-            if (stages.get(DAILY_REDRIVE_KEY) or {}).get("day") == day:
-                continue      # the sweep already judged it today and was refused
-            return {"at": reset_at.isoformat(), "run_key": key, "kind": "daily_ceiling_reset"}
-        if r.stage == "fidelity_gate" and fidelity_unknown_block(reason):
-            # IMAGE-FIDELITY-ROUTE: due once per fidelity judge version; a refusal holds for
-            # the UTC day (no vision route) or for the version (restart refused, or a FAILed
-            # role, which the method redrive below then judges).
-            version = fidelity_judge_version()
-            if not (_fidelity_redriven(stages, version) or _fidelity_refusal_holds(
-                    stages, version, str(today))):
-                return {"at": now.isoformat(), "run_key": key, "kind": "fidelity_unknown"}
-        if r.stage == "fidelity_gate" and fidelity_fail_block(reason):
-            # IMAGE-FIDELITY-2: due once per fidelity judge version while a FAILed anchor
-            # frame would be read differently; a refusal holds for the day or the version.
-            version = fidelity_judge_version()
-            if not _rejudged(stages, version, str(today)) and _rejudge_ids_in(
-                    session, key, version):
-                return {"at": now.isoformat(), "run_key": key, "kind": "fidelity_rejudge"}
-        if r.stage == "fidelity_gate" and not reason.startswith("budget stop"):
-            current = current or current_method_version()
-            if any(h.get("method_version") == current for h in history):
-                continue
-            if (stages.get(METHOD_REDRIVE_KEY) or {}).get("version") == current:
-                continue      # already judged under this method (no headroom, refused)
-            fails = [candidate_method_version(c) for (c,) in session.execute(
-                select(ImageCandidate.checks).where(ImageCandidate.run_key == key,
-                                                    ImageCandidate.technical_status == "FAIL"))]
-            if not fails or current in fails:
-                continue
-            return {"at": now.isoformat(), "run_key": key, "kind": "method_redrive"}
+    memo: dict = {}
+    for r in _blocked_rows(session):
+        v = _redrive_verdict(session, r, since, now, memo)
+        if v["due"]:
+            return {"at": v["at"], "run_key": r.run_key, "kind": v["kind"]}
     return None
+
+
+MAX_READBACK_RUNS = 40
+
+
+def redrive_readback(session, *, now: datetime | None = None) -> dict:
+    """REDRIVE-ELIGIBILITY: per blocked run key, whether the hourly sweep would restart it now
+    and, if not, why -- {"runs": {run_key: {"kind", "eligible", "refused", "restarts_spent"}},
+    "counts": {...}}. Fixed vocabulary and counts only; no reason text, no record. Reads rows
+    only (the sweep's own day-only checks -- a usable vision route, its headroom -- are
+    recorded by the sweep as a refusal and read back here as `refusal_held`)."""
+    now = (now or _now()).astimezone(timezone.utc)
+    memo: dict = {}
+    runs: dict = {}
+    counts = {"blocked": 0, "eligible": 0, "at_max_restarts": 0,
+              "by_refusal": {k: 0 for k in REDRIVE_REFUSALS}}
+    for r in _blocked_rows(session):
+        v = _redrive_verdict(session, r, None, now, memo)
+        counts["blocked"] += 1
+        if v["due"]:
+            counts["eligible"] += 1
+        else:
+            counts["by_refusal"][v["refused"]] += 1
+            if v["refused"] == "max_restarts":
+                counts["at_max_restarts"] += 1
+        if len(runs) < MAX_READBACK_RUNS:
+            runs[str(r.run_key)[:200]] = {"kind": v["kind"], "eligible": bool(v["due"]),
+                                          "refused": v["refused"],
+                                          "restarts_spent": int(v["restarts_spent"]),
+                                          "max_restarts": MAX_RESTARTS}
+    counts["by_refusal"] = {k: n for k, n in counts["by_refusal"].items() if n}
+    return {"runs": runs, "counts": counts}
 
 
 def redrive_input_probe(session, since) -> dict | None:
