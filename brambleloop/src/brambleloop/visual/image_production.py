@@ -2747,6 +2747,119 @@ def _provider_redrive_due(stages: dict, updated_at, now: datetime) -> str | None
     return hour
 
 
+# IMAGE-FIDELITY-ROUTE (19i25): a run blocked at `fidelity_gate` because its product frame's
+# fidelity verdict read UNKNOWN ("product fidelity cannot be verified") had no retry path at
+# all: it is not a FAIL (no method redrive), not a capability gate, not a provider answer.
+# Production 19i24: hexagon-coaster-set@1.2.1, two runs, parked since 19i18 because the
+# verifier's vision judge asked only the Anthropic-gated `image_vision` route while the owner
+# had activated openai-vision. Such a run is restarted by the hourly sweep ONCE per fidelity
+# judge version (`fidelity.FIDELITY_JUDGE_VERSION`), only when a vision route is usable now,
+# and it resumes at `fidelity_gate` with `reverify`: the stored frame's bytes are judged again;
+# nothing is generated and no attempt is added. A FAIL then takes the existing bounded repair
+# loop (per-role attempt cap); an UNKNOWN blocks again and is not re-driven again under the
+# same version. Every cap binds: MAX_RESTARTS, the attempt cap, the call cap, the spend plan.
+FIDELITY_UNKNOWN_PREFIX = "product fidelity cannot be verified"
+FIDELITY_REDRIVE_BY = "fidelity_unknown_redrive"
+FIDELITY_REDRIVE_KEY = "_fidelity_unknown_redrive"  # stages: {"judge_version", "day", "why", "at"}
+
+
+def fidelity_unknown_block(reason) -> bool:
+    """A block whose recorded cause is an UNKNOWN product-frame fidelity verdict."""
+    return str(reason or "").startswith(FIDELITY_UNKNOWN_PREFIX)
+
+
+def fidelity_judge_version() -> str:
+    from .fidelity import FIDELITY_JUDGE_VERSION
+
+    return FIDELITY_JUDGE_VERSION
+
+
+def _fidelity_redriven(stages: dict, version: str) -> bool:
+    history = (stages.get(RESTART_KEY) or {}).get("history") or []
+    return any(isinstance(h, dict) and h.get("by") == FIDELITY_REDRIVE_BY
+               and h.get("judge_version") == version for h in history)
+
+
+def _fidelity_refusal_holds(stages: dict, version: str, day: str) -> bool:
+    """The sweep judged this run under `version` and was refused: for good when the restart
+    itself was refused, for the UTC day when no vision route was usable."""
+    rec = stages.get(FIDELITY_REDRIVE_KEY) or {}
+    if not isinstance(rec, dict) or rec.get("judge_version") != version:
+        return False
+    return rec.get("day") in (None, day)
+
+
+def _record_fidelity_refusal(db, key: str, version: str, why: str, *,
+                             day: str | None) -> None:
+    """Record that the fidelity redrive of `key` was refused under `version` (`day` set: only
+    for that UTC day, because no vision route was usable)."""
+    from sqlalchemy import select
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from .image_records import ImageProductionRun
+
+    with db.session() as s:
+        r = s.scalar(select(ImageProductionRun).where(ImageProductionRun.run_key == key))
+        if r is None or r.status != "blocked":
+            return
+        st = dict(r.stages or {})
+        st[FIDELITY_REDRIVE_KEY] = {"judge_version": version, "day": day, "why": why[:500],
+                                    "at": _now().isoformat()}
+        r.stages = st
+        flag_modified(r, "stages")
+
+
+def _fidelity_redrive_candidate(db, key: str, reason: str) -> bool:
+    """A run the fidelity redrive owns: blocked at `fidelity_gate` on an UNKNOWN product-frame
+    verdict, not an experiment."""
+    if "#" in key or not fidelity_unknown_block(reason):
+        return False
+    return (get_run(db, key) or {}).get("stage") == "fidelity_gate"
+
+
+def _sweep_fidelity_unknown(db, key: str, stages: dict, *, follow, restarted: list,
+                            waiting: list, refused: list) -> bool:
+    """The fidelity redrive's sweep step. False when the run is not this redrive's to judge
+    (a FAILed role: the method redrive then looks at it); True otherwise."""
+    from .fidelity import vision_route_usable
+
+    version = fidelity_judge_version()
+    day = str(_now().date())
+    run = get_run(db, key) or {}
+    if _run_candidates_failed(db, key, run.get("listing", "")):
+        # A FAILed role is decided by the repair loop and the method redrive, never by a
+        # re-judgement; recorded so `redrive_due` stops reporting it under this version.
+        why = "a role FAILed: the repair loop and the method redrive own this run"
+        _record_fidelity_refusal(db, key, version, why, day=None)
+        return False
+    if _fidelity_redriven(stages, version):
+        refused.append({"run_key": key, "why": f"already re-driven for an UNKNOWN fidelity "
+                                               f"verdict under {version}"})
+        return True
+    if _fidelity_refusal_holds(stages, version, day):
+        prior = str((stages.get(FIDELITY_REDRIVE_KEY) or {}).get("why") or "")
+        refused.append({"run_key": key, "why": f"already judged under {version}: "
+                                               f"{prior}"[:500]})
+        return True
+    if not vision_route_usable(db):
+        why = "no vision route is usable for the fidelity verifier; re-judging would read UNKNOWN"
+        _record_fidelity_refusal(db, key, version, why, day=day)
+        waiting.append({"run_key": key, "why": why})
+        return True
+    try:
+        out = restart(db, key, follow=follow, by=FIDELITY_REDRIVE_BY,
+                      reason=f"product frame re-judged under {version}",
+                      record={"judge_version": version})
+    except Exception as exc:  # noqa: BLE001 - restart rolled back; stays blocked
+        out = {"restarted": False, "why": f"restart not enqueued ({type(exc).__name__})"}
+    if not out.get("restarted") and out.get("restartable") is False:
+        _record_fidelity_refusal(db, key, version, str(out.get("why") or ""), day=None)
+    (restarted if out.get("restarted") else refused).append(
+        {"run_key": key, **{k: out[k] for k in ("epoch", "resume_at", "reverify", "why")
+                            if k in out}})
+    return True
+
+
 # A budget stop whose only cause is the provider's DAILY ceiling is a window, not a verdict:
 # nothing was billed (the gate refused before sending) and the ceiling resets at the next UTC
 # day. Every other budget stop (the per-gallery cap, a monthly ceiling, a reservation) stays
@@ -2833,6 +2946,10 @@ def redrive_capability_blocked(db, *, follow) -> dict:
     method = {k: [] for k in METHOD_REDRIVE_EVIDENCE}
     for key, reason, stages in rows:
         gate = _gate_of(reason)
+        if gate is None and _fidelity_redrive_candidate(db, key, reason) and \
+                _sweep_fidelity_unknown(db, key, stages, follow=follow, restarted=restarted,
+                                        waiting=waiting, refused=refused):
+            continue
         if gate is None and _method_redrive_candidate(db, key, reason, stages):
             _sweep_method_redrive(db, key, follow=follow, method=method,
                                   restarted=restarted, refused=refused)
@@ -3026,6 +3143,14 @@ def redrive_due(session, since, *, now: datetime | None = None) -> dict | None:
             if (stages.get(DAILY_REDRIVE_KEY) or {}).get("day") == day:
                 continue      # the sweep already judged it today and was refused
             return {"at": reset_at.isoformat(), "run_key": key, "kind": "daily_ceiling_reset"}
+        if r.stage == "fidelity_gate" and fidelity_unknown_block(reason):
+            # IMAGE-FIDELITY-ROUTE: due once per fidelity judge version; a refusal holds for
+            # the UTC day (no vision route) or for the version (restart refused, or a FAILed
+            # role, which the method redrive below then judges).
+            version = fidelity_judge_version()
+            if not (_fidelity_redriven(stages, version) or _fidelity_refusal_holds(
+                    stages, version, str(today))):
+                return {"at": now.isoformat(), "run_key": key, "kind": "fidelity_unknown"}
         if r.stage == "fidelity_gate" and not reason.startswith("budget stop"):
             current = current or current_method_version()
             if any(h.get("method_version") == current for h in history):

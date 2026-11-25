@@ -1065,13 +1065,26 @@ class GatewayVisionJudge:
         if not self.gate_open():
             return {"answered": False, "why": "the vision judge (image_vision) is unfunded; "
                                               "nothing was called"}
+        from ..gateway import providers as gw
+        from . import inspect as I
+
+        try:
+            provider = self.provider or gw.provider_for(I.TASK)
+        except Exception as exc:  # noqa: BLE001 - an unmade reading is UNKNOWN, never PASS
+            return {"answered": False, "why": f"{type(exc).__name__}: {str(exc)[:200]}"}
+        return self._send(provider, prompt, images, system=system, max_tokens=max_tokens)
+
+    def _send(self, provider, prompt: str, images: list[bytes], *, system: str,
+              max_tokens: int, once: bool = False) -> dict:
+        """One reserved, billed vision call on `provider`. `once` (the openai-vision route of
+        `RoutedVisionJudge`): one paid attempt per image bytes and question per window
+        (`vision_route.once_key`, ASSET-VISION); a kept answer is served with nothing sent."""
         import os
 
         from ..core import workspace
         from ..gateway import providers as gw
         from . import inspect as I
 
-        provider = self.provider or gw.provider_for(I.TASK)
         billed = {"reserved": 0.0, "actual": 0.0, "tokens_in": 0, "tokens_out": 0}
         try:
             with workspace.work_dir(None, prefix="fidelity-judge-") as tmp:
@@ -1081,6 +1094,16 @@ class GatewayVisionJudge:
                     with open(p, "wb") as fh:
                         fh.write(data)
                     paths.append(p)
+                key = None
+                if once:
+                    from . import vision_route as VR
+
+                    key = VR.once_key(self.db, provider, system, prompt, paths, max_tokens)
+                    if key is not None:
+                        kept = VR.kept_answer(self.db, provider, key)
+                        if kept is not None:
+                            return {"answered": True, "reading": I._json(kept.text),
+                                    "model": kept.model, "cost_cad": 0.0, "replayed": True}
                 # ENG-VIS-IDENTITY F4: reserve at the provider's OWN per-image figure for the
                 # real number of images sent, plus the system text -- the same estimate the
                 # OpenAI paid gate checks with (`providers.input_tokens`), so the reservation
@@ -1096,7 +1119,11 @@ class GatewayVisionJudge:
                 billed["reserved"] = budget["estimate_cad"]
                 held = budget["reservation_id"]
                 try:
+                    if key is not None:
+                        VR.record_attempt(self.db, provider, key)
                     resp = provider.see(system, prompt, paths, max_tokens=max_tokens)
+                    if key is not None:
+                        VR.record_answer(self.db, provider, key, resp)
                 except BaseException:
                     gw.release_reservation(self.db, held)
                     raise
@@ -1111,6 +1138,59 @@ class GatewayVisionJudge:
                         "model": provider.model, "cost_cad": cost}
         except Exception as exc:  # noqa: BLE001 - an unmade reading is UNKNOWN, never PASS
             return {"answered": False, "why": f"{type(exc).__name__}: {str(exc)[:200]}"}
+
+
+# IMAGE-FIDELITY-ROUTE (19i25): the fidelity verifier's own vision questions (craft texture,
+# anchor consistency) asked only the `image_vision` gate, which opens on Anthropic vision
+# alone. Production 19i24 has `openai-vision:vision` activated and Anthropic vision not
+# (`paid_call_dedupe.concept_judge.route_now: "openai"`, `gate_waiting_on.image_vision`), so
+# every product anchor's craft_texture read UNKNOWN ("unfunded; nothing was called") and a
+# deterministically clean anchor (hexagon-coaster-set@1.2.1, twice) parked at `fidelity_gate`
+# with no retry path. ASSET-VISION (19i3) fixed the same defect for asset inspection with
+# `vision_route.choose`; the fidelity questions now use that same rule. Same prompts, same
+# deterministic comparison (`compare_craft`), same reservation and bill; no route usable is
+# still unanswered, and UNKNOWN still blocks.
+FIDELITY_JUDGE_VERSION = "fidelity-judge-route/1"
+
+
+class RoutedVisionJudge(GatewayVisionJudge):
+    """The fidelity verifier's vision judge: Anthropic when the `image_vision` gate is open,
+    otherwise the owner-activated openai-vision route when usable, otherwise none
+    (`vision_route.choose`, the ASSET-VISION rule). Used for Product Truth only; the
+    identity, anatomy and realism adapters keep their own judges."""
+
+    name = "image_vision"
+
+    def _route(self):
+        if self.db is None:
+            return None, None
+        try:
+            from . import vision_route
+
+            vendor, provider = vision_route.choose(self.db)
+        except Exception:  # noqa: BLE001 - an unreadable route is no route
+            return None, None
+        return (vendor, provider) if vendor else (None, None)
+
+    def gate_open(self) -> bool:
+        return self._route()[0] is not None
+
+    def read(self, prompt: str, images: list[bytes], *, system: str = CRAFT_SYSTEM,
+             max_tokens: int = 300) -> dict:
+        from . import vision_route
+
+        vendor, provider = self._route()
+        if vendor is None:
+            return {"answered": False, "why": vision_route.NO_JUDGE_WHY}
+        self.name = "image_vision" if vendor == vision_route.ANTHROPIC else \
+            "image_vision_openai"
+        return self._send(provider, prompt, images, system=system, max_tokens=max_tokens,
+                          once=vendor == vision_route.OPENAI)
+
+
+def vision_route_usable(db) -> bool:
+    """Whether the fidelity verifier's vision questions can be asked now (any route)."""
+    return RoutedVisionJudge(db).gate_open()
 
 
 def craft_texture(data: bytes, exp: Expectation, judge, *, end_bands_verified: bool = False) -> dict:

@@ -209,13 +209,18 @@ class RealJudges:
     """The production judges: existing deterministic gates, no invented readings.
 
     `vision` is the vision judge the fidelity verifier asks about craft texture and anchor
-    consistency (`visual.fidelity.GatewayVisionJudge`, gated on `image_vision`). Unfunded,
-    it answers nothing, and those checks stay UNKNOWN."""
+    consistency. Unnamed, Product Truth asks `visual.fidelity.RoutedVisionJudge` (Anthropic
+    when `image_vision` is open, else the owner-activated openai-vision route; IMAGE-FIDELITY-
+    ROUTE) and the adapters `visual.fidelity.GatewayVisionJudge` (gated on `image_vision`).
+    With no usable route it answers nothing, and those checks stay UNKNOWN."""
 
     def __init__(self, db, *, vision=None, second_vision=_CONFIGURED, references=None,
                  embedder=_CONFIGURED, qualification=None, allow_fixture: bool = False):
         self.db = db
         self.vision = vision
+        # IMAGE-FIDELITY-ROUTE: a caller-named vision judge is used for Product Truth too;
+        # otherwise Product Truth asks `fidelity.RoutedVisionJudge` (the ASSET-VISION rule).
+        self._fidelity_vision = vision
         # W-VISNEXT: a second, independent judge transport (another model). Identity and body
         # proportions need two distinct readings to pass; with one, they can only refuse.
         # V3: unless a caller names one, it is the configured production transport
@@ -251,6 +256,17 @@ class RealJudges:
             self.vision = GatewayVisionJudge(self.db)
         return self.vision
 
+    def _fidelity_judge(self):
+        """The judge the fidelity verifier asks (craft texture, anchor consistency): the
+        caller's judge when one was named, else `fidelity.RoutedVisionJudge` -- Anthropic when
+        `image_vision` is open, else the owner-activated openai-vision route, else none
+        (UNKNOWN). The identity, anatomy and realism adapters are not routed here."""
+        if self._fidelity_vision is None:
+            from .fidelity import RoutedVisionJudge
+
+            self._fidelity_vision = RoutedVisionJudge(self.db)
+        return self._fidelity_vision
+
     def adapters(self):
         """The blind vision-judge adapters (`visual.vision_judges`) on this judge transport."""
         if self._adapters is None:
@@ -279,7 +295,7 @@ class RealJudges:
                                   "image": {"sha256": cand.get("sha256")}})
         from .vision_judges import blind_consistency
 
-        fid = fidelity_reading(self.db, cand, bind, judge=self._vision_judge(),
+        fid = fidelity_reading(self.db, cand, bind, judge=self._fidelity_judge(),
                                consistency=blind_consistency,
                                locate=self.adapters().product_region)
         out = {"structural_floor": floor, "fidelity": fid}

@@ -1549,7 +1549,8 @@ def _redrive_due_kind(db):
         return {"readable": False, "error_class": _safe_class(type(exc).__name__)}
     return hit["kind"] if hit and hit.get("kind") in ("daily_ceiling_reset",
                                                       "method_redrive",
-                                                      "stale_references") else None
+                                                      "stale_references",
+                                                      "fidelity_unknown") else None
 
 
 def _count_fidelity_rejection(acc: dict, checks) -> None:
@@ -1578,6 +1579,28 @@ def _count_fidelity_rejection(acc: dict, checks) -> None:
         acc["by_check"][k] = acc["by_check"].get(k, 0) + 1
 
 
+def _count_fidelity_unknown(acc: dict, checks) -> None:
+    """IMAGE-FIDELITY-ROUTE: which fidelity check left a frame UNKNOWN (the readback counted
+    FAILs only, so a frame parked on an unmade vision reading named no check). Counts in a
+    fixed vocabulary: check names matching the source-name pattern, else "other"; a check
+    that needed the vision judge also counts under `needs_vision_judge`."""
+    if not isinstance(checks, dict):
+        return
+    fid = (checks.get("product_truth") or {}).get("fidelity") \
+        if isinstance(checks.get("product_truth"), dict) else None
+    if not isinstance(fid, dict) or fid.get("status") != "UNKNOWN":
+        return
+    acc["frames"] += 1
+    for c in fid.get("checks") or []:
+        if not isinstance(c, dict) or c.get("status") != "UNKNOWN":
+            continue
+        name = c.get("check")
+        k = name if isinstance(name, str) and _SOURCE_NAME.match(name) else "other"
+        acc["by_check"][k] = acc["by_check"].get(k, 0) + 1
+        if c.get("needs") == "vision judge":
+            acc["needs_vision_judge"] += 1
+
+
 def _vp_images(db) -> tuple[dict, dict]:
     from sqlalchemy import select
 
@@ -1589,6 +1612,7 @@ def _vp_images(db) -> tuple[dict, dict]:
     ident = {"laura_frames": 0, "run": 0, "passed": 0, "failed": 0, "not_run": 0,
              "unknown": 0, "fixture_only": 0, "biometric_measured": 0}
     fid_rej = {"frames": 0, "by_code": {}, "by_check": {}}
+    fid_unk = {"frames": 0, "by_check": {}, "needs_vision_judge": 0}
     with db.session() as s:
         for ts, oc, meth, laura, checks in s.execute(
                 select(C.technical_status, C.outcome, C.method, C.laura_present, C.checks)):
@@ -1597,6 +1621,7 @@ def _vp_images(db) -> tuple[dict, dict]:
             m = meth if isinstance(meth, str) and _SOURCE_NAME.match(meth) else "other"
             method[m] = method.get(m, 0) + 1
             _count_fidelity_rejection(fid_rej, checks)
+            _count_fidelity_unknown(fid_unk, checks)
             if not laura:
                 continue
             ident["laura_frames"] += 1
@@ -1621,7 +1646,7 @@ def _vp_images(db) -> tuple[dict, dict]:
                                                                                  "FAIL"):
                 ident["biometric_measured"] += 1
     images = {"candidates": sum(tech.values()), "by_method": method,
-              "fidelity_rejections": fid_rej,
+              "fidelity_rejections": fid_rej, "fidelity_unknowns": fid_unk,
               "verified": tech["PASS"], "failed": tech["FAIL"],
               "unmeasurable": tech["UNKNOWN"] + tech["UNMEASURABLE"],
               "by_technical_status": tech, "by_outcome": outcome}
