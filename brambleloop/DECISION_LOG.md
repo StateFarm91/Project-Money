@@ -4924,3 +4924,7 @@ near wall only, and it reads band shares by height. Both changes were checked ag
 products from eye level to 30 degrees: each still FAILs. Runs that exhausted their attempts under
 the old reading are re-judged once per judge version, without generation and inside every cap.
 
+
+## D-OWNER-DEPLOY-19i26 — 2026-11-25
+
+Batch 19i26 (IMAGE-FIDELITY-2, 74bd8d57a) is deployed under the owner's chat approval of 2026-11-25 for photo fixes. A declared contrast round is no longer judged as an edging (fidelity-judge/2). The vessel side view reads only the near wall, with band shares by height (pattern-refs 3.1.5, prompt builder 2.4.0). Runs that exhausted under the old judge are re-judged once, with no generation. All 107 image, gallery and fidelity suites are green after the pin fixes. There is no full-suite record yet, so SHADOW stays until a record run on the deployed tree passes.

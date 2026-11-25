@@ -1,32 +1,12 @@
-## PRODUCTION NOW (verified 2026-11-23T21:10Z)
+## PRODUCTION NOW (verified 2026-11-25T08:40Z)
 
 Keep this block first and current: `tests/test_audit_build_state_current.py` fails when it names a SHA
 older than the last two entries of `release/DEPLOYED_HISTORY.json`, or when its `release-record:` line
 disagrees with `release_record.verify_build` for the checked-out tree.
 
-**Verified from git** (tree `claude/w6-release-19i23`, built on 19i22 release candidate dd8a6b180):
-
-- production-sha: f1b6e0430daf1c77b46d35b0b10712c7548c8921
-- Batch 19i20, code 5d87f2974, deployed 2026-11-23T04:53:36Z (`verify_deploy` DEPLOYED, override
-  D-OWNER-DEPLOY-19i20, authorization D-OWNER-AUTODEPLOY-24H-2); rollback target
-  29b8d03a2856bdb31550d4e5a1c30943be5ddada (Batch 19i19). This is entry 71 of 71 in
-  `release/DEPLOYED_HISTORY.json`. Its record-only commit (56cde5605) had been pushed only on
-  `claude/w6-release-19i20`; it is carried into this tree so the history names what production
-  runs and deploy.sh's rollback rehearsal can find it. The release operator reports production
-  still at f1b6e0430 (release branches 19i21 and 19i22 not deployed); this record did not query
-  Railway itself. When the next deploy's record-only commit lands, this SHA is one behind (allowed).
-- release-record: NONE. No committed release record names this tree: with `PYTHONPATH=src`,
-  `release_record.verify_build(env={'RAILWAY_ENVIRONMENT':'production'})` returns `ok: False`
-  ("no committed release record names this build's tree digest"). On Railway the boot guard
-  therefore forces SHADOW and opens the P1 incident `release.unproven_build`.
-- Last release-eligible full-suite run on file: `release/suite_runs/20261119T135927Z-1739` on
-  a35ad302 (finished 2026-11-19T16:55:33Z). Every DEPLOYED_HISTORY entry after it was deployed
-  without a full-suite certification. F-01 is open. The record candidate (record-candidate-2 plus
-  every inventory red fixed at root, verified suite by suite) is being released so that one plain
-  full REQUIRE_CLEAN run can certify it. Until a record for exactly that tree is committed, this
-  line stays NONE.
-- Auto-deploy authority D-OWNER-AUTODEPLOY-24H-2 runs until 2026-11-23T05:30Z (enforced by the
-  release script).
+- production-sha: 3f1727b651f16bd78bb7d569008c7d19862f4235
+- Batch 19i25 (IMAGE-FIDELITY-ROUTE, code 674b967b5). It was deployed 2026-11-25T06:07Z under the owner's chat approval for photo fixes; `verify_deploy` reported DEPLOYED. Rollback target: afe3df8fe (19i24). The deploys before it were 19i23 (6d9f73733, 00:31Z), which had a full-suite record of 13194 passing and 0 failing, and 19i24 (afe3df8fe, 05:03Z).
+- release-record: NONE. No committed release record names this tree, so the boot guard forces SHADOW until a plain full REQUIRE_CLEAN run on the deployed tree is recorded with deploy_guard record.
 
 **As REPORTED BY THE OPERATOR READBACK at 2026-11-22T05:15Z** (not verified by this record):
 systemic publishing halt clear; 11 products with per-product marketing-rebuild holds; FLUX renders
