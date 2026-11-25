@@ -531,7 +531,12 @@ def test_8_the_readback_is_fixed_vocabulary_and_unreadable_is_not_empty():
     db = R._db()
     ev = _evidence_runs(db)
     assert ev == {"readable": True, "runs": {}, "counts": {
-        "blocked": 0, "eligible": 0, "at_max_restarts": 0, "by_refusal": {}}}, ev
+        "blocked": 0, "eligible": 0, "at_max_restarts": 0, "by_refusal": {}},
+        # 19i30 GATE-EPISODE: the image_generation gate, fixed vocabulary
+        "image_generation_gate": {"readable": True, "state": "closed",
+                                  "latest_probe": {"outcome": "none", "at": None,
+                                                   "conclusive": False},
+                                  "probe_in_force": {"outcome": "none", "at": None}}}, ev
     saved = IP.redrive_readback
     IP.redrive_readback = lambda *_a, **_k: 1 / 0
     try:
