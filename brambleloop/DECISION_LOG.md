@@ -4957,3 +4957,7 @@ whose version pair an earlier re-judgement of the same run already used. Every o
 (including the first re-judgement under any pair, and any epoch that generated) counts exactly as
 before. The thrash bound stays intact: after D-REDRIVE-ELIGIBILITY the sweep can no longer make
 that duplicate.
+
+## D-OWNER-DEPLOY-19i28 — 2026-11-25
+
+Batch 19i28 (REDRIVE-ELIGIBILITY plus D-RESTART-DUPLICATE-CREDIT, e11d0f835) is deployed under the owner's chat approval of 2026-11-25 for photo fixes. Its 79 suites pass (812 passing). SHADOW stays in place until a full-suite record on the deployed tree exists.
