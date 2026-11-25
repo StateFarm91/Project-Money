@@ -778,6 +778,13 @@ GATE_REFUSED_TEXT = "paid provider gate refused before sending"
 # (an auth refusal before a task id). A poll error reads "<provider> poll <code>" and never
 # matches, so an accepted-then-failed render is never taken for an unbilled one.
 _LEGACY_UNACCEPTED = re.compile(r"(?:^|[\s:])[\w.\-]+ 40[13]: ")
+# IMAGE-STALE-REFS: the generator's binding check refusing stale references
+# (`flux3_generator.StaleReferences`, before it existed a plain GeneratorRefused with the same
+# words). `_bind` raises it before any reservation, preflight or render: nothing was sent.
+_STALE_REFUSAL = re.compile(
+    r"(?:GeneratorRefused|StaleReferences): the (?:product|certified-PDF page) references "
+    r"handed in are not (?:the bytes this release renders|the pages of this release's "
+    r"certified PDF); refused")
 
 
 def never_accepted_status(exc: BaseException | None) -> int | None:
@@ -802,7 +809,19 @@ def candidate_unaccepted(outcome, sha256, checks) -> bool:
     if isinstance(mark, dict):
         return mark.get("accepted") is False
     why = str((checks.get("provider") or {}).get("why") or "")
-    return bool(_LEGACY_UNACCEPTED.search(why))
+    return bool(_LEGACY_UNACCEPTED.search(why)) or bool(_STALE_REFUSAL.search(why))
+
+
+def _sent_nothing(exc: BaseException | None) -> bool:
+    """True when `exc`'s chain is a generator refusal raised before anything was sent
+    (`sent_nothing`, e.g. `flux3_generator.StaleReferences`)."""
+    seen = set()
+    while exc is not None and id(exc) not in seen:
+        seen.add(id(exc))
+        if getattr(type(exc), "sent_nothing", False) is True:
+            return True
+        exc = exc.__cause__ or exc.__context__
+    return False
 
 
 def _utc(dt):
@@ -1204,6 +1223,12 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
             raise BudgetStop(f"paid provider gate refused before sending "
                              f"({refused.code}): {str(refused)[:300]}") from None
         unaccepted = never_accepted_status(exc)
+        nothing_sent = _sent_nothing(exc)
+        if paid and nothing_sent:
+            # IMAGE-STALE-REFS: the generator refused its inputs before any send (stale
+            # references): nothing was billed. Release the hold; the row below is marked, so
+            # it counts toward no call, attempt or restart cap.
+            _release_refused_generation(db, key, call_token)
         if paid and unaccepted is not None:
             # REDRIVE-REFUSAL: the provider refused the submit before a task id (e.g. a 403
             # on a rejected key): nothing was billed, so this call's hold is released and the
@@ -1223,7 +1248,11 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
                                          METHOD_KEY: dict(base[METHOD_KEY]),
                                          **({UNACCEPTED_KEY: {
                                              "accepted": False, "http_status": unaccepted}}
-                                            if unaccepted is not None else {})}))
+                                            if unaccepted is not None else
+                                            {UNACCEPTED_KEY: {
+                                                "accepted": False, "http_status": None,
+                                                "refused": "sent_nothing"}}
+                                            if nothing_sent else {})}))
         return {"provider_error": f"{type(exc).__name__}: {str(exc)[:300]}"}
     cost = out.get("cost_cad")
     if paid:
@@ -1391,6 +1420,78 @@ def _next(stage: str) -> str | None:
     names = [s for s, _ in STAGES]
     i = names.index(stage)
     return names[i + 1] if i + 1 < len(names) else None
+
+
+# ---- IMAGE-STALE-REFS: the prepared references are always this release's current render -----
+#
+# Production 19i23: `prepare_references` ran once per run and every later stage read the stored
+# references back. Batch 19i16 (pattern-refs 3.1.3 -> 3.1.4) changed what a vessel's layout and
+# rules references render; runs prepared under 3.1.3 and later restarted at product_generation
+# (method and provider redrives resume there) handed the 3.1.3 bytes to a generator whose
+# binding check renders 3.1.4, and were refused: "the product references handed in are not the
+# bytes this release renders". The check is right. The stored references now carry the
+# renderer version and epoch they were made under, and a stage that would hand them on
+# re-prepares them (a deterministic, free render) when either differs.
+
+def references_version() -> str:
+    """The reference renderers' version: pattern references 4-7 and the certified-PDF pages
+    (without the environment's pdfium build). Only code changes move it."""
+    from ..creative import pattern_refs
+
+    return f"{pattern_refs.VERSION}|{_stable_pdf_page_refs_version()}"
+
+
+def _prepare_and_store(db, key: str, gen, *, slug, version, release, bind) -> list | str:
+    """The generator's references for this release, stored; a block reason on a bad kind."""
+    refs = []
+    for r in gen.prepare_references(slug=slug, version=version, release=release,
+                                    cir_fingerprint=bind.get("cir_fingerprint")):
+        if r.get("kind") not in CG.REFERENCE_KINDS:
+            return f"generator returned an unknown reference kind {r.get('kind')!r}"
+        sha = store_bytes(db, r["data"], key=f"{key}/ref", why="image reference")
+        refs.append({"kind": r["kind"], "sha256": sha, "label": r.get("label", "")})
+    return refs
+
+
+MAX_SUPERSEDED_REFERENCE_SETS = 8
+
+
+def _current_references(db, key: str, gen, *, slug, version, release, bind,
+                        epoch: int) -> list | str:
+    """The run's stored references, re-prepared first when they were made by another
+    reference-renderer version or in another restart epoch (or carry no stamp: written
+    before stamps existed). The superseded hashes are kept in the record as provenance. The
+    run's stage, status, calls and spend are untouched; nothing is sent or spent."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    want = references_version()
+    rec = dict(_stage_data(db, key).get("prepare_references") or {})
+    outs = dict(rec.get("outputs") or {})
+    refs = list(outs.get("references") or [])
+    if outs.get("references_version") == want and int(outs.get("epoch") or 0) == epoch:
+        return refs
+    fresh = _prepare_and_store(db, key, gen, slug=slug, version=version, release=release,
+                               bind=bind)
+    if isinstance(fresh, str):
+        return fresh
+    old = [r.get("sha256") for r in refs]
+    new_outs = {**outs, "references": fresh, "references_version": want, "epoch": epoch,
+                "refreshed_at": _now().isoformat()}
+    if old != [r["sha256"] for r in fresh]:
+        sup = list(outs.get("superseded") or [])
+        made = outs.get("references_version") or "an unstamped renderer"
+        sup.append({"sha256s": old, "references_version": outs.get("references_version"),
+                    "epoch": outs.get("epoch"), "at": _now().isoformat(),
+                    "why": f"prepared under {made} (epoch {outs.get('epoch')}); this "
+                           f"release renders {want} (epoch {epoch})"})
+        new_outs["superseded"] = sup[-MAX_SUPERSEDED_REFERENCE_SETS:]
+    with db.session() as s:
+        r = _run_locked(s, key)
+        st = dict(r.stages or {})
+        st["prepare_references"] = {**rec, "outputs": new_outs}
+        r.stages = st
+        flag_modified(r, "stages")
+    return fresh
 
 
 def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
@@ -1588,18 +1689,23 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
 
     try:
         if stage == "prepare_references":
-            refs = []
-            for r in gen.prepare_references(slug=slug, version=version, release=release,
-                                            cir_fingerprint=bind.get("cir_fingerprint")):
-                if r.get("kind") not in CG.REFERENCE_KINDS:
-                    return block(f"generator returned an unknown reference kind {r.get('kind')!r}")
-                sha = store_bytes(db, r["data"], key=f"{key}/ref", why="image reference")
-                refs.append({"kind": r["kind"], "sha256": sha, "label": r.get("label", "")})
+            refs = _prepare_and_store(db, key, gen, slug=slug, version=version,
+                                      release=release, bind=bind)
+            if isinstance(refs, str):
+                return block(refs)
             _update(db, key, stage=stage, status=st,
-                    record={"outputs": {"references": refs}, "cost_cad": 0.0})
+                    record={"outputs": {"references": refs,
+                                        "references_version": references_version(),
+                                        "epoch": epoch}, "cost_cad": 0.0})
             return {"run_key": key, "next": go(_next(stage))}
 
         refs = (data.get("prepare_references") or {}).get("outputs", {}).get("references", [])
+        if refs and stage in SPENDING_STAGES:
+            # IMAGE-STALE-REFS: never hand the generator references another renderer made.
+            refs = _current_references(db, key, gen, slug=slug, version=version,
+                                       release=release, bind=bind, epoch=epoch)
+            if isinstance(refs, str):
+                return block(refs)
         ref_bytes = None
 
         def _refs_with_bytes():
@@ -2392,7 +2498,11 @@ def restartable(db, key: str) -> dict:
     # earlier FAILed candidate the repair was answering): it was stopped by the window, not
     # by spent attempts. It resumes where it stopped; the per-role attempt cap, the call cap
     # and the spend plan still bind when it does.
-    failed = [] if daily else _run_candidates_failed(db, key, run["listing"])
+    # IMAGE-STALE-REFS: a stale-reference refusal is not a verdict on any candidate: nothing
+    # was sent. It resumes where it stopped (the stage re-prepares the references); the stage's
+    # own per-role attempt cap, the call cap and the spend plan still bind.
+    stale = stale_references_block(reason)
+    failed = [] if (daily or stale) else _run_candidates_failed(db, key, run["listing"])
     if failed:
         chk = method_redrive_check(db, key, run, failed)
         if chk["eligible"] and not chk["ok"]:
@@ -2410,7 +2520,9 @@ def restartable(db, key: str) -> dict:
     names = [st for st, _ in STAGES]
     blocked_at = run["stage"] if run["stage"] in names else names[0]
     has_anchor = _best(db, listing=run["listing"], role=ANCHOR_ROLE, run=key) is not None
-    if names.index(blocked_at) >= names.index("verification"):
+    if stale:
+        resume, reverify_ = blocked_at, False
+    elif names.index(blocked_at) >= names.index("verification"):
         resume, reverify_ = "verification", True
     elif blocked_at in ("product_generation", "fidelity_gate") and has_anchor:
         resume, reverify_ = "fidelity_gate", True
@@ -2424,7 +2536,8 @@ def restartable(db, key: str) -> dict:
             "epoch": run.get("restarts", 0) + 1}
 
 
-def restart(db, key: str, *, follow, by: str, reason: str = "") -> dict:
+def restart(db, key: str, *, follow, by: str, reason: str = "",
+            record: dict | None = None) -> dict:
     """Restart a blocked run under a new epoch (W-VISNEXT; OWNERIMG E4).
 
     The next job carries `epoch` and its idempotency key ends `:e<epoch>`, so it never collides
@@ -2465,7 +2578,7 @@ def restart(db, key: str, *, follow, by: str, reason: str = "") -> dict:
             "reverify": can["reverify"], "generation_calls": r.generation_calls,
             "spent_cad": round(r.spent_cad or 0.0, 4),
             **({"method_version": can["method_redrive"]["version"]}
-               if can.get("method_redrive") else {})}]
+               if can.get("method_redrive") else {}), **dict(record or {})}]
         if can.get("method_redrive"):
             rec["method_redrive"] = {"version": can["method_redrive"]["version"],
                                      "epoch": epoch, "at": _now().isoformat(),
@@ -2524,6 +2637,101 @@ def provider_transient_block(reason) -> bool:
         return False
     low = text.lower()
     return any(c in low for c in _PROVIDER_CONTEXT) and bool(_PROVIDER_TRANSIENT.search(text))
+
+
+# IMAGE-STALE-REFS (19i24): a run blocked because the generator refused references another
+# renderer made (production 19i23: four basket galleries at product_generation). The stage now
+# re-prepares stale references itself; a run already blocked on it is restarted by the hourly
+# sweep once per reference-renderer version (`references_version`). The refused call sent
+# nothing, so its stranded hold is released first and it counts toward no cap. Every other
+# cap still binds: MAX_RESTARTS, the per-role attempt cap, the call cap, the spend plan.
+STALE_REFS_REDRIVE_BY = "stale_references_redrive"
+STALE_REFS_KEY = "_stale_refs_redrive"   # stages: {"references_version", "why", "at"} if refused
+
+
+def stale_references_block(reason) -> bool:
+    """A block whose recorded cause is the generator refusing stale references."""
+    text = str(reason or "")
+    return not text.startswith("budget stop") and bool(_STALE_REFUSAL.search(text))
+
+
+def _stale_redriven(stages: dict, version: str) -> bool:
+    history = (stages.get(RESTART_KEY) or {}).get("history") or []
+    if any(isinstance(h, dict) and h.get("by") == STALE_REFS_REDRIVE_BY
+           and h.get("references_version") == version for h in history):
+        return True
+    return (stages.get(STALE_REFS_KEY) or {}).get("references_version") == version
+
+
+def _release_stale_refusal_hold(db, key: str) -> bool:
+    """Release the paid hold a stale-reference refusal left behind (before the refusal
+    released its own hold). Only when the hold is unsettled (no receipt), the run is blocked
+    on that refusal, and the run's latest candidate is that refusal's provider-error row (no
+    bytes) at the hold's stage, made after the hold. Anything else is left for review."""
+    from sqlalchemy import select
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from .image_records import ImageCandidate, ImageProductionRun
+
+    with db.session() as s:
+        r = s.scalar(select(ImageProductionRun).where(
+            ImageProductionRun.run_key == key).with_for_update())
+        if r is None or r.status != "blocked" or not stale_references_block(r.blocked_reason):
+            return False
+        st = dict(r.stages or {})
+        pending = st.get("_pending_paid_call")
+        if not isinstance(pending, dict) or pending.get("state") is not None:
+            return False
+        last = s.scalar(select(ImageCandidate).where(ImageCandidate.run_key == key)
+                        .order_by(ImageCandidate.id.desc()).limit(1))
+        why = str(((last.checks or {}).get("provider") or {}).get("why") or "") if last else ""
+        at, made = _utc(pending.get("at")), _utc(last.created_at) if last else None
+        if (last is None or last.outcome != "provider_error" or last.sha256
+                or last.stage != pending.get("stage") or not _STALE_REFUSAL.search(why)
+                or at is None or made is None or made < at):
+            return False
+        del st["_pending_paid_call"]
+        r.stages = st
+        flag_modified(r, "stages")
+        return True
+
+
+def _record_stale_refusal(db, key: str, version: str, why: str) -> None:
+    """Record that the stale-reference redrive of `key` was refused under `version`."""
+    from sqlalchemy import select
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from .image_records import ImageProductionRun
+
+    with db.session() as s:
+        r = s.scalar(select(ImageProductionRun).where(ImageProductionRun.run_key == key))
+        if r is None or r.status != "blocked":
+            return
+        st = dict(r.stages or {})
+        st[STALE_REFS_KEY] = {"references_version": version, "why": why[:500],
+                              "at": _now().isoformat()}
+        r.stages = st
+        flag_modified(r, "stages")
+
+
+def _sweep_stale_references(db, key: str, stages: dict, *, follow, restarted: list,
+                            refused: list) -> None:
+    version = references_version()
+    if _stale_redriven(stages, version):
+        refused.append({"run_key": key, "why": f"already re-driven for stale references "
+                                               f"under {version}"})
+        return
+    _release_stale_refusal_hold(db, key)
+    try:
+        out = restart(db, key, follow=follow, by=STALE_REFS_REDRIVE_BY,
+                      reason=f"references re-prepared under {version}",
+                      record={"references_version": version})
+    except Exception as exc:  # noqa: BLE001 - restart rolled back; stays blocked
+        out = {"restarted": False, "why": f"restart not enqueued ({type(exc).__name__})"}
+    if not out.get("restarted") and out.get("restartable") is False:
+        _record_stale_refusal(db, key, version, str(out.get("why") or ""))
+    (restarted if out.get("restarted") else refused).append(
+        {"run_key": key, **{k: out[k] for k in ("epoch", "resume_at", "why") if k in out}})
 
 
 def _provider_redrive_due(stages: dict, updated_at, now: datetime) -> str | None:
@@ -2628,6 +2836,10 @@ def redrive_capability_blocked(db, *, follow) -> dict:
         if gate is None and _method_redrive_candidate(db, key, reason, stages):
             _sweep_method_redrive(db, key, follow=follow, method=method,
                                   restarted=restarted, refused=refused)
+            continue
+        if gate is None and stale_references_block(reason) and "#" not in key:
+            _sweep_stale_references(db, key, stages, follow=follow, restarted=restarted,
+                                    refused=refused)
             continue
         if gate is None and provider_transient_block(reason) and "#" not in key:
             hour = _provider_redrive_due(stages, updated.get(key), _now())
@@ -2792,6 +3004,10 @@ def redrive_due(session, since, *, now: datetime | None = None) -> dict | None:
                 >= MAX_RESTARTS:
             continue
         history = rec.get("history") or []
+        if stale_references_block(reason) and _gate_of(reason) is None:
+            if not _stale_redriven(stages, references_version()):
+                return {"at": now.isoformat(), "run_key": key, "kind": "stale_references"}
+            continue
         if provider_transient_block(reason) and _gate_of(reason) is None:
             if _provider_redrive_due(stages, r.updated_at, now) is not None:
                 return {"at": now.isoformat(), "run_key": key, "kind": "provider_transient"}

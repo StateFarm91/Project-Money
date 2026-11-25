@@ -162,6 +162,15 @@ class GeneratorRefused(RuntimeError):
     """The orchestrator's inputs cannot be bound to a certified release honestly."""
 
 
+class StaleReferences(GeneratorRefused):
+    """IMAGE-STALE-REFS: the references handed in are not the bytes this release renders now
+    (typically prepared by an older reference renderer and read back from the run record).
+    Raised by `_bind`, before any reservation, preflight or render: nothing was sent, so the
+    caller releases the call's hold (`sent_nothing`). The refusal itself is never relaxed;
+    the caller re-prepares the references from the current release instead."""
+    sent_nothing = True
+
+
 def _default_cir_loader(db):
     """The certified CIR for slug@version, as `runtime.release._load_cir` reads it: refused
     when there is no product, no version, or the version is not certified."""
@@ -331,8 +340,8 @@ class Flux3Generator:
         rel = self._release(slug, version, release)
         given = [r.get("sha256") or hashlib.sha256(r["data"]).hexdigest() for r in product]
         if given != list(rel.pattern_ref_sha256s):
-            raise GeneratorRefused("the product references handed in are not the bytes this "
-                                   "release renders; refused")
+            raise StaleReferences("the product references handed in are not the bytes this "
+                                  "release renders; refused")
         if pdf_given:
             # Re-derived from the certified PDF (cached by its hash) and compared byte for
             # byte, in order: a page that is not this release's certified document is refused.
@@ -341,8 +350,8 @@ class Flux3Generator:
             got = [hashlib.sha256(r["data"]).hexdigest() for r in pdf_given]
             if got != want or any(r.get("sha256") and r["sha256"] != h
                                   for r, h in zip(pdf_given, got)):
-                raise GeneratorRefused("the certified-PDF page references handed in are not "
-                                       "the pages of this release's certified PDF; refused")
+                raise StaleReferences("the certified-PDF page references handed in are not "
+                                      "the pages of this release's certified PDF; refused")
             rel = S.Release(**{**rel.__dict__, "pdf_pages": pages, "pdf_sha256": pdf_sha})
         return rel, slug, version, release
 

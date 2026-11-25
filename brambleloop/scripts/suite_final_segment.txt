@@ -322,3 +322,4 @@ tests/test_redrive_fire.py
 tests/test_redrive_refusal.py
 tests/test_no_pause.py
 tests/test_flux_provider.py
+tests/test_image_stale_references.py

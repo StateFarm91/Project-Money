@@ -1548,7 +1548,8 @@ def _redrive_due_kind(db):
     except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN, never "nothing due"
         return {"readable": False, "error_class": _safe_class(type(exc).__name__)}
     return hit["kind"] if hit and hit.get("kind") in ("daily_ceiling_reset",
-                                                      "method_redrive") else None
+                                                      "method_redrive",
+                                                      "stale_references") else None
 
 
 def _count_fidelity_rejection(acc: dict, checks) -> None:
