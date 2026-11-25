@@ -261,6 +261,7 @@ def test_1c_only_a_zero_generation_repeat_of_a_used_version_pair_is_credited():
         "repeat": ([_h(1, IP.FIDELITY_REDRIVE_BY, t(1), 5, judge_version=JUDGE2),
                     _h(2, IP.FIDELITY_REDRIVE_BY, t(2), 5, judge_version=JUDGE2)], 1),
     }
+    assert len(cases) == 4, cases
     for name, (hist, want) in cases.items():
         calls = 5 if name != "generated" else 6   # "generated": epoch 2 made 3 more calls
         if name == "generated":
