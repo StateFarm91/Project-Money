@@ -4900,3 +4900,11 @@ rules are unchanged.
 **Consequence:** the previously Laura-free Launch-0 listings (bread basket, key basket, coaster
 set, star ornaments, placemat pair) now generate Laura lifestyle, size and colour frames and can
 satisfy `laura_lifestyle_ok`.
+
+## D-OWNER-DEPLOY-19i23 — 2026-11-25T00:31Z
+
+Batch 19i23 (code edcc77871, release commit 6d9f73733) was deployed with the owner's explicit chat approval ("Approve", 2026-11-25). It has a release-eligible full-suite record: cloud run 20261124T004518Z-184, 13194 passing and 0 failing. deploy_guard check returned ALLOW against f1b6e0430, and the rollback rehearsal returned ALLOW. After the deploy, /api/verify was ok, publishing_halt_clear passed, and the boot guard was ok.
+
+## D-OWNER-DEPLOY-19i24 — 2026-11-25
+
+Batch 19i24 (stale-reference re-prepare and redrive, 25c1c0bc1) is deployed under the owner's chat approval of 2026-11-25: "You have my approval. Just do it." That approval covers the photo fix. 1007 tests across 101 image, gallery and redrive suites passed. There is no full-suite record yet, so the boot guard forces SHADOW until one is committed. A full cloud run was started at deploy time.
