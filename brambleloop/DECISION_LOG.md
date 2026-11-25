@@ -4928,3 +4928,11 @@ the old reading are re-judged once per judge version, without generation and ins
 ## D-OWNER-DEPLOY-19i26 — 2026-11-25
 
 Batch 19i26 (IMAGE-FIDELITY-2, 74bd8d57a) is deployed under the owner's chat approval of 2026-11-25 for photo fixes. A declared contrast round is no longer judged as an edging (fidelity-judge/2). The vessel side view reads only the near wall, with band shares by height (pattern-refs 3.1.5, prompt builder 2.4.0). Runs that exhausted under the old judge are re-judged once, with no generation. All 107 image, gallery and fidelity suites are green after the pin fixes. There is no full-suite record yet, so SHADOW stays until a record run on the deployed tree passes.
+
+## D-OWNER-DEPLOY-19i27 — 2026-11-25
+
+Batch 19i27 (IMAGE-FIDELITY-3, cc3058b25) is deployed under the owner's chat approval of 2026-11-25 for photo fixes. It does two things:
+- The coaster palette check excludes table that shows through the crochet fabric. This exclusion is bounded and falls back to UNKNOWN past its limits.
+- The layout reference draws hexagons (pattern-refs 3.1.6).
+
+Parked UNKNOWN runs are re-verified once under fidelity-checks/2. Its 114 suites pass (1277 passing). SHADOW stays until a full-suite record on the deployed tree exists.
