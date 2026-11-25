@@ -886,6 +886,8 @@ _RESOLVED_READ_ACTIONS: dict[str, tuple[str, str]] = {
         "gateway.image_bench.stored_trial: the newest row(s) of the action"),
     "image.probe": ("latest",
         "gateway.images.last_probe: the newest row(s) of the action"),
+    "image.probe_inconclusive": ("latest",
+        "gateway.images.last_probe_attempt: the newest row(s) of the action"),
     "improve.presale": ("latest",
         "improve.presale.history: the newest row(s) of the action"),
     "intel.gallery_analysis_blocked": ("latest",

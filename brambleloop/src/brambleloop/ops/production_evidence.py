@@ -1567,7 +1567,37 @@ def _redrive_eligibility(db) -> dict:
                    "max_restarts": int(v.get("max_restarts") or IP.MAX_RESTARTS),
                    # the recorded cause of a `refusal_held`, fixed vocabulary
                    "hold": v["hold"] if v.get("hold") in IP.HOLD_CODES else None}
-    return {"readable": True, "runs": runs, "counts": rb.get("counts") or {}}
+    return {"readable": True, "runs": runs, "counts": rb.get("counts") or {},
+            # 19i30 GATE-EPISODE: the image_generation gate a capability_gate run waits on,
+            # and its latest probe, fixed vocabulary only (no reason text, no secrets).
+            "image_generation_gate": _image_generation_gate(db)}
+
+
+def _image_generation_gate(db) -> dict:
+    from ..gateway import images
+
+    try:
+        g = images.gate_readback(db)
+    except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN, never "open"
+        return {"readable": False, "error_class": _safe_class(type(exc).__name__)}
+    if not g.get("readable"):
+        return {"readable": False, "error_class": _safe_class(str(g.get("error") or ""))}
+
+    def _probe(p: dict, *, conclusive: bool) -> dict:
+        out = {"outcome": p.get("outcome") if p.get("outcome") in images.PROBE_OUTCOMES
+               else "other",
+               "at": p.get("at") if _ISO_AT.match(str(p.get("at") or "")) else None}
+        if conclusive:
+            out["conclusive"] = bool(p.get("conclusive"))
+        return out
+
+    return {"readable": True,
+            "state": "open" if g.get("image_generation") == "open" else "closed",
+            "latest_probe": _probe(g.get("latest_probe") or {}, conclusive=True),
+            "probe_in_force": _probe(g.get("probe_in_force") or {}, conclusive=False)}
+
+
+_ISO_AT = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?([+-]\d{2}:\d{2}|Z)?$")
 
 
 # an image-production run key: imgprod:<slug>@<version>@<release>[~route] (no free text)

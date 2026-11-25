@@ -4984,3 +4984,7 @@ is being re-judged.
 ## D-OWNER-DEPLOY-19i29 — 2026-11-25
 
 Batch 19i29 (D-RESTART-PER-METHOD, 2b7bb3694) is deployed under the owner's chat approval of 2026-11-25 for photo fixes. It is deployed before the 00:00Z FLUX budget reset, so the capped basket runs restart under the current generation method. All 81 suites pass (822 tests). SHADOW remains until a full-suite record on the deployed tree exists.
+
+## D-GATE-EPISODE — 2026-11-25
+
+A probe that our own budget or idempotency ceiling refused, or that met a transient provider answer, is not evidence about the provider. It is recorded as `image.probe_inconclusive` and never closes `image_generation`. Only a real provider or auth failure, or a missing, expired or revoked activation, closes the gate, and the last success stays in force while its activation holds. The capability redrive is made once per gate-closure episode. The episode is keyed on the image.probe row the gate read when the run blocked, so an unrelated later closure is redriven once. It is not made forever-once. MAX_RESTARTS per method is unchanged, and a capability restart is not spent while the provider's daily ceiling has no headroom for one call. No spend cap is changed. Reason: production 19i29 blocked both hexagon-coaster runs at Laura lifestyle generation because our own CA$5.00 FLUX daily ceiling refused the 18:00Z re-probe.

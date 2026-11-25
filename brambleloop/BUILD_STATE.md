@@ -23,6 +23,30 @@ deployed); 6 are not; 2 name no resolvable branch.
 
 ---
 
+## GATE-EPISODE (19i30) — 2026-11-25 (branch claude/w6-release-19i30 from 41de0b6b3, NOT deployed)
+
+Production 19i29 (evidence 18:41Z; production rows NOT read, reproduced in
+tests/test_image_gate_episode.py): both hexagon-coaster-set@1.2.1 runs passed the fidelity gate and
+blocked at Laura lifestyle generation on `image_generation gate closed`. Cause: the 6-hourly
+`ops.capability_probes` (18:00Z) re-probed because the last success was over PROBE_REUSE (24 h)
+old; FLUX had CA$4.95 of its CA$5.00 owner daily ceiling spent, so our own gate refused the probe
+(`provider_daily_ceiling`, nothing sent). `images.probe` recorded that as a failed image.probe,
+it became the newest probe and `usable` read the gate closed. A BFL 503 on the probe did the same.
+- (a) A probe refused by our own budget/idempotency ceilings (`images.INCONCLUSIVE_CODES`,
+  `BudgetExceeded`) or by a transient provider answer is written under
+  `image.probe_inconclusive` and never becomes the gate's evidence; `last_probe` reads the newest
+  conclusive row (legacy 19i29 ceiling/transient rows are skipped too, so the gate reopens on
+  deploy from the success still in force). Only a provider/auth failure or a missing, expired or
+  revoked activation closes it. `usable` still re-checks the activation on every read.
+- (b) The capability redrive's "once" is per closure episode: the image.probe row the gate read
+  when the run blocked (`[episode probe:<id>]` in the restart reason). A later, unrelated closure
+  is redriven once; a pre-19i30 untagged redrive counts only if made after that row. MAX_RESTARTS
+  per method still applies, and no capability restart is spent while the daily ceiling has no
+  headroom for one call (waits for the UTC day, `method_redrive_waiting_daily_reset`).
+- (c) `galleries.redrive_eligibility.image_generation_gate`: open/closed, latest probe and the probe
+  in force, outcomes from `images.PROBE_OUTCOMES`, timestamps only; no reason text, no secrets.
+- No spend cap changed. Laura identity untouched.
+
 ## RESTART-PER-METHOD (19i29) — 2026-11-25 (branch claude/w6-release-19i29 from 563da3bed, NOT deployed)
 
 Production 19i28 (evidence 16:37Z, `galleries.redrive_eligibility`; production rows NOT read,

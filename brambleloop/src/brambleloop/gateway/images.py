@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -1901,6 +1902,13 @@ def probe(db, *, env: dict[str, str] | None = None, generator=None,
             record["reason"] = str(exc)[:400]
             if getattr(exc, "code", ""):
                 record["state"] = exc.code
+            # 19i30 GATE-EPISODE: our own ceiling refusing the probe, or a transient provider
+            # answer, is not evidence that generation stopped working. Such a probe is
+            # recorded under PROBE_INCONCLUSIVE_ACTION and never becomes the gate's evidence.
+            if isinstance(exc, TransientError):
+                record.update(inconclusive=True, outcome="provider_transient")
+            elif _is_own_ceiling(exc):
+                record.update(inconclusive=True, outcome="ceiling_refused")
         else:
             record.update({"ok": True, "url_present": bool(got.get("url")),
                            "cad": got.get("cad"), "latency_ms": got.get("latency_ms")})
@@ -1917,21 +1925,162 @@ def probe(db, *, env: dict[str, str] | None = None, generator=None,
                     job_id=job_id, kind=routing.IMAGE_COST_KIND,
                     detail={"price_basis": "assumed", "attribution": "shared"})
 
+    record.setdefault("outcome", probe_outcome(record))
     with db.session() as s:
-        s.add(AuditLog(actor="orchestrator", action=PROBE_ACTION,
+        s.add(AuditLog(actor="orchestrator",
+                       action=(PROBE_INCONCLUSIVE_ACTION if record.get("inconclusive")
+                               else PROBE_ACTION),
                        artifact=record.get("provider") or "none", detail=record))
     return record
 
 
+# ---- 19i30 GATE-EPISODE: which probes are the gate's evidence --------------------------------
+#
+# Production 19i29 (2026-11-25T18:00Z): the 6-hourly sweep re-probed (the last success was over
+# PROBE_REUSE old) while FLUX had CA$4.95 of its CA$5.00 owner daily ceiling spent. Our own gate
+# refused the probe (`provider_daily_ceiling`), `probe` recorded ok=False under PROBE_ACTION,
+# that row became the newest probe and `usable` read the gate closed: both hexagon-coaster runs
+# blocked at Laura lifestyle generation on a capability that had rendered minutes earlier. A
+# refusal by our own budget, or a transient provider answer (BFL 503 "over capacity", a
+# timeout), says nothing about whether the provider works. Only a real provider or auth
+# failure, or a missing/expired/revoked activation, closes the gate; the last success stays in
+# force while its activation holds (`usable` re-checks the activation on every read).
+PROBE_INCONCLUSIVE_ACTION = "image.probe_inconclusive"
+# Refusal codes of our OWN enforcement point (`paid_provider_gate.authorize`): budget and
+# idempotency ceilings, never the provider's answer and never the activation itself.
+INCONCLUSIVE_CODES = frozenset({
+    "provider_daily_ceiling", "provider_monthly_ceiling", "per_gallery_limit",
+    "daily_image_cap", "gallery_image_cap", "gallery_cad_cap", "company_monthly_budget",
+    "already_billed", "retry_ceiling", "run_call_ceiling", "no_budget_reservation",
+    "reservation_underfunded", "reservation_already_used",
+})
+# The fixed vocabulary a probe outcome is read back in (no reason text, no secrets).
+PROBE_OUTCOMES = ("ok", "ceiling_refused", "provider_transient", "provider_failure",
+                  "not_activated", "activation_expired", "activation_revoked",
+                  "no_credential", "no_provider", "refused_other", "none")
+_LEGACY_TRANSIENT = re.compile(
+    r"^[\w.\-]+ (?:poll )?(?:(?:429|500|502|503|504)\b|unreachable)")
+
+
+def _is_own_ceiling(exc: BaseException) -> bool:
+    from .anthropic import BudgetExceeded
+
+    return (isinstance(exc, BudgetExceeded)
+            or str(getattr(exc, "code", "") or "") in INCONCLUSIVE_CODES)
+
+
+def probe_outcome(detail: dict | None) -> str:
+    """`detail` (an image.probe row) in PROBE_OUTCOMES."""
+    if not detail:
+        return "none"
+    if detail.get("outcome") in PROBE_OUTCOMES:
+        return detail["outcome"]
+    if detail.get("ok"):
+        return "ok"
+    state_ = str(detail.get("state") or "")
+    reason = str(detail.get("reason") or "")
+    if state_ in INCONCLUSIVE_CODES:
+        return "ceiling_refused"
+    if _LEGACY_TRANSIENT.match(reason):
+        return "provider_transient"
+    if state_ in ("not_activated_by_owner", "activation_expired", "activation_revoked"):
+        return {"not_activated_by_owner": "not_activated"}.get(state_, state_)
+    if reason.startswith("no credential"):
+        return "no_credential"
+    if reason.startswith("no ") and PROVIDER_VAR in reason:
+        return "no_provider"
+    if state_:
+        return "refused_other"
+    return "provider_failure"
+
+
+def probe_conclusive(detail: dict | None) -> bool:
+    """Whether a probe row is the gate's evidence. A row written before 19i30 under
+    PROBE_ACTION whose failure was our own ceiling or a transient answer is not."""
+    if not detail or detail.get("inconclusive"):
+        return False
+    return probe_outcome(detail) not in ("ceiling_refused", "provider_transient")
+
+
+_SCAN = 50
+
+
+def _conclusive_rows(session, *, at=None, limit: int = 1):
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    q = select(AuditLog).where(AuditLog.action == PROBE_ACTION)
+    if at is not None:
+        q = q.where(AuditLog.at <= at)
+    out = []
+    for row in session.scalars(q.order_by(desc(AuditLog.id)).limit(_SCAN)):
+        if probe_conclusive(dict(row.detail or {})):
+            out.append(row)
+            if len(out) >= limit:
+                break
+    return out
+
+
 def last_probe(db) -> dict | None:
+    """The newest CONCLUSIVE probe: the gate's evidence (inconclusive attempts skipped)."""
+    with db.session() as s:
+        rows = _conclusive_rows(s)
+        return dict(rows[0].detail or {}) if rows else None
+
+
+def last_probe_attempt(db) -> dict | None:
+    """The newest probe of either kind, conclusive or not (for the readback)."""
     from sqlalchemy import desc, select
 
     from ..core.models import AuditLog
 
     with db.session() as s:
-        rows = list(s.scalars(select(AuditLog).where(AuditLog.action == PROBE_ACTION)
-                              .order_by(desc(AuditLog.id)).limit(1)))
-    return dict(rows[0].detail or {}) if rows else None
+        rows = list(s.scalars(select(AuditLog).where(
+            AuditLog.action.in_((PROBE_ACTION, PROBE_INCONCLUSIVE_ACTION)))
+            .order_by(desc(AuditLog.id)).limit(1)))
+        return dict(rows[0].detail or {}) if rows else None
+
+
+def closure_episode(session, at) -> str:
+    """The image_generation closure episode a run blocked in at `at`: the id of the newest
+    image.probe row on file then -- the row the gate read when it refused the run
+    (`probe:<id>`, or `probe:none`). A capability redrive is made once per episode
+    (`visual.image_production.redrive_capability_blocked`)."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    if at is not None and getattr(at, "tzinfo", None) is None:
+        at = at.replace(tzinfo=timezone.utc)
+    try:
+        q = select(AuditLog.id).where(AuditLog.action == PROBE_ACTION)
+        if at is not None:
+            q = q.where(AuditLog.at <= at)
+        rid = session.scalar(q.order_by(desc(AuditLog.id)).limit(1))
+    except Exception:  # noqa: BLE001 - unreadable: one shared episode, so no second redrive
+        return "probe:unreadable"
+    return f"probe:{rid}" if rid is not None else "probe:none"
+
+
+def gate_readback(db) -> dict:
+    """19i30: the image_generation gate's state and its probes, in a fixed vocabulary only:
+    open/closed, each probe's outcome (PROBE_OUTCOMES), its time and whether it is in force.
+    Never a reason string, provider message, key or activation detail."""
+    def _at(d):
+        return str((d or {}).get("at") or "")[:32] or None
+
+    try:
+        latest = last_probe_attempt(db)
+        evidence = last_probe(db)
+        open_ = usable(db)
+    except Exception as exc:  # noqa: BLE001 - the readback says it could not read
+        return {"readable": False, "error": type(exc).__name__}
+    return {"readable": True, "image_generation": "open" if open_ else "closed",
+            "latest_probe": {"outcome": probe_outcome(latest), "at": _at(latest),
+                             "conclusive": probe_conclusive(latest)},
+            "probe_in_force": {"outcome": probe_outcome(evidence), "at": _at(evidence)},
+            "outcomes": list(PROBE_OUTCOMES)}
 
 
 # W4-PRODFIX: a successful render proves the capability for a day. The 6-hourly

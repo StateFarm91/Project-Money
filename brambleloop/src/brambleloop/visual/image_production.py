@@ -3370,11 +3370,68 @@ def _gate_of(reason: str) -> str | None:
     return None
 
 
-def redrive_capability_blocked(db, *, follow) -> dict:
-    """Restart each run blocked only on a capability gate that is now open, once.
+# 19i30 GATE-EPISODE: "once" is per gate-closure episode, not forever. The episode is the
+# closure that blocked the run: for image_generation, the image.probe row the gate read when
+# the run blocked (`images.closure_episode`). The restart's history reason carries it
+# (`[episode probe:<id>]`). A history entry written before 19i30 carries none; it belongs to
+# the episode in force when it was made, i.e. it counts against the current episode only if
+# it was made after that episode's probe. MAX_RESTARTS per method still applies on top.
+EPISODE_TAG = "episode "
+_EPISODE_RE = re.compile(r"\[episode ([^\]]+)\]")
 
-    "Once": a run this has already restarted for the same gate is never restarted for it
-    again, whatever happens after (the restart history records `by=capability_redrive`).
+
+def _closure_episode(session, gate: str, blocked_at) -> str:
+    if gate != "image_generation":
+        return f"{gate}:unkeyed"
+    from ..gateway import images
+
+    return images.closure_episode(session, blocked_at)
+
+
+def _episode_probe_at(session, episode: str):
+    from ..core.models import AuditLog
+
+    try:
+        row = session.get(AuditLog, int(episode.split(":", 1)[1]))
+    except (ValueError, IndexError, TypeError):
+        return None
+    at = row.at if row is not None else None
+    return at.replace(tzinfo=timezone.utc) if at is not None and at.tzinfo is None else at
+
+
+def _redriven_in_episode(session, history, gate: str, episode: str) -> bool:
+    """Whether `history` already holds a capability redrive for `gate` in `episode`."""
+    legacy = []
+    for h in history or []:
+        reason = str(h.get("reason", ""))
+        if h.get("by") != REDRIVE_BY or gate not in reason:
+            continue
+        m = _EPISODE_RE.search(reason)
+        if m:
+            if m.group(1) == episode:
+                return True
+        else:
+            legacy.append(h)
+    if not legacy:
+        return False
+    # A pre-19i30 redrive counts against this episode only if it was made after this
+    # episode's probe row was written; unknown either way counts (fail closed: no loop).
+    at = _episode_probe_at(session, episode) if episode.startswith("probe:") else None
+    if at is None:
+        return True
+    for h in legacy:
+        hat = _utc(h.get("at"))
+        if hat is None or hat >= at:
+            return True
+    return False
+
+
+def redrive_capability_blocked(db, *, follow) -> dict:
+    """Restart each run blocked only on a capability gate that is now open, once per closure.
+
+    "Once": a run this has already restarted for the same gate in the same closure episode is
+    never restarted for it again (the restart history records `by=capability_redrive` and the
+    episode); a later, unrelated closure of the gate may be re-driven once (19i30).
     Everything `restartable` refuses stays refused: a run whose candidate FAILed, a budget
     stop, an experiment, the restart cap. Nothing here generates; the restarted job does, and
     only because the gate it was waiting on is open."""
@@ -3468,16 +3525,27 @@ def redrive_capability_blocked(db, *, follow) -> dict:
                                         if k in out}})
             continue
         history = (stages.get(RESTART_KEY) or {}).get("history") or []
-        if any(h.get("by") == REDRIVE_BY and gate in str(h.get("reason", ""))
-               for h in history):
-            refused.append({"run_key": key, "why": f"already re-driven once for {gate}"})
+        with db.session() as s:
+            episode = _closure_episode(s, gate, updated.get(key))
+            again = _redriven_in_episode(s, history, gate, episode)
+        if again:
+            refused.append({"run_key": key, "code": "already_redriven",
+                            "why": f"already re-driven once for {gate} in {episode}"})
             continue
         if not open_now.get(gate):
-            waiting.append({"run_key": key, "why": f"{gate} is still closed"})
+            waiting.append({"run_key": key, "code": "gate_closed",
+                            "why": f"{gate} is still closed"})
+            continue
+        ok, why = generation_daily_headroom(db, _redrive_call_cost_cad())
+        if not ok:
+            # 19i30: the restart is not spent on a call the daily ceiling would refuse; the
+            # next sweep after the UTC day changes restarts it.
+            waiting.append({"run_key": key, "code": METHOD_REDRIVE_WAIT_DAILY, "why": why})
             continue
         try:
             out = restart(db, key, follow=follow, by=REDRIVE_BY,
-                          reason=f"{gate} opened after the run blocked on it")
+                          reason=f"{gate} opened after the run blocked on it "
+                                 f"[{EPISODE_TAG}{episode}]")
         except Exception as exc:  # noqa: BLE001 - the restart rolled back; the run stays blocked
             out = {"restarted": False, "why": f"restart not enqueued ({type(exc).__name__})"}
         (restarted if out.get("restarted") else refused).append(
@@ -3700,7 +3768,12 @@ def _redrive_verdict(session, r, since, now: datetime, memo: dict) -> dict:
         return no("max_restarts")
     history = rec.get("history") or []
     if kind == "capability_gate" and r.stage != "fidelity_gate":
-        # the sweep restarts it once its gate opens (`gates_now`, not a row read)
+        # 19i30: once per closure episode. The sweep restarts it once its gate opens
+        # (`gates_now`, not a row read; the readback shows the gate beside this verdict).
+        gate = _gate_of(reason) or ""
+        if _redriven_in_episode(session, history, gate,
+                                _closure_episode(session, gate, r.updated_at)):
+            return no("already_redriven")
         return no("gate_closed_or_redriven")
     if kind == "stale_references":
         if not _stale_redriven(stages, references_version()):
