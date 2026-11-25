@@ -45,6 +45,13 @@ it became the newest probe and `usable` read the gate closed. A BFL 503 on the p
   headroom for one call (waits for the UTC day, `method_redrive_waiting_daily_reset`).
 - (c) `galleries.redrive_eligibility.image_generation_gate`: open/closed, latest probe and the probe
   in force, outcomes from `images.PROBE_OUTCOMES`, timestamps only; no reason text, no secrets.
+- (d) ENG-RECOVERY spend graph (red on production 41de0b6b3 too): the free `chain.successors`
+  sweep reached `vision_route.choose` (-> `provider_for`) through the fidelity redrives' vision
+  pre-checks (`_vision_headroom`, `fidelity.vision_route_usable`). Those pre-checks now read the
+  route with `_vision_route_read` (the same rule as `choose`, duplicated with a pointer; image_vision
+  probe + `paid_provider_gate` activation/headroom reads, model names only). `chain.successors`
+  stays free and the graph proves every FREE_JOB_TYPES entry free; the vision call itself is made
+  later by `visual.image_production`, classified spending.
 - No spend cap changed. Laura identity untouched.
 
 ## RESTART-PER-METHOD (19i29) — 2026-11-25 (branch claude/w6-release-19i29 from 563da3bed, NOT deployed)

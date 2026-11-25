@@ -2972,14 +2972,52 @@ def _anchor_frames_judged_now(session, key: str, version: str) -> bool:
 VISION_CALLS_PER_FRAME = 2      # the craft reading, plus a vessel's second view (conservative)
 
 
+def _vision_route_read(db) -> tuple[str | None, str]:
+    """(vendor, model) the fidelity verifier's vision route would use, read-only.
+
+    The same rule as `visual.vision_route.choose` (keep the two in step): the Anthropic route
+    when `image_vision` is usable, else OpenAI vision when `openai-vision:vision` is usable,
+    else none. Duplicated on purpose (19i30): `choose` constructs the paid provider
+    (`provider_for`), and this pre-check runs inside the free `chain.successors` sweep, which
+    only restarts runs; the vision call itself is made later by the image-production job,
+    which is classified as spending. This reads evidence and model names, nothing more."""
+    from ..gateway import paid_provider_gate as G
+    from ..gateway import routing
+    from ..gateway.anthropic import last_vision_probe
+    from . import vision_route
+
+    try:
+        # `anthropic.vision_usable`'s condition, inlined: the static spend graph resolves its
+        # local name `state` to `anthropic.state` (a provider constructor), a false edge.
+        probe_row = last_vision_probe(db)
+        if G.probe_activation_open(db, probe_row, G.ANTHROPIC_VISION, G.VISION):
+            return vision_route.ANTHROPIC, str(routing.route(vision_route.TASK)[1].model)
+    except Exception:  # noqa: BLE001 - unreadable evidence is a closed Anthropic route
+        pass
+    try:
+        from ..creative import concept_judge
+
+        if concept_judge.openai_vision_usable(db):
+            return vision_route.OPENAI, str(routing.openai_model_for(vision_route.TASK))
+    except Exception:  # noqa: BLE001 - an unpriced or unroutable model judges nothing
+        pass
+    return None, ""
+
+
+def _vision_route_usable_read(db) -> bool:
+    """`fidelity.vision_route_usable`, read-only (`_vision_route_read`; same rule)."""
+    return _vision_route_read(db)[0] is not None
+
+
 def _vision_headroom(db, frames: int) -> tuple[bool, str]:
     """(ok, why): whether today's ceiling on the vision route the fidelity verifier would ask
-    covers `frames` re-judged frames. Unreadable is not ok (fail closed: wait)."""
+    covers `frames` re-judged frames. Unreadable is not ok (fail closed: wait). Read-only:
+    `_vision_route_read` and `paid_provider_gate`'s activation and headroom reads."""
     try:
         from ..gateway import paid_provider_gate as G
         from . import vision_route
 
-        vendor, provider = vision_route.choose(db)
+        vendor, model = _vision_route_read(db)
         if vendor is None:
             return False, "no vision route is usable for the fidelity verifier"
         gate = G.OPENAI_VISION if vendor == vision_route.OPENAI else G.ANTHROPIC_VISION
@@ -2990,7 +3028,7 @@ def _vision_headroom(db, frames: int) -> tuple[bool, str]:
                     f"{gate} is not active ({st.get('reason')})")
         left = G.daily_headroom_cad(db, gate, G.VISION)
         need = round(max(1, int(frames)) * VISION_CALLS_PER_FRAME
-                     * _vision_call_estimate_cad(vendor, provider), 6)
+                     * _vision_call_estimate_cad(vendor, model), 6)
     except Exception as exc:  # noqa: BLE001 - unreadable headroom never spends
         return False, f"vision headroom unreadable ({type(exc).__name__})"
     if left is None or left + 1e-9 < need:
@@ -2999,13 +3037,13 @@ def _vision_headroom(db, frames: int) -> tuple[bool, str]:
     return True, ""
 
 
-def _vision_call_estimate_cad(vendor: str, provider) -> float:
-    """One fidelity vision question's reservation on `provider` (its own estimate rule)."""
+def _vision_call_estimate_cad(vendor: str, model: str) -> float:
+    """One fidelity vision question's reservation on `model` (its vendor's own estimate rule)."""
     from ..gateway import providers as gw
     from . import vision_route
     from .fidelity import CRAFT_SYSTEM, craft_prompt
 
-    model = str(getattr(provider, "model", "") or "")
+    model = str(model or "")
     tokens = gw.input_tokens(model, system=CRAFT_SYSTEM, user=craft_prompt(), images=1)
     if vendor == vision_route.OPENAI:
         from ..gateway import openai_chat
@@ -3106,7 +3144,6 @@ def _sweep_fidelity_unknown(db, key: str, stages: dict, *, follow, restarted: li
                             waiting: list, refused: list) -> bool:
     """The fidelity redrive's sweep step. False when the run is not this redrive's to judge
     (a FAILed role: the method redrive then looks at it); True otherwise."""
-    from .fidelity import vision_route_usable
 
     version = fidelity_judge_version()
     day = str(_now().date())
@@ -3139,7 +3176,7 @@ def _sweep_fidelity_unknown(db, key: str, stages: dict, *, follow, restarted: li
         _record_fidelity_refusal(db, key, version, why, day=None, code="judged_now")
         refused.append({"run_key": key, "why": why})
         return True
-    if not vision_route_usable(db):
+    if not _vision_route_usable_read(db):
         why = "no vision route is usable for the fidelity verifier; re-judging would read UNKNOWN"
         _record_fidelity_refusal(db, key, version, why, day=day, code="no_vision_route")
         waiting.append({"run_key": key, "why": why})
@@ -3273,10 +3310,9 @@ def _rejudge_redrive_candidate(db, key: str, reason: str, stages: dict) -> bool:
 
 def _sweep_fidelity_rejudge(db, key: str, *, follow, restarted: list, waiting: list,
                             refused: list) -> None:
-    from .fidelity import vision_route_usable
 
     version = fidelity_judge_version()
-    if not vision_route_usable(db):
+    if not _vision_route_usable_read(db):
         why = "no vision route is usable for the fidelity verifier; re-judging would read UNKNOWN"
         _record_rejudge_refusal(db, key, version, why, day=str(_now().date()),
                                 code="no_vision_route")
