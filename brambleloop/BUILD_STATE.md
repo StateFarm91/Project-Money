@@ -45,8 +45,11 @@ route's OWN daily ceiling (openai-vision CA$2.00, `paid_provider_gate.daily_head
 cover the questions, else the sweep waits for the UTC day (a day hold, read back). Evidence:
 `visual_pipeline.galleries.redrive_eligibility` = per blocked run key {kind, eligible, refused
 (fixed vocabulary, e.g. max_restarts), restarts_spent, max_restarts} + counts. MAX_RESTARTS and
-every cap unchanged: the two coaster runs STAY refused (now visibly). Re-verifying them needs an
-owner/integrator decision (not taken here: it would relax the restart cap).
+every cap unchanged. D-RESTART-DUPLICATE-CREDIT (coordinator decision, same branch): a
+zero-generation fidelity re-judgement epoch under a (judge, check) version pair the run had
+already been re-judged under is not counted by `restarts_spent`; the production history counts
+2, so the fidelity-checks/2 reverify of both coaster runs fires once on the first sweep after
+deploy (then the cap binds at 3).
 Daily-ceiling runs checked: `daily_ceiling_reset` restarts them on the first sweep after 00:00Z;
 403-era and refused daily-ceiling epochs do not count toward MAX_RESTARTS; a run at the cap is
 now reported `max_restarts` instead of skipped.

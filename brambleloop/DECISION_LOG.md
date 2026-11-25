@@ -4947,3 +4947,13 @@ runs that hit it this way; they are reported `max_restarts` per run key in the e
 wait for an explicit owner/integrator decision. A re-judgement generates nothing, so no
 generation ceiling holds it; it waits only on the vision route's own daily ceiling.
 
+## D-RESTART-DUPLICATE-CREDIT — 2026-11-25
+
+Coordinator decision: credit back the duplicate epoch. This corrects a counting bug and does not
+relax the cap. The coaster runs' third restart was spent by our own duplicate re-judgement under
+an identical (judge version, check version) pair; it generated nothing and produced no new
+information. `restarts_spent` therefore does not count a zero-generation re-judge/reverify epoch
+whose version pair an earlier re-judgement of the same run already used. Every other epoch
+(including the first re-judgement under any pair, and any epoch that generated) counts exactly as
+before. The thrash bound stays intact: after D-REDRIVE-ELIGIBILITY the sweep can no longer make
+that duplicate.

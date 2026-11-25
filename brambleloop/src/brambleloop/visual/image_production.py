@@ -877,7 +877,10 @@ def counted_calls(session, row) -> int:
 def restarts_spent(session, row) -> int:
     """Restarts that count toward `MAX_RESTARTS`: every epoch except one whose every call was
     never accepted (it made at least one call and none of them reached the provider's bill).
-    An epoch with no call at all still counts: the cap is also a thrash bound."""
+    An epoch with no call at all still counts: the cap is also a thrash bound. The one
+    exception (D-RESTART-DUPLICATE-CREDIT) is a zero-generation fidelity re-judgement under a
+    (judge version, check version) an earlier re-judgement of the run already used
+    (`_duplicate_rejudgement`): our own duplicate, which the sweep can no longer make."""
     stages = dict(row.stages or {})
     rec = stages.get(RESTART_KEY) or {}
     epoch = int(rec.get("epoch") or 0)
@@ -899,6 +902,12 @@ def restarts_spent(session, row) -> int:
         if start is None or not isinstance(start_calls, int) or not isinstance(end_calls, int):
             continue
         made = end_calls - start_calls
+        if made == 0 and _duplicate_rejudgement(history, i):
+            # D-RESTART-DUPLICATE-CREDIT: a zero-generation re-judgement under (judge version,
+            # check version) an earlier re-judgement of this run had already used. It added no
+            # generation and no new version: our own duplicate, not an attempt.
+            free += 1
+            continue
         if made <= 0:
             continue
         lost = sum(1 for at in unaccepted
@@ -907,6 +916,20 @@ def restarts_spent(session, row) -> int:
         if lost >= made:
             free += 1
     return max(0, epoch - free)
+
+
+def _duplicate_rejudgement(history: list[dict], i: int) -> bool:
+    """History entry `i` is a fidelity re-judgement (reverify / rejudge) whose (judge version,
+    check version) an EARLIER re-judgement entry of the same run already carried. Only such an
+    epoch with zero generation calls is credited back (`restarts_spent`); every other epoch,
+    including the first re-judgement under any version pair, counts as before."""
+    h = history[i]
+    if h.get("by") not in _REJUDGEMENT_BY or not h.get("judge_version"):
+        return False
+    pair = (h.get("judge_version"), _entry_check_version(h))
+    return any(e.get("by") in _REJUDGEMENT_BY
+               and (e.get("judge_version"), _entry_check_version(e)) == pair
+               for e in history[:i])
 
 
 def _run_counts(db, key: str) -> dict:

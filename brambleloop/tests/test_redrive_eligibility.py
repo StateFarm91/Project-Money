@@ -29,9 +29,12 @@ whose every stored anchor frame already carries a verdict under those versions, 
 re-driven again (no restart is spent on a reading that cannot change); the vision route's own
 daily ceiling (openai-vision CA$2.00) is read before a re-judgement restart and the sweep waits
 for the UTC day when it cannot cover it; and `redrive_readback` puts every blocked run's
-eligibility and a fixed-vocabulary refusal ("max_restarts", ...) in the evidence. MAX_RESTARTS,
-the attempt cap, the call cap and every spend ceiling are unchanged: the two production runs at
-the cap stay refused, visibly.
+eligibility and a fixed-vocabulary refusal ("max_restarts", ...) in the evidence.
+D-RESTART-DUPLICATE-CREDIT (coordinator decision): the duplicate epoch (a zero-generation
+re-judgement under a version pair the run had already been re-judged under) does not count
+toward MAX_RESTARTS; every other epoch counts as before. The production history therefore counts
+2, and the fidelity-checks/2 reverify fires once. MAX_RESTARTS, the attempt cap, the call cap
+and every spend ceiling are unchanged.
 
 Every provider answer and paid-call row here is a TEST FIXTURE. There is no network.
 
@@ -164,41 +167,125 @@ def _vocabulary_only(ev: dict):
 
 # ---- 1. production 19i27, reproduced --------------------------------------------------------
 
-def test_1_production_state_both_runs_sit_at_max_restarts_and_the_readback_says_so():
+def test_1_production_state_was_at_max_restarts_before_the_credit():
+    """19i27's count: all three restarts counted, nothing due, nothing fired, and nothing in
+    the evidence said why. Replayed by counting without the duplicate credit."""
+    db = R._db()
+    R._production_vision(db)
+    _flux_ceiling_hit(db)
+    day = str(_now_utc().date())
+    a = _hex_run(db, route=True, history=_production_history(day))
+    saved = IP._duplicate_rejudgement
+    IP._duplicate_rejudgement = lambda *_a, **_k: False       # the 19i27 count
+    try:
+        with db.session() as s:
+            r = s.scalar(select(ImageProductionRun).where(ImageProductionRun.run_key == a))
+            assert IP.restarts_spent(s, r) == IP.MAX_RESTARTS
+        assert R._due(db) is None
+        calls = []
+        out = IP.redrive_capability_blocked(db, follow=R._follow(calls))
+        assert calls == [] and out["restarted"] == [], out
+        assert any(x["run_key"] == a and "cap 3" in x["why"] for x in out["refused"]), out
+        ev = _evidence_runs(db)
+        assert ev["runs"][a] == {"kind": "fidelity_unknown", "eligible": False,
+                                 "refused": "max_restarts", "restarts_spent": 3,
+                                 "max_restarts": 3}, ev
+        assert ev["counts"]["at_max_restarts"] == 1, ev
+        _vocabulary_only(ev)
+    finally:
+        IP._duplicate_rejudgement = saved
+
+
+def test_1b_the_duplicate_epoch_is_credited_and_the_checks_2_reverify_fires_once():
+    """D-RESTART-DUPLICATE-CREDIT: the production 3-restart history counts 2 (restart 3
+    re-judged under (fidelity-judge/2, fidelity-checks/1), which restart 2 had already used,
+    and generated nothing). With the FLUX ceiling hit and the old-key refusal recorded today,
+    both runs are re-verified once under fidelity-checks/2, generating nothing."""
     db = R._db()
     R._production_vision(db)
     _flux_ceiling_hit(db)
     day = str(_now_utc().date())
     hist = _production_history(day)
     a = _hex_run(db, route=True, history=hist)
-    # the second run: the 19i26 sweep's refusal recorded under the OLD key (no check version)
     b = _hex_run(db, route=False, history=hist, extra={IP.FIDELITY_REDRIVE_KEY: {
         "judge_version": JUDGE2, "day": None, "why": "already restarted 3 times (cap 3)",
         "at": f"{day}T11:00:41+00:00"}})
     with db.session() as s:
         for key in (a, b):
             r = s.scalar(select(ImageProductionRun).where(ImageProductionRun.run_key == key))
-            assert IP.restarts_spent(s, r) == IP.MAX_RESTARTS, "reverify epochs count"
-    # the state 19i27 read: nothing due, and nothing fires
-    assert R._due(db) is None
+            assert IP.restarts_spent(s, r) == 2, "restart 3 was the duplicate"
+    ev = _evidence_runs(db)
+    for key in (a, b):
+        assert ev["runs"][key] == {"kind": "fidelity_unknown", "eligible": True,
+                                   "refused": None, "restarts_spent": 2,
+                                   "max_restarts": 3}, ev
+    _vocabulary_only(ev)
+    assert R._due(db)["kind"] == "fidelity_unknown"
     calls = []
     out = IP.redrive_capability_blocked(db, follow=R._follow(calls))
-    assert calls == [] and out["restarted"] == [], out
-    whys = {r["run_key"]: r["why"] for r in out["refused"]}
-    assert set(whys) == {a, b} and all("cap 3" in w for w in whys.values()), out
+    assert sorted(x["run_key"] for x in out["restarted"]) == sorted([a, b]), out
+    assert len(calls) == 2 and all(c[0]["stage"] == "fidelity_gate" and c[0]["reverify"]
+                                   for c in calls), calls
     for key in (a, b):
         row = R._row(db, key)
-        assert row["status"] == "blocked" and row["calls"] == 5, "no cap is reset or raised"
-    # now visible: per run key, the cap is named; counts in a fixed vocabulary
+        assert row["calls"] == 5 and abs(row["spent"] - 0.35) < 1e-9, "nothing generated"
+        h = row["stages"][IP.RESTART_KEY]["history"][-1]
+        assert h["epoch"] == 4 and h["check_version"] == F.FIDELITY_CHECK_VERSION, h
+        R._reblock(db, key)
+    # the checks/2 reading is new: it counts, and the cap now binds for good
     ev = _evidence_runs(db)
-    assert ev["readable"] is True, ev
     for key in (a, b):
-        v = ev["runs"][key]
-        assert v == {"kind": "fidelity_unknown", "eligible": False, "refused": "max_restarts",
-                     "restarts_spent": 3, "max_restarts": 3}, v
-    assert ev["counts"]["at_max_restarts"] == 2 and ev["counts"]["eligible"] == 0, ev
-    assert ev["counts"]["by_refusal"] == {"max_restarts": 2}, ev
-    _vocabulary_only(ev)
+        assert ev["runs"][key]["refused"] == "max_restarts" and \
+            ev["runs"][key]["restarts_spent"] == 3, ev
+    assert R._due(db) is None
+    out = IP.redrive_capability_blocked(db, follow=R._follow(calls))
+    assert len(calls) == 2 and out["restarted"] == [], "once under fidelity-checks/2"
+
+
+def test_1c_only_a_zero_generation_repeat_of_a_used_version_pair_is_credited():
+    db = R._db()
+    day = str(_now_utc().date())
+    t = lambda h: f"{day}T{h:02d}:00:00+00:00"  # noqa: E731
+    cases = {
+        # two zero-call re-judgements under DIFFERENT pairs: both count
+        "pairs": ([_h(1, IP.FIDELITY_REJUDGE_BY, t(1), 5, judge_version=JUDGE2),
+                   _h(2, IP.FIDELITY_REDRIVE_BY, t(2), 5, judge_version=JUDGE2,
+                      check_version=F.FIDELITY_CHECK_VERSION)], 2),
+        # the repeated pair generated (a repair followed): it counts
+        "generated": ([_h(1, IP.FIDELITY_REJUDGE_BY, t(1), 3, judge_version=JUDGE2),
+                       _h(2, IP.FIDELITY_REDRIVE_BY, t(2), 3, judge_version=JUDGE2)], 2),
+        # zero-call restarts of other kinds keep counting (the thrash bound)
+        "other": ([_h(1, IP.REDRIVE_BY, t(1), 5), _h(2, IP.REDRIVE_BY, t(2), 5),
+                   _h(3, "owner:test", t(3), 5)], 3),
+        # the repeat is credited; the first use of the pair is not
+        "repeat": ([_h(1, IP.FIDELITY_REDRIVE_BY, t(1), 5, judge_version=JUDGE2),
+                    _h(2, IP.FIDELITY_REDRIVE_BY, t(2), 5, judge_version=JUDGE2)], 1),
+    }
+    for name, (hist, want) in cases.items():
+        calls = 5 if name != "generated" else 6   # "generated": epoch 2 made 3 more calls
+        if name == "generated":
+            hist[1]["generation_calls"] = 3
+        key = _hex_run(db, route=(name in ("pairs", "repeat")), history=hist, calls=calls) \
+            if name in ("pairs", "repeat") else None
+        if key is None:
+            key = IP.run_key(f"other-{name}", "1.0.0", f"other-{name}-rel")
+            with db.session() as s:
+                s.add(ImageProductionRun(run_key=key, slug=f"other-{name}", version="1.0.0",
+                                         release=f"other-{name}-rel", listing=f"other-{name}",
+                                         stage="fidelity_gate", status="blocked",
+                                         blocked_reason=UNKNOWN_PALETTE,
+                                         stages={IP.RESTART_KEY: {"epoch": len(hist),
+                                                                  "history": hist}},
+                                         generation_calls=calls, spent_cad=0.0,
+                                         attempts_exhausted=False))
+        with db.session() as s:
+            r = s.scalar(select(ImageProductionRun).where(ImageProductionRun.run_key == key))
+            got = IP.restarts_spent(s, r)
+        assert got == want, (name, got, want)
+        if name in ("pairs", "repeat"):
+            with db.session() as s:
+                s.delete(s.scalar(select(ImageProductionRun).where(
+                    ImageProductionRun.run_key == key)))
 
 
 def test_2_the_third_restart_was_a_duplicate_judgement_and_is_no_longer_made():
@@ -456,7 +543,7 @@ def test_8_the_readback_is_fixed_vocabulary_and_unreadable_is_not_empty():
 if __name__ == "__main__":
     failed = 0
     tests = [v for k, v in sorted(globals().items(), key=lambda kv: (
-        int(kv[0].split("_")[1]) if kv[0].startswith("test_") else 0, kv[0]))
+        int(kv[0].split("_")[1].rstrip("abc")) if kv[0].startswith("test_") else 0, kv[0]))
         if k.startswith("test_") and callable(v)]
     for fn in tests:
         try:
