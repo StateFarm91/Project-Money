@@ -4961,3 +4961,22 @@ that duplicate.
 ## D-OWNER-DEPLOY-19i28 — 2026-11-25
 
 Batch 19i28 (REDRIVE-ELIGIBILITY plus D-RESTART-DUPLICATE-CREDIT, e11d0f835) is deployed under the owner's chat approval of 2026-11-25 for photo fixes. Its 79 suites pass (812 passing). SHADOW stays in place until a full-suite record on the deployed tree exists.
+
+## D-RESTART-PER-METHOD — 2026-11-25
+
+Coordinator decision. `MAX_RESTARTS` (3) applies per generation-method version
+(`image_production.generation_method`: prompt builder, pattern references, PDF page references,
+owner method). When a run's method version changes, the run counts as a new product attempt and
+its restart budget starts fresh under the new version. Restarts spent under older versions stay
+in the restart history and in the evidence (`restarts_total`), and do not count against the
+current version's cap. Within one method version the cap binds exactly as before (the thrash
+bound). Spend caps are unchanged: FLUX CA$5/day, CA$100/month company cap, per-gallery ceilings.
+Why: production 19i28 (16:37Z) had market-basket-small@1.3.0 (both runs) and
+housewarming-key-basket@0.1.0~gallery dead at 3/3, all spent by system recovery after code
+fixes (stale references, the fidelity route, rejudge, the daily reset), none of it thrash.
+Every restart is stamped with its method version from 19i29; an older entry takes its method
+redrive's version, or the version production ran at its time (19i27 11:42Z: 2.4.0|3.1.6; 19i26
+08:45Z: 2.4.0|3.1.5; earlier: older). A refusal recorded because the cap bound holds only while
+the cap still binds. A method redrive waits, without spending a restart, while the generation
+provider's own daily ceiling cannot cover one attempt or while a sibling run of the same release
+is being re-judged.

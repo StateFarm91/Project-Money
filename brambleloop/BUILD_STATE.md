@@ -23,6 +23,32 @@ deployed); 6 are not; 2 name no resolvable branch.
 
 ---
 
+## RESTART-PER-METHOD (19i29) — 2026-11-25 (branch claude/w6-release-19i29 from 563da3bed, NOT deployed)
+
+Production 19i28 (evidence 16:37Z, `galleries.redrive_eligibility`; production rows NOT read,
+reproduced in tests/test_restart_per_method.py):
+- A: market-basket-small@1.3.0 (main and ~gallery) and housewarming-key-basket@0.1.0~gallery
+  were `daily_ceiling_reset` refused `max_restarts` 3/3: restarts spent by recovery after code
+  fixes, under methods older than production's (builder 2.4.0, pattern-refs 3.1.6 since 19i27).
+  D-RESTART-PER-METHOD: `restart_counts`/`restarts_spent` count only the current
+  generation-method version toward MAX_RESTARTS (3, unchanged); each new history entry is stamped
+  `generation_method`; older entries take their method redrive's version or the version
+  production ran at their time. Readback per run: `restarts_spent` (current version),
+  `restarts_total`, `hold`. The baskets read `waiting_daily_reset` 0/3 (3 in all) and the
+  daily reset restarts them on the first sweep after 00:00Z.
+- B: hexagon-coaster-set@1.2.1 `fidelity_unknown` refused `refusal_held` at 2/3. Cause: 19i27's
+  12:00Z sweep recorded "already restarted 3 times (cap 3)" under (judge/2, checks/2) as a hold
+  for good; 19i28's duplicate credit lowered the count, the hold stayed (19i28's test used a
+  legacy hold with no check version, which never holds). NOT the openai-vision headroom:
+  CA$0.7635 of CA$2.00 spent (unchanged 12:59Z->16:37Z), a re-judgement reserves ~CA$0.022.
+  Fix: a cap-caused hold (fidelity, rejudge, daily, method readback) holds only while the cap
+  binds; holds carry a fixed-vocabulary `code`. Vision-headroom and other holds unchanged.
+- coaster ~gallery `method_redrive` eligible: the sweep now judges re-judgements first; a method
+  redrive waits (no restart spent, nothing recorded) while a sibling run of its release is being
+  re-judged (`sibling_rejudging`), and waits for the UTC day (day-scoped readback, hold
+  `generation_headroom`) while the generation provider's own daily ceiling (FLUX CA$0.0461 left)
+  cannot cover one attempt. No cap or ceiling raised.
+
 ## REDRIVE-ELIGIBILITY (19i28) — 2026-11-25 (branch claude/w6-release-19i28 from 211745f9d, NOT deployed)
 
 Production 19i27 (evidence 12:59Z, ~70 min after deploy): the fidelity-checks/2 re-judgement of

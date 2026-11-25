@@ -74,7 +74,7 @@ def _run(db, slug, *, epochs_billed=(False, False, False)):
                 "reason": "image_generation opened", "blocked_at": "product_generation",
                 "blocked_reason": "image_generation gate closed", "resume_at":
                 "product_generation", "reverify": False, "generation_calls": c,
-                "spent_cad": 0.14}
+                "spent_cad": 0.14, IP.HISTORY_METHOD_KEY: IP.current_method_version()}
                for i, (m, c) in enumerate(zip(marks, (2, 5, 8)))]
     with db.session() as s:
         s.add(ImageProductionRun(
@@ -108,7 +108,8 @@ def test_403_era_unbilled_attempts_then_daily_reset_restarts():
     key = _run(db, "hexagon-coaster-set")
     counts = _counts(db, key)
     # 9 submits refused with 403 + the gate's refusal that blocked the run: 10 unbilled.
-    assert counts == {"counted_calls": 2, "restarts_spent": 0, "unbilled_calls": 10}, counts
+    assert counts == {"counted_calls": 2, "restarts_spent": 0, "restarts_total": 0,
+                      "unbilled_calls": 10}, counts
     assert IP._attempts(db, key, "detail") == 0
     assert IP._attempts(db, key, "hero_flat") == 2
     got = IP.restartable(db, key)
@@ -131,7 +132,8 @@ def test_billed_calls_still_count():
     key = _run(db, "market-basket-small", epochs_billed=(True, True, True))
     counts = _counts(db, key)
     # only the gate's refusal was unbilled; every accepted call counts
-    assert counts == {"counted_calls": 11, "restarts_spent": 3, "unbilled_calls": 1}, counts
+    assert counts == {"counted_calls": 11, "restarts_spent": 3, "restarts_total": 3,
+                      "unbilled_calls": 1}, counts
     assert IP._attempts(db, key, "detail") == 9
     got = IP.restartable(db, key)
     assert got["restartable"] is False and "already restarted 3" in got["why"], got

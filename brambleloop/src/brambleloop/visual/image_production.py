@@ -120,7 +120,9 @@ ANCHOR_ROLE = "product_anchor"     # the product-only candidate: a fidelity anch
 ANCHOR_SIDE_ROLE = "product_anchor_side"
 IDENTITY_ANCHOR_ROLE = "laura_identity_anchor"   # stage A: an intermediate reference, not a frame
 MAX_IDENTITY_ANCHOR_ATTEMPTS = 2   # one generation + one bounded proportion-correction pass
-MAX_RESTARTS = 3                   # per run; a restart never resets attempts, calls or spend
+MAX_RESTARTS = 3                   # per run and generation-method version (D-RESTART-PER-
+#                                    METHOD); a restart never resets attempts, calls or spend
+RESTART_CAP_CODE = "max_restarts"  # `restartable`'s refusal code when MAX_RESTARTS binds
 # ENG-IMAGES-LAURA: the owner's two-step method. Step 1 makes and accepts the product frame
 # (the fidelity-gated anchor); step 2 conditions every Laura frame on that accepted frame plus
 # Laura's canonical identity images, and nothing else. Used when the generator declares it.
@@ -139,6 +141,13 @@ METHOD_REDRIVE_KEY = "_method_redrive"          # the run's last method-redrive 
 METHOD_REDRIVE_NO_HEADROOM = "method_redrive:no_headroom"
 METHOD_REDRIVE_ALREADY = "method_redrive:already_redriven"
 METHOD_REDRIVE_CURRENT = "method_redrive:failed_under_current_method"
+# 19i29: the generation provider's own daily ceiling cannot cover one attempt today (FLUX
+# CA$5.00/day): the sweep waits for the UTC day rather than spend the new method's first
+# restart on a call the ceiling refuses. Day-scoped; the ceiling itself is never raised.
+METHOD_REDRIVE_WAIT_DAILY = "method_redrive:generation_daily_ceiling"
+# 19i29: another run of the same release is being re-judged (a free re-read of stored frames);
+# the method redrive (a paid regeneration) waits for it to finish.
+METHOD_REDRIVE_SIBLING = "method_redrive:sibling_rejudging"
 METHOD_REDRIVE_EVIDENCE = ("eligible", "done", "no_headroom")
 
 
@@ -874,48 +883,114 @@ def counted_calls(session, row) -> int:
     return max(0, calls - unbilled_calls(session, row))
 
 
-def restarts_spent(session, row) -> int:
-    """Restarts that count toward `MAX_RESTARTS`: every epoch except one whose every call was
-    never accepted (it made at least one call and none of them reached the provider's bill).
-    An epoch with no call at all still counts: the cap is also a thrash bound. The one
-    exception (D-RESTART-DUPLICATE-CREDIT) is a zero-generation fidelity re-judgement under a
-    (judge version, check version) an earlier re-judgement of the run already used
-    (`_duplicate_rejudgement`): our own duplicate, which the sweep can no longer make."""
+# D-RESTART-PER-METHOD (19i29): MAX_RESTARTS binds per generation-method version. A run whose
+# method version moved (`generation_method`: prompt builder, pattern references, PDF page
+# references, owner method) is a new product attempt and its restart budget starts fresh; the
+# restarts spent under older versions stay in the history and in the evidence
+# (`restart_counts`), and do not count against the current version's cap. Within one version
+# the cap binds exactly as before (the thrash bound). Spend caps are unchanged.
+#
+# Every history entry written from 19i29 carries `generation_method` (the version the restart
+# was made under). An entry written before carries none; a method redrive's entry names its
+# `method_version`. Otherwise the version is the one production ran at the entry's time:
+# 19i27 (cc3058b25, deployed 2026-11-25T11:42Z) introduced pattern-refs/3.1.6; 19i26
+# (74bd8d57a, 08:45Z) prompt builder 2.4.0 with pattern-refs/3.1.5. Anything earlier ran an
+# older method. An unstamped entry whose time cannot be read counts under the current version
+# (it cannot be shown to be older).
+HISTORY_METHOD_KEY = "generation_method"
+_LEGACY_METHOD_TIMELINE = (
+    ("2026-11-25T11:42:00+00:00",
+     "flux3-prompt-builder/2.4.0|pattern-refs/3.1.6|pdf-page-refs/1.0.0|owner_two_step/1"),
+    ("2026-11-25T08:45:00+00:00",
+     "flux3-prompt-builder/2.4.0|pattern-refs/3.1.5|pdf-page-refs/1.0.0|owner_two_step/1"),
+)
+LEGACY_METHOD_BEFORE_19I26 = "unstamped:before-2026-11-25T08:45Z"
+
+
+def entry_method_version(h: dict, current: str | None = None) -> str:
+    """The generation-method version restart-history entry `h` was made under."""
+    v = h.get(HISTORY_METHOD_KEY) or h.get("method_version")
+    if v:
+        return str(v)
+    at = _utc(h.get("at"))
+    if at is None:
+        return current or current_method_version()
+    for since, version in _LEGACY_METHOD_TIMELINE:
+        if at >= datetime.fromisoformat(since):
+            return version
+    return LEGACY_METHOD_BEFORE_19I26
+
+
+def restart_counts(session, row, *, current: str | None = None) -> dict:
+    """{"current": restarts counting toward MAX_RESTARTS (the current method version's),
+    "total": every counted restart of the run, "method_version": the current version,
+    "by_method": {version: counted restarts}}.
+
+    An epoch counts unless every call it made was never accepted (it made at least one call
+    and none reached the provider's bill). An epoch with no call at all still counts: the cap
+    is also a thrash bound. D-RESTART-DUPLICATE-CREDIT: a zero-generation fidelity
+    re-judgement under a (judge version, check version) an earlier re-judgement of the run
+    already used (`_duplicate_rejudgement`) is our own duplicate and does not count.
+    D-RESTART-PER-METHOD: only the epochs made under the current generation-method version
+    count toward the cap; the rest stay in `total` and `by_method`."""
+    current = current or current_method_version()
     stages = dict(row.stages or {})
     rec = stages.get(RESTART_KEY) or {}
     epoch = int(rec.get("epoch") or 0)
     history = [h for h in (rec.get("history") or []) if isinstance(h, dict)]
+    by: dict[str, int] = {}
     if not history:
-        return epoch
+        # no history to attribute: every epoch counts under the current version
+        if epoch:
+            by[current] = epoch
+        return {"current": epoch, "total": epoch, "method_version": current, "by_method": by}
     unaccepted = _unaccepted_rows(session, row.run_key)
-    free = 0
     for i, h in enumerate(history):
-        start, start_calls = _utc(h.get("at")), h.get("generation_calls")
-        if i + 1 < len(history):
-            nxt = history[i + 1]
-            end, end_calls, end_reason = _utc(nxt.get("at")), nxt.get("generation_calls"), \
-                nxt.get("blocked_reason")
-        elif row.status == "blocked":
-            end, end_calls, end_reason = None, row.generation_calls, row.blocked_reason
-        else:
-            continue          # the current epoch is still running: it counts
-        if start is None or not isinstance(start_calls, int) or not isinstance(end_calls, int):
+        if not _epoch_counts(history, i, row, unaccepted):
             continue
-        made = end_calls - start_calls
-        if made == 0 and _duplicate_rejudgement(history, i):
-            # D-RESTART-DUPLICATE-CREDIT: a zero-generation re-judgement under (judge version,
-            # check version) an earlier re-judgement of this run had already used. It added no
-            # generation and no new version: our own duplicate, not an attempt.
-            free += 1
-            continue
-        if made <= 0:
-            continue
-        lost = sum(1 for at in unaccepted
-                   if at is not None and at >= start and (end is None or at < end))
-        lost += 1 if _gate_refused(end_reason) else 0
-        if lost >= made:
-            free += 1
-    return max(0, epoch - free)
+        v = entry_method_version(h, current)
+        by[v] = by.get(v, 0) + 1
+    # epochs the history does not describe (never expected) count under the current version
+    missing = max(0, epoch - len(history))
+    if missing:
+        by[current] = by.get(current, 0) + missing
+    total = sum(by.values())
+    return {"current": by.get(current, 0), "total": total, "method_version": current,
+            "by_method": by}
+
+
+def _epoch_counts(history: list[dict], i: int, row, unaccepted) -> bool:
+    """Whether history entry `i`'s epoch counts as a spent restart (see `restart_counts`)."""
+    h = history[i]
+    start, start_calls = _utc(h.get("at")), h.get("generation_calls")
+    if i + 1 < len(history):
+        nxt = history[i + 1]
+        end, end_calls, end_reason = _utc(nxt.get("at")), nxt.get("generation_calls"), \
+            nxt.get("blocked_reason")
+    elif row.status == "blocked":
+        end, end_calls, end_reason = None, row.generation_calls, row.blocked_reason
+    else:
+        return True          # the current epoch is still running: it counts
+    if start is None or not isinstance(start_calls, int) or not isinstance(end_calls, int):
+        return True
+    made = end_calls - start_calls
+    if made == 0 and _duplicate_rejudgement(history, i):
+        # D-RESTART-DUPLICATE-CREDIT: a zero-generation re-judgement under (judge version,
+        # check version) an earlier re-judgement of this run had already used. It added no
+        # generation and no new version: our own duplicate, not an attempt.
+        return False
+    if made <= 0:
+        return True
+    lost = sum(1 for at in unaccepted
+               if at is not None and at >= start and (end is None or at < end))
+    lost += 1 if _gate_refused(end_reason) else 0
+    return lost < made
+
+
+def restarts_spent(session, row, *, current: str | None = None) -> int:
+    """Restarts that count toward `MAX_RESTARTS`: the counted epochs made under the current
+    generation-method version (D-RESTART-PER-METHOD; `restart_counts`)."""
+    return restart_counts(session, row, current=current)["current"]
 
 
 def _duplicate_rejudgement(history: list[dict], i: int) -> bool:
@@ -933,7 +1008,9 @@ def _duplicate_rejudgement(history: list[dict], i: int) -> bool:
 
 
 def _run_counts(db, key: str) -> dict:
-    """{"counted_calls", "restarts_spent", "unbilled_calls"} for run `key`."""
+    """{"counted_calls", "restarts_spent" (under the current generation-method version: what
+    MAX_RESTARTS reads), "restarts_total" (every method version), "unbilled_calls"} for run
+    `key`."""
     from sqlalchemy import select
 
     from .image_records import ImageProductionRun
@@ -941,9 +1018,11 @@ def _run_counts(db, key: str) -> dict:
     with db.session() as s:
         r = s.scalar(select(ImageProductionRun).where(ImageProductionRun.run_key == key))
         if r is None:
-            return {"counted_calls": 0, "restarts_spent": 0, "unbilled_calls": 0}
-        return {"counted_calls": counted_calls(s, r), "restarts_spent": restarts_spent(s, r),
-                "unbilled_calls": unbilled_calls(s, r)}
+            return {"counted_calls": 0, "restarts_spent": 0, "restarts_total": 0,
+                    "unbilled_calls": 0}
+        rc = restart_counts(s, r)
+        return {"counted_calls": counted_calls(s, r), "restarts_spent": rc["current"],
+                "restarts_total": rc["total"], "unbilled_calls": unbilled_calls(s, r)}
 
 
 # ---- one generation, through the budget --------------------------------------------------
@@ -2470,7 +2549,8 @@ def method_redrive_check(db, key: str, run: dict, failed: list[str]) -> dict:
     return out
 
 
-def _record_method_readback(db, key: str, chk: dict, status: str) -> None:
+def _record_method_readback(db, key: str, chk: dict, status: str, *,
+                            day: str | None = None) -> None:
     """Write the run's method-redrive readback (`stages._method_redrive`). The run's status,
     blocked reason, calls and spend are untouched."""
     from sqlalchemy import select
@@ -2488,6 +2568,7 @@ def _record_method_readback(db, key: str, chk: dict, status: str) -> None:
                                   "version": chk.get("version"),
                                   "why": str(chk.get("why") or "")[:500],
                                   "headroom": chk.get("headroom") or {},
+                                  **({"day": day} if day else {}),
                                   "at": _now().isoformat()}
         r.stages = st
         flag_modified(r, "stages")
@@ -2514,10 +2595,14 @@ def restartable(db, key: str, *, rejudge: bool = False) -> dict:
                                              "submit a new run from the Command Center"}
     if run["state"] != "blocked":
         return {"restartable": False, "why": f"run is {run['status']}, not blocked"}
-    spent = _run_counts(db, key)["restarts_spent"]
+    counts = _run_counts(db, key)
+    spent = counts["restarts_spent"]
     if spent >= MAX_RESTARTS:
-        return {"restartable": False, "why": f"already restarted {spent} times "
-                                             f"(cap {MAX_RESTARTS})"}
+        # D-RESTART-PER-METHOD: the cap binds per generation-method version.
+        return {"restartable": False, "code": RESTART_CAP_CODE,
+                "why": f"already restarted {spent} times under generation method "
+                       f"{current_method_version()} (cap {MAX_RESTARTS}; "
+                       f"{counts['restarts_total']} in all)"}
     reason = str(run.get("blocked_reason") or "")
     daily = reason.startswith("budget stop") and daily_ceiling_reset(run)
     if reason.startswith("budget stop") and not daily:
@@ -2617,6 +2702,8 @@ def restart(db, key: str, *, follow, by: str, reason: str = "",
             "blocked_reason": can["blocked_reason"][:1000], "resume_at": can["resume_at"],
             "reverify": can["reverify"], "generation_calls": r.generation_calls,
             "spent_cad": round(r.spent_cad or 0.0, 4),
+            # D-RESTART-PER-METHOD: the method version this restart is spent under
+            HISTORY_METHOD_KEY: current_method_version(),
             **({"method_version": can["method_redrive"]["version"]}
                if can.get("method_redrive") else {}), **dict(record or {})}]
         if can.get("method_redrive"):
@@ -2929,18 +3016,64 @@ def _vision_call_estimate_cad(vendor: str, provider) -> float:
     return float(anthropic.estimate_cad(model, input_tokens=tokens, output_tokens=300))
 
 
-def _fidelity_refusal_holds(stages: dict, version: str, day: str) -> bool:
+# 19i29 (production 16:37Z): hexagon-coaster-set@1.2.1's UNKNOWN reverify read `refusal_held`
+# at 2 of 3 restarts. The hold was recorded by 19i27's 12:00Z sweep, whose restart was refused
+# "already restarted 3 times (cap 3)" under (fidelity-judge/2, fidelity-checks/2), as a hold
+# for good. 19i28's duplicate credit then counted that history as 2, and per-method counting
+# (D-RESTART-PER-METHOD) counts it as 0 under the current method, but the hold outlived the
+# count it was made from. A refusal recorded because MAX_RESTARTS bound now holds only while
+# the cap still binds; every other hold is unchanged. The OpenAI vision headroom was not the
+# cause: CA$0.7635 of CA$2.00 spent (unchanged since 12:59Z), one re-judgement needs CA$0.022.
+#
+# A recorded refusal's cause, in a fixed vocabulary (`hold` in the readback).
+HOLD_CODES = (RESTART_CAP_CODE, "role_failed", "judged_now", "no_vision_route",
+              "vision_headroom", "restart_refused", "generation_headroom", "other")
+
+
+def hold_code(rec) -> str | None:
+    """The fixed-vocabulary cause of a recorded refusal (records before 19i29 carry no code:
+    read from their own words)."""
+    if not isinstance(rec, dict) or not rec:
+        return None
+    code = rec.get("code")
+    if code in HOLD_CODES:
+        return code
+    why = str(rec.get("why") or "")
+    for prefix, c in (("already restarted ", RESTART_CAP_CODE), ("a role FAILed", "role_failed"),
+                      ("every stored anchor frame is already judged", "judged_now"),
+                      ("no vision route is usable", "no_vision_route"),
+                      ("vision headroom unreadable", "vision_headroom")):
+        if why.startswith(prefix):
+            return c
+    if " daily ceiling: " in why and "re-judgement needs" in why:
+        return "vision_headroom"
+    return "other"
+
+
+def _cap_hold_lifted(rec, spent: int | None) -> bool:
+    """A refusal recorded because MAX_RESTARTS bound, while the cap no longer binds (the
+    count under the current generation-method version is below it)."""
+    return (spent is not None and spent < MAX_RESTARTS
+            and hold_code(rec) == RESTART_CAP_CODE)
+
+
+def _fidelity_refusal_holds(stages: dict, version: str, day: str, *,
+                            spent: int | None) -> bool:
     """The sweep judged this run under `version` and was refused: for good when the restart
-    itself was refused, for the UTC day when no vision route was usable."""
+    itself was refused, for the UTC day when no vision route (or no vision headroom) was
+    usable. A refusal by MAX_RESTARTS holds only while the cap binds (`spent`: restarts
+    under the current generation-method version)."""
     rec = stages.get(FIDELITY_REDRIVE_KEY) or {}
     if not isinstance(rec, dict) or rec.get("judge_version") != version \
             or rec.get("check_version") != fidelity_check_version():
+        return False
+    if _cap_hold_lifted(rec, spent):
         return False
     return rec.get("day") in (None, day)
 
 
 def _record_fidelity_refusal(db, key: str, version: str, why: str, *,
-                             day: str | None) -> None:
+                             day: str | None, code: str = "other") -> None:
     """Record that the fidelity redrive of `key` was refused under `version` (`day` set: only
     for that UTC day, because no vision route was usable)."""
     from sqlalchemy import select
@@ -2955,6 +3088,7 @@ def _record_fidelity_refusal(db, key: str, version: str, why: str, *,
         st = dict(r.stages or {})
         st[FIDELITY_REDRIVE_KEY] = {"judge_version": version,
                                     "check_version": fidelity_check_version(), "day": day,
+                                    "code": code if code in HOLD_CODES else "other",
                                     "why": why[:500], "at": _now().isoformat()}
         r.stages = st
         flag_modified(r, "stages")
@@ -2981,14 +3115,15 @@ def _sweep_fidelity_unknown(db, key: str, stages: dict, *, follow, restarted: li
         # A FAILed role is decided by the repair loop and the method redrive, never by a
         # re-judgement; recorded so `redrive_due` stops reporting it under this version.
         why = "a role FAILed: the repair loop and the method redrive own this run"
-        _record_fidelity_refusal(db, key, version, why, day=None)
+        _record_fidelity_refusal(db, key, version, why, day=None, code="role_failed")
         return False
     if _fidelity_redriven(stages, version):
         refused.append({"run_key": key, "why": f"already re-driven for an UNKNOWN fidelity "
                                                f"verdict under {version} "
                                                f"({fidelity_check_version()})"})
         return True
-    if _fidelity_refusal_holds(stages, version, day):
+    if _fidelity_refusal_holds(stages, version, day,
+                               spent=_run_counts(db, key)["restarts_spent"]):
         prior = str((stages.get(FIDELITY_REDRIVE_KEY) or {}).get("why") or "")
         refused.append({"run_key": key, "why": f"already judged under {version}: "
                                                f"{prior}"[:500]})
@@ -3001,17 +3136,17 @@ def _sweep_fidelity_unknown(db, key: str, stages: dict, *, follow, restarted: li
         # one of the run's MAX_RESTARTS on the same reading.
         why = (f"every stored anchor frame is already judged under {version} "
                f"({fidelity_check_version()}); a re-judgement would read nothing differently")
-        _record_fidelity_refusal(db, key, version, why, day=None)
+        _record_fidelity_refusal(db, key, version, why, day=None, code="judged_now")
         refused.append({"run_key": key, "why": why})
         return True
     if not vision_route_usable(db):
         why = "no vision route is usable for the fidelity verifier; re-judging would read UNKNOWN"
-        _record_fidelity_refusal(db, key, version, why, day=day)
+        _record_fidelity_refusal(db, key, version, why, day=day, code="no_vision_route")
         waiting.append({"run_key": key, "why": why})
         return True
     ok, why = _vision_headroom(db, 1)
     if not ok:
-        _record_fidelity_refusal(db, key, version, why, day=day)
+        _record_fidelity_refusal(db, key, version, why, day=day, code="vision_headroom")
         waiting.append({"run_key": key, "why": why})
         return True
     try:
@@ -3023,7 +3158,9 @@ def _sweep_fidelity_unknown(db, key: str, stages: dict, *, follow, restarted: li
     except Exception as exc:  # noqa: BLE001 - restart rolled back; stays blocked
         out = {"restarted": False, "why": f"restart not enqueued ({type(exc).__name__})"}
     if not out.get("restarted") and out.get("restartable") is False:
-        _record_fidelity_refusal(db, key, version, str(out.get("why") or ""), day=None)
+        _record_fidelity_refusal(db, key, version, str(out.get("why") or ""), day=None,
+                                 code=out.get("code") if out.get("code") == RESTART_CAP_CODE
+                                 else "restart_refused")
     (restarted if out.get("restarted") else refused).append(
         {"run_key": key, **{k: out[k] for k in ("epoch", "resume_at", "reverify", "why")
                             if k in out}})
@@ -3087,19 +3224,23 @@ def rejudge_candidate_ids(db, key: str) -> list[int]:
         return _rejudge_ids_in(s, key, fidelity_judge_version())
 
 
-def _rejudged(stages: dict, version: str, day: str) -> bool:
+def _rejudged(stages: dict, version: str, day: str, *, spent: int | None) -> bool:
     """Already re-judged under `version`, or judged and refused (for good, or for the UTC
-    day when no vision route was usable)."""
+    day when no vision route was usable). A refusal by MAX_RESTARTS holds only while the cap
+    binds (`spent`: restarts under the current generation-method version)."""
     history = (stages.get(RESTART_KEY) or {}).get("history") or []
     if any(isinstance(h, dict) and h.get("by") == FIDELITY_REJUDGE_BY
            and h.get("judge_version") == version for h in history):
         return True
     rec = stages.get(FIDELITY_REJUDGE_KEY) or {}
+    if _cap_hold_lifted(rec, spent):
+        return False
     return (isinstance(rec, dict) and rec.get("judge_version") == version
             and rec.get("day") in (None, day))
 
 
-def _record_rejudge_refusal(db, key: str, version: str, why: str, *, day: str | None) -> None:
+def _record_rejudge_refusal(db, key: str, version: str, why: str, *, day: str | None,
+                            code: str = "other") -> None:
     from sqlalchemy import select
     from sqlalchemy.orm.attributes import flag_modified
 
@@ -3111,6 +3252,7 @@ def _record_rejudge_refusal(db, key: str, version: str, why: str, *, day: str | 
             return
         st = dict(r.stages or {})
         st[FIDELITY_REJUDGE_KEY] = {"judge_version": version, "day": day, "why": why[:500],
+                                    "code": code if code in HOLD_CODES else "other",
                                     "at": _now().isoformat()}
         r.stages = st
         flag_modified(r, "stages")
@@ -3123,7 +3265,8 @@ def _rejudge_redrive_candidate(db, key: str, reason: str, stages: dict) -> bool:
         return False
     if (get_run(db, key) or {}).get("stage") != "fidelity_gate":
         return False
-    if _rejudged(stages, fidelity_judge_version(), str(_now().date())):
+    if _rejudged(stages, fidelity_judge_version(), str(_now().date()),
+                 spent=_run_counts(db, key)["restarts_spent"]):
         return False
     return bool(rejudge_candidate_ids(db, key))
 
@@ -3135,7 +3278,8 @@ def _sweep_fidelity_rejudge(db, key: str, *, follow, restarted: list, waiting: l
     version = fidelity_judge_version()
     if not vision_route_usable(db):
         why = "no vision route is usable for the fidelity verifier; re-judging would read UNKNOWN"
-        _record_rejudge_refusal(db, key, version, why, day=str(_now().date()))
+        _record_rejudge_refusal(db, key, version, why, day=str(_now().date()),
+                                code="no_vision_route")
         waiting.append({"run_key": key, "why": why})
         return
     n = len(rejudge_candidate_ids(db, key))
@@ -3143,7 +3287,8 @@ def _sweep_fidelity_rejudge(db, key: str, *, follow, restarted: list, waiting: l
     if not ok:
         # REDRIVE-ELIGIBILITY: the vision route's own daily ceiling (never a generation
         # ceiling: a re-judgement generates nothing) cannot cover the re-reads today.
-        _record_rejudge_refusal(db, key, version, why, day=str(_now().date()))
+        _record_rejudge_refusal(db, key, version, why, day=str(_now().date()),
+                                code="vision_headroom")
         waiting.append({"run_key": key, "why": why})
         return
     try:
@@ -3157,7 +3302,9 @@ def _sweep_fidelity_rejudge(db, key: str, *, follow, restarted: list, waiting: l
     if not out.get("restarted") and (out.get("restartable") is False
                                      or out.get("rejudge") is False):
         # Judged under this version: `redrive_due` stops asking; the method redrive decides.
-        _record_rejudge_refusal(db, key, version, str(out.get("why") or ""), day=None)
+        _record_rejudge_refusal(db, key, version, str(out.get("why") or ""), day=None,
+                                code=out.get("code") if out.get("code") == RESTART_CAP_CODE
+                                else "restart_refused")
     (restarted if out.get("restarted") else refused).append(
         {"run_key": key, "kind": "fidelity_rejudge",
          **{k: out[k] for k in ("epoch", "resume_at", "reverify", "why") if k in out}})
@@ -3243,6 +3390,11 @@ def redrive_capability_blocked(db, *, follow) -> dict:
                     ImageProductionRun.status == "blocked"))]
         updated = {r.run_key: r.updated_at for r in s.scalars(select(ImageProductionRun).where(
             ImageProductionRun.status == "blocked"))}
+    # 19i29: fidelity re-judgements (free re-reads) are judged before any method redrive (a
+    # paid regeneration), so a method redrive of a sibling run of the same release sees the
+    # re-judgement in flight and waits for it (`_sibling_rejudging`).
+    rows.sort(key=lambda t: 0 if (fidelity_unknown_block(t[1]) or fidelity_fail_block(t[1]))
+              else 1)
     gates = {g for _n, g in CAPABILITY_GATES}
     open_now = gates_now(db, keys=tuple(sorted(gates)))
     restarted, waiting, refused = [], [], []
@@ -3259,7 +3411,7 @@ def redrive_capability_blocked(db, *, follow) -> dict:
             continue
         if gate is None and _method_redrive_candidate(db, key, reason, stages):
             _sweep_method_redrive(db, key, follow=follow, method=method,
-                                  restarted=restarted, refused=refused)
+                                  restarted=restarted, refused=refused, waiting=waiting)
             continue
         if gate is None and stale_references_block(reason) and "#" not in key:
             _sweep_stale_references(db, key, stages, follow=follow, restarted=restarted,
@@ -3344,8 +3496,58 @@ def _method_redrive_candidate(db, key: str, reason: str, stages: dict) -> bool:
     return run.get("stage") == "fidelity_gate"
 
 
+def generation_daily_headroom(db, needed_cad: float) -> tuple[bool, str]:
+    """(ok, why): whether some activated paid image generator's own daily ceiling still covers
+    `needed_cad` today. Reads only (`paid_provider_gate.daily_headroom_cad`); the ceiling is
+    enforced at call time as before. With no active paid generator, or an unreadable store,
+    this does not hold the redrive (the generation gate decides, as before)."""
+    try:
+        from ..gateway import paid_provider_gate as G
+
+        now = _now()
+        active = [p for p in G.image_providers()
+                  if G.activation_state(db, p, G.GENERATION, now=now)["active"]]
+        if not active:
+            return True, ""
+        lefts = {p: G.daily_headroom_cad(db, p, G.GENERATION, now=now) for p in active}
+    except Exception:  # noqa: BLE001 - unreadable: the generation gate decides at call time
+        return True, ""
+    if any(v is None or v + 1e-9 >= needed_cad for v in lefts.values()):
+        return True, ""
+    best = max(lefts.values())
+    return False, (f"{METHOD_REDRIVE_WAIT_DAILY}: CA${best:.4f} left today under the "
+                   f"generation provider's daily ceiling ({', '.join(sorted(lefts))}); one "
+                   f"attempt needs CA${needed_cad:.4f}; waits for the next UTC day")
+
+
+def _sibling_rejudging(session, row) -> str | None:
+    """The key of another run of `row`'s release that is being re-judged now (not blocked, not
+    finished, its latest restart a fidelity re-judgement), or None."""
+    from sqlalchemy import select
+
+    from .image_records import ImageProductionRun
+
+    done = ("blocked", "ready_for_owner_review", "approved_for_publication")
+    for other in session.scalars(select(ImageProductionRun).where(
+            ImageProductionRun.slug == row.slug, ImageProductionRun.version == row.version,
+            ImageProductionRun.release == row.release,
+            ImageProductionRun.run_key != row.run_key)):
+        if "#" in other.run_key or other.status in done:
+            continue
+        hist = ((other.stages or {}).get(RESTART_KEY) or {}).get("history") or []
+        last = hist[-1] if hist and isinstance(hist[-1], dict) else {}
+        if last.get("by") in _REJUDGEMENT_BY:
+            return other.run_key
+    return None
+
+
 def _sweep_method_redrive(db, key: str, *, follow, method: dict, restarted: list,
-                          refused: list) -> None:
+                          refused: list, waiting: list | None = None) -> None:
+    from sqlalchemy import select
+
+    from .image_records import ImageProductionRun
+
+    waiting = waiting if waiting is not None else []
     run = get_run(db, key) or {}
     failed = _run_candidates_failed(db, key, run.get("listing", ""))
     chk = method_redrive_check(db, key, run, failed)
@@ -3358,6 +3560,24 @@ def _sweep_method_redrive(db, key: str, *, follow, method: dict, restarted: list
         method["no_headroom"].append(key)
         _record_method_readback(db, key, chk, "no_headroom")
         refused.append({"run_key": key, "code": chk["code"], "why": chk["why"]})
+        return
+    with db.session() as s:
+        row = s.scalar(select(ImageProductionRun).where(ImageProductionRun.run_key == key))
+        sibling = _sibling_rejudging(s, row) if row is not None else None
+    if sibling:
+        # 19i29: never race a sibling's re-judgement of the same release; nothing recorded,
+        # the next sweep looks again once it has finished.
+        waiting.append({"run_key": key, "code": METHOD_REDRIVE_SIBLING,
+                        "why": f"{METHOD_REDRIVE_SIBLING}: {sibling} is being re-judged"})
+        return
+    ok, why = generation_daily_headroom(db, float(
+        (chk.get("headroom") or {}).get("needed_cad") or _redrive_call_cost_cad()))
+    if not ok:
+        # 19i29: day-scoped; the restart is not spent on a call the daily ceiling refuses.
+        method["no_headroom"].append(key)
+        _record_method_readback(db, key, {**chk, "code": METHOD_REDRIVE_WAIT_DAILY,
+                                          "why": why}, "no_headroom", day=str(_now().date()))
+        waiting.append({"run_key": key, "code": METHOD_REDRIVE_WAIT_DAILY, "why": why})
         return
     try:
         out = restart(db, key, follow=follow, by=METHOD_REDRIVE_BY,
@@ -3418,7 +3638,7 @@ REDRIVE_REFUSALS = ("max_restarts", "experiment_one_shot", "already_redriven",
                     "refusal_held", "already_judged_now", "hourly_backoff",
                     "waiting_daily_reset", "seen_by_sweep", "no_frame_to_reread",
                     "failed_under_current_method", "no_failure", "gate_closed_or_redriven",
-                    "final_block")
+                    "final_block", "sibling_rejudging")
 
 
 def _redrive_kind(reason: str, stage: str) -> str:
@@ -3441,9 +3661,12 @@ def _redrive_kind(reason: str, stage: str) -> str:
 
 
 def _redrive_verdict(session, r, since, now: datetime, memo: dict) -> dict:
-    """{"kind", "due", "refused", "at", "restarts_spent"} for one blocked run row `r`: whether
-    the hourly sweep would restart it now and could not have at `since` (`due`), else the
-    first refusal that holds (`refused`, from REDRIVE_REFUSALS). Reads rows only."""
+    """{"kind", "due", "refused", "at", "restarts_spent", "restarts_total", "hold"} for one
+    blocked run row `r`: whether the hourly sweep would restart it now and could not have at
+    `since` (`due`), else the first refusal that holds (`refused`, from REDRIVE_REFUSALS).
+    `restarts_spent` is the count under the current generation-method version (what
+    MAX_RESTARTS reads, D-RESTART-PER-METHOD), `restarts_total` every version's; `hold` the
+    recorded cause (HOLD_CODES) when `refused` is `refusal_held`. Reads rows only."""
     from sqlalchemy import select
 
     from .image_records import ImageCandidate
@@ -3452,18 +3675,26 @@ def _redrive_verdict(session, r, since, now: datetime, memo: dict) -> dict:
     today = now.date()
     kind = _redrive_kind(reason, r.stage)
     rec = stages.get(RESTART_KEY) or {}
-    spent = restarts_spent(session, r) if rec else 0
-    out = {"kind": kind, "due": False, "refused": None, "at": None, "restarts_spent": spent}
+    if "current" not in memo:
+        memo["current"] = current_method_version()
+    counts = restart_counts(session, r, current=memo["current"]) if rec else {}
+    spent = int(counts.get("current") or 0)
+    out = {"kind": kind, "due": False, "refused": None, "at": None, "restarts_spent": spent,
+           "restarts_total": int(counts.get("total") or 0), "hold": None}
+    holds: list = []
 
     def no(code: str) -> dict:
-        return {**out, "refused": code}
+        hold = None
+        if code == "refusal_held":
+            hold = next((h for h in holds if h), "other")
+        return {**out, "refused": code, "hold": hold}
 
     def yes(kind_: str, at: str) -> dict:
         return {**out, "kind": kind_, "due": True, "at": at}
 
     if "#" in key:
         return no("experiment_one_shot")
-    if int(rec.get("epoch") or 0) >= MAX_RESTARTS and spent >= MAX_RESTARTS:
+    if spent >= MAX_RESTARTS:
         # Every restart path refuses this run (`restartable`). Not due: the probe must not lift
         # the sweep's backoff for it. Visible in the readback, never silently skipped.
         return no("max_restarts")
@@ -3490,7 +3721,9 @@ def _redrive_verdict(session, r, since, now: datetime, memo: dict) -> dict:
         if any(h.get("by") == DAILY_REDRIVE_BY and day in str(h.get("reason", ""))
                for h in history if isinstance(h, dict)):
             return no("already_redriven")
-        if (stages.get(DAILY_REDRIVE_KEY) or {}).get("day") == day:
+        judged = stages.get(DAILY_REDRIVE_KEY) or {}
+        if judged.get("day") == day and not _cap_hold_lifted(judged, spent):
+            holds.append(hold_code(judged))
             return no("refusal_held")     # the sweep already judged it today and was refused
         return yes(kind, reset_at.isoformat())
     first = None
@@ -3501,8 +3734,9 @@ def _redrive_verdict(session, r, since, now: datetime, memo: dict) -> dict:
         version = fidelity_judge_version()
         if _fidelity_redriven(stages, version):
             first = "already_redriven"
-        elif _fidelity_refusal_holds(stages, version, str(today)):
+        elif _fidelity_refusal_holds(stages, version, str(today), spent=spent):
             first = "refusal_held"
+            holds.append(hold_code(stages.get(FIDELITY_REDRIVE_KEY)))
         elif _anchor_frames_judged_now(session, key, version):
             first = "already_judged_now"
         else:
@@ -3511,20 +3745,25 @@ def _redrive_verdict(session, r, since, now: datetime, memo: dict) -> dict:
         # IMAGE-FIDELITY-2: due once per fidelity judge version while a FAILed anchor
         # frame would be read differently; a refusal holds for the day or the version.
         version = fidelity_judge_version()
-        if _rejudged(stages, version, str(today)):
+        if _rejudged(stages, version, str(today), spent=spent):
             first = first or "already_redriven"
         elif not _rejudge_ids_in(session, key, version):
             first = first or "no_frame_to_reread"
         else:
             return yes("fidelity_rejudge", now.isoformat())
     if r.stage == "fidelity_gate" and not reason.startswith("budget stop"):
-        if "current" not in memo:
-            memo["current"] = current_method_version()
         current = memo["current"]
         if any(isinstance(h, dict) and h.get("method_version") == current for h in history):
             return no(first or "already_redriven")
-        if (stages.get(METHOD_REDRIVE_KEY) or {}).get("version") == current:
-            return no(first or "refusal_held")    # judged under this method (no headroom...)
+        mr = stages.get(METHOD_REDRIVE_KEY) or {}
+        if mr.get("version") == current and not _cap_hold_lifted(mr, spent) \
+                and mr.get("day") in (None, str(today)):
+            # judged under this method (no headroom, a refused restart); a wait for the
+            # generation provider's daily ceiling holds for its UTC day only
+            if not first:
+                holds.append(hold_code(mr) if mr.get("code") != METHOD_REDRIVE_WAIT_DAILY
+                             else "generation_headroom")
+            return no(first or "refusal_held")
         fails = [candidate_method_version(c) for (c,) in session.execute(
             select(ImageCandidate.checks).where(ImageCandidate.run_key == key,
                                                 ImageCandidate.technical_status == "FAIL"))]
@@ -3532,6 +3771,8 @@ def _redrive_verdict(session, r, since, now: datetime, memo: dict) -> dict:
             return no(first or "no_failure")
         if current in fails:
             return no(first or "failed_under_current_method")
+        if _sibling_rejudging(session, r):
+            return no(first or "sibling_rejudging")
         return yes("method_redrive", now.isoformat())
     return no(first or "final_block")
 
@@ -3563,8 +3804,10 @@ MAX_READBACK_RUNS = 40
 
 def redrive_readback(session, *, now: datetime | None = None) -> dict:
     """REDRIVE-ELIGIBILITY: per blocked run key, whether the hourly sweep would restart it now
-    and, if not, why -- {"runs": {run_key: {"kind", "eligible", "refused", "restarts_spent"}},
-    "counts": {...}}. Fixed vocabulary and counts only; no reason text, no record. Reads rows
+    and, if not, why -- {"runs": {run_key: {"kind", "eligible", "refused", "restarts_spent",
+    "restarts_total", "max_restarts", "hold"}}, "counts": {...}}. `restarts_spent` is the count
+    under the current generation-method version (D-RESTART-PER-METHOD), `restarts_total` every
+    version's. Fixed vocabulary and counts only; no reason text, no record. Reads rows
     only (the sweep's own day-only checks -- a usable vision route, its headroom -- are
     recorded by the sweep as a refusal and read back here as `refusal_held`)."""
     now = (now or _now()).astimezone(timezone.utc)
@@ -3585,7 +3828,9 @@ def redrive_readback(session, *, now: datetime | None = None) -> dict:
             runs[str(r.run_key)[:200]] = {"kind": v["kind"], "eligible": bool(v["due"]),
                                           "refused": v["refused"],
                                           "restarts_spent": int(v["restarts_spent"]),
-                                          "max_restarts": MAX_RESTARTS}
+                                          "restarts_total": int(v["restarts_total"]),
+                                          "max_restarts": MAX_RESTARTS,
+                                          "hold": v.get("hold")}
     counts["by_refusal"] = {k: n for k, n in counts["by_refusal"].items() if n}
     return {"runs": runs, "counts": counts}
 

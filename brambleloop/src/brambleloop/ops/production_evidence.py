@@ -1560,8 +1560,13 @@ def _redrive_eligibility(db) -> dict:
                    "eligible": bool(v.get("eligible")),
                    "refused": v["refused"] if v.get("refused") in IP.REDRIVE_REFUSALS
                    else (None if v.get("refused") is None else "other"),
+                   # D-RESTART-PER-METHOD: under the current generation-method version
+                   # (what MAX_RESTARTS reads), and across every version
                    "restarts_spent": int(v.get("restarts_spent") or 0),
-                   "max_restarts": int(v.get("max_restarts") or IP.MAX_RESTARTS)}
+                   "restarts_total": int(v.get("restarts_total") or 0),
+                   "max_restarts": int(v.get("max_restarts") or IP.MAX_RESTARTS),
+                   # the recorded cause of a `refusal_held`, fixed vocabulary
+                   "hold": v["hold"] if v.get("hold") in IP.HOLD_CODES else None}
     return {"readable": True, "runs": runs, "counts": rb.get("counts") or {}}
 
 

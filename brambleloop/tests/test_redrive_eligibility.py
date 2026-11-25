@@ -114,6 +114,9 @@ def _hex_run(db, *, route: bool, history: list[dict], frames: int = 5,
 
 
 def _h(epoch: int, by: str, at: str, calls: int, **kw) -> dict:
+    """A restart-history entry made under the current generation method (19i29 stamps every
+    entry; D-RESTART-PER-METHOD counts only the current version's toward MAX_RESTARTS)."""
+    kw.setdefault(IP.HISTORY_METHOD_KEY, IP.current_method_version())
     return {"epoch": epoch, "by": by, "at": at, "reason": "fixture", "generation_calls": calls,
             "spent_cad": 0.0, "blocked_reason": kw.pop("blocked_reason", UNKNOWN_PALETTE), **kw}
 
@@ -160,7 +163,10 @@ def _vocabulary_only(ev: dict):
     for bad in FORBIDDEN_TEXT:
         assert bad not in text, (bad, text)
     for k, v in ev["runs"].items():
-        assert set(v) == {"kind", "eligible", "refused", "restarts_spent", "max_restarts"}, v
+        assert set(v) == {"kind", "eligible", "refused", "restarts_spent", "restarts_total",
+                          "max_restarts", "hold"}, v
+        assert v["hold"] is None or v["hold"] in IP.HOLD_CODES, v
+        assert v["restarts_total"] >= v["restarts_spent"], v
         assert v["kind"] in IP.REDRIVE_KINDS, v
         assert v["refused"] is None or v["refused"] in IP.REDRIVE_REFUSALS, v
 
@@ -189,7 +195,8 @@ def test_1_production_state_was_at_max_restarts_before_the_credit():
         ev = _evidence_runs(db)
         assert ev["runs"][a] == {"kind": "fidelity_unknown", "eligible": False,
                                  "refused": "max_restarts", "restarts_spent": 3,
-                                 "max_restarts": 3}, ev
+                                 "restarts_total": 3,
+                                 "max_restarts": 3, "hold": None}, ev
         assert ev["counts"]["at_max_restarts"] == 1, ev
         _vocabulary_only(ev)
     finally:
@@ -217,8 +224,8 @@ def test_1b_the_duplicate_epoch_is_credited_and_the_checks_2_reverify_fires_once
     ev = _evidence_runs(db)
     for key in (a, b):
         assert ev["runs"][key] == {"kind": "fidelity_unknown", "eligible": True,
-                                   "refused": None, "restarts_spent": 2,
-                                   "max_restarts": 3}, ev
+                                   "refused": None, "restarts_spent": 2, "restarts_total": 2,
+                                   "max_restarts": 3, "hold": None}, ev
     _vocabulary_only(ev)
     assert R._due(db)["kind"] == "fidelity_unknown"
     calls = []
