@@ -23,6 +23,32 @@ deployed); 6 are not; 2 name no resolvable branch.
 
 ---
 
+## VERIFY-REFS — 2026-11-26 (branch eng/verify-refs from 15f809bfb, NOT merged, NOT deployed)
+
+Production 19i30 (evidence 01:31Z; production rows and pixels NOT read; reproduced in
+tests/test_verify_refs.py):
+- hexagon-coaster-set@1.2.1, both runs, `verification:references:exhausted`: the LIFESTYLE frame's
+  structural Product Truth reading. `compose.lifestyle_evidence` FAILs any frame made from
+  pattern-derived references ("chart", informational), whatever it shows (W5-V1), so the run
+  blocks at verification with no repair bought. It is POLICY, not a misread, and is unchanged:
+  test_v6_gallery_e2e REMAINING_GATES "LIFESTYLE-EVIDENCE". It means no generated campaign
+  gallery with a LIFESTYLE frame can certify until the owner decides (a photographic reference
+  of a made sample, or a policy decision for the generated-gallery route, D-OWNER-FLUX-GALLERY).
+- `region_palette` UNKNOWN on every generated non-anchor frame (9): the product region was asked
+  of the identity adapters' image_vision-only judge (production: openai-vision only), so it was
+  never sent. Now asked of the routed fidelity judge (`fidelity.LIFESTYLE_REGION_ROUTE`
+  "lifestyle-region/2"). Faithful frame PASS; wrong main colour FAIL; item not clearly visible,
+  patches too small, or no route: UNKNOWN. `coaster:palette` 10 is three superseded anchor frames.
+- `verification_reverify` redrive: a structural verification block is re-verified once per
+  (judge, checks, region route), stored frames only, only when today's policy no longer reads a
+  stored frame structural (free check, `candidate_gates.lifestyle_structural`). Until then the
+  readback says `structural_reference` instead of `final_block`, and no vision call is spent.
+- market-basket-small@1.3.0 `product_generation:budget:exhausted` (both runs): the per-gallery
+  spend plan (call cap 12 / 20 for ~gallery, CA$2.00 money cap), not the FLUX daily ceiling
+  (CA$2.62 of CA$5; a daily stop is redrive-eligible, these read `final_block`). Spent on FAILed
+  vessel anchors (two renders each); every new frame FAILs `basket:sides` and `basket:wall_bands`
+  together. No misread reproduced. No cap raised: owner decision.
+
 ## GATE-EPISODE (19i30) — 2026-11-25 (branch claude/w6-release-19i30 from 41de0b6b3, NOT deployed)
 
 Production 19i29 (evidence 18:41Z; production rows NOT read, reproduced in
