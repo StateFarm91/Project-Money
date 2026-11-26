@@ -2574,7 +2574,7 @@ def _record_method_readback(db, key: str, chk: dict, status: str, *,
         flag_modified(r, "stages")
 
 
-def restartable(db, key: str, *, rejudge: bool = False) -> dict:
+def restartable(db, key: str, *, rejudge: bool = False, reverify_only: bool = False) -> dict:
     """Whether a blocked run may be restarted, and from which stage.
 
     Allowed: a run blocked by a missing capability (gate closed, no generator, a check the
@@ -2624,6 +2624,20 @@ def restartable(db, key: str, *, rejudge: bool = False) -> dict:
         return {"restartable": True, "resume_at": "fidelity_gate", "reverify": True,
                 "rejudge": True, "blocked_at": run["stage"], "blocked_reason": reason,
                 "epoch": run.get("restarts", 0) + 1}
+    if failed and reverify_only and run["stage"] == "verification" \
+            and structural_verification_block(reason):
+        # VERIFY-REFS (19i31): the run stopped on a structural reading the current Product
+        # Truth policy no longer gives any of its stored frames. The stored frames are
+        # verified again; nothing is generated, no attempt is added.
+        with db.session() as s_:
+            had, still = _structural_roles_in(s_, key)
+        if had and not still:
+            return {"restartable": True, "resume_at": "verification", "reverify": True,
+                    "reverify_only": True, "blocked_at": run["stage"],
+                    "blocked_reason": reason, "epoch": run.get("restarts", 0) + 1}
+        return {"restartable": False, "code": "structural_reference",
+                "why": f"structural: {still or had} still FAIL on their references under "
+                       f"today's policy; re-verifying the stored frames cannot change it"}
     if failed:
         chk = method_redrive_check(db, key, run, failed)
         if chk["eligible"] and not chk["ok"]:
@@ -2658,7 +2672,8 @@ def restartable(db, key: str, *, rejudge: bool = False) -> dict:
 
 
 def restart(db, key: str, *, follow, by: str, reason: str = "",
-            record: dict | None = None, rejudge: bool = False) -> dict:
+            record: dict | None = None, rejudge: bool = False,
+            reverify_only: bool = False) -> dict:
     """Restart a blocked run under a new epoch (W-VISNEXT; OWNERIMG E4).
 
     The next job carries `epoch` and its idempotency key ends `:e<epoch>`, so it never collides
@@ -2673,9 +2688,13 @@ def restart(db, key: str, *, follow, by: str, reason: str = "",
 
     if not str(by or "").strip():
         raise ValueError("a restart names who asked for it")
-    can = restartable(db, key, rejudge=rejudge)
+    can = restartable(db, key, rejudge=rejudge, reverify_only=reverify_only)
     if not can["restartable"]:
         return {"restarted": False, **can}
+    if reverify_only and not can.get("reverify_only"):
+        # a re-verification request never becomes a regeneration (a method redrive)
+        return {"restarted": False, "reverify_only": False,
+                "why": "not a structural verification block this policy reads differently"}
     if rejudge and not can.get("rejudge"):
         # a rejudge request never becomes another kind of restart (a method redrive)
         return {"restarted": False, "rejudge": False,
@@ -3346,6 +3365,110 @@ def _sweep_fidelity_rejudge(db, key: str, *, follow, restarted: list, waiting: l
          **{k: out[k] for k in ("epoch", "resume_at", "reverify", "why") if k in out}})
 
 
+# VERIFY-REFS (19i31): production 19i30 (01:31Z) shows both hexagon-coaster-set@1.2.1 runs
+# `verification:references:exhausted`, `final_block`. Both product frames passed fidelity and
+# lifestyle generation ran; verification then stopped on the LIFESTYLE frame's structural
+# Product Truth reading (W5-V1): `compose.lifestyle_evidence` FAILs a frame made from
+# pattern-derived references ("chart", informational), whatever the image shows, so no
+# regeneration is bought. That is policy (test_v6_gallery_e2e REMAINING_GATES
+# "LIFESTYLE-EVIDENCE": a photographic reference of a made sample, or an owner decision), not a
+# misread, and it is unchanged here. Separately, every generated non-anchor frame read
+# region_palette UNKNOWN because its product region was asked of the `image_vision`-only judge
+# (fixed: `fidelity.LIFESTYLE_REGION_ROUTE`).
+#
+# The redrive: a run blocked at `verification` on a structural reading is restarted ONCE per
+# `verify_redrive_version()` to re-verify its stored frames (reverify at `verification`; nothing
+# is generated, no attempt is added), and only when today's policy no longer reads any of its
+# stored FAILed frames as structural (`candidate_gates.lifestyle_structural`, recomputed free
+# from the stored references). While the policy still applies, re-verifying would spend vision
+# calls on the same block: the run reads `structural_reference` instead of `final_block`.
+# MAX_RESTARTS, the vision route's own daily ceiling, the call cap and the spend plan bind.
+STRUCTURAL_MARKER = "(structural: the references are pattern-derived"
+VERIFY_REDRIVE_BY = "verification_reverify_redrive"
+
+
+def structural_verification_block(reason) -> bool:
+    """A block whose recorded cause is a structural Product Truth reading at verification."""
+    return STRUCTURAL_MARKER in str(reason or "")
+
+
+def verify_redrive_version() -> str:
+    """The verification redrive's once-per key: the fidelity judge, its deterministic checks
+    and the lifestyle product-region route."""
+    from .fidelity import FIDELITY_CHECK_VERSION, FIDELITY_JUDGE_VERSION, LIFESTYLE_REGION_ROUTE
+
+    return f"{FIDELITY_JUDGE_VERSION}|{FIDELITY_CHECK_VERSION}|{LIFESTYLE_REGION_ROUTE}"
+
+
+def _structural_roles_in(session, key: str) -> tuple[list[str], list[str]]:
+    """(roles of run `key` with a stored FAIL recorded as structural, those of them today's
+    policy still reads structural). Reads rows; asks no judge."""
+    from sqlalchemy import select
+
+    from .image_records import ImageCandidate as IC
+
+    had, still = set(), set()
+    for role, slug, version, refs, binding, checks in session.execute(select(
+            IC.role, IC.slug, IC.version, IC.references, IC.binding, IC.checks).where(
+            IC.run_key == key, IC.technical_status == "FAIL")):
+        if structural_failure(checks) is None:
+            continue
+        had.add(role)
+        if CG.lifestyle_structural({"role": role, "slug": slug, "version": version,
+                                    "references": list(refs or [])}, dict(binding or {})):
+            still.add(role)
+    return sorted(had), sorted(still)
+
+
+def _verify_redriven(stages: dict, version: str) -> bool:
+    history = (stages.get(RESTART_KEY) or {}).get("history") or []
+    return any(isinstance(h, dict) and h.get("by") == VERIFY_REDRIVE_BY
+               and h.get("verify_version") == version for h in history)
+
+
+def _verify_redrive_candidate(db, key: str, reason: str) -> bool:
+    """A run the verification redrive owns: blocked at `verification` on a structural
+    reading, not an experiment."""
+    if "#" in key or not structural_verification_block(reason):
+        return False
+    return (get_run(db, key) or {}).get("stage") == "verification"
+
+
+def _sweep_verify_reverify(db, key: str, stages: dict, *, follow, restarted: list,
+                           waiting: list, refused: list) -> None:
+    version = verify_redrive_version()
+    if _verify_redriven(stages, version):
+        refused.append({"run_key": key, "kind": "verification_reverify",
+                        "why": f"already re-verified under {version}"})
+        return
+    with db.session() as s:
+        had, still = _structural_roles_in(s, key)
+    if still or not had:
+        refused.append({"run_key": key, "kind": "verification_reverify",
+                        "why": f"structural: {still or had} still FAIL on their references "
+                               f"under today's policy (an owner decision or a photographic "
+                               f"reference of a made sample decides it)"})
+        return
+    if not _vision_route_usable_read(db):
+        waiting.append({"run_key": key, "why": "no vision route is usable for the fidelity "
+                                               "verifier; re-verifying would read UNKNOWN"})
+        return
+    # every frame of the campaign is re-read (conservative: the whole standard gallery)
+    ok, why = _vision_headroom(db, SP.CAMPAIGN_MIN_FRAMES)
+    if not ok:
+        waiting.append({"run_key": key, "why": why})
+        return
+    try:
+        out = restart(db, key, follow=follow, by=VERIFY_REDRIVE_BY, reverify_only=True,
+                      reason=f"stored frames re-verified under {version}",
+                      record={"verify_version": version})
+    except Exception as exc:  # noqa: BLE001 - restart rolled back; stays blocked
+        out = {"restarted": False, "why": f"restart not enqueued ({type(exc).__name__})"}
+    (restarted if out.get("restarted") else refused).append(
+        {"run_key": key, "kind": "verification_reverify",
+         **{k: out[k] for k in ("epoch", "resume_at", "reverify", "why") if k in out}})
+
+
 # A budget stop whose only cause is the provider's DAILY ceiling is a window, not a verdict:
 # nothing was billed (the gate refused before sending) and the ceiling resets at the next UTC
 # day. Every other budget stop (the per-gallery cap, a monthly ceiling, a reservation) stays
@@ -3501,6 +3624,10 @@ def redrive_capability_blocked(db, *, follow) -> dict:
         if gate is None and _rejudge_redrive_candidate(db, key, reason, stages):
             _sweep_fidelity_rejudge(db, key, follow=follow, restarted=restarted,
                                     waiting=waiting, refused=refused)
+            continue
+        if gate is None and _verify_redrive_candidate(db, key, reason):
+            _sweep_verify_reverify(db, key, stages, follow=follow, restarted=restarted,
+                                   waiting=waiting, refused=refused)
             continue
         if gate is None and _method_redrive_candidate(db, key, reason, stages):
             _sweep_method_redrive(db, key, follow=follow, method=method,
@@ -3737,12 +3864,12 @@ def _midnight_after(day) -> datetime:
 # `continue`). `refused` is a fixed vocabulary, never free text.
 REDRIVE_KINDS = ("stale_references", "provider_transient", "daily_ceiling_reset",
                  "fidelity_unknown", "fidelity_rejudge", "method_redrive", "capability_gate",
-                 "none")
+                 "verification_reverify", "none")
 REDRIVE_REFUSALS = ("max_restarts", "experiment_one_shot", "already_redriven",
                     "refusal_held", "already_judged_now", "hourly_backoff",
                     "waiting_daily_reset", "seen_by_sweep", "no_frame_to_reread",
                     "failed_under_current_method", "no_failure", "gate_closed_or_redriven",
-                    "final_block", "sibling_rejudging")
+                    "final_block", "sibling_rejudging", "structural_reference")
 
 
 def _redrive_kind(reason: str, stage: str) -> str:
@@ -3761,6 +3888,8 @@ def _redrive_kind(reason: str, stage: str) -> str:
         return "fidelity_rejudge"
     if stage == "fidelity_gate" and not reason.startswith("budget stop"):
         return "method_redrive"
+    if stage == "verification" and structural_verification_block(reason):
+        return "verification_reverify"
     return "none"
 
 
@@ -3835,6 +3964,15 @@ def _redrive_verdict(session, r, since, now: datetime, memo: dict) -> dict:
             holds.append(hold_code(judged))
             return no("refusal_held")     # the sweep already judged it today and was refused
         return yes(kind, reset_at.isoformat())
+    if kind == "verification_reverify":
+        # VERIFY-REFS: once per verify version, and only when today's policy no longer reads
+        # a stored frame as structural (free; the sweep then checks the vision route).
+        if _verify_redriven(stages, verify_redrive_version()):
+            return no("already_redriven")
+        had, still = _structural_roles_in(session, key)
+        if still or not had:
+            return no("structural_reference")
+        return yes(kind, now.isoformat())
     first = None
     if r.stage == "fidelity_gate" and fidelity_unknown_block(reason):
         # IMAGE-FIDELITY-ROUTE: due once per (judge version, check version); a refusal holds

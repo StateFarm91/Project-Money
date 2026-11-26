@@ -293,14 +293,25 @@ class RealJudges:
                                   "provider": cand.get("provider") or "generated",
                                   "slug": cand.get("slug"), "version": cand.get("version"),
                                   "image": {"sha256": cand.get("sha256")}})
-        from .vision_judges import blind_consistency
+        from .vision_judges import blind_consistency, locate_product
 
-        fid = fidelity_reading(self.db, cand, bind, judge=self._fidelity_judge(),
-                               consistency=blind_consistency,
-                               locate=self.adapters().product_region)
+        judge = self._fidelity_judge()
+        adapters = self.adapters()
+
+        def locate(c: dict) -> dict:
+            # LIFESTYLE-REGION-ROUTE (19i31): the product-region question is a fidelity
+            # question (the palette inside the patches is measured in code), so it is asked of
+            # the fidelity verifier's routed judge, like craft texture and anchor consistency.
+            # It went to the adapters' `image_vision`-only judge; production has only
+            # openai-vision activated, so every lifestyle frame read region_palette UNKNOWN
+            # ("no product region is declared") while its other vision checks were answered.
+            return locate_product(judge, adapters._data(c))
+
+        fid = fidelity_reading(self.db, cand, bind, judge=judge,
+                               consistency=blind_consistency, locate=locate)
         out = {"structural_floor": floor, "fidelity": fid}
         status = FAIL if floor.get("status") == FAIL else fid["status"]
-        if JOB_OF_ROLE.get(cand.get("role")) == el.LIFESTYLE:
+        if applies_lifestyle_evidence(cand):
             le = lifestyle_reading(cand, bind)
             out["lifestyle_evidence"] = le
             status = worst(status, le["status"])
@@ -439,6 +450,7 @@ def fidelity_reading(db, cand: dict, bind: dict, *, judge=None, consistency=None
                                consistency=consistency)
     if located is not None:
         out = {**out, "product_region": {"source": "vision_judges.locate_product",
+                                         "route": FID.LIFESTYLE_REGION_ROUTE,
                                          "patches": located.get("patches") or [],
                                          "why": located.get("why") or ""}}
     return out
@@ -518,6 +530,23 @@ def _anchor_of(db, cand: dict, release: str, *, expected_cir_fingerprint: str | 
             return ({"status": PASS, "release_hash": best.get("release"),
                      "sha256": best["sha256"]}, data)
     return None, None
+
+
+def applies_lifestyle_evidence(cand: dict) -> bool:
+    """Whether Product Truth applies `compose.lifestyle_evidence` on top of fidelity for this
+    candidate (the LIFESTYLE job). The one place the policy's scope is decided."""
+    return JOB_OF_ROLE.get(cand.get("role")) == el.LIFESTYLE
+
+
+def lifestyle_structural(cand: dict, bind: dict) -> str | None:
+    """The structural reason today's Product Truth policy gives this candidate (a FAIL no
+    regeneration with the same references can change), or None. Deterministic and free:
+    recomputed from the stored role, references and binding; no judge is asked. The
+    verification redrive reads it to tell whether re-verifying stored frames could change
+    a structural block (VERIFY-REFS, 19i31)."""
+    if not applies_lifestyle_evidence(cand):
+        return None
+    return lifestyle_reading(cand, bind or {}).get("structural")
 
 
 def lifestyle_reading(cand: dict, bind: dict) -> dict:

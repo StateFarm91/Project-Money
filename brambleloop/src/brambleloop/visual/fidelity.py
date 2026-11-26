@@ -1327,6 +1327,13 @@ REJUDGED_CHECKS = ("craft_texture", ":wall_bands", ":palette", ":rim")
 # `VERIFIER_VERSION` is unchanged on purpose: it is part of `CHECKER`, which accepted anchors
 # are matched on, and no accepted PASS reads differently.
 FIDELITY_CHECK_VERSION = "fidelity-checks/2"
+# LIFESTYLE-REGION-ROUTE (19i31): which judge locates a lifestyle frame's product region.
+# "lifestyle-region/1" asked the identity adapters' `image_vision`-only judge, which production
+# (openai-vision activated, Anthropic vision not) never answers: every generated non-anchor
+# frame read region_palette UNKNOWN. "/2" asks the fidelity verifier's routed judge
+# (`RoutedVisionJudge`, the ASSET-VISION rule). Same prompt, same deterministic patch
+# validation and palette measurement; no route usable is still UNKNOWN.
+LIFESTYLE_REGION_ROUTE = "lifestyle-region/2"
 
 
 class RoutedVisionJudge(GatewayVisionJudge):
