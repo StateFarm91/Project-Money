@@ -196,9 +196,11 @@ SCRATCH = {
                                            "runtime/release.py::handle_controlled_experiment",
                                            ("controlled.run_job(", "ctx.audit(")),
     # The fidelity judge's scratch holds copies of the image bytes it was handed, for the
-    # provider call; its reading is returned to the gates that record it.
-    "visual/fidelity.py::read": ("caller", "visual/fidelity.py::craft_texture",
-                                 ("judge.read(",)),
+    # provider call; its reading is returned to the gates that record it. IMAGE-FIDELITY-ROUTE
+    # moved the scratch from `read` into `_send` (shared with RoutedVisionJudge's routes):
+    # `_send` returns the reading to `read`, which returns it to craft_texture's `judge.read(`.
+    "visual/fidelity.py::_send": ("caller", "visual/fidelity.py::craft_texture",
+                                  ("judge.read(",)),
     # ENG-AUTOCODER: the scratch is a throwaway checkout the model edits; every outcome (status,
     # branch, sha, spend) goes run -> _park/_refuse/_finish -> `_audit`, which writes the audit
     # row, and the change itself is the pushed `auto/ecr-*` branch (CI certifies it there).

@@ -324,3 +324,6 @@ tests/test_no_pause.py
 tests/test_flux_provider.py
 tests/test_image_stale_references.py
 tests/test_image_fidelity_route.py
+tests/test_image_gate_episode.py
+tests/test_redrive_eligibility.py
+tests/test_restart_per_method.py

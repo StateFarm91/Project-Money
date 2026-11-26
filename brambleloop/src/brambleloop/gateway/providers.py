@@ -319,7 +319,8 @@ NEUTRAL = frozenset({"BudgetExceeded", "AgentCeilingExceeded", "IMAGE_TOKENS_EST
                      # The probe record (has a real call succeeded?), the month's spend, an
                      # agent's daily ceiling and the assumed USD->CAD rate: ledger and probe
                      # readings, not a model call (F-091 rest, FMBATCH2).
-                     "usable", "last_probe", "spent_this_month_cad", "agent_daily_ceiling",
+                     "usable", "last_probe", "last_vision_probe", "spent_this_month_cad",
+                     "agent_daily_ceiling",
                      "USD_TO_CAD",
                      # The spend-ledger lock (pg advisory / BEGIN IMMEDIATE) every
                      # check-and-write of a ceiling row takes; a lock on the ledger, not a

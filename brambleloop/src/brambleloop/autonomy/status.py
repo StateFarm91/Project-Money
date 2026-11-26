@@ -130,19 +130,37 @@ def _summary(db, *, now: datetime) -> dict:
     except Exception:  # noqa: BLE001 - gates unreadable: say so per department
         gates = {}
 
+    # mc-perf (/api/cc/laura): each row's department is classified once, not once per
+    # department -- eleven passes over every job of the last 24 h were most of this reading.
+    by_dept: dict = {}
+    for r in recent:
+        by_dept.setdefault(job_department(r.job_type, r.inputs), []).append(r)
+    open_by_dept: dict = {}
+    for jt, inp in open_rows:
+        if jt != "autonomy.orchestrate":
+            k = job_department(jt, inp)
+            open_by_dept[k] = open_by_dept.get(k, 0) + 1
+    cadence_by_dept: dict = {}
+    for _n, _a, jt, _p in CADENCES:
+        cadence_by_dept.setdefault(charters.department_of(jt), set()).add(jt)
+    last_by_dept: dict = {}
+    for t, at in last_any.items():
+        if at:
+            k = charters.department_of(t)
+            at = _aware(at)
+            if k not in last_by_dept or at > last_by_dept[k]:
+                last_by_dept[k] = at
+
     items = []
     for ch in charters.CHARTERS:
-        mine = [r for r in recent if job_department(r.job_type, r.inputs) == ch.key]
+        mine = by_dept.get(ch.key, [])
         done = [r for r in mine if getattr(r.status, "value", r.status) == "done"]
         useful = [r for r in done if not did_no_work(r.outputs, r.job_type)]
         dead = [r for r in mine if getattr(r.status, "value", r.status) == "dead"]
-        n_open = sum(1 for jt, inp in open_rows if job_department(jt, inp) == ch.key
-                     and jt != "autonomy.orchestrate")
-        types = {jt for _n, _a, jt, _p in CADENCES if charters.department_of(jt) == ch.key}
+        n_open = open_by_dept.get(ch.key, 0)
+        types = set(cadence_by_dept.get(ch.key, ()))
         types |= set(ch.generatable)
-        last_run = max((_aware(last_any[t]) for t in last_any
-                        if charters.department_of(t) == ch.key and last_any[t]),
-                       default=None)
+        last_run = last_by_dept.get(ch.key)
         block = memory.active_block(db, ch.key, now=now)
         blockers = []
         if block:

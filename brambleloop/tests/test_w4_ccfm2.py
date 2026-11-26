@@ -75,6 +75,12 @@ def test_revenue_windows_sum_only_reconciled_measured_sales_when_measured():
     from brambleloop.core.models import LedgerEntry
     from brambleloop.finance.reconcile import RECONCILED
 
+    # A fixed clock, not the wall clock: with NOW read at import, the "today" sale placed 10
+    # minutes earlier fell on the previous UTC day whenever the suite ran in the first 10
+    # minutes after midnight (record run 20261125T204451Z-415 crossed 00:00Z), and the
+    # month expectation changed with the calendar. revenue_windows takes `now`, and nothing
+    # else here reads the time.
+    NOW = datetime(2026, 11, 15, 12, 0, tzinfo=timezone.utc)
     db = _db()
     with db.session() as s:
         def sale(at, gross, refunds=0.0, recon=RECONCILED, basis="measured", ref="r"):

@@ -252,14 +252,20 @@ def our_scores(db, slug: str) -> dict[str, float]:
             if v.get("score") is not None}
 
 
-def our_scores_detail(db, slug: str) -> dict[str, dict]:
-    """Per requirement key: the applicable score, or the stale audits that no longer apply."""
+_UNREAD = object()
+
+
+def our_scores_detail(db, slug: str, *, release=_UNREAD) -> dict[str, dict]:
+    """Per requirement key: the applicable score, or the stale audits that no longer apply.
+    `release`: the caller's own `current_release(db, slug)` reading, so one check reads it
+    once (mc-perf)."""
     from sqlalchemy import select
 
     from ..core.models import TeardownFinding
 
     ref = f"{SELF_PREFIX}{slug}"
-    release = current_release(db, slug)
+    if release is _UNREAD:
+        release = current_release(db, slug)
     current: dict[str, tuple[int, float]] = {}
     stale: dict[str, list[dict]] = {}
     with db.session() as s:
@@ -383,9 +389,9 @@ def check(db, slug: str, *, consumers: tuple[str, ...] | None = None,
     """Whether this product meets every requirement its consumers enforce."""
     reqs = [r for r in requirements(db)
             if consumers is None or set(r["consumers"]) & set(consumers)]
-    detail = our_scores_detail(db, slug)
-    ours = {k: v["score"] for k, v in detail.items() if v.get("score") is not None}
     release = current_release(db, slug)
+    detail = our_scores_detail(db, slug, release=release)
+    ours = {k: v["score"] for k, v in detail.items() if v.get("score") is not None}
     support = support_text_evidence() if any("support" in r["consumers"] for r in reqs) else {}
     if has_video is None:
         has_video = product_has_video(db, slug)

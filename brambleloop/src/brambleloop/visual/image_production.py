@@ -2983,7 +2983,7 @@ def _vision_route_read(db) -> tuple[str | None, str]:
     which is classified as spending. This reads evidence and model names, nothing more."""
     from ..gateway import paid_provider_gate as G
     from ..gateway import routing
-    from ..gateway.anthropic import last_vision_probe
+    from ..gateway.providers import last_vision_probe  # F-091: the boundary, a probe reading
     from . import vision_route
 
     try:
@@ -3049,9 +3049,7 @@ def _vision_call_estimate_cad(vendor: str, model: str) -> float:
         from ..gateway import openai_chat
 
         return float(openai_chat.estimate_cad(model, input_tokens=tokens, output_tokens=300))
-    from ..gateway import anthropic
-
-    return float(anthropic.estimate_cad(model, input_tokens=tokens, output_tokens=300))
+    return float(gw.estimate_cad(model, input_tokens=tokens, output_tokens=300))  # F-091
 
 
 # 19i29 (production 16:37Z): hexagon-coaster-set@1.2.1's UNKNOWN reverify read `refusal_held`

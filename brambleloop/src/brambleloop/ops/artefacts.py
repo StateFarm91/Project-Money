@@ -559,14 +559,17 @@ def newest_release(session, product_id: int, *, certified_only: bool = True):
 
     from ..core.models import PatternVersion
 
-    q = select(PatternVersion).where(PatternVersion.product_id == product_id)
+    # Ordered on (id, version) alone; only the chosen row is loaded (mc-perf: every reader of
+    # the current release decoded every version's certificate JSON to pick one).
+    q = select(PatternVersion.id, PatternVersion.version).where(
+        PatternVersion.product_id == product_id)
     if certified_only:
         q = q.where(PatternVersion.certified == True)  # noqa: E712
-    rows = list(session.scalars(q))
-    newest = newest_version([r.version for r in rows]) if rows else None
+    rows = list(session.execute(q))
+    newest = newest_version([v for _i, v in rows]) if rows else None
     if newest is None:
         return None
-    return max((r for r in rows if r.version == newest), key=lambda r: r.id)
+    return session.get(PatternVersion, max(i for i, v in rows if v == newest))
 
 
 def newest_certified(session, slug: str):

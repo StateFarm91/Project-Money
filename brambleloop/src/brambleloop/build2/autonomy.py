@@ -94,13 +94,16 @@ def off_device_proof(db, *, window_hours: int = WINDOW_HOURS,
         # Bounded in SQL. This loaded every job, every audit row, every incident and every
         # cost entry the company had ever written and filtered them in Python -- on an
         # endpoint the console polls, against tables growing by thousands of rows a day.
-        jobs = [(j.job_type, _aware(j.finished_at), j.status, j.last_error or "")
-                for j in s.scalars(select(Job).where(
+        # Four columns, not whole rows (mc-perf: inputs/outputs JSON was decoded for nothing).
+        jobs = [(jt, _aware(fin), st, err or "")
+                for jt, fin, st, err in s.execute(select(
+                    Job.job_type, Job.finished_at, Job.status, Job.last_error).where(
                     Job.finished_at.is_not(None), Job.finished_at >= since))]
         # #195 asks for restart/recovery evidence. A job that finished on a second or later
         # attempt was retried or reclaimed from a lease its worker stopped renewing -- the
         # restart case -- and still completed; that is recovery, counted from the rows.
-        recovered = [(j.job_type, int(j.attempts or 0)) for j in s.scalars(select(Job).where(
+        recovered = [(jt, int(n or 0)) for jt, n in s.execute(select(
+            Job.job_type, Job.attempts).where(
             Job.finished_at.is_not(None), Job.finished_at >= since,
             Job.status == JobStatus.DONE, Job.attempts > 1))]
         audit_hours = _cadence_hours(s, since)
