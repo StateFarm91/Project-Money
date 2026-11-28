@@ -664,7 +664,8 @@ def test_publication_gates_are_not_relaxed():
     pt_lif = lif["checks"]["product_truth"]
     assert pt_lif["status"] in ("FAIL", "UNKNOWN"), pt_lif["status"]
     le = pt_lif["lifestyle_evidence"]
-    assert le["basis"] == CG.LIFESTYLE_POLICY and le["publishable"] is False, le
+    assert le["basis"] == CG.LIFESTYLE_POLICY and "structural" not in le, le
+    assert le["publishable"] is False, le
     assert lif["publishable"] is False
     # an anchor with no vision reading is never PASS through the gates
     pt = CG.RealJudges(db).product_truth({**O.cand(data=img), "role": "product_anchor"},

@@ -35,7 +35,7 @@ def test_the_directive_activates_flux_generation_and_the_vision_judge_only():
     assert G.activation_state(db, "flux-3-image", "generation", now=NOW)["active"]
     assert G.activation_state(db, "openai-vision", "vision", now=NOW)["active"]
     act = G.activation_state(db, "flux-3-image", "generation", now=NOW)["activation"]
-    assert act["monthly_ceiling_cad"] <= 40.0 and act["daily_ceiling_cad"] <= 5.0, act
+    assert act["monthly_ceiling_cad"] <= 40.0 and act["daily_ceiling_cad"] <= 10.0, act   # D-OWNER-PHOTO-BUDGET
 
 
 def test_it_is_applied_once_and_never_renewed():

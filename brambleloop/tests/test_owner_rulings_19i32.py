@@ -429,6 +429,43 @@ def test_11_rule_2_a_worn_product_is_the_outfit_item():
     print("OK 11 rule 2: garment worn by Laura; base layer, no outerwear; still unique")
 
 
+def test_12_the_generated_floor_unknown_is_replaced_by_the_cir_fidelity_verdict():
+    """Production: every candidate's product_truth `why` names "structural floor UNKNOWN: no
+    qualified whole-product construction/gauge evidence producer". For a generated frame that
+    UNKNOWN is not the verdict: `RealJudges.product_truth` takes `visual.fidelity`'s
+    deterministic, CIR-driven verdict (piece count, isolation, vessel side count and wall bands,
+    palette, craft) in its place, and the floor only vetoes on a FAIL (a wrong stitch scale)."""
+    db = _db()
+    j = CG.RealJudges(db, second_vision=None, embedder=None)
+    cand = {"slug": "market-basket-medium", "version": "1.2.0", "role": IP.ANCHOR_ROLE,
+            "sha256": "0" * 64}
+    saved_f, saved_s = CG.fidelity_reading, None
+    from brambleloop.visual import product_authority as PA
+
+    for verdict in ("PASS", "FAIL", "UNKNOWN"):
+        CG.fidelity_reading = lambda *a, _v=verdict, **k: {
+            "status": _v, "why": "fixture", "codes": [], "failed": [], "unknown": []}
+        try:
+            pt = j.product_truth(cand, {})
+        finally:
+            CG.fidelity_reading = saved_f
+        assert pt["structural_floor"]["status"] == "UNKNOWN", pt["structural_floor"]
+        assert pt["status"] == verdict, (verdict, pt["status"], pt["why"])
+    # a floor FAIL (a wrong stitch scale) still vetoes a fidelity PASS
+    saved_s = PA.stitch_scale_reading
+    PA.stitch_scale_reading = lambda frame: {"verdict": "FAIL", "measured_px": 9,
+                                             "expected_px": 4}
+    CG.fidelity_reading = lambda *a, **k: {"status": "PASS", "why": "fixture", "codes": [],
+                                           "failed": [], "unknown": []}
+    try:
+        pt = j.product_truth(cand, {})
+    finally:
+        CG.fidelity_reading, PA.stitch_scale_reading = saved_f, saved_s
+    assert pt["structural_floor"]["status"] == "FAIL" and pt["status"] == "FAIL", pt
+    print("OK 12 generated frame: floor UNKNOWN is replaced by the CIR fidelity verdict; "
+          "a floor FAIL still vetoes")
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     tests.sort(key=lambda f: int(f.__name__.split("_")[1]))
