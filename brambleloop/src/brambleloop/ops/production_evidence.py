@@ -631,7 +631,7 @@ def _paid_refusals(db, *, now: datetime, since: datetime) -> dict:
                     "active": bool(st.get("active")),
                     "state_code": str(st.get("reason") or "")[:40],
                     "status": act.get("status"), "expires_at": act.get("expires_at"),
-                    "directive_sunset_at": OD.SUNSET.isoformat(),
+                    "directive_sunset_at": OD.directive_for(prov, scope)[1]["sunset"].isoformat(),
                     "daily_ceiling_cad": act.get("daily_ceiling_cad"),
                     "spent_or_reserved_today_cad": round(today, 4),
                     "reserved_older_than_1h": stale,

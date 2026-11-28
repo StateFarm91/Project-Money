@@ -5121,3 +5121,19 @@ Batch 19i35 (integration 0e39fd539) is deployed. It contains:
 - D-GENERATED-IMAGERY-TRUE, with CHAIN_VERSION 10 so stored copy rebuilds.
 
 Authority: the owner's directive of 2026-11-28. The 33 targeted suites pass (592, plus 1 stale pin fixed in 0e39fd539). SHADOW remains until a recorded full suite on the deployed tree exists.
+
+## D-OWNER-PHOTO-VISION — 2026-11-28T16:50Z (owner directive, in their own words)
+
+The owner was asked for the one remaining photo owner action: turn on anthropic-vision as the second, independent vision vendor at CA$2/day, CA$10/month and CA$1 per gallery. They answered in the integrating session: "Im on my phone. You do it. I approve".
+
+Why it is needed: Laura identity needs readings from two different vendors, and two OpenAI readings count as one (vision-gate-route, `person_readings`).
+
+How it is recorded:
+- `ops/owner_directives.py` gets the triple ("anthropic-vision", "vision") under its OWN directive (`DIRECTIVES`, `TRIPLE_DIRECTIVE`). It has its own given-at time (2026-11-28T16:50Z), 30-day window and actor `owner-directive:D-OWNER-PHOTO-VISION`, so it is never back-dated into D-OWNER-APPROVE-ALL's window.
+- It is written once and never renewed.
+- The row records `session_public_id: None`, `step_up_performed: False`: no login, step-up or signature happened, and nothing claims one.
+- The ceilings sit inside the unchanged CA$100/month company ceiling. No other cap changed.
+
+The Anthropic vision probe (`ops.capability_probes`, 6-hourly, reuse rule in `vision_probe_if_due`) then decides whether the `image_vision` gate opens. A key alone never opens it.
+
+Tests: `tests/test_owner_photo_vision.py` (5). `test_owner_directive_approve_all` and `test_b19_security_directive` now scope their "never renewed" assertions to the original directive's triples.

@@ -69,7 +69,9 @@ def test_s1_a_fresh_store_after_the_window_is_never_given_an_activation():
     db = _db()
     later = GIVEN + D.EXPIRY + timedelta(minutes=1)
     out = D.apply(db, now=later)
-    assert out["activated"] == [], out
+    # only D-OWNER-PHOTO-VISION's own (later) window may still write its own triple
+    assert [a for a in out["activated"]
+            if D.directive_for(*a.split(":"))[0] == D.DIRECTIVE_ID] == [], out
     assert not _active(db, now=later)
 
 

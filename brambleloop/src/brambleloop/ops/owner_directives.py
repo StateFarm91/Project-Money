@@ -45,7 +45,37 @@ ACTIVATIONS: dict[tuple[str, str], dict] = {
                                      "per_gallery_cad": 6.0},
     ("openai-vision", "vision"): {"daily_ceiling_cad": 2.0, "monthly_ceiling_cad": 10.0,
                                   "per_gallery_cad": 1.0},
+    # D-OWNER-PHOTO-VISION (2026-11-28T16:50Z): the second, independent vision vendor, so Laura
+    # identity can get two readings from different vendors (two OpenAI readings count as one).
+    # The owner, in their own words in the integrating session: "Im on my phone. You do it. I
+    # approve" -- answering the exact request for anthropic-vision at CA$2/day, CA$10/month,
+    # CA$1 per gallery. It carries its OWN directive id, window and actor (`DIRECTIVES`).
+    ("anthropic-vision", "vision"): {"daily_ceiling_cad": 2.0, "monthly_ceiling_cad": 10.0,
+                                     "per_gallery_cad": 1.0},
 }
+
+# Which directive authorises which triple. A triple not listed here belongs to the original
+# D-OWNER-APPROVE-ALL. Each later directive has its own id, given-at time, 30-day window and
+# actor, so its authority is never back-dated into another directive's window.
+PHOTO_VISION_ID = "D-OWNER-PHOTO-VISION"
+PHOTO_VISION_AT = "2026-11-28T16:50:00Z"
+PHOTO_VISION_GIVEN_AT = datetime(2026, 11, 28, 16, 50, tzinfo=timezone.utc)
+DIRECTIVES: dict[str, dict] = {
+    DIRECTIVE_ID: {"at": DIRECTIVE_AT, "given_at": GIVEN_AT, "sunset": SUNSET,
+                   "actor": ACTOR},
+    PHOTO_VISION_ID: {"at": PHOTO_VISION_AT, "given_at": PHOTO_VISION_GIVEN_AT,
+                      "sunset": PHOTO_VISION_GIVEN_AT + EXPIRY,
+                      "actor": f"owner-directive:{PHOTO_VISION_ID}"},
+}
+TRIPLE_DIRECTIVE: dict[tuple[str, str], str] = {
+    ("anthropic-vision", "vision"): PHOTO_VISION_ID,
+}
+
+
+def directive_for(provider: str, scope: str) -> tuple[str, dict]:
+    """The (directive id, spec) that authorises a triple in `ACTIVATIONS`."""
+    did = TRIPLE_DIRECTIVE.get((str(provider), str(scope)), DIRECTIVE_ID)
+    return did, DIRECTIVES[did]
 
 # Owner decisions that RAISE a directive activation's ceilings after it was written. `apply`
 # writes each activation once and never renews it; an amendment only lifts a live row's
@@ -96,8 +126,10 @@ def waiver_granted(decision_id: str, gate: str, *, now: datetime | None = None) 
 def recognised(step_up: dict | None, provider: str, scope: str) -> bool:
     """Whether a row's evidence is this directive, for exactly a triple it covers."""
     su = step_up or {}
-    return (su.get("owner_directive") == DIRECTIVE_ID
-            and (str(provider), str(scope)) in ACTIVATIONS)
+    if (str(provider), str(scope)) not in ACTIVATIONS:
+        return False
+    did, _spec = directive_for(provider, scope)
+    return su.get("owner_directive") == did
 
 
 def _aware(v):
@@ -114,9 +146,10 @@ def authorises(row) -> bool:
     from ..gateway import paid_provider_gate as G
 
     try:
-        if str(row.activated_by or "") != ACTOR:
-            return False
         if not recognised(row.step_up, row.provider, row.scope):
+            return False
+        _did, spec = directive_for(row.provider, row.scope)
+        if str(row.activated_by or "") != spec["actor"]:
             return False
         if (row.step_up or {}).get("session_public_id"):
             return False                       # a directive row never claims a login
@@ -130,7 +163,8 @@ def authorises(row) -> bool:
         if not 1 <= int(row.max_calls_per_run or 0) <= G.DEFAULT_MAX_CALLS_PER_RUN:
             return False
         at, exp = _aware(row.activated_at), _aware(row.expires_at)
-        if at is None or exp is None or at < GIVEN_AT - _SLACK or at > SUNSET:
+        if (at is None or exp is None or at < spec["given_at"] - _SLACK
+                or at > spec["sunset"]):
             return False
         return exp - at <= EXPIRY + _SLACK
     except Exception:  # noqa: BLE001 - unreadable evidence authorises nothing
@@ -147,11 +181,6 @@ def apply(db, *, now: datetime | None = None) -> dict:
 
     now = _aware(now) or datetime.now(timezone.utc)
     out = {"directive": DIRECTIVE_ID, "activated": [], "already": [], "refused": []}
-    if not GIVEN_AT <= now <= SUNSET:
-        out["refused"].append({"why": f"outside the directive's window {GIVEN_AT.isoformat()}"
-                                      f"..{SUNSET.isoformat()}; never renewed by the system"})
-        return out
-    expires = min(now + EXPIRY, SUNSET)
     try:
         G.ensure_tables(db)
         company = gw.monthly_ceiling_cad()
@@ -159,6 +188,16 @@ def apply(db, *, now: datetime | None = None) -> dict:
         out["refused"].append({"why": f"store unreadable: {type(exc).__name__}"})
         return out
     for (provider, scope), ceil in ACTIVATIONS.items():
+        did, spec = directive_for(provider, scope)
+        actor = spec["actor"]
+        if not spec["given_at"] <= now <= spec["sunset"]:
+            out["refused"].append({"activation": f"{provider}:{scope}",
+                                   "why": f"outside {did}'s window "
+                                          f"{spec['given_at'].isoformat()}.."
+                                          f"{spec['sunset'].isoformat()}; never renewed by "
+                                          "the system"})
+            continue
+        expires = min(now + EXPIRY, spec["sunset"])
         try:
             # B19-SEC S3: check-and-write under the spend lock (pg advisory / BEGIN IMMEDIATE)
             # so a booting web process and the hourly job cannot both write the triple.
@@ -166,7 +205,7 @@ def apply(db, *, now: datetime | None = None) -> dict:
                 prior = s.scalar(select(G.PaidProviderActivation).where(
                     G.PaidProviderActivation.provider == provider,
                     G.PaidProviderActivation.scope == scope,
-                    G.PaidProviderActivation.activated_by == ACTOR).limit(1))
+                    G.PaidProviderActivation.activated_by == actor).limit(1))
                 if prior is not None:
                     out["already"].append(f"{provider}:{scope}")
                     amended = _amend(s, prior, provider, scope, ceil, now)
@@ -178,8 +217,8 @@ def apply(db, *, now: datetime | None = None) -> dict:
                                            "why": "exceeds the company monthly ceiling"})
                     continue
                 row = G.PaidProviderActivation(
-                    provider=provider, scope=scope, activated_by=ACTOR, activated_at=now,
-                    step_up={"owner_directive": DIRECTIVE_ID, "directive_at": DIRECTIVE_AT,
+                    provider=provider, scope=scope, activated_by=actor, activated_at=now,
+                    step_up={"owner_directive": did, "directive_at": spec["at"],
                              "session_public_id": None, "step_up_performed": False},
                     daily_ceiling_cad=ceil["daily_ceiling_cad"],
                     monthly_ceiling_cad=ceil["monthly_ceiling_cad"],
@@ -187,12 +226,12 @@ def apply(db, *, now: datetime | None = None) -> dict:
                     max_attempts_per_request=G.DEFAULT_MAX_ATTEMPTS,
                     max_calls_per_run=G.DEFAULT_MAX_CALLS_PER_RUN,
                     expires_at=expires,
-                    note=f"owner directive {DIRECTIVE_ID} ({DIRECTIVE_AT}); no step-up")
+                    note=f"owner directive {did} ({spec['at']}); no step-up")
                 s.add(row)
                 s.flush()
-                s.add(AuditLog(at=now, actor=ACTOR[:64], action=ACTION,
+                s.add(AuditLog(at=now, actor=actor[:64], action=ACTION,
                                artifact=f"{provider}:{scope}",
-                               detail={"directive": DIRECTIVE_ID, "activation_id": row.id,
+                               detail={"directive": did, "activation_id": row.id,
                                        **ceil, "expires_at": expires.isoformat()}))
                 out["activated"].append(f"{provider}:{scope}")
         except Exception as exc:  # noqa: BLE001 - one failure never blocks the other

@@ -45,7 +45,10 @@ def test_it_is_applied_once_and_never_renewed():
     assert again["activated"] == [] and len(again["already"]) == 2, again
     later = NOW + D.EXPIRY + timedelta(days=1)
     assert not G.activation_state(db, "flux-3-image", "generation", now=later)["active"]
-    assert D.apply(db, now=later)["activated"] == []      # expired: never renewed by the system
+    # expired: never renewed by the system. (D-OWNER-PHOTO-VISION's later, separate window may
+    # write its own triple then; this directive's triples are never written again.)
+    assert not [a for a in D.apply(db, now=later)["activated"]
+                if D.directive_for(*a.split(":"))[0] == D.DIRECTIVE_ID]
 
 
 def test_no_other_provider_or_scope_can_claim_directive_authority():
