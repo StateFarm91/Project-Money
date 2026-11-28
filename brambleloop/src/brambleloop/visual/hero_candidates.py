@@ -81,11 +81,22 @@ def _disclosed_alternatives(slug: str, hero: dict, work_dir: str, refused: dict)
     from . import render_verification as RV
 
     out = []
+    drawn = hero.get("disclosed_render")
+    version = (drawn.get("version") if isinstance(drawn, dict) else None) or hero.get("version")
     try:
-        cir = RV.authoritative_cir(slug, (hero.get("disclosed_render") or {}).get("version")
-                                   or hero.get("version"))
+        cir = RV.authoritative_cir(slug, version)
     except Exception as exc:  # noqa: BLE001
         refused["*"] = f"no authoritative CIR: {exc}"[:200]
+        return out
+    if cir is None:
+        # GRID-TOURNAMENT (2026-11-28): `authoritative_cir` answers None, without raising,
+        # when no registry defines the slug or the hero was drawn for a version that is not
+        # the builder's released one (it never answers for an asked-for version, so a frame
+        # is not verified against itself). Read as a CIR, that None dead-lettered the whole
+        # weekly grid with AttributeError. No authority means no verified alternative; the
+        # hero on file still stands as a candidate.
+        refused["*"] = (f"no authoritative CIR for {slug}@{version or '?'}: the hero was drawn "
+                        f"for a version the design's registry does not release")[:200]
         return out
     tries = []
     if len(cir.components) == 1:
@@ -103,7 +114,8 @@ def _disclosed_alternatives(slug: str, hero: dict, work_dir: str, refused: dict)
             refused[label] = "the spacing does not apply to this product's hero"
             continue
         sha = hashlib.sha256(frame.png).hexdigest()
-        if sha == (hero.get("image") or {}).get("sha256"):
+        image = hero.get("image")
+        if sha == (image.get("sha256") if isinstance(image, dict) else None):
             refused[label] = "identical to the hero on file"
             continue
         verdict = RV.verify(frame.png, cir=cir, view=view)
