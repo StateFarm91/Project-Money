@@ -5014,3 +5014,21 @@ It also carries VERIFY-REFS:
 It is deployed under the owner's chat approval of 2026-11-25 for photo fixes. The targeted suites pass on the merged tree. Two owner decisions are pending and nothing changes them:
 - the LIFESTYLE-EVIDENCE policy for generated lifestyle frames;
 - the market-basket per-gallery plan.
+
+## 2026-11-28 — D-MANUAL-METHOD: the owner's hand FLUX 3 method is the factory's image method
+
+- **Decision.** Product masters condition on the certified PDF's pages and an art-directed
+  prose spec derived from the release's CIR. CIR diagram renders bind the release but are not
+  transmitted. A failed master is corrected by a targeted edit naming the gate's codes. Every
+  derivative is conditioned on the accepted master (and a vessel's accepted side view) plus the
+  accepted lifestyle frame as the campaign reference. Method version `manual_method/1`.
+- **Why.** `research/MANUAL-METHOD-COMPARISON.md`: the diagrams-first, diagnostic-frame,
+  regenerate-from-scratch factory produced neither attractive nor passing frames, and the
+  owner's method produced attractive ones.
+- **What does not change.** Gates, caps, the listing floor, the gate's anchor cameras and Laura.
+- **Open for the owner.** A portrait lifestyle frame needs either a 4k-tier request with
+  references (undocumented, US$0.607) or a floor rule of 2000 px on the long side.
+- **Resolved 2026-11-28 (release coordinator, 19i34 integration).** Lifestyle stays square 2k.
+  The 2000 px listing floor is not lowered and the undocumented 4k tier is not used. No code
+  change: `manual_method/1` already emits square lifestyle frames.
+- **Reversible.** Yes: one generator flag (`ACCEPTS_MANUAL_METHOD`).

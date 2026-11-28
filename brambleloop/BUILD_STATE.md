@@ -107,6 +107,42 @@ draft or activation (order ingest only).
 
 ---
 
+## MANUAL-METHOD — 2026-11-28 (branch eng/manual-method from 46908fe66, NOT merged, NOT deployed)
+
+The owner supplied a handoff describing their October 28 manual FLUX 3 method for the hexagon
+basket v1.2.0 (= `market-basket-medium@1.2.0`). The request-by-request comparison with the
+factory is in `research/MANUAL-METHOD-COMPARISON.md`, with the factory's actual prompts and
+reference lists included verbatim (stub provider, no spend). Why the factory underperformed:
+- the four CIR diagram renders lead every product request, with the layout diagram named as
+  the authority, and the PDF pages only fill leftover slots;
+- the product frame is a taupe measurement photo, and it is the master every derivative uses
+  (for a vessel, the top-down view);
+- repair regenerates from scratch with more negatives, and never edits the near-miss;
+- no room or campaign reference is ever sent, and styled frames "edit" the diagnostic frame;
+- prompts are compliance text without art direction.
+
+The fix is `image_method: manual_method/1` (`creative/manual_method.py`, plus stages in
+`image_stages`, `Flux3Generator._manual` and `image_production`):
+- product master: PDF pages only, an art-directed prose spec from the release's own CIR (the
+  colour sequence in working order), and a light editorial surface at least 25 ΔE from every
+  yarn colour; the gate's cameras are kept;
+- correction: a targeted edit of the failed candidate, naming the gate's codes;
+- lifestyle: canonical three, the accepted master, a vessel's accepted side view, then the
+  accepted lifestyle frame as the campaign reference for every later frame;
+- styled frames: the master plus that reference, with category props;
+- the receipt records prompt text, aspect, tier and provider attempt.
+
+Tested on the basket, the coaster set and the Cloudline blanket (`tests/test_manual_method.py`).
+The method version moves, so FAILed runs get one method redrive under the existing caps. No
+gate, cap or floor changed.
+
+OWNER DECISION (not done): a portrait lifestyle frame cannot meet the 2000 px-each-side
+listing floor under the 4 MP bound FLUX 3 places on output when references are sent, so
+lifestyle stays square. Real output has not been inspected yet; that needs a deploy and the
+candidate viewer (eng/candidate-viewer).
+
+---
+
 ## VERIFY-REFS — 2026-11-26 (branch eng/verify-refs from 15f809bfb, NOT merged, NOT deployed)
 
 Production 19i30 (evidence 01:31Z; production rows and pixels NOT read; reproduced in

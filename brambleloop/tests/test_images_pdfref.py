@@ -193,8 +193,12 @@ def test_the_request_carries_the_pages_in_the_documented_images_field_in_order()
                      outfit=None, attempt=1)
     sent = stub.calls[0]["refs"]
     entry = PR.pages_for(BASKET_PDF)
-    n_cir = len(S.PRODUCT_ROLES)
+    # ENG-MANUAL-METHOD (manual_method/1): the product master conditions on the certified
+    # PDF's pages ONLY; the four CIR renders bind the release and are not transmitted.
+    n_cir = 0
     want = [p["sha256"] for p in entry["pages"]][:F.MAX_REFERENCES - n_cir]
+    assert not set(stub.calls[0]["ref_sha256s"]) & {
+        r["sha256"] for r in refs if not PR.is_page_ref(r)}
     assert stub.calls[0]["ref_sha256s"][n_cir:] == want
     assert len(sent) <= F.MAX_REFERENCES
     # the receipt names each page's position, kind, page number and field
@@ -208,7 +212,7 @@ def test_the_request_carries_the_pages_in_the_documented_images_field_in_order()
     assert rec["input_sha256s"][n_cir:] == want
     # the prompt's reference map names the PDF pages by position
     prompt = stub.calls[0]["prompt"]
-    assert f"image {n_cir + 1} = {PR.LABELS['pdf_cover']}" in prompt
+    assert "Image 1 is a page of the certified pattern PDF: the cover" in prompt
     # the body the gateway actually builds for FLUX 3 Image: `images`, base64, in that order
     body = stub.calls[0]["body"]
     F.validate_request(body)
@@ -241,8 +245,9 @@ def test_pages_never_displace_a_reference_or_exceed_the_provider_limit():
                outfit=None, attempt=1)
     sent = stub.calls[0]["refs"]
     assert len(sent) == 6
-    cir = [r["sha256"] for r in refs if not PR.is_page_ref(r)]
-    assert stub.calls[0]["ref_sha256s"][:4] == cir
+    # manual_method/1: pages only, the first six in their chosen order
+    pages = [r["sha256"] for r in refs if PR.is_page_ref(r)]
+    assert stub.calls[0]["ref_sha256s"] == pages[:6]
 
 
 def test_a_substituted_page_is_refused_before_anything_is_sent():

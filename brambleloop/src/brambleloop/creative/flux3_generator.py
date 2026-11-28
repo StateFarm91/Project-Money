@@ -58,6 +58,15 @@ ACCEPTS_STAGED_METHOD = True
 # `accepted_product_frame` is conditioned on that frame plus the canonical three, nothing else.
 ACCEPTS_OWNER_METHOD = True
 PRODUCT_FRAME_LABEL = "accepted_product_frame"
+# ENG-MANUAL-METHOD (manual_method/1): the owner's October 28 hand method, generalised
+# (`creative.manual_method`). The orchestrator hands three more prior candidates to a generator
+# that declares it: `correction_base` (the failed product candidate a correction edits),
+# `accepted_product_side` (a vessel's accepted side view) and `campaign_reference` (the
+# listing's accepted lifestyle frame, for room and campaign continuity).
+ACCEPTS_MANUAL_METHOD = True
+CORRECTION_LABEL = "correction_base"
+PRODUCT_SIDE_LABEL = "accepted_product_side"
+CAMPAIGN_LABEL = "campaign_reference"
 VARIANT_OF_ROLE = {"size": "scale_in_hand", "colour_context": "colour_context",
                    "angle": "second_angle", "detail": "detail_closeup"}
 _KIND_PRODUCT = "pattern_derived"
@@ -221,6 +230,7 @@ class Flux3Generator:
     accepts_outfit_reference = ACCEPTS_OUTFIT_REFERENCE
     accepts_staged_method = ACCEPTS_STAGED_METHOD
     accepts_owner_method = ACCEPTS_OWNER_METHOD
+    accepts_manual_method = ACCEPTS_MANUAL_METHOD
 
     @property
     def current_run_key(self) -> str | None:
@@ -426,7 +436,12 @@ class Flux3Generator:
         work = str(self._root / f"{slug}-{release[:12]}" / f"{role}-{attempt}")
         laura = self._laura_paths(references)
         kw = dict(renderer=self.renderer, work_dir=work, db=self.db)
-        if role == ANCHOR_ROLE:
+        manual = self._manual(rel, slug, version, release, role=role, brief=brief,
+                              references=references, outfit=outfit, laura=laura,
+                              repair=repair, kw=kw)
+        if manual is not None:
+            cand = manual
+        elif role == ANCHOR_ROLE:
             cand = S.product_only(rel, size=self.size, **kw)
         elif role == ANCHOR_SIDE_ROLE:
             cand = S.product_only(rel, size=self.size, view="side", **kw)
@@ -509,10 +524,84 @@ class Flux3Generator:
                                  size=self.size, scene_reference=room_ref, **kw)
         r = cand.receipt
         return {"data": Path(cand.path).read_bytes(), "provider": r.get("provider"),
-                "model": r.get("model"), "prompt": r.get("prompt_ref"),
+                "model": r.get("model"),
+                # the manual method records the exact prompt text it sent
+                "prompt": (r.get("prompt_text") if r.get("method") == S.MANUAL_METHOD
+                           else r.get("prompt_ref")),
                 "cost_cad": r.get("cost_cad"), "latency_s": round(time.time() - started, 3),
                 "cost_basis": (r.get("price") or {}).get("basis") or "generator receipt",
                 "identity_evidence": r}
+
+    def _manual(self, rel, slug, version, release, *, role, brief, references, outfit, laura,
+                repair, kw):
+        """ENG-MANUAL-METHOD: the stage this role takes under the owner's hand method, or None
+        where the earlier route still applies (the stage-A identity anchor, a stage-D edit of
+        an accepted lifestyle frame, a Laura frame without an accepted product frame, or a
+        release with no certified PDF to condition the product master on)."""
+        if role in (ANCHOR_ROLE, ANCHOR_SIDE_ROLE):
+            if not rel.pdf_pages:
+                return None
+            view = ("side" if role == ANCHOR_SIDE_ROLE else
+                    "top" if S.is_vessel_release(rel.rules) else "flat")
+            base = self._prior(references, CORRECTION_LABEL)
+            codes = [str(c) for c in (repair or {}).get("codes") or []]
+            if base is not None and S.MM.defects_for(rel.rules, codes):
+                # The hand method's "Edit the first image only to fix X": the failed candidate,
+                # then the PDF pages, the defect named from the gate's codes.
+                return S.manual_product(rel, view=view, size=self.size, correction_base=base,
+                                        codes=codes, **kw)
+            return S.manual_product(rel, view=view, size=self.size, **kw)
+        if role == IDENTITY_ANCHOR_ROLE or self._has_prior(references, "edit_base"):
+            return None
+        from ..visual import laura_home, room_references
+
+        laura_home.check(brief or "")
+        side = self._prior(references, PRODUCT_SIDE_LABEL)
+        campaign = self._prior(references, CAMPAIGN_LABEL)
+        if laura is not None:
+            if not self._has_prior(references, PRODUCT_FRAME_LABEL):
+                return None
+            anchor = self._accepted(rel, slug, version, release, references)
+            home = laura_home.scene_for(slug, role=role)
+            room_ref = campaign or (room_references.scene_supplement(home["room"])
+                                    or [(None, None)])[0][1]
+            o = dict(outfit or {})
+            spec = {"id": o.get("outfit_id") or o.get("id"), "description": o.get("description"),
+                    "garments": o.get("garments")}
+            return S.manual_lifestyle(rel, anchor["candidate"], laura, spec,
+                                      fidelity=anchor["verdict"], role=role, size=self.size,
+                                      environment=home["environment"], action=brief or "",
+                                      master_side=side, room_reference=room_ref,
+                                      room_role="campaign_reference" if campaign
+                                      else "scene_reference", **kw)
+        anchor = self._anchor(rel, slug, version, release)
+        home = laura_home.scene_for(slug)
+        cued = f"{home['cue']}. {brief or ''}".strip()
+        if len(cued) > S.MAX_EDIT_CHARS:
+            # Review OPUS2A F2.2, kept under the manual method: refused, never silently cut.
+            raise laura_home.HomeRefused(
+                f"room cue + brief is {len(cued)} characters; a styled frame allows "
+                f"{S.MAX_EDIT_CHARS}")
+        room_ref = campaign or (room_references.scene_supplement(home["room"])
+                                or [(None, None)])[0][1]
+        return S.manual_styled(rel, anchor["candidate"], role=role, brief=brief or "",
+                               category=home["category"], room=home["room"],
+                               room_cue=home["cue"], master_side=side, room_reference=room_ref,
+                               room_role="campaign_reference" if campaign else "scene_reference",
+                               size=self.size, **kw)
+
+    def _accepted(self, rel, slug, version, release, references):
+        """The accepted product frame handed in, verified as in `_owner_method`."""
+        anchor = self._anchor(rel, slug, version, release)
+        frame = self._prior(references, PRODUCT_FRAME_LABEL)
+        sha = hashlib.sha256(Path(frame).read_bytes()).hexdigest()
+        if sha != anchor["candidate"].sha256:
+            raise GeneratorRefused("the product frame handed in is not this release's accepted "
+                                   "product frame; refused")
+        if anchor["verdict"].get("status") != "PASS":
+            raise GeneratorRefused("the product frame is not accepted (fidelity "
+                                   f"{anchor['verdict'].get('status')}); refused")
+        return anchor
 
     @staticmethod
     def _has_prior(references: list[dict], label: str) -> bool:
