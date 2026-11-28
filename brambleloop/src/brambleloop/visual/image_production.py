@@ -128,6 +128,12 @@ RESTART_CAP_CODE = "max_restarts"  # `restartable`'s refusal code when MAX_RESTA
 # Laura's canonical identity images, and nothing else. Used when the generator declares it.
 OWNER_METHOD = "owner_two_step/1"
 PRODUCT_FRAME_LABEL = "accepted_product_frame"
+# ENG-MANUAL-METHOD (`creative.manual_method.MANUAL_METHOD`, kept equal by a test): part of the
+# generation-method version, and the labels of the prior candidates it hands the generator.
+MANUAL_METHOD_VERSION = "manual_method/1"
+CORRECTION_LABEL = "correction_base"
+PRODUCT_SIDE_LABEL = "accepted_product_side"
+CAMPAIGN_LABEL = "campaign_reference"
 RESTART_KEY = "_restart"           # the run's restart record inside `stages`
 # ENG-IMAGE-METHOD-REDRIVE: every generated candidate carries the generation method it was made
 # under (`generation_method`), by stable identifiers. A candidate with no stamp was made
@@ -1836,6 +1842,10 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
                      if attempt > 1 else None)
             repair = (_repair_for(prior) if prior and prior.get("technical_status") == "FAIL"
                       else None)
+            # ENG-MANUAL-METHOD: a correction edits the failed candidate (and, for a vessel, the
+            # side view judged with it), naming the gate's codes -- not a blind regeneration.
+            fix = (_correction_refs(db, prior) if repair and getattr(
+                gen, "accepts_manual_method", False) else {})
             side = None
             if recovered is None and is_vessel_release(db, slug, version):
                 # IMAGE-AD (V2): a vessel is verified from a top-down and a side view of it
@@ -1851,7 +1861,8 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
                     role=ANCHOR_SIDE_ROLE, stage=stage, laura=False, judges=judges,
                     brief="the finished piece alone, standing, seen from the side at eye "
                           "level, plain background, the whole wall and rim visible",
-                    refs=_refs_with_bytes(), outfit=None, plan_attempt=attempt,
+                    refs=_refs_with_bytes() + fix.get("side", []), outfit=None,
+                    plan_attempt=attempt, repair=repair if fix.get("side") else None,
                     exp=exp, operation=side_op)
                 if got_side.get("provider_error"):
                     return block(f"vessel side view could not be rendered: "
@@ -1862,7 +1873,8 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
             got = recovered or _generate(db, key, gen, slug=slug, version=version, release=release,
                             role=ANCHOR_ROLE, stage=stage, laura=False, judges=judges,
                             brief="the finished piece alone, flat, plain background, every "
-                                  "piece visible", refs=_refs_with_bytes(), outfit=None,
+                                  "piece visible", refs=_refs_with_bytes() + fix.get(
+                                      "anchor", []), outfit=None,
                             plan_attempt=attempt, repair=repair, exp=exp,
                             operation=operation, side=side)
             _update(db, key, stage=stage, status=st,
@@ -2017,6 +2029,27 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
             return reference_provenance(pf, lr, outfit_id=(outfit_ or {}).get("outfit_id"),
                                         identity_id=canonical.IDENTITY_ID)
 
+        manual_cache = {}
+
+        def manual_extras(r):
+            """ENG-MANUAL-METHOD: a vessel's accepted side view, and for every frame after the
+            listing's lifestyle frame, that accepted frame as the campaign reference (room and
+            campaign continuity). Empty for a generator that does not declare the method."""
+            if not getattr(gen, "accepts_manual_method", False):
+                return []
+            if "side" not in manual_cache:
+                manual_cache["side"] = _accepted_product_side(db, key, run["listing"])
+            out_ = [manual_cache["side"]] if manual_cache["side"] else []
+            if r["job"] != "LIFESTYLE":
+                if "campaign" not in manual_cache:
+                    c_ = _accepted_lifestyle(db, key, run["listing"], plan, slug=run["slug"],
+                                             version=run["version"], release=run["release"])
+                    manual_cache["campaign"] = ({**c_, "label": CAMPAIGN_LABEL}
+                                                if c_ else None)
+                if manual_cache["campaign"]:
+                    out_.append(manual_cache["campaign"])
+            return out_
+
         def gen_roles(roles, rnd_stage, repairs=None):
             outs = []
             outfit = outfits.get(db, run["outfit_id"]) if run["outfit_id"] else None
@@ -2048,7 +2081,14 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
                                                   "assigned to this listing")
                     pf, lr = owner_inputs()
                     prov = owner_provenance(pf, lr, outfit)
+                    extras = manual_extras(r)
                     seg = prov["input_digest"]
+                    if extras:
+                        # the extra inputs key the replay too: different inputs, a new frame
+                        seg += ":manual:" + ",".join(e["sha256"] for e in extras)
+                        prov = {**prov, "manual_method": MANUAL_METHOD_VERSION,
+                                "extra_images": [{"label": e["label"], "sha256": e["sha256"]}
+                                                 for e in extras]}
                     if repairs:
                         seg += ":repair:" + str(round_) + ":" + hashlib.sha256(json.dumps(
                             (repairs or {}).get(r["role"]), sort_keys=True,
@@ -2067,12 +2107,15 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
                                           route=str(r.get("route") or ""), laura=True,
                                           judges=judges, brief=r["brief"] or
                                           f"{r['job']}: the finished piece",
-                                          refs=_refs_with_bytes() + lr + [pf], outfit=outfit,
+                                          refs=_refs_with_bytes() + lr + [pf] + extras,
+                                          outfit=outfit,
                                           plan_attempt=attempt,
                                           repair=(repairs or {}).get(r["role"]), exp=exp,
                                           operation=op, reference_provenance=prov))
                     continue
                 refs_ = _refs_with_bytes() + (laura_refs() if r["laura"] else [])
+                if not r["laura"]:
+                    refs_ = refs_ + manual_extras(r)
                 if (r["laura"] and outfit and outfit.get("approved_reference")
                         and getattr(gen, "accepts_outfit_reference", False)):
                     # OWNERIMG E6: the outfit's approved reference image, as a clothing
@@ -2446,9 +2489,12 @@ def generation_method(gen=None) -> dict:
     parts = {"prompt_builder": str(flux_prompt.BUILDER_VERSION),
              "pattern_refs": str(pattern_refs.VERSION),
              "pdf_page_refs": _stable_pdf_page_refs_version(),
-             "owner_method": OWNER_METHOD}
+             "owner_method": OWNER_METHOD,
+             # ENG-MANUAL-METHOD: the owner's October 28 hand method, generalised. A new part,
+             # so every run FAILed under the earlier method is method-redrive eligible once.
+             "image_method": MANUAL_METHOD_VERSION}
     out = {**parts, "version": "|".join(parts[k] for k in (
-        "prompt_builder", "pattern_refs", "pdf_page_refs", "owner_method"))}
+        "prompt_builder", "pattern_refs", "pdf_page_refs", "owner_method", "image_method"))}
     if gen is not None:
         out["generator_owner_method"] = bool(getattr(gen, "accepts_owner_method", False))
     return out
@@ -4101,6 +4147,44 @@ def _accepted_product_frame(db, key: str, listing: str) -> dict | None:
     if ref is None:
         return None
     return {**ref, "candidate_id": b["candidate_id"]}
+
+
+def _correction_refs(db, prior: dict | None) -> dict:
+    """ENG-MANUAL-METHOD: the failed product candidate (and the side view judged with it) as
+    `correction_base` prior references, by their stored bytes. {} when unreadable."""
+    if not prior or not prior.get("sha256") or prior.get("technical_status") != "FAIL":
+        return {}
+    out = {}
+    base = _prior_ref(db, prior["sha256"], CORRECTION_LABEL)
+    if base:
+        out["anchor"] = [base]
+    side_sha = _anchor_side_sha(db, prior.get("candidate_id"))
+    side = _prior_ref(db, side_sha, CORRECTION_LABEL) if side_sha else None
+    if side:
+        out["side"] = [side]
+    return out
+
+
+def _anchor_side_sha(db, candidate_id) -> str | None:
+    if not candidate_id:
+        return None
+    from .image_records import ImageCandidate
+
+    with db.session() as s:
+        row = s.get(ImageCandidate, candidate_id)
+        side = ((row.checks or {}).get("_anchor_side") or {}) if row is not None else {}
+    sha = side.get("sha256") if isinstance(side, dict) else None
+    return str(sha) if sha else None
+
+
+def _accepted_product_side(db, key: str, listing: str) -> dict | None:
+    """A vessel's side view that was judged, as one pair, with the accepted product frame:
+    the same accepted product from the side. None for a flat product."""
+    b = _best(db, listing=listing, role=ANCHOR_ROLE, run=key)
+    if not b or b.get("technical_status") != "PASS":
+        return None
+    sha = _anchor_side_sha(db, b.get("candidate_id"))
+    return _prior_ref(db, sha, PRODUCT_SIDE_LABEL) if sha else None
 
 
 def reference_provenance(product_frame: dict, laura: list[dict], *, outfit_id: str | None,

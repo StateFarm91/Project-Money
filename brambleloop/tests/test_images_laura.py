@@ -196,9 +196,11 @@ def test_the_generator_refuses_a_product_frame_that_is_not_the_accepted_one():
                       references=refs + FG3._laura_refs() + [pf], outfit=FG3.OUTFIT,
                       attempt=1)
     ev = life["identity_evidence"]
-    assert ev["method"] == "owner_two_step/1"
+    # ENG-MANUAL-METHOD (manual_method/1) carries step 2 forward: the same four inputs, in
+    # the same order (canonical three, then the accepted product frame as the master).
+    assert ev["method"] == "manual_method/1"
     assert [r["role"] for r in ev["references"]] == ["laura_face", "laura_torso",
-                                                     "laura_body", "product_candidate"]
+                                                     "laura_body", "product_master"]
     assert ev["input_sha256s"] == [r["sha256"] for r in FG3._laura_refs()] + [sha]
     assert FG3.OUTFIT["description"] in stub.calls[-1]["prompt"]       # the outfit travels
     # The FLUX 3 body actually built from those inputs: `images`, in that order, these bytes.

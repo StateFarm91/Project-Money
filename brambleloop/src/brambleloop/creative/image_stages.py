@@ -471,6 +471,24 @@ def _bounded_references(refs: dict, work_dir: str) -> dict:
     return {**refs, "paths": paths, "sha256s": shas, "downscaled": scaled}
 
 
+def _aspect_of(size: str) -> str | None:
+    try:
+        from ..gateway import images
+
+        return images.bfl3_aspect(size)
+    except Exception:  # noqa: BLE001 - a stub size has no FLUX 3 aspect
+        return None
+
+
+def _tier_of(size: str) -> str | None:
+    try:
+        from ..gateway import images
+
+        return images.bfl3_tier(size)
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def _run(stage: str, role: str, release: Release, refs: dict, built, size: str, *,
          features_laura: bool, renderer, work_dir: str, db, job_id, max_attempts: int,
          purpose: str, intermediate: bool = False) -> Candidate:
@@ -540,6 +558,12 @@ def _run(stage: str, role: str, release: Release, refs: dict, built, size: str, 
             "references_downscaled": list(refs.get("downscaled") or []),
             "combined_sheet": refs["combined_sheet"], "limitation": refs["limitation"],
             "size": size, "task_id": pr.get("task_id") or pr.get("id"), "seed": pr.get("seed"),
+            # ENG-MANUAL-METHOD: the exact request, as the receipt of record: the prompt text,
+            # the FLUX 3 aspect ratio and resolution tier, and the 1-based attempt. FLUX 3
+            # Image has no seed field: `seed` is what the provider reported, else None.
+            "prompt_text": built.text,
+            "aspect_ratio": _aspect_of(size), "resolution": _tier_of(size),
+            "provider_attempt": attempt,
             "request": {"provider_task": pr, "conditioning_proven": cond.get("proven"),
                         "request_sha256": cond.get("request_sha256")},
             "cost_cad": out.get("cad"), "provider_cost_credits": pr.get("cost"),
@@ -1015,3 +1039,161 @@ def gallery_cost(*, lifestyle_count: int = 2, variant_count: int = 3,
             "excludes": ("verification (vision-model judging) and any other model spend; "
                          "pattern references are free (deterministic)"),
             "price_basis": images.BFL_PRICE_BASIS}
+
+
+# ---- ENG-MANUAL-METHOD: the owner's October 28 hand method, generalised ----------------------
+# `creative.manual_method` writes the prompts; these stages choose and order the references.
+# What changes against the stages above, and why (research/MANUAL-METHOD-COMPARISON.md):
+#   * the product master conditions on the certified PDF's pages ONLY -- the four CIR diagram
+#     renders are not transmitted (they pushed FLUX toward diagram-like output); they still
+#     bind the release (`Flux3Generator._bind`);
+#   * a correction EDITS the failed candidate (image 1) with the PDF pages after it;
+#   * lifestyle: canonical three, the accepted master (and a vessel's accepted side view), then
+#     the approved room or campaign reference; styled: the master first, then that reference.
+from . import manual_method as MM  # noqa: E402
+
+MANUAL_METHOD = MM.MANUAL_METHOD
+
+
+def _plan(items: Sequence[tuple[str, str]], reference_limit: int, *,
+          pdf_pages: Sequence[dict] = (), pdf_sha256: str = "") -> dict:
+    from ..gateway import flux_contract
+
+    limit = min(int(reference_limit), flux_contract.MAX_REFERENCES)
+    items = list(items)
+    if len(items) > limit:
+        raise StageRefused(f"{len(items)} references; the provider takes {limit}. Refused "
+                           f"rather than dropping any")
+    return {"roles": [r for r, _ in items], "paths": [p for _, p in items],
+            "sha256s": [_sha(p) for _, p in items], "combined_sheet": None,
+            "limitation": None, "reference_limit": int(reference_limit),
+            "pdf_pages": list(pdf_pages), "pdf_sha256": pdf_sha256}
+
+
+def _page_items(release: Release, room: int) -> tuple[list[tuple[str, str]], list[dict]]:
+    items, sent = [], []
+    for pg in list(release.pdf_pages)[:max(0, room)]:
+        if _sha(pg["path"]) != pg["sha256"]:
+            raise StageRefused("a certified-PDF page reference is not the bytes rendered from "
+                               "the certified PDF; refused")
+        items.append((pg["kind"], pg["path"]))
+        sent.append({"kind": pg["kind"], "page": pg["page"], "sha256": pg["sha256"]})
+    return items, sent
+
+
+def _number_pages(plan: dict, sent: list[dict]) -> dict:
+    pos = 0
+    out = []
+    for i, r in enumerate(plan["roles"]):
+        if r.startswith("pdf_") and pos < len(sent):
+            out.append({**sent[pos], "position": i + 1, "field": f"images[{i}]"})
+            pos += 1
+    return {**plan, "pdf_pages": out}
+
+
+def _canonical_items(laura_refs) -> list[tuple[str, str]]:
+    return list(zip(LAURA_ROLES, laura_references(laura_refs)))
+
+
+def manual_product(release: Release, *, view: str, size: str = PRODUCT_SIZE, renderer=None,
+                   work_dir: str, db=None, job_id: int | None = None,
+                   max_attempts: int = DEFAULT_ATTEMPTS, correction_base: str | None = None,
+                   codes: Sequence[str] = (), extra_negatives: Sequence[str] = ()) -> Candidate:
+    """The product master: certified PDF pages + the art-directed prose spec, square, no
+    person or room. With `correction_base` (a failed candidate) and the gate's `codes`, a
+    targeted edit of that candidate instead. The camera is the fidelity gate's view
+    (`flat`, or a vessel's `top`/`side`)."""
+    if not release.pdf_pages:
+        raise StageRefused("the manual method conditions on the certified PDF's pages; this "
+                           "release has none rendered")
+    render = renderer or flux3_renderer()
+    limit = _limit(render)
+    lead = [("correction_base", str(correction_base))] if correction_base else []
+    pages, sent = _page_items(release, min(limit, 10) - len(lead))
+    plan = _number_pages(_plan(lead + pages, limit, pdf_pages=sent,
+                               pdf_sha256=release.pdf_sha256), sent)
+    if correction_base:
+        built = MM.build_correction(release.rules, plan["roles"], codes=codes)
+        purpose = "image.product_only.correction"
+    else:
+        built = MM.build_product(release.rules, plan["roles"], view=view,
+                                 extra_negatives=extra_negatives)
+        purpose = "image.product_only"
+    cand = _run("product_only", "product_flat_lay", release, plan, built, size,
+                features_laura=False, renderer=render, work_dir=work_dir, db=db,
+                job_id=job_id, max_attempts=max_attempts, purpose=purpose)
+    cand.receipt.update(method=MANUAL_METHOD, view=view,
+                        correction_of=_sha(correction_base) if correction_base else None,
+                        correction_codes=list(codes) if correction_base else [])
+    return cand
+
+
+def manual_lifestyle(release: Release, product_candidate: Candidate,
+                     laura_refs: Sequence[str] | None, outfit: Mapping, *,
+                     fidelity: Mapping | None = None, environment: str, action: str,
+                     role: str = "lifestyle", size: str = LIFESTYLE_SIZE,
+                     master_side: str | None = None, room_reference: str | None = None,
+                     room_role: str = "campaign_reference", renderer=None, work_dir: str,
+                     db=None, job_id: int | None = None,
+                     max_attempts: int = DEFAULT_ATTEMPTS) -> Candidate:
+    """Laura with the product: canonical three, the ACCEPTED master (gated on its fidelity
+    PASS), a vessel's accepted side view, then an approved room/campaign reference."""
+    if product_candidate.release_hash != release.release_hash:
+        raise StageRefused("the product candidate belongs to a different release")
+    _require_flat_lay_pass(release, product_candidate, fidelity)
+    outfit = dict(outfit or {})
+    if not (outfit.get("id") and (outfit.get("description") or outfit.get("garments"))):
+        raise StageRefused("a Laura image needs the listing's reserved outfit (id and "
+                           "description)")
+    render = renderer or flux3_renderer()
+    items = _canonical_items(laura_refs) + [("product_master", product_candidate.path)]
+    if master_side:
+        items.append(("product_master_side", str(master_side)))
+    if room_reference:
+        if room_role not in ("campaign_reference", "scene_reference"):
+            raise StageRefused(f"unknown room reference role {room_role!r}")
+        items.append((room_role, str(room_reference)))
+    plan = _plan(items, _limit(render))
+    canon = set(canonical_laura_hashes())
+    if tuple(plan["sha256s"][:3]) != canonical_laura_hashes() or any(
+            h in canon for h in plan["sha256s"][3:]):
+        raise StageRefused("the canonical three lead, in order, and nothing after them is a "
+                           "canonical identity reference; refused")
+    ident = flux_prompt.IDENTITY.render(face="image 1", torso="image 2", body="image 3",
+                                        outfit=MM._outfit_text(outfit))
+    built = MM.build_lifestyle(release.rules, plan["roles"], outfit=outfit,
+                               environment=environment, action=action, identity=ident)
+    cand = _run("lifestyle", f"{role}:{outfit['id']}", release, plan, built, size,
+                features_laura=True, renderer=render, work_dir=work_dir, db=db,
+                job_id=job_id, max_attempts=max_attempts,
+                purpose="image.lifestyle.manual_method")
+    cand.receipt.update(method=MANUAL_METHOD, outfit_id=outfit["id"],
+                        accepted_product_frame_sha256=product_candidate.sha256)
+    return cand
+
+
+def manual_styled(release: Release, product_candidate: Candidate, *, role: str, brief: str,
+                  category: str, room: str, room_cue: str, master_side: str | None = None,
+                  room_reference: str | None = None, room_role: str = "campaign_reference",
+                  size: str = PRODUCT_SIZE, renderer=None, work_dir: str, db=None,
+                  job_id: int | None = None, max_attempts: int = DEFAULT_ATTEMPTS) -> Candidate:
+    """A product-only styled frame: the accepted master (and side view), then the approved
+    room/campaign reference. No person."""
+    if product_candidate.release_hash != release.release_hash:
+        raise StageRefused("the product master belongs to a different release")
+    render = renderer or flux3_renderer()
+    items = [("product_master", product_candidate.path)]
+    if master_side:
+        items.append(("product_master_side", str(master_side)))
+    if room_reference:
+        items.append((room_role, str(room_reference)))
+    plan = _plan(items, _limit(render))
+    if set(plan["sha256s"]) & set(canonical_laura_hashes()):
+        raise StageRefused("a product-only frame carries no identity reference")
+    built = MM.build_styled(release.rules, plan["roles"], role=role, brief=brief,
+                            category=category, room=room, room_cue=room_cue)
+    cand = _run("variant", role if role in VARIANT_ROLES else "styled_scene", release, plan,
+                built, size, features_laura=False, renderer=render, work_dir=work_dir, db=db,
+                job_id=job_id, max_attempts=max_attempts, purpose=f"image.styled.{role}")
+    cand.receipt.update(method=MANUAL_METHOD, product_master_sha256=product_candidate.sha256)
+    return cand
