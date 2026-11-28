@@ -51,7 +51,7 @@ concept gate refused 52 intake concepts in 24 h; the readback carried no reason 
   `jury`; production's 52 are UNKNOWN until read back.
 - The third hold: not reproduced (category and title come from the seed on both the toy and
   engine routes, so they agree). Its `engine_why` will name the step.
-- New suite test_toy_board 10/10 (fails on the base source); targeted suites: see commit.
+- New suite test_toy_board 10/10 (fails on the base source); targeted run on 539271f (clean tree, venv from requirements.lock + requirements-test.lock, SUITE_REGISTRY=0): 21 suites (toy_board, amigurumi_judging, next_fixes_engine_board, w4_close5_rows, concept_board_why, concept_gate, admit_to_build, audit_readback_phase, audit_retention_classes, audit_blob_reads, audit_table_scans, w4_readback_evidence, eng_improve_readback, w4_close6_readback, factory_visibility, paid_refusals, supply_feed, supply_lane, evidence_perf, eng_recovery, model_spend_paths) — 146 passing, 0 failing, record artifacts/suite_runs/20261128T143810Z-9930.json. The full suite was NOT run.
 
 ## VERIFY-REFS — 2026-11-26 (branch eng/verify-refs from 15f809bfb, NOT merged, NOT deployed)
 
