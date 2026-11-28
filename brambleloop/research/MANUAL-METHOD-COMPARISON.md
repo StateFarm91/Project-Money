@@ -614,7 +614,7 @@ Photograph-style composition: the item alone on a light natural oak surface (#C9
 
 | # | role | px | sha256 (16) |
 |---|---|---|---|
-| 1 | correction_base | 128x128 | `d514d21e49202f95` |
+| 1 | correction_base | 128x128 | `e56b6e34fca8a94d` |
 | 2 | pdf_cover | 1187x1536 | `173c3fda576e4987` |
 | 3 | pdf_colour_key | 1187x1536 | `2d29c457995a052b` |
 | 4 | pdf_chart | 1187x1536 | `713976d4781dd0b6` |
@@ -625,7 +625,7 @@ Photograph-style composition: the item alone on a light natural oak surface (#C9
 Prompt, verbatim:
 
 ```text
-Edit image 1 only, to fix: the colour layout; it must read exactly: The base is cream. Reading the wall from bottom to top: 8 cream rounds, 2 wine rounds, 4 cream rounds, 2 wine rounds, 6 cream rounds. Colours cream #FAF6EB, wine #6E1F2A, and no others. Exactly 2 continuous wine bands running level all the way round; the cream is dominant; the outline; it has exactly 6 sides and 6 corners. Image 1 is the image to edit. Image 2 is a page of the certified pattern PDF: the cover, with the finished product. Image 3 is a page of the certified pattern PDF: the materials and colour key (the exact yarn colours). Image 4 is a page of the certified pattern PDF: the chart / schematic (colour bands, round and repeat counts). Image 5 is a page of the certified pattern PDF: the chart / schematic (colour bands, round and repeat counts). Image 6 is a page of the certified pattern PDF: the finished design. Image 7 is a page of the certified pattern PDF: the written rounds, each round's colour named. The remaining attachments are the original pattern instructions and the authoritative product reference. Keep the camera, lighting, background, material, silhouette and all correct details of image 1 unchanged. Preserve: Its flat base and its rim have 6 sides and 6 corners (hexagon); the wall is straight and upright and the top is open. Retain a visibly hexagonal silhouette. The base is cream. Reading the wall from bottom to top: 8 cream rounds, 2 wine rounds, 4 cream rounds, 2 wine rounds, 6 cream rounds. Colours cream #FAF6EB, wine #6E1F2A, and no others. Exactly 2 continuous wine bands running level all the way round; the cream is dominant. The top ends in the pattern's ordinary cream final round: no added rim, braid, roll, border or trim.. Do not add anything or redesign the item. Return one corrected product image, square.
+Edit image 1 only, to fix: the colour layout; it must read exactly: The base is cream. Reading the wall from bottom to top: 8 cream rounds, 2 wine rounds, 4 cream rounds, 2 wine rounds, 6 cream rounds. Colours cream #FAF6EB, wine #6E1F2A, and no others. Exactly 2 continuous wine bands running level all the way round; the cream is dominant; the outline; it has exactly 6 sides and 6 corners. Image 1 is the image to edit. Image 2 is a page of the certified pattern PDF: the cover, with the finished product. Image 3 is a page of the certified pattern PDF: the materials and colour key (the exact yarn colours). Image 4 is a page of the certified pattern PDF: the chart / schematic (colour bands, round and repeat counts). Image 5 is a page of the certified pattern PDF: the chart / schematic (colour bands, round and repeat counts). Image 6 is a page of the certified pattern PDF: the finished design. Image 7 is a page of the certified pattern PDF: the written rounds, each round's colour named. The remaining attachments are the original pattern instructions and the authoritative product reference. Keep the camera, lighting, background, material, silhouette and all correct details of image 1 unchanged. Preserve: Its flat base and its rim have 6 sides and 6 corners (hexagon); the wall is straight and upright and the top is open. Retain a visibly hexagonal silhouette. The base is cream. Reading the wall from bottom to top: 8 cream rounds, 2 wine rounds, 4 cream rounds, 2 wine rounds, 6 cream rounds. Colours cream #FAF6EB, wine #6E1F2A, and no others. Exactly 2 continuous wine bands running level all the way round; the cream is dominant. The top ends in the pattern's ordinary cream final round: no added rim, braid, roll, border or trim. Do not add anything or redesign the item. Return one corrected product image, square.
 ```
 
 ### hero (stage `remaining_roles`)
@@ -635,8 +635,8 @@ Edit image 1 only, to fix: the colour layout; it must read exactly: The base is 
 
 | # | role | px | sha256 (16) |
 |---|---|---|---|
-| 1 | product_master | 128x128 | `d514d21e49202f95` |
-| 2 | product_master_side | 128x128 | `303eb04ce7da0208` |
+| 1 | product_master | 128x128 | `e56b6e34fca8a94d` |
+| 2 | product_master_side | 128x128 | `5a308291961a6247` |
 
 Prompt, verbatim:
 
@@ -655,8 +655,8 @@ Style it realistically with a restrained arrangement of everyday things that fit
 
 | # | role | px | sha256 (16) |
 |---|---|---|---|
-| 1 | product_master | 128x128 | `d514d21e49202f95` |
-| 2 | product_master_side | 128x128 | `303eb04ce7da0208` |
+| 1 | product_master | 128x128 | `e56b6e34fca8a94d` |
+| 2 | product_master_side | 128x128 | `5a308291961a6247` |
 
 Prompt, verbatim:
 
@@ -678,8 +678,8 @@ No props. Keep the front and its colour layout unobstructed. No person, no hands
 | 1 | laura_face | 1024x1024 | `a42aeac72ba5733e` |
 | 2 | laura_torso | 1024x1024 | `afe6191fb4c68d0a` |
 | 3 | laura_body | 1024x1024 | `f32bac686cba46c7` |
-| 4 | product_master | 128x128 | `d514d21e49202f95` |
-| 5 | product_master_side | 128x128 | `303eb04ce7da0208` |
+| 4 | product_master | 128x128 | `e56b6e34fca8a94d` |
+| 5 | product_master_side | 128x128 | `5a308291961a6247` |
 
 Prompt, verbatim:
 
@@ -706,9 +706,9 @@ Natural hand anatomy, realistic perspective and scale. Commercial home-and-lifes
 
 | # | role | px | sha256 (16) |
 |---|---|---|---|
-| 1 | product_master | 128x128 | `d514d21e49202f95` |
-| 2 | product_master_side | 128x128 | `303eb04ce7da0208` |
-| 3 | campaign_reference | 128x128 | `897e6b33bd5038c8` |
+| 1 | product_master | 128x128 | `e56b6e34fca8a94d` |
+| 2 | product_master_side | 128x128 | `5a308291961a6247` |
+| 3 | campaign_reference | 128x128 | `05d42f2675bcb1a4` |
 
 Prompt, verbatim:
 
@@ -727,9 +727,9 @@ No props. Keep the front and its colour layout unobstructed. No person, no hands
 
 | # | role | px | sha256 (16) |
 |---|---|---|---|
-| 1 | product_master | 128x128 | `d514d21e49202f95` |
-| 2 | product_master_side | 128x128 | `303eb04ce7da0208` |
-| 3 | campaign_reference | 128x128 | `897e6b33bd5038c8` |
+| 1 | product_master | 128x128 | `e56b6e34fca8a94d` |
+| 2 | product_master_side | 128x128 | `5a308291961a6247` |
+| 3 | campaign_reference | 128x128 | `05d42f2675bcb1a4` |
 
 Prompt, verbatim:
 
@@ -748,9 +748,9 @@ No props. Keep the front and its colour layout unobstructed. No person, no hands
 
 | # | role | px | sha256 (16) |
 |---|---|---|---|
-| 1 | product_master | 128x128 | `d514d21e49202f95` |
-| 2 | product_master_side | 128x128 | `303eb04ce7da0208` |
-| 3 | campaign_reference | 128x128 | `897e6b33bd5038c8` |
+| 1 | product_master | 128x128 | `e56b6e34fca8a94d` |
+| 2 | product_master_side | 128x128 | `5a308291961a6247` |
+| 3 | campaign_reference | 128x128 | `05d42f2675bcb1a4` |
 
 Prompt, verbatim:
 
@@ -802,7 +802,7 @@ Photograph-style composition: the item alone on a light natural oak surface (#C9
 
 | # | role | px | sha256 (16) |
 |---|---|---|---|
-| 1 | correction_base | 128x128 | `07b93a124bba950a` |
+| 1 | correction_base | 128x128 | `dd7e250562aac00f` |
 | 2 | pdf_cover | 1187x1536 | `dfd5a1b4ad14e2b8` |
 | 3 | pdf_colour_key | 1187x1536 | `adc92b8a9da9cb50` |
 | 4 | pdf_chart | 1187x1536 | `4a6a8358affbd3c2` |
@@ -813,7 +813,7 @@ Photograph-style composition: the item alone on a light natural oak surface (#C9
 Prompt, verbatim:
 
 ```text
-Edit image 1 only, to fix: the colour layout; it must read exactly: Reading the rounds from the centre outward: 5 cream rounds, 1 wine round, 1 cream round. That is 1 contrast band in total on a cream ground. Colours cream #FAF6EB, wine #6E1F2A, and no others; the outline; it has exactly 6 sides and 6 corners. Image 1 is the image to edit. Image 2 is a page of the certified pattern PDF: the cover, with the finished product. Image 3 is a page of the certified pattern PDF: the materials and colour key (the exact yarn colours). Image 4 is a page of the certified pattern PDF: the chart / schematic (colour bands, round and repeat counts). Image 5 is a page of the certified pattern PDF: the chart / schematic (colour bands, round and repeat counts). Image 6 is a page of the certified pattern PDF: the finished design. Image 7 is a page of the certified pattern PDF: the chart key. The remaining attachments are the original pattern instructions and the authoritative product reference. Keep the camera, lighting, background, material, silhouette and all correct details of image 1 unchanged. Preserve: Each piece is a flat hexagon with exactly 6 corners. Reading the rounds from the centre outward: 5 cream rounds, 1 wine round, 1 cream round. That is 1 contrast band in total on a cream ground. Colours cream #FAF6EB, wine #6E1F2A, and no others. The outer edge is the final round in cream, exactly as charted; nothing is worked beyond it.. Do not add anything or redesign the item. Return one corrected product image, square.
+Edit image 1 only, to fix: the colour layout; it must read exactly: Reading the rounds from the centre outward: 5 cream rounds, 1 wine round, 1 cream round. That is 1 contrast band in total on a cream ground. Colours cream #FAF6EB, wine #6E1F2A, and no others; the outline; it has exactly 6 sides and 6 corners. Image 1 is the image to edit. Image 2 is a page of the certified pattern PDF: the cover, with the finished product. Image 3 is a page of the certified pattern PDF: the materials and colour key (the exact yarn colours). Image 4 is a page of the certified pattern PDF: the chart / schematic (colour bands, round and repeat counts). Image 5 is a page of the certified pattern PDF: the chart / schematic (colour bands, round and repeat counts). Image 6 is a page of the certified pattern PDF: the finished design. Image 7 is a page of the certified pattern PDF: the chart key. The remaining attachments are the original pattern instructions and the authoritative product reference. Keep the camera, lighting, background, material, silhouette and all correct details of image 1 unchanged. Preserve: Each piece is a flat hexagon with exactly 6 corners. Reading the rounds from the centre outward: 5 cream rounds, 1 wine round, 1 cream round. That is 1 contrast band in total on a cream ground. Colours cream #FAF6EB, wine #6E1F2A, and no others. The outer edge is the final round in cream, exactly as charted; nothing is worked beyond it. Do not add anything or redesign the item. Return one corrected product image, square.
 ```
 
 ### lifestyle (stage `lifestyle_generation`)
@@ -826,7 +826,7 @@ Edit image 1 only, to fix: the colour layout; it must read exactly: Reading the 
 | 1 | laura_face | 1024x1024 | `a42aeac72ba5733e` |
 | 2 | laura_torso | 1024x1024 | `afe6191fb4c68d0a` |
 | 3 | laura_body | 1024x1024 | `f32bac686cba46c7` |
-| 4 | product_master | 128x128 | `07b93a124bba950a` |
+| 4 | product_master | 128x128 | `dd7e250562aac00f` |
 
 Prompt, verbatim:
 
@@ -853,8 +853,8 @@ Natural hand anatomy, realistic perspective and scale. Commercial home-and-lifes
 
 | # | role | px | sha256 (16) |
 |---|---|---|---|
-| 1 | product_master | 128x128 | `07b93a124bba950a` |
-| 2 | campaign_reference | 128x128 | `99fc69bb162581b3` |
+| 1 | product_master | 128x128 | `dd7e250562aac00f` |
+| 2 | campaign_reference | 128x128 | `f54a85a12e93e210` |
 
 Prompt, verbatim:
 
@@ -906,7 +906,7 @@ Photograph-style composition: the item alone on a light natural oak surface (#C9
 
 | # | role | px | sha256 (16) |
 |---|---|---|---|
-| 1 | correction_base | 128x128 | `36d8e165afdd8b16` |
+| 1 | correction_base | 128x128 | `46a6a6e32f09d1b9` |
 | 2 | pdf_cover | 1187x1536 | `9df4a1c2a58420a8` |
 | 3 | pdf_colour_key | 1187x1536 | `b54dfb1d17052f50` |
 | 4 | pdf_chart | 1187x1536 | `77b8000e23fbaf82` |
@@ -917,7 +917,7 @@ Photograph-style composition: the item alone on a light natural oak surface (#C9
 Prompt, verbatim:
 
 ```text
-Edit image 1 only, to fix: the colour layout; it must read exactly: The colourwork is exactly as charted on the pattern pages, in cream #FAF6EB, ink #1A2B3C and no other colour. The rows are worked in this colour order, from the first: 6 cream rows, then (2 ink rows, 2 cream rows) repeated 21 times, 2 ink rows, 8 cream rows; the textured stitches carry colour over earlier rows, so the surface follows the chart rather than plain stripes; the repeat count; it must match the pattern pages exactly. Image 1 is the image to edit. Image 2 is a page of the certified pattern PDF: the cover, with the finished product. Image 3 is a page of the certified pattern PDF: the materials and colour key (the exact yarn colours). Image 4 is a page of the certified pattern PDF: the chart / schematic (colour bands, round and repeat counts). Image 5 is a page of the certified pattern PDF: the chart / schematic (colour bands, round and repeat counts). Image 6 is a page of the certified pattern PDF: the chart / schematic (colour bands, round and repeat counts). Image 7 is a page of the certified pattern PDF: the finished design. The remaining attachments are the original pattern instructions and the authoritative product reference. Keep the camera, lighting, background, material, silhouette and all correct details of image 1 unchanged. Preserve: Its shape is a flat rectangle, as the pattern pages draw it. The colourwork is exactly as charted on the pattern pages, in cream #FAF6EB, ink #1A2B3C and no other colour. The rows are worked in this colour order, from the first: 6 cream rows, then (2 ink rows, 2 cream rows) repeated 21 times, 2 ink rows, 8 cream rows; the textured stitches carry colour over earlier rows, so the surface follows the chart rather than plain stripes. The piece ends in the pattern's ordinary cream final row: no added rim, braid, roll, border or trim.. Do not add anything or redesign the item. Return one corrected product image, square.
+Edit image 1 only, to fix: the colour layout; it must read exactly: The colourwork is exactly as charted on the pattern pages, in cream #FAF6EB, ink #1A2B3C and no other colour. The rows are worked in this colour order, from the first: 6 cream rows, then (2 ink rows, 2 cream rows) repeated 21 times, 2 ink rows, 8 cream rows; the textured stitches carry colour over earlier rows, so the surface follows the chart rather than plain stripes; the repeat count; it must match the pattern pages exactly. Image 1 is the image to edit. Image 2 is a page of the certified pattern PDF: the cover, with the finished product. Image 3 is a page of the certified pattern PDF: the materials and colour key (the exact yarn colours). Image 4 is a page of the certified pattern PDF: the chart / schematic (colour bands, round and repeat counts). Image 5 is a page of the certified pattern PDF: the chart / schematic (colour bands, round and repeat counts). Image 6 is a page of the certified pattern PDF: the chart / schematic (colour bands, round and repeat counts). Image 7 is a page of the certified pattern PDF: the finished design. The remaining attachments are the original pattern instructions and the authoritative product reference. Keep the camera, lighting, background, material, silhouette and all correct details of image 1 unchanged. Preserve: Its shape is a flat rectangle, as the pattern pages draw it. The colourwork is exactly as charted on the pattern pages, in cream #FAF6EB, ink #1A2B3C and no other colour. The rows are worked in this colour order, from the first: 6 cream rows, then (2 ink rows, 2 cream rows) repeated 21 times, 2 ink rows, 8 cream rows; the textured stitches carry colour over earlier rows, so the surface follows the chart rather than plain stripes. The piece ends in the pattern's ordinary cream final row: no added rim, braid, roll, border or trim. Do not add anything or redesign the item. Return one corrected product image, square.
 ```
 
 ### hero (stage `remaining_roles`)
@@ -927,7 +927,7 @@ Edit image 1 only, to fix: the colour layout; it must read exactly: The colourwo
 
 | # | role | px | sha256 (16) |
 |---|---|---|---|
-| 1 | product_master | 128x128 | `36d8e165afdd8b16` |
+| 1 | product_master | 128x128 | `46a6a6e32f09d1b9` |
 
 Prompt, verbatim:
 

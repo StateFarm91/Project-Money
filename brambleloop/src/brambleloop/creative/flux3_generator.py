@@ -576,6 +576,12 @@ class Flux3Generator:
                                       else "scene_reference", **kw)
         anchor = self._anchor(rel, slug, version, release)
         home = laura_home.scene_for(slug)
+        cued = f"{home['cue']}. {brief or ''}".strip()
+        if len(cued) > S.MAX_EDIT_CHARS:
+            # Review OPUS2A F2.2, kept under the manual method: refused, never silently cut.
+            raise laura_home.HomeRefused(
+                f"room cue + brief is {len(cued)} characters; a styled frame allows "
+                f"{S.MAX_EDIT_CHARS}")
         room_ref = campaign or (room_references.scene_supplement(home["room"])
                                 or [(None, None)])[0][1]
         return S.manual_styled(rel, anchor["candidate"], role=role, brief=brief or "",
