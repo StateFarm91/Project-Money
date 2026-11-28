@@ -655,6 +655,12 @@ def _paid_refusals(db, *, now: datetime, since: datetime) -> dict:
             "last_regate_radar_held_by_code": _held_codes(reg.get("radar_held") or []),
             # CONCEPT-BOARDS: which step drew no board, for held `board_missing` concepts.
             "last_regate_board_missing_by_why": _board_why_codes(reg.get("radar_held") or []),
+            # TOY-BOARD: which engine step refused, for `board_missing/engine_draft_refused`,
+            # and why the toy render filed no board, for `board_render_failed` (fixed codes).
+            "last_regate_engine_draft_refused_by_why": _engine_why_codes(
+                reg.get("radar_held") or []),
+            "last_regate_board_render_failed_by_why": _render_why_codes(
+                reg.get("radar_held") or []),
             "route_now": vendor or "none",
             "openai_route_usable": bool(CJ.openai_vision_usable(db, now=now)),
             "openai_key_present": _openai_key_present()}
@@ -679,6 +685,30 @@ def _board_why_codes(held) -> dict:
         code = code if code in BOARD_WHY_CODES else "other"
         out[code] = out.get(code, 0) + 1
     return out
+
+
+def _sub_codes(held, *, code: str, field: str, vocab, when=None) -> dict:
+    out: dict[str, int] = {}
+    for h in held:
+        if not isinstance(h, dict) or h.get("code") != code or (when and not when(h)):
+            continue
+        sub = h.get(field)
+        sub = sub if sub in vocab else "other"
+        out[sub] = out.get(sub, 0) + 1
+    return out
+
+
+def _engine_why_codes(held) -> dict:
+    from ..creative.board import ENGINE_WHY_CODES
+
+    return _sub_codes(held, code="board_missing", field="engine_why", vocab=ENGINE_WHY_CODES,
+                      when=lambda h: h.get("board_why") == "engine_draft_refused")
+
+
+def _render_why_codes(held) -> dict:
+    from ..creative.toy_board import WHY_CODES
+
+    return _sub_codes(held, code="board_render_failed", field="render_why", vocab=WHY_CODES)
 
 
 def _held_codes(held) -> dict:
@@ -2961,6 +2991,7 @@ def after_admission(db, *, now: datetime) -> dict:
 
     from ..build2 import executor
     from ..core.models import AuditLog, Job
+    from ..creative import preengineering
 
     since = now - timedelta(hours=24)
     actions = list(AFTER_ADMISSION_STEPS.values())
@@ -2976,9 +3007,20 @@ def after_admission(db, *, now: datetime) -> dict:
                 AuditLog.action == "concept.gate_waiting", AuditLog.at >= since)):
             for n in (d or {}).get("waiting_on") or []:
                 needs[n if n in executor.GATE_BY_KEY else "unrecognised"] += 1
+        # TOY-BOARD: why the pre-engineering gate refused, as the failed checks' names
+        # (`preengineering.CHECKS`, else `unrecognised`; `none_recorded` for a refusal row
+        # naming no failed check). One refusal can fail several checks.
+        refused_by: Counter = Counter()
+        for (d,) in s.execute(select(AuditLog.detail).where(
+                AuditLog.action == "concept.gate_refused", AuditLog.at >= since)):
+            failed = [f for f in ((d or {}).get("failed") or []) if isinstance(f, str)]
+            for f in failed or ["none_recorded"]:
+                refused_by[f if f in preengineering.CHECKS or f == "none_recorded"
+                           else "unrecognised"] += 1
         drafts = int(s.scalar(select(func.count()).select_from(Job).where(
             Job.job_type == "cir.draft", Job.created_at >= since)) or 0)
     return {**{k: int(counts.get(a, 0)) for k, a in AFTER_ADMISSION_STEPS.items()},
+            "gate_refused_by_check": dict(sorted(refused_by.items())),
             "scored": {"promoted": scored["promoted"], "not_promoted": scored["not_promoted"]},
             "gate_waiting_on": dict(sorted(needs.items())),
             "drafts_enqueued": drafts}

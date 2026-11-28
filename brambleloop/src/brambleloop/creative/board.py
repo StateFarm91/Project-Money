@@ -129,8 +129,20 @@ def make_board(db, concept) -> dict:
 ENGINE_BOARD_SOURCE = "engine_draft"
 
 
+# TOY-BOARD: why `engine_draft_cir` / `make_engine_board` drew no board, as one fixed code, so
+# a `board_missing/engine_draft_refused` hold says which step refused (`engine_why`).
+ENGINE_WHY_CODES = ("not_approved", "route_not_admitted", "engine_refused",
+                    "audience_mismatch", "no_size", "stuffed_animal_route", "no_engine_board",
+                    "engine_not_admitted", "not_compiling", "twin_undrawable", "other")
+
+
 class EngineDraftRefused(ValueError):
-    """No engine draft to draw for this concept, and why. Nothing was spent."""
+    """No engine draft to draw for this concept, and why. Nothing was spent. `code` is one
+    of ENGINE_WHY_CODES."""
+
+    def __init__(self, message: str, code: str = "other"):
+        super().__init__(message)
+        self.code = code if code in ENGINE_WHY_CODES else "other"
 
 
 def engine_draft_cir(db, slug: str, *, today=None):
@@ -148,7 +160,7 @@ def engine_draft_cir(db, slug: str, *, today=None):
 
     i = draft_inputs(db, slug, today=today)
     if i is None:
-        raise EngineDraftRefused("not an approved research concept")
+        raise EngineDraftRefused("not an approved research concept", "not_approved")
     seed = i.pop("_seed")
     title, category = str(i.get("title") or ""), str(i.get("category") or "")
     form, construction = str(i.get("form") or ""), str(i.get("construction") or "")
@@ -159,7 +171,7 @@ def engine_draft_cir(db, slug: str, *, today=None):
                          construction=construction, slug=slug,
                          premise=str(i.get("premise") or ""))
         if not route["admitted"]:
-            raise EngineDraftRefused(route["reason"][:240])
+            raise EngineDraftRefused(route["reason"][:240], "route_not_admitted")
         try:
             spec = WB.spec_for(SimpleNamespace(
                 key=slug, title=title, form=form, category=category,
@@ -167,14 +179,17 @@ def engine_draft_cir(db, slug: str, *, today=None):
                 notes=str(i.get("notes") or ""), recipient=str(i.get("recipient") or "self")))
             if spec.audience != route.get("audience"):
                 raise EngineDraftRefused(f"the concept's recipient sizes it for {spec.audience} "
-                                         f"but its title and category say {route.get('audience')}")
+                                         f"but its title and category say {route.get('audience')}",
+                                         "audience_mismatch")
             built = WB.build(spec)
         except (WB.WearableRefused, ValueError) as exc:
+            code = getattr(exc, "code", None) or "engine_refused"
             raise EngineDraftRefused(f"the {route['family']} engine will not draft it: "
-                                     f"{exc}"[:240]) from None
+                                     f"{exc}"[:240], code) from None
         sizes = list(built.cirs)
         if not sizes:
-            raise EngineDraftRefused(f"the {route['family']} engine drafted no size")
+            raise EngineDraftRefused(f"the {route['family']} engine drafted no size",
+                                     "no_size")
         cir, family = built.cirs[sizes[len(sizes) // 2]], route["family"]
     else:
         concept = Concept(slug=i["slug"], title=i["title"], category=i["category"],
@@ -191,22 +206,25 @@ def engine_draft_cir(db, slug: str, *, today=None):
                     FC.COSY: FC.cosy, FC.STOCKING: FC.stocking, FC.VESSEL: FC.vessel,
                     **{v: (lambda c, _v=v: HD.build(_v, c)) for v in HD.VARIANTS}}
         if family == FC.AMIGURUMI_ANIMAL:
-            raise EngineDraftRefused("a stuffed animal's board is creative.toy_board's")
+            raise EngineDraftRefused("a stuffed animal's board is creative.toy_board's",
+                                     "stuffed_animal_route")
         if family not in builders:
             raise EngineDraftRefused(f"no engine board for the {family!r} route: "
-                                     f"{route.get('why') or ''}"[:240])
+                                     f"{route.get('why') or ''}"[:240], "no_engine_board")
         if CF.status_of(family) not in CF.ADMITTED_STATUSES:
             raise EngineDraftRefused(f"the {family} engine is not admitted "
-                                     f"({CF.status_of(family)})")
+                                     f"({CF.status_of(family)})", "engine_not_admitted")
         try:
             cir = builders[family](concept)
         except (ValueError, KeyError) as exc:
             raise EngineDraftRefused(f"the {family} engine will not draft it: "
-                                     f"{type(exc).__name__}: {exc}"[:240]) from None
+                                     f"{type(exc).__name__}: {exc}"[:240],
+                                     "engine_refused") from None
     result = compile_cir(cir)
     if not result.ok:
         codes = sorted({f.code for f in result.findings if f.is_error})
-        raise EngineDraftRefused(f"the engine's draft does not compile: {codes}"[:240])
+        raise EngineDraftRefused(f"the engine's draft does not compile: {codes}"[:240],
+                                 "not_compiling")
     return cir, family, result
 
 
@@ -219,14 +237,16 @@ def make_engine_board(db, slug: str, *, today=None) -> dict:
     try:
         cir, family, result = engine_draft_cir(db, slug, today=today)
     except EngineDraftRefused as exc:
-        return {"board_image": None, "why": f"no engine draft to render: {exc}"[:300]}
+        return {"board_image": None, "why": f"no engine draft to render: {exc}"[:300],
+                "engine_why": exc.code}
     try:
         twin = build_twin(cir, result)
         image = fabric_raster(twin, cir.gauge, px_per_stitch=26, max_rows=40, max_cols=40,
                               seed=0, fibre=True)
     except Exception as exc:  # noqa: BLE001 - an undrawable twin is no board, never a crash
         return {"board_image": None,
-                "why": f"the engine's draft could not be drawn ({type(exc).__name__})"}
+                "why": f"the engine's draft could not be drawn ({type(exc).__name__})",
+                "engine_why": "twin_undrawable"}
     side = min(image.size)
     image = image.crop((0, 0, side, side)).resize((BOARD_PX, BOARD_PX))
     buf = io.BytesIO()
