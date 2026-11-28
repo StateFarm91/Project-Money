@@ -4997,3 +4997,20 @@ Batch 19i30 (GATE-EPISODE, 8d5a69b90) is deployed under the owner's chat approva
 - The chain.successors headroom pre-check is read-only, which fixes test_eng_recovery. That test was also red on 19i29, so 19i29 could never be recorded.
 
 All 129 suites pass (1309 tests). SHADOW remains until a full-suite record on the deployed tree exists.
+
+## D-OWNER-DEPLOY-19i31 — 2026-11-28
+
+Batch 19i31 fixes the 5 suites that kept the 19i30 record red:
+- resume_runner declarations;
+- provider boundary;
+- F-152 scratch site;
+- ccfm2 clock;
+- mc_perf Laura route.
+
+It also carries VERIFY-REFS:
+- the region question is routed through the activated vision judge;
+- verification_reverify is bounded.
+
+It is deployed under the owner's chat approval of 2026-11-25 for photo fixes. The targeted suites pass on the merged tree. Two owner decisions are pending and nothing changes them:
+- the LIFESTYLE-EVIDENCE policy for generated lifestyle frames;
+- the market-basket per-gallery plan.
