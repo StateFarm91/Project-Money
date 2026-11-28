@@ -81,6 +81,32 @@ tests/test_p0_mismeasured_stop.py):
 
 ---
 
+## FIRST-LISTING-PATH — 2026-11-28 (branch eng/first-listing from 46908fe66, NOT merged, NOT deployed)
+
+Traced gallery valid -> sale pipeline -> listing.package -> owner card / grant -> phase -> door ->
+store.publish -> draft -> activation (`research/FIRST-LISTING-PATH.md`, owner steps and endpoints).
+Run end to end on a seeded database (tests/test_first_listing_path.py; red on 46908fe66, all four).
+Production rows NOT read. Code blockers fixed:
+- B1: a gallery made valid without a new image end state never re-entered the chain (event key per
+  end state and epoch already spent; the bounded 3 re-drives exhausted after days at the gallery
+  stage). `sale_pipeline._evidence_redrives`: the hourly sweep re-enters the free gallery stage
+  once per complete listing-set certificate, and asks the free certification route hourly while an
+  image run is assembled but uncertified.
+- B2: attach blocked on `listing_gates` after its re-drives was never re-entered when the package
+  changed. The block records the package fingerprint; the sweep re-enters once per new fingerprint;
+  the `ready` successor is keyed by the package fingerprint.
+- B3: store.publish "suspended" (thrash breaker over three SHADOW refusals) would outlive the
+  owner's phase move, and shadow-era dead letters in the 72 h window re-tripped it. A closed-gate
+  (REFUSED) suspension lifts once a phase transition is recorded after it (incident resolved by
+  ops.thrash); refusals ended before the newest transition are not observations. A failing loop
+  keeps its breaker across a phase change.
+Not code: the boot guard forces SHADOW while the deployed tree has no committed release record; the
+owner card also needs parity (creative.blind_review + hero description + frame reviews), policy
+(ops.policy_watch) and rollback (launch.readiness, 3 days) PASS. transactions_r is not needed for a
+draft or activation (order ingest only).
+
+---
+
 ## VERIFY-REFS — 2026-11-26 (branch eng/verify-refs from 15f809bfb, NOT merged, NOT deployed)
 
 Production 19i30 (evidence 01:31Z; production rows and pixels NOT read; reproduced in

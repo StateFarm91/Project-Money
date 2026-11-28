@@ -1198,13 +1198,20 @@ def _attach(db, key, run, *, follow, start_images, store_root):
                         for b in draft_blockers(pkg) or pkg.get("blockers") or [])
         _update(db, key, blocker="listing_gates", detail=why[:2000] or "package not ready",
                 evidence={"package": {"state": pkg.get("state"), "gallery": gallery,
+                                      "fingerprint": pkg.get("fingerprint"),
                                       "results": out.get("ready")}})
         return {"state": run["state"], "next": None, "blocker": "listing_gates", "why": why}
     _update(db, key, state=ATTACHED, stage="ready", blocker="", detail="",
             evidence={"package": {"state": pkg.get("state"), "gallery": gallery,
                                   "fingerprint": pkg.get("fingerprint"),
                                   "publication_waits_on": publication_blockers(pkg)}})
-    return {"state": ATTACHED, "next": _next(follow, slug, version, release, "ready")}
+    # ENG-FIRST-LISTING-PATH: READY is decided on this package, so its check is keyed by the
+    # package fingerprint. An attach re-entered for a changed package (`_evidence_redrives`)
+    # then asks the ready stage again instead of finding the earlier package's key taken.
+    fp = str(pkg.get("fingerprint") or "")[:24]
+    follow({"slug": slug, "version": version, "release": release, "stage": "ready"},
+           stage_key(slug, version, release, "ready") + (f":pkg{fp}" if fp else ""))
+    return {"state": ATTACHED, "next": "ready"}
 
 
 def publication_blockers(pkg: dict | None) -> list[str]:
@@ -1390,6 +1397,8 @@ def sweep(db, *, follow, now: datetime | None = None, incident=None) -> dict:
     with db.session() as s:
         rows = [_view(r) for r in s.scalars(select(SalePipelineRun).where(
             SalePipelineRun.state.in_(tuple(STALL_AFTER))))]
+    evidence_redriven = _evidence_redrives(db, rows, follow=follow, hour=hour)
+    redriven += len(evidence_redriven)
     for run in rows:
         bound = STALL_AFTER[run["state"]]
         since = _aware(datetime.fromisoformat(run["progressed_at"])) if run["progressed_at"] \
@@ -1413,7 +1422,57 @@ def sweep(db, *, follow, now: datetime | None = None, incident=None) -> dict:
             _next(follow, run["slug"], run["version"], run["release"], stage, drive)
             redriven += 1
     return {"admission_asked": admitted, "redriven": redriven, "stalled": len(incidents),
-            "incidents": incidents[:30], "work_done": bool(admitted or redriven or incidents)}
+            "incidents": incidents[:30], "evidence_redriven": evidence_redriven[:30],
+            "work_done": bool(admitted or redriven or incidents)}
+
+
+def _evidence_redrives(db, rows: list[dict], *, follow, hour: str) -> list[dict]:
+    """ENG-FIRST-LISTING-PATH: re-enter a waiting stage when the evidence it waits on has
+    changed, outside the bounded stall re-drive count.
+
+    The bounded count (MAX_REDRIVES) resets only on progress, so a release that waited longer
+    than three stall windows -- hexagon-coaster-set@1.2.1 at its gallery stage for days -- had
+    no re-entry left when its evidence finally changed, and the stage events are keyed per
+    (image end state, epoch), so a gallery made valid by a re-verification of stored frames
+    raised no new event either. The stages re-entered here are free (database reads and the
+    internal certification / package writes) and each re-entry is keyed by the evidence:
+
+    * gallery stage: once per listing-set certificate that now reads complete; while an image
+      run is assembled (ready_for_owner_review) but uncertified, the free certification route
+      is re-asked once per hour, like admission;
+    * attach / ready: once per listing-package fingerprint differing from the one the stage
+      last blocked on (`evidence.package.fingerprint`)."""
+    from . import listing_package as LP
+
+    out: list[dict] = []
+    for run in rows:
+        slug, version, release = run["slug"], run["version"], run["release"]
+        token = None
+        stage = NEXT_STAGE.get(run["state"])
+        try:
+            if run["state"] == GALLERY:
+                reading = gallery_reading(db, slug, version, release)
+                if reading["complete"]:
+                    token = f"cert{reading.get('record_id')}"
+                else:
+                    img = image_run(db, slug, version, release)
+                    if img is not None and img["state"] == "ready_for_owner_review":
+                        token = f"certify{hour}"
+            elif run["state"] in (PDFS_CERTIFIED, ATTACHED) and run["blocker"]:
+                fp = (LP.latest(db, slug, version) or {}).get("fingerprint")
+                seen = ((run["evidence"] or {}).get("package") or {}).get("fingerprint")
+                if fp and fp != seen:
+                    token = f"pkg{str(fp)[:24]}"
+        except Exception:  # noqa: BLE001 - an unreadable reading re-drives nothing
+            token = None
+        if token is None or not stage:
+            continue
+        job = follow({"slug": slug, "version": version, "release": release, "stage": stage,
+                      "evidence": token}, stage_key(slug, version, release, stage) + f":{token}")
+        if job is None:
+            continue                  # this evidence already re-entered the stage once
+        out.append({"run_key": run["run_key"], "stage": stage, "evidence": token})
+    return out
 
 
 def resolved_signatures(db) -> list[str]:
