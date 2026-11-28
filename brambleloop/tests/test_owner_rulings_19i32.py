@@ -123,7 +123,9 @@ def test_1_the_masters_wall_palette_and_rim_pass_and_the_old_misread_is_named():
 
 def test_2_wrong_variants_still_fail():
     m = _model()
-    for name, data in _variants().items():
+    variants = _variants()
+    assert set(variants) == {"missing stripe", "extra stripe", "wrong colour", "wrong spacing"}
+    for name, data in variants.items():
         c = _by(V.verify_side(data, m))
         assert c["basket:wall_bands"]["status"] == "FAIL", (name, c["basket:wall_bands"])
     print("OK 2 extra stripe, missing stripe, wrong colour, wrong spacing: FAIL")

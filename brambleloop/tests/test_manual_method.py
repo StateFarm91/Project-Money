@@ -315,7 +315,10 @@ def test_the_generation_method_version_names_the_manual_method():
 
 
 def test_caps_are_unchanged():
-    assert IP.MAX_SPEND_CAD_PER_GALLERY == 2.00 and IP.MAX_GENERATION_CALLS == 12
+    # The manual method changes no cap. The values are the owner's D-OWNER-PHOTO-BUDGET
+    # (19i32: CA$6.00 and 36 calls per gallery, 60 on the FLUX route), not the method's.
+    assert IP.MAX_SPEND_CAD_PER_GALLERY == 6.00 and IP.MAX_GENERATION_CALLS == 36
+    assert IP.FLUX_MAX_GENERATION_CALLS == 60
     assert IP.MAX_ATTEMPTS_PER_ROLE == 3
     g = _gen("coaster")[0]
     assert abs(g.max_cost_cad_per_call - round(I.BFL3_TIER_USD["2k"] * I.USD_TO_CAD, 6)) < 1e-9
