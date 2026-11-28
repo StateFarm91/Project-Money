@@ -2564,10 +2564,53 @@ def method_headroom(db, key: str, run: dict) -> dict:
     calls_left = int(plan["call_count"]) - int(_run_counts(db, key)["counted_calls"])
     spend_left = round(float(plan["max_spend_cad"]) - float(run.get("spent_cad") or 0.0), 4)
     ok = calls_left >= calls and spend_left + 1e-9 >= calls * cost
+    # METHOD-REDRIVE-FIX: the paid-provider gate's per-gallery caps bind every call too, so
+    # headroom under the spend plan alone could restart a run whose next call the gate refuses.
+    gal = _gallery_cap_room(db, key)
+    if gal is not None:
+        ok = ok and gal["images_left"] >= calls and gal["cad_left"] + 1e-9 >= calls * cost
     return {"ok": ok, "calls_needed": calls, "calls_left": calls_left,
+            **({"gallery": gal} if gal is not None else {}),
             "call_cap": int(plan["call_count"]), "spend_left_cad": spend_left,
             "spend_cap_cad": float(plan["max_spend_cad"]),
             "needed_cad": round(calls * cost, 4)}
+
+
+def _gallery_cap_room(db, key: str) -> dict | None:
+    """Images and CA$ left under the paid-provider gate's per-gallery caps in force
+    (`paid_provider_gate.image_caps`), for this run's gallery; None when unreadable or the key
+    is not a gallery (the gate itself still refuses at call time either way)."""
+    try:
+        from ..gateway import paid_provider_gate as G
+
+        if not G.is_gallery_key(key):
+            return None
+        caps, spent = G.image_caps(), G.gallery_spend(db, key)
+        return {"images_left": int(caps["gallery_images"]) - int(spent["images"]),
+                "cad_left": round(float(caps["gallery_cad"]) - float(spent["cad"]), 4),
+                "image_cap": int(caps["gallery_images"]),
+                "cad_cap": float(caps["gallery_cad"])}
+    except Exception:  # noqa: BLE001 - unreadable: the spend plan alone decides, gate binds
+        return None
+
+
+def _resume_method_scope(db, key: str) -> dict | None:
+    """METHOD-REDRIVE-FIX: a restart that resumes at `product_generation` for any reason (a
+    raised plan or gallery cap, the daily reset, a transient provider answer) regenerates the
+    product frame. When every FAILed product frame of the run was made under an older
+    generation method and no restart has yet been spent on the current one, the restart is
+    recorded as that method's redrive, so `_attempts` counts the current method only -- else
+    the resumed stage hits the old method's spent attempt cap and blocks again without a call.
+    Calls, spend and every cap are untouched."""
+    current = current_method_version()
+    history = (((_stage_data(db, key).get(RESTART_KEY)) or {}).get("history")) or []
+    if any(isinstance(h, dict) and h.get("method_version") == current for h in history):
+        return None
+    versions = _run_fail_versions(db, key, [ANCHOR_ROLE])
+    if not versions or current in versions:
+        return None
+    return {"version": current, "eligible": True, "ok": True, "code": None,
+            "failed_versions": sorted(set(versions)), "via": "resume_at_product_generation"}
 
 
 def method_redrive_check(db, key: str, run: dict, failed: list[str]) -> dict:
@@ -2578,7 +2621,10 @@ def method_redrive_check(db, key: str, run: dict, failed: list[str]) -> dict:
     under the existing call and spend caps; without it the code is `method_redrive:no_headroom`."""
     current = current_method_version()
     base = {"version": current}
-    if run.get("stage") != "fidelity_gate" or not failed:
+    # METHOD-REDRIVE-FIX: a run stopped at product_generation (a transient provider answer
+    # mid-attempt) with older-method FAILs is the same case: before this it was refused as
+    # "attempts were spent" and never reached the current method.
+    if run.get("stage") not in ("fidelity_gate", "product_generation") or not failed:
         return {**base, "eligible": False, "ok": False, "code": None}
     history = (((_stage_data(db, key).get(RESTART_KEY)) or {}).get("history")) or []
     if any(h.get("method_version") == current for h in history):
@@ -2713,6 +2759,14 @@ def restartable(db, key: str, *, rejudge: bool = False, reverify_only: bool = Fa
     names = [st for st, _ in STAGES]
     blocked_at = run["stage"] if run["stage"] in names else names[0]
     has_anchor = _best(db, listing=run["listing"], role=ANCHOR_ROLE, run=key) is not None
+    scope = (_resume_method_scope(db, key)
+             if not stale and blocked_at in ("product_generation", "fidelity_gate") else None)
+    if scope:
+        # METHOD-REDRIVE-FIX: the stored product frames FAILed under an older method;
+        # re-judging them cannot help. Regenerate under the current method, its own attempts.
+        return {"restartable": True, "resume_at": "product_generation", "reverify": False,
+                "blocked_at": blocked_at, "blocked_reason": reason,
+                "epoch": run.get("restarts", 0) + 1, "method_redrive": scope}
     if stale:
         resume, reverify_ = blocked_at, False
     elif names.index(blocked_at) >= names.index("verification"):
@@ -3553,7 +3607,12 @@ def _utc_day(iso: str | None):
 # current plan leaves room for one more attempt. MAX_RESTARTS per method, the generation
 # provider's daily ceiling and the plan itself still bind.
 PLAN_REDRIVE_BY = "spend_plan_redrive"
-_PLAN_STOP = ("exceeds the plan's call_count", "exceeds the plan's max_spend_cad")
+_PLAN_STOP = ("exceeds the plan's call_count", "exceeds the plan's max_spend_cad",
+              # METHOD-REDRIVE-FIX: the paid-provider gate's per-gallery caps, which the same
+              # owner decision raised (16 -> 60 images, CA$2.50 -> 6.00 per gallery). A run
+              # stopped by the old value is re-driven once the cap in force leaves room for
+              # one attempt (`method_headroom` reads it); never while it binds.
+              "(gallery_image_cap)", "(gallery_cad_cap)")
 
 
 def plan_budget_block(reason) -> bool:
