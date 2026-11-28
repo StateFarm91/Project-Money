@@ -321,7 +321,12 @@ def owner_session_route(route_path: str) -> bool:
 READBACK_ROUTES: frozenset[str] = frozenset({"/api/readback/evidence",
                                             # ENG-IMPROVE: open engineering change requests
                                             # for the integrator's routine (read-only).
-                                            "/api/readback/ecrs"})
+                                            "/api/readback/ecrs",
+                                            # ENG-CANDIDATE-VIEWER: generated image candidates,
+                                            # one image by id, and gallery runs (read-only).
+                                            "/api/readback/candidates",
+                                            "/api/readback/candidates/{candidate_id}/image",
+                                            "/api/readback/galleries"})
 
 
 def readback_route(route_path: str) -> bool:
