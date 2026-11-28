@@ -1,13 +1,17 @@
 #!/bin/bash
 # db-backup housekeeping: space precheck, checksum manifest, rotation, optional offsite copy.
-# RELENG 2026-10-11. NOT DEPLOYED. Nothing here is enabled on Railway until the owner approves
-# RELENG_FIX.md section 5 and the integrator changes the db-backup start command.
+# RELENG 2026-10-11; ENG-DB-BACKUP 2026-11-28. Deployed only when the owner applies
+# brambleloop/research/DB-BACKUP-APPLY.md (Railway variable HOUSEKEEP_B64 + start command).
 #
-# The proven dump-and-restore script (Railway variable SCRIPT_B64, BK line protocol, verified
-# 2026-10-11T13:00Z) is left untouched. This wraps it and acts only on its own verdict line,
-# `BK RESULT OK <path>`.
+# It wraps the dump-and-restore script, ops/db_backup/backup.sh (Railway variable SCRIPT_B64,
+# BK line protocol), and acts only on that script's verdict line, `BK RESULT OK <path>`.
 #
-#   housekeep.sh run <backup-script> <dir>   precheck, run the script, then record, rotate, ship
+#   housekeep.sh run [<backup-script>] <dir> precheck, run the script, then record, rotate, ship
+#                                            (script defaults to $BACKUP_SCRIPT, else backup.sh
+#                                            beside this file). On a volume with no manifest
+#                                            yet, `adopt` runs first.
+#   housekeep.sh adopt <dir>                 first run only: record legacy dumps that read back
+#                                            in full as verified, so rotation can keep them
 #   housekeep.sh precheck <dir>              make room for one more dump, or fail
 #   housekeep.sh record <dir> <dump>         add a verified dump to MANIFEST.jsonl + SHA256SUMS
 #   housekeep.sh rotate <dir>                keep the newest BACKUP_KEEP verified dumps
@@ -188,16 +192,44 @@ ship_inner() {
   say "OFFSITE OK $OFFSITE_BUCKET/$key ciphertext_sha256 $want"
 }
 
+# adopt: dumps made before this wrapper existed are not in any manifest, so rotation would
+# treat them all as failed runs and the precheck could not free them. Each one that pg_restore
+# reads back IN FULL (every data block, not only the table of contents, so a truncated dump is
+# refused) is recorded as verified, oldest first; the rest stay unverified and rotation removes
+# them once a newer verified dump exists. It does nothing once a manifest exists.
+cmd_adopt() {
+  local dir=$1 f toc n=0
+  if [ -f "$dir/$MANIFEST" ]; then say "adopt skipped (manifest exists)"; return 0; fi
+  for f in $(cd "$dir" && ls -1 brambleloop_prod_*.dump 2>/dev/null); do
+    if pg_restore --file=/dev/null "$dir/$f" 2>/dev/null; then
+      toc=$(pg_restore --list "$dir/$f" 2>/dev/null | grep -vc '^;' || true)
+      printf '{"event":"verified","file":"%s","bytes":%s,"sha256":"%s","at":"%s","toc_entries":%s,"adopted":true}\n' \
+        "$f" "$(size_of "$dir/$f")" "$(sha_of "$dir/$f")" "$(now)" "${toc:-0}" >> "$dir/$MANIFEST"
+      n=$((n+1)); say "adopt verified legacy $f ($(size_of "$dir/$f") bytes)"
+    else
+      say "adopt refused $f (does not read back in full; left unverified)"
+    fi
+  done
+  [ -f "$dir/$MANIFEST" ] || : > "$dir/$MANIFEST"
+  write_sums "$dir"
+  say "adopt recorded $n legacy dump(s)"
+}
+
 cmd_run() {
   local script=$1 dir=$2 log rc dump
+  [ -f "$script" ] || { say "RESULT FAIL no backup script at $script"; return 1; }
+  [ -f "$dir/$MANIFEST" ] || cmd_adopt "$dir"
   cmd_precheck "$dir" || { say "RESULT FAIL precheck"; return 1; }
   log=$(mktemp /tmp/bk-log-XXXXXX)
-  bash "$script" 2>&1 | tee "$log"
+  # The script writes into the same directory this wrapper rotates.
+  BACKUP_DIR=$dir bash "$script" 2>&1 | tee "$log"
   rc=${PIPESTATUS[0]}
   dump=$(sed -n 's/^BK RESULT OK \(.*\)$/\1/p' "$log" | tail -1)
   rm -f "$log"
   if [ -z "$dump" ]; then
-    say "housekeep: no BK RESULT OK from the backup script (exit $rc); nothing recorded or rotated"
+    # Worded so it can never match a log scanner looking for the OK verdict
+    # (ops/autopromote.py OK_LINE): the old text quoted that verdict and would have read as OK.
+    say "RESULT FAIL housekeep: the backup script reported no verified dump (exit $rc); nothing recorded or rotated"
     return 1
   fi
   cmd_record "$dir" "$dump" || return 1
@@ -208,8 +240,11 @@ cmd_run() {
 }
 
 case "${1:-}" in
-  run) [ $# -eq 3 ] || exit 2; cmd_run "$2" "$3" ;;
-  precheck|rotate|check) [ $# -eq 2 ] || exit 2; "cmd_$1" "$2" ;;
+  run)
+    if [ $# -eq 3 ]; then cmd_run "$2" "$3"
+    elif [ $# -eq 2 ]; then cmd_run "${BACKUP_SCRIPT:-$(dirname "$0")/backup.sh}" "$2"
+    else exit 2; fi ;;
+  precheck|rotate|check|adopt) [ $# -eq 2 ] || exit 2; "cmd_$1" "$2" ;;
   record|ship) [ $# -eq 3 ] || exit 2; "cmd_$1" "$2" "$3" ;;
-  *) sed -n '2,30p' "$0"; exit 2 ;;
+  *) sed -n '2,36p' "$0"; exit 2 ;;
 esac
