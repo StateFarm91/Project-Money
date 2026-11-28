@@ -621,7 +621,13 @@ def test_publication_gates_are_not_relaxed():
     lif = CG.evaluate(db, O.cand(data=img, role="lifestyle", release=O.RELEASE,
                                  references=[{"sha256": "a" * 64, "kind": "pattern_derived"}]),
                       judges=CG.RealJudges(db, vision=PASSING_BANDS_JUDGE))
-    assert lif["checks"]["product_truth"]["status"] == "FAIL"    # lifestyle_evidence kept
+    # D-OWNER-LIFESTYLE-GENERATED (19i32): the pattern-derived reference is no longer a
+    # structural FAIL; lifestyle_evidence still applies, on the frame's own fidelity readings
+    # (no product region is read here, so it cannot PASS), and publication stays refused.
+    le = lif["checks"]["product_truth"]["lifestyle_evidence"]
+    assert le["basis"] == "D-OWNER-LIFESTYLE-GENERATED" and "structural" not in le, le
+    assert lif["checks"]["product_truth"]["status"] != "PASS", lif["checks"]["product_truth"]
+    assert lif["publishable"] is False
     # an anchor with no vision reading is never PASS through the gates
     pt = CG.RealJudges(db).product_truth({**O.cand(data=img), "role": "product_anchor"},
                                          CG.binding(db, CLOUD, "1.2.0", O.RELEASE))

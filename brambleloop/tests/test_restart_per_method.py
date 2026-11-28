@@ -381,6 +381,17 @@ def _cap_hold() -> dict:
 
 
 def test_4_the_coaster_hold_was_the_19i27_cap_refusal_not_vision_headroom():
+    # a reproduction of production under 19i28's checks (19i32 moved them to
+    # fidelity-checks/3, which would lift this hold by version; pinned for the replay)
+    saved = F.FIDELITY_CHECK_VERSION
+    F.FIDELITY_CHECK_VERSION = CHECKS2
+    try:
+        _test_4_body()
+    finally:
+        F.FIDELITY_CHECK_VERSION = saved
+
+
+def _test_4_body():
     db = R._db()
     blocked = _today_blocked()
     _production_spend(db, blocked)

@@ -124,7 +124,7 @@ def test_s2_a_row_with_a_wider_monthly_ceiling_has_no_directive_authority():
 
 def test_s2_a_row_with_a_wider_daily_or_gallery_ceiling_has_no_directive_authority():
     db = _db()
-    _forge(db, daily_ceiling_cad=5.01)
+    _forge(db, daily_ceiling_cad=10.01)   # D-OWNER-PHOTO-BUDGET: table CA$10
     assert not _active(db)
     db = _db()
     _forge(db, per_gallery_cad=50.0)
