@@ -634,6 +634,34 @@ def gate_concept(db, concept, *, brief: dict | None = None, catalogue: list | No
     }
 
 
+NO_CONCEPT_MARK = "is not a concept yet"
+
+
+def judged_no_concept(gate) -> bool:
+    """True when this verdict judged no concept at all: the candidate carries none of the
+    Concept fields (`concept_from`'s "<slug> is not a concept yet: it has no [...]"), so #88
+    fails and every other check is not applicable. A radar slot that names only a category
+    and a price is such a candidate.
+
+    ENG-P0-PIPELINE: that refusal describes the *candidate* (a placeholder slot), and says
+    nothing about the arena it was routed for. It stays a refusal -- the gate is unchanged;
+    `intel.watchlist.score_outcome` only stops counting it as a measured attempt of the
+    arena. A Concept that was built and then refused (ConceptRefused, or any other failed
+    check) is a real judgement and is NOT matched. Works on the full verdict and on the
+    `gate` a stored radar.score output keeps (`failed`, `reasons`, no `checks`)."""
+    if not isinstance(gate, dict) or list(gate.get("failed") or []) != ["premise_thumbnail"]:
+        return False
+    reasons = [str(r) for r in gate.get("reasons") or []]
+    if not reasons or not all(r.startswith("#88 premise_thumbnail:") and NO_CONCEPT_MARK in r
+                              for r in reasons):
+        return False
+    checks = gate.get("checks")
+    if isinstance(checks, dict) and checks:
+        return all(isinstance(v, dict) and v.get("status") == NOT_APPLICABLE
+                   for k, v in checks.items() if k != "premise_thumbnail")
+    return True
+
+
 def _autopsy_reason(failed: list[str]) -> str:
     if "silhouette" in failed:
         return "silhouette"

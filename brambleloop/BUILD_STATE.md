@@ -23,6 +23,38 @@ deployed); 6 are not; 2 name no resolvable branch.
 
 ---
 
+## P0-PIPELINE (non-image) — 2026-11-28 (branch eng/p0-pipeline from 46908fe66, NOT merged, NOT deployed)
+
+Production 46908fe66 (evidence 2026-11-28T06:04Z; production rows NOT read; reproduced in
+tests/test_p0_mismeasured_stop.py):
+- (1) competitor scans: 9/9 shops `scanned`, 0 errors in 7 d, none unattempted. Working.
+- (2) concept supply STALLED: concepts_admitted 0 and cir.draft 0 every day since 2026-11-22;
+  pool READY 7 (garments 4, hats 3) all `absent / gap_not_pursuing` (the same two pods read
+  so on 2026-11-21); radar `selection_unpromotable` (78 pool, 18 drafted, 0 promotable: the 16
+  undrafted static slots are #88 placeholders, by design); regate held 3 (2 toy-board FLUX
+  renders, 1 `engine_draft_refused`). The two 2026-11-22 drafts DID progress: both certified
+  with US+UK PDFs, now held in images (FLUX 503 on housewarming-key-basket@0.1.0, redrive
+  eligible) -- image lane, not changed here. culture.sweep completed 2026-11-27T20:00Z (no
+  dead letter in 24 h).
+- ROOT CAUSE (garments/hats): `watchlist.review` stopped each arena after two "measured"
+  attempts, but every concept it routes there is a radar SLOT with no concept, refused by #88
+  as "not a concept yet". `score_outcome` counted those as measurements of the arena; the
+  stop then (D-ENG-SUPPLY-FEED, unchanged) closed the arena's research to the pool's READY
+  originals for good.
+- FIX: `preengineering.judged_no_concept`; `score_outcome` reads such a refusal as
+  `not_attempted` (the slot stays refused); `watchlist.reopen_mismeasured_stops` (daily
+  comparison + review) re-judges a `stopped_after_failures` stop from its own radar.score
+  jobs and, if fewer than MAX_FAILED_ATTEMPTS are genuine, moves `not_pursuing -> uncovered`,
+  keeps the genuine attempts and withdraws the stop's lesson citing the evidence. Owner/other
+  stops and stops whose jobs are gone are never touched. No gate, cap or allowance changed.
+- (3) learning: benchmark lessons applied (MM-L1, MM-L3, HC-L2, MM-L7); real-outcome lessons
+  0 (image 0, pattern 0, commerce UNMEASURED, 0 real orders). NOT met: no real sale outcome
+  can exist while publication is closed (shadow, boot guard `forced_shadow`, halt).
+- (4) scheduler: 153 cadences, 0 blocked departments; store.publish suspended (publish lane);
+  10 non-pipeline polls backed off. Unexpected dead letters 24 h: 2 --
+  `creative.grid_tournament` AttributeError (weekly, last success 2026-11-20; error text not
+  in the readback, NOT root-caused) and `visual.image_production` RuntimeError (image lane).
+
 ## VERIFY-REFS — 2026-11-26 (branch eng/verify-refs from 15f809bfb, NOT merged, NOT deployed)
 
 Production 19i30 (evidence 01:31Z; production rows and pixels NOT read; reproduced in
