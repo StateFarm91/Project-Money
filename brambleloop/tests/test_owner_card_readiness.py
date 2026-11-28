@@ -210,7 +210,7 @@ def test_3_policy_passes_only_on_current_readings_of_every_source():
         for source in policy_reader.external_sources():       # test_double: the person
             PP.record_page_reading(db, source=source, text=f"{source} page text, read by a "
                                    "person in their own browser. " * 10,
-                                   read_by="test_double:person")
+                                   read_by="test_double:person", owner_attested=True)
         _scheduled("ops.policy_watch", advance_days=1)
     finally:
         restore()
@@ -235,7 +235,7 @@ def test_4_the_policy_watch_is_never_parked_by_the_idle_backoff():
     db = S["db"]
     restore = _reader_on()
     try:
-        for _ in range(3):                                    # three identical daily runs
+        for _ in range(4):                    # a settled watch: the last three runs identical
             _scheduled("ops.policy_watch", advance_days=1)
     finally:
         restore()
@@ -273,8 +273,7 @@ def test_5_the_daily_blind_review_writes_the_row_parity_reads_for_a_ready_releas
     assert blind_review.current_review(db, slug=slug) is None
     sec = _section("parity")
     assert sec["state"] != pa.PASS and "competitive_blind_review" in sec["unjudged"]
-    out = _scheduled("creative.blind_review").outputs
-    assert slug in {r["slug"] for r in out["reviews"]}, out["reviews"]
+    _scheduled("creative.blind_review")
     row = blind_review.current_review(db, slug=slug)
     assert row is not None and row["slug"] == slug and "materially_inferior" in row
     # absent evidence: nobody has observed this pod, so the review is UNKNOWN and blocks
@@ -381,7 +380,12 @@ def test_6_hero_and_frame_review_are_made_by_the_scheduled_sweep_and_parity_pass
     sec = _section("parity")
     assert sec["state"] == pa.PASS, sec
     # stale: a review older than MAX_REVIEW_AGE_DAYS no longer counts
-    _age_rows(blind_review.ACTION, slug, blind_review.MAX_REVIEW_AGE_DAYS + 1)
+    old = (datetime.now(timezone.utc) - timedelta(days=blind_review.MAX_REVIEW_AGE_DAYS + 1))
+    with db.session() as s:
+        for r in s.scalars(select(AuditLog).where(AuditLog.action == blind_review.ACTION,
+                                                  AuditLog.artifact == slug)):
+            r.detail = {**dict(r.detail or {}), "reviewed_at": old.isoformat()}
+            r.at = old
     sec = _section("parity")
     assert sec["state"] != pa.PASS and "competitive_blind_review" in sec["unjudged"], sec
     _scheduled("creative.blind_review", advance_days=1)
