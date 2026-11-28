@@ -5108,3 +5108,16 @@ Authority: the owner's directive of 2026-11-28. The 18 targeted suites pass. The
 - **Tests.** `tests/test_platform_policy.py` (the sentence claims no label, still discloses,
   verbatim only, the old sentence refused); `tests/test_owner_rulings_19i32.py` test_5.
 - **Reversible.** Yes, one string. Re-adding a "labelled" claim needs a visible label first.
+
+## D-OWNER-DEPLOY-19i35 — 2026-11-28
+
+Batch 19i35 (integration 0e39fd539) is deployed. It contains:
+- COASTER-SIDES: a CIR-driven polygon side-count check (WRONG_SIDE_COUNT), with fidelity-checks/4 triggering a one-time re-judge;
+- METHOD-REDRIVE-FIX: runs blocked by an old method or the old gallery cap restart once under manual_method/1;
+- TOY-BOARD;
+- OWNER-CARD-READINESS;
+- GRID-TOURNAMENT;
+- VISION-GATE-ROUTE (first half): the adapters follow the vision route actually in use;
+- D-GENERATED-IMAGERY-TRUE, with CHAIN_VERSION 10 so stored copy rebuilds.
+
+Authority: the owner's directive of 2026-11-28. The 33 targeted suites pass (592, plus 1 stale pin fixed in 0e39fd539). SHADOW remains until a recorded full suite on the deployed tree exists.
