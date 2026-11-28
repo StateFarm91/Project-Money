@@ -221,15 +221,19 @@ def test_routes_are_readback_routes():
 def test_closed_without_a_configured_token():
     c = _client()
     with _env(**{readbackauth.TOKEN_VAR: None, opsauth.TOKEN_VAR: OPS_TOKEN}):
-        for u in _urls():
+        urls = _urls()
+        assert len(urls) == 3
+        for u in urls:
             assert c.get(u).status_code == 503, u
             assert c.get(u, headers=_bearer(READBACK_TOKEN)).status_code == 503, u
 
 
 def test_no_token_wrong_token_and_operator_token_refused():
     c = _client()
+    urls = _urls()
+    assert len(urls) == 3
     with _auth_env():
-        for u in _urls():
+        for u in urls:
             for h in ({}, _bearer(READBACK_TOKEN[:-1]), _bearer("x" * 40), _bearer(OPS_TOKEN),
                       {"Authorization": READBACK_TOKEN + "x"}):
                 r = c.get(u, headers=h)
@@ -241,15 +245,19 @@ def test_no_token_wrong_token_and_operator_token_refused():
 def test_read_only():
     c = _client()
     before, files = _fingerprint(), _disk_files()
+    urls = _urls()
+    assert len(urls) == 3
     with _auth_env():
-        for u in _urls():
+        for u in urls:
             for method in ("POST", "PUT", "PATCH", "DELETE"):
                 for h in ({}, _bearer(READBACK_TOKEN), _bearer(OPS_TOKEN)):
                     r = c.request(method, u, headers=h, json={"outcome": "accepted"})
                     assert r.status_code in (401, 403, 405), (method, u, r.status_code)
         ids = _C["ids"]
+        reads = urls + [f"{CANDS}/{ids['kept']}/image"]
+        assert len(reads) == 4
         for _ in range(2):
-            for u in _urls() + [f"{CANDS}/{ids['kept']}/image"]:
+            for u in reads:
                 assert c.get(u, headers=_bearer(READBACK_TOKEN)).status_code == 200
     assert _fingerprint() == before
     # A durable-row read never writes the bytes back to disk.
@@ -348,6 +356,7 @@ def test_no_secret_in_any_response():
     with _auth_env():
         h = _bearer(READBACK_TOKEN)
         texts = [c.get(u, headers=h).text for u in (CANDS, GALS, CANDS + "?limit=1")]
+    assert len(texts) == 3 and all(texts)
     for t in texts:
         for needle in (READBACK_TOKEN, OPS_TOKEN, PROVIDER_SECRET, PAID_TOKEN, OWNER,
                        "_paid_call", "api_key", "submitted_by", "supplied_by"):
