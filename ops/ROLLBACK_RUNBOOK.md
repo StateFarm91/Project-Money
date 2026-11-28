@@ -108,20 +108,51 @@ Do not push again and do not rewind the branch. Instead:
    `python3 ops/verify_deploy.py <sha>` again. Record the miss in BUILD_STATE with the sha
    and UTC time, because the host's support will ask for both.
 
-## Pre-release database backup (RELENG, 2026-10-11)
+## Pre-release database backup (RELENG 2026-10-11; schedule ENG-DB-BACKUP 2026-11-28)
 
-Run this before every deploy that changes `core/migrate.py`, and in any case at most 24 h
-before a release. The `db-backup` service (image `postgres:18`, restart policy NEVER, volume
-`db-backup-volume` 1000 MB mounted at `/backup`) runs one dump and then exits each time it is
-deployed. Never delete the service or its volume.
+Run this before every deploy that changes `core/migrate.py`, and in any case make sure a
+verified dump exists from at most 24 h before a release. The `db-backup` service (image
+`postgres:18`, restart policy NEVER, volume `db-backup-volume` **5 GB** (5000 MB) mounted at
+`/backup`) runs one dump, a full restore check, and housekeeping, and then exits.
+Never delete the service or its volume.
 
-1. Integrator or owner (this is a host write): redeploy the `db-backup` service once.
-2. Read its deploy log (read-only). It must end with `BK RESULT OK /backup/brambleloop_prod_<ts>.dump`
-   and must contain `BK restore_ok`, `BK file ... bytes N sha256 H`, `BK toc_entries`, and
-   `BK tables 51 restored_rows ...`. A `BK drift` line for live tables (`audit_log`, `jobs`) is
-   normal. Any other drift, or no `RESULT OK`, means there is no backup, so do not deploy.
+**Schedule.** Once `brambleloop/research/DB-BACKUP-APPLY.md` is applied, the service runs on
+the Railway cron schedule `17 9 * * *` (daily, 09:17 UTC), so a fresh dump normally exists
+from within the last 24 h. Until the owner has applied it, the service runs only when it is
+redeployed by hand (the state on 2026-11-28, with the volume 99.7% full).
+
+What one run does (`ops/db_backup/housekeep.sh run /tmp/b.sh /backup`, `BACKUP_KEEP=2`):
+precheck free space, dump with `ops/db_backup/backup.sh` (the data of `continuity_archives`
+is excluded by design; its schema is kept), restore into a scratch cluster and compare row
+counts, then record the dump in `/backup/MANIFEST.jsonl` and `/backup/SHA256SUMS`, keep the
+newest 2 verified dumps, re-hash them, and skip the offsite copy unless `OFFSITE_UPLOAD=1`.
+
+1. Before a release: read the latest db-backup deployment log (read-only). If the newest
+   `BK RESULT OK` is older than 24 h, or the latest run failed, the integrator or owner (a
+   host write) redeploys the `db-backup` service once and reads that run's log instead.
+2. The log must contain, in order:
+   - `BK payload <sha256> /tmp/b.sh` and `... /tmp/h.sh`, matching `ops/db_backup/encode.sh`
+     at the reviewed commit;
+   - `BK precheck ok ...` (or `BK precheck no previous dump; proceeding`);
+   - `BK excluded_table_data continuity_archives`, `BK file ... bytes N sha256 H`,
+     `BK toc_entries`, `BK restore_ok`;
+   - `BK excluded continuity_archives restored=0 source_now=<n>` (0 restored is correct);
+   - `BK tables <T> restored_rows ...`, where T is the production table count;
+   - `BK RESULT OK /backup/brambleloop_prod_<ts>.dump`;
+   - `BK manifest recorded ...`, `BK rotate kept 2 verified (keep 2)` (1 on the very first
+     run if no legacy dump read back), `BK check ok ...` for each kept dump, and
+     `BK offsite disabled ...` while offsite is not approved.
+
+   A `BK drift` line for live tables (`audit_log`, `jobs`, `cost_entries`) is normal. Any
+   other drift, any `BK RESULT FAIL`, `BK check MISSING|CHANGED`, or no `RESULT OK` means there
+   is no fresh backup, so do not deploy.
 3. Record the file name, bytes, sha256 and UTC time in BUILD_STATE next to the release sha.
    The dump time must come before the push.
-4. Capacity check: the log's `BK volume` line gives free space. Each dump is currently about
-   282 MiB (2026-10-11), so a dump needs free space greater than 1.2 times the last dump. If
-   there is less, that is an owner action: prune old dumps or grow the volume.
+4. Capacity: the precheck needs free space of 1.2 times the newest verified dump and frees
+   the oldest verified dumps to get it, but never the newest. `BK RESULT FAIL precheck` means
+   even that was not enough: an owner action (grow the volume). The `BK volume` line gives the
+   free space after each run.
+
+Restoring from a dump: the restored database has an empty `continuity_archives` table. That
+is expected. The table holds derived whole-database exports of the other tables, which are
+all in the dump; the next continuity run writes a fresh archive.
