@@ -239,7 +239,13 @@ def test_lifestyle_from_pattern_derived_references_fails_product_truth():
     db = make_db()
     v = CG.evaluate(db, cand(references=[{"sha256": "c" * 64, "kind": "pattern_derived"}]))
     pt = v["checks"]["product_truth"]
-    assert pt["status"] == "FAIL" and pt["lifestyle_evidence"]["status"] == "FAIL"
+    # D-OWNER-LIFESTYLE-GENERATED (19i32, owner 1A): pattern-derived references are no longer a
+    # structural FAIL; the frame is judged on its own fidelity readings. With none PASS here
+    # it is neither PASS nor publishable (FAIL or UNKNOWN, never PASS).
+    le = pt["lifestyle_evidence"]
+    assert le["basis"] == CG.LIFESTYLE_POLICY and "structural" not in le, le
+    assert pt["status"] in ("FAIL", "UNKNOWN") and le["status"] in ("FAIL", "UNKNOWN"), pt
+    assert le["publishable"] is False and v["publishable"] is False
 
 
 # ---- outfits -----------------------------------------------------------------------------
