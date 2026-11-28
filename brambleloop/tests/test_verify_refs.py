@@ -228,8 +228,11 @@ def test_3_before_the_fix_the_region_question_never_reaches_the_activated_route(
     data = H.scene()
     t = R._Transport(_region_answer())
     with R._Patched(t):
-        j = CG.RealJudges(db, second_vision=None, embedder=None)
-        old = j.adapters().product_region({"data": data})      # the 19i30 locate callable
+        # the 19i30 locate callable on the 19i30 adapters' judge (image_vision only; since
+        # VISION-GATE-ROUTE the adapters ask the routed judge by default)
+        j = CG.RealJudges(db, vision=F.GatewayVisionJudge(db), second_vision=None,
+                          embedder=None)
+        old = j.adapters().product_region({"data": data})
     assert t.calls == 0 and old["patches"] == [], (t.calls, old)
     assert "image_vision" in old["why"], old
     v = _lifestyle(data, old["patches"])
@@ -250,8 +253,8 @@ def test_4_product_truth_locates_the_region_through_the_routed_judge_and_a_faith
     assert t.calls == 1 and len(got["patches"]) == H._ctx()["make"], (t.calls, got)
     rc = _region_check(_lifestyle(data, got["patches"]))
     assert rc["status"] == "PASS", rc
-    # the identity adapters keep their own judge (Laura's checks are untouched)
-    assert type(j._vision_judge()) is F.GatewayVisionJudge
+    # VISION-GATE-ROUTE (19i35): the adapters ask the same routed judge (the route in use)
+    assert type(j._vision_judge()) is F.RoutedVisionJudge
     assert F.LIFESTYLE_REGION_ROUTE == "lifestyle-region/2"
     # light oak and the eyelets' shade read PASS too
     for table in (H.LIGHT_OAK, H.HONEY):

@@ -188,6 +188,14 @@ def canonical_reference_bytes() -> dict:
 REF_ORDER = ("neutral_portrait", "torso_fit_reference", "full_length_standing")
 
 
+def _independence_key(jid) -> str:
+    """VISION-GATE-ROUTE: two readings are independent only across vendors. With Anthropic
+    vision closed the routed first judge answers through openai-vision too; that is the second
+    judge's vendor, so it is one reading, never two (identity then HOLDs, honestly)."""
+    j = str(jid or "")
+    return "openai-vision" if j.split(":", 1)[0] == "image_vision_openai" else j
+
+
 def person_readings(judges: list, data: bytes, refs: dict) -> list[dict]:
     """One person reading per distinct judge (first two), alternating image order."""
     readings, seen = [], set()
@@ -197,9 +205,10 @@ def person_readings(judges: list, data: bytes, refs: dict) -> list[dict]:
         imgs = ref_list + [data] if order == "refs_first" else [data] + ref_list
         got = ask(j, "identity_morphology", person_prompt(order), imgs, max_tokens=400)
         jid = got["judge"]
-        if jid in seen:      # the same judge twice is one reading, not two
+        key = _independence_key(jid)
+        if key in seen:      # the same judge (or vendor route) twice is one reading, not two
             continue
-        seen.add(jid)
+        seen.add(key)
         readings.append({**got, "order": order,
                          "scored": _scored(got["reading"]) if got["answered"] else None})
     return readings
@@ -1014,6 +1023,22 @@ def _openai_second_judge(db):
 
     class OpenAIVisionJudge(GatewayVisionJudge):
         name = "image_vision_openai"
+
+        def gate_open(self) -> bool:
+            # VISION-GATE-ROUTE (19i35): this judge sends to OpenAI, so it opens on OpenAI's
+            # own evidence -- the owner's `openai-vision:vision` activation in force and its
+            # latest settled call not failing (`concept_judge.openai_vision_usable`, the
+            # concept judge's rule) -- never on the Anthropic `image_vision` gate, and never
+            # on a key alone. Production 19i34: openai-vision active, Anthropic vision not,
+            # and this judge refused every read as "image_vision is unfunded".
+            if self.db is None:
+                return False
+            try:
+                from ..creative import concept_judge
+
+                return bool(concept_judge.openai_vision_usable(self.db))
+            except Exception:  # noqa: BLE001 - unreadable evidence is a closed route
+                return False
 
     return OpenAIVisionJudge(db, provider=openai_chat.OpenAIProvider(model=SECOND_JUDGE_MODEL))
 

@@ -211,7 +211,7 @@ class RealJudges:
     `vision` is the vision judge the fidelity verifier asks about craft texture and anchor
     consistency. Unnamed, Product Truth asks `visual.fidelity.RoutedVisionJudge` (Anthropic
     when `image_vision` is open, else the owner-activated openai-vision route; IMAGE-FIDELITY-
-    ROUTE) and the adapters `visual.fidelity.GatewayVisionJudge` (gated on `image_vision`).
+    ROUTE) and the adapters the same routed judge (VISION-GATE-ROUTE).
     With no usable route it answers nothing, and those checks stay UNKNOWN."""
 
     def __init__(self, db, *, vision=None, second_vision=_CONFIGURED, references=None,
@@ -251,9 +251,15 @@ class RealJudges:
 
     def _vision_judge(self):
         if self.vision is None:
-            from .fidelity import GatewayVisionJudge
+            # VISION-GATE-ROUTE (19i35): the adapters (identity, outfit, anatomy, realism,
+            # product region) ask the route actually in use -- Anthropic when `image_vision`
+            # is open, else the owner-activated, probed openai-vision route, else none -- the
+            # same rule as Product Truth and the concept judge (`vision_route.choose`). Before
+            # this they asked `GatewayVisionJudge`, gated on Anthropic vision alone, so with
+            # only openai-vision activated every adapter read "unfunded; nothing was called".
+            from .fidelity import RoutedVisionJudge
 
-            self.vision = GatewayVisionJudge(self.db)
+            self.vision = RoutedVisionJudge(self.db)
         return self.vision
 
     def _fidelity_judge(self):
