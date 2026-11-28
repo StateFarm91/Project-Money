@@ -143,7 +143,7 @@ def test_the_grid_handler_never_sends_an_unresolvable_render_and_scores_each_pro
     audits: list[tuple[str, dict]] = []
     saved = (BR.catalogue_slugs, BR.pod_for, listing_asset.frames_for, gw.provider_for)
     try:
-        BR.catalogue_slugs = lambda: [("good-throw", "Good Throw"), ("lost-throw", "Lost Throw")]
+        BR.catalogue_slugs = lambda *_a, **_k: [("good-throw", "Good Throw"), ("lost-throw", "Lost Throw")]
         BR.pod_for = lambda slug, title="": "blankets"
         listing_asset.frames_for = lambda db_, slug: frames[slug]
         gw.provider_for = lambda task: judge

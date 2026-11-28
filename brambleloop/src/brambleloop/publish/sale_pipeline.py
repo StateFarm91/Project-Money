@@ -1475,6 +1475,99 @@ def _evidence_redrives(db, rows: list[dict], *, follow, hour: str) -> list[dict]
     return out
 
 
+PARITY_EVIDENCE_KEY = "parity-evidence"
+GENERATED_CLASS = "AI_LIFESTYLE_CONCEPT"
+
+
+def parity_evidence_needs(db, slug: str, version: str) -> dict:
+    """What the owner card's parity section still lacks that `assets.build` makes, read-only.
+
+    ENG-OWNER-CARD-READINESS. Parity HERO is read off the blind description of the disclosed
+    hero's exact bytes (`visual.hero_review`), and #61 off the independent review of the stored
+    frames (`release.frame_review_state`). Both are made only inside `assets.build` while the
+    `image_vision` gate is open. A release built while vision was closed (or whose call failed)
+    and never rebuilt -- a READY release has nothing left to rebuild it -- kept both missing
+    for good. `missing` names what a rebuild would make; `not_buildable` names what it cannot
+    (a stored generated-gallery frame, which no `assets.build` review covers)."""
+    from sqlalchemy import select
+
+    from ..core.models import ListingAsset
+    from ..runtime.release import frame_review_state
+    from ..visual import hero_review
+    from . import listing_asset
+
+    missing: list[str] = []
+    not_buildable: list[str] = []
+    rec = listing_asset.last(db, slug=slug) or {}
+    hero_sha = ""
+    if rec.get("kind") == "disclosed_render" and rec.get("version") == version \
+            and rec.get("usable_as_listing_asset"):
+        hero = next((f for f in rec.get("frames") or [] if f.get("role") == "hero"), None)
+        hero_sha = ((hero or {}).get("image") or {}).get("sha256") or ""
+        got = hero_review.latest_for(db, slug, hero_sha) if hero_sha else None
+        if hero_sha and not (got and got.get("described") is True):
+            missing.append("hero_description")
+    with db.session() as s:
+        stored = sorted((r.position, r.asset_class, r.sha256 or "") for r in s.scalars(
+            select(ListingAsset).where(ListingAsset.product_slug == slug,
+                                       ListingAsset.version == version)))
+    review = frame_review_state(db, slug, version)
+    if stored and not review.get("reviewed"):
+        if any(c == GENERATED_CLASS for _p, c, _s in stored):
+            not_buildable.append("frame_review:generated_gallery_frames")
+        else:
+            missing.append("frame_review")
+    import hashlib
+    import json
+
+    token = hashlib.sha256(json.dumps({"hero": hero_sha, "stored": stored, "missing": missing},
+                                      sort_keys=True).encode()).hexdigest()[:16]
+    return {"missing": missing, "not_buildable": not_buildable, "token": token,
+            "hero_sha256": hero_sha, "frame_review_why": str(review.get("why") or "")[:300]}
+
+
+def parity_evidence_redrives(db, enqueue) -> list[dict]:
+    """Rebuild a READY release's listing frames once per evidence state when parity HERO or
+    #61 evidence is missing and `image_vision` is open (ENG-OWNER-CARD-READINESS).
+
+    `enqueue(agent, job_type, inputs, key)` queues the job; a duplicate key is a no-op, so each
+    (hero bytes, stored frames, missing) state is re-driven at most once and a review that was
+    made and did not clear is never re-bought. The rebuild reuses the disclosed set (same CIR
+    fingerprint) and is free itself; its review calls are the ones `assets.build` already
+    budgets. With vision closed nothing is queued: the rebuild would record UNREVIEWED again."""
+    from ..visual.vision_route import vision_open
+
+    ensure_tables(db)
+    try:
+        if not vision_open(db):
+            return []
+    except Exception:  # noqa: BLE001 - an unreadable gate is a closed gate
+        return []
+    from sqlalchemy import select
+
+    with db.session() as s:
+        rows = [_view(r) for r in s.scalars(select(SalePipelineRun).where(
+            SalePipelineRun.state == READY))]
+    out: list[dict] = []
+    for run in rows:
+        slug, version, release = run["slug"], run["version"], run["release"]
+        try:
+            need = parity_evidence_needs(db, slug, version)
+        except Exception:  # noqa: BLE001 - an unreadable reading re-drives nothing
+            continue
+        if not need["missing"]:
+            continue
+        key = f"{PARITY_EVIDENCE_KEY}:{slug}@{version}:{need['token']}"
+        job = enqueue("publishing", "assets.build",
+                      {"slug": slug, "version": version, "release": release,
+                       "rebuild": key, "reason": "parity evidence: " + ",".join(need["missing"])},
+                      key)
+        if job is None:
+            continue
+        out.append({"run_key": run["run_key"], "missing": need["missing"], "key": key})
+    return out
+
+
 def resolved_signatures(db) -> list[str]:
     """Stall incidents whose release has since reached READY (or was parked/rejected)."""
     from sqlalchemy import select

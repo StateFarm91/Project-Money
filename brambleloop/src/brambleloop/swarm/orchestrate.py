@@ -463,6 +463,12 @@ LIVENESS_JOB_TYPES: frozenset[str] = frozenset({
     # design; its job is to notice the slot a finished or parked chain frees. Backed off
     # (up to 32 x 15 min) the next product would wait hours for nothing. CA$0, a DB read.
     "supply.admit",
+    # ENG-OWNER-CARD-READINESS: the policy watch is a clock, not a poll. Its outputs are the
+    # same every day by design (the same sources, read again), so the idle backoff parked it
+    # at 2x..32x its daily period -- and 32 days is past `platform_policy.MAX_AGE_DAYS` (30),
+    # so the Help Center readings it takes aged out and the owner card's policy section read
+    # FAIL with the watch still "scheduled". Free: public sanctioned GETs and its own tables.
+    "ops.policy_watch",
 })
 # D-OWNER-NO-PAUSE / D-OWNER-LAURA-MANDATORY (owner, 2026-11-23): "None of this should be
 # paused. Ridiculous" and "Laura and model photography is mandatory". Production-pipeline job
@@ -1108,10 +1114,18 @@ def _free_poll_backoff(session, progress: dict, *, now: datetime,
     period_of = {jt: period for _n, _a, jt, period in CADENCES}
     applied, lifted = [], []
     for jt, row in sorted(progress.items()):
-        if jt in LIVENESS_JOB_TYPES or jt in skip or jt not in period_of \
-                or not row["cadence"]:
+        if jt in skip or jt not in period_of or not row["cadence"]:
             continue
         signature = f"{BACKOFF_SIGNATURE_PREFIX}{jt}"
+        if jt in LIVENESS_JOB_TYPES:
+            # ENG-OWNER-CARD-READINESS: never backed off; a park recorded before the type was
+            # exempt (ops.policy_watch) is lifted here rather than left to run out.
+            stale = session.scalar(select(Incident).where(Incident.signature == signature,
+                                                          Incident.resolved.is_(False)))
+            if stale is not None:
+                stale.resolved = True
+                lifted.append(jt)
+            continue
         open_row = session.scalar(select(Incident).where(Incident.signature == signature,
                                                          Incident.resolved.is_(False)))
         if is_pipeline_job(jt):
@@ -1213,6 +1227,8 @@ def suspended_job_types(db, *, now: datetime | None = None) -> dict[str, dict]:
             elif sus.get("kind") == BACKOFF:
                 if is_pipeline_job(jt):
                     continue          # D-OWNER-NO-PAUSE: idle backoff never parks the pipeline
+                if jt in LIVENESS_JOB_TYPES:
+                    continue          # never backed off; a park left from before it was exempt
                 until = datetime.fromisoformat(sus["suspend_until"])
                 if until > now:
                     out[jt] = {"kind": BACKOFF, "until": sus["suspend_until"],
