@@ -23,6 +23,59 @@ deployed); 6 are not; 2 name no resolvable branch.
 
 ---
 
+## ENG-COASTER-SIDES — 2026-11-28 (branch eng/coaster-sides from e0603dc3b, NOT merged, NOT deployed)
+
+Production 2026-11-26 (as reported in the lane brief; production rows and pixels NOT read here):
+hexagon-coaster-set@1.2.1's accepted anchor (candidate 40) shows four 6-sided coasters. Every
+derivative frame (62 hero, 63 colour_context, 64 angle, 65 detail, 66 size) shows OCTAGONS and
+was recorded "unverified" (product_truth UNKNOWN on region_palette). No check counted a flat
+piece's sides; only vessels had `basket:sides`.
+- New `visual/piece_sides.py` adds the check `<component>:sides`. Its code is the new shared
+  `WRONG_SIDE_COUNT` (`creative.failure_codes`, category product_fidelity). The expected
+  count is the release's own twin `sides` for a flat piece worked in rounds: hexagon 6,
+  square 4, octagon 8. A round piece (0), an unstated count and a vessel get no check. No
+  product is named in code.
+- It runs on the anchor (`verify_anchor`, the pieces it isolated) and on EVERY non-anchor
+  frame (`verify_lifestyle`, now given the frame's `role`).
+- Segmentation, first choice: the plain-background isolation. Fallback: the yarn-palette mask.
+  A component counts as a piece only if it is whole (it does not touch the frame edge),
+  convex and large enough, and every colour that makes up at least 5 % of the piece is
+  present (so a cream mug is not a coaster).
+- Measurement:
+  - the outline is affine-normalised (covariance whitening, stretch <= 2.5, for oblique views);
+  - the contour is the convex hull's radius per degree, smoothed over 7 deg;
+  - corners are radius maxima over +-18 deg with prominence >= 0.035 of the mean radius (the
+    vessel rule);
+  - polygon approximation: each side is a straight line over the middle 60 % between
+    corners, or with no corners the mean circle, within a median of 2 % of the mean radius;
+  - solidity >= 0.90, mean radius >= 40 px, at most 9 sides; the count must match exactly.
+- Verdict:
+  - any readable piece with a wrong count: FAIL WRONG_SIDE_COUNT, with
+    `fix: "coaster has 8 sides; must be 6 (a hexagon)"`;
+  - all readable pieces right: PASS;
+  - nothing segmentable or readable: UNKNOWN (UNVERIFIABLE_COUNT), never PASS;
+  - a `detail` close-up with no whole piece in view: NA.
+  A vision reading may corroborate (`piece_sides.corroborate`), never override.
+- Repair: `repair_routes` routes WRONG_SIDE_COUNT to prompt negatives. `_repair_for` puts the
+  failing check's own `fix` first ("to fix: coaster has 8 sides; must be 6 (a hexagon)").
+- `FIDELITY_CHECK_VERSION` is now `fidelity-checks/3`, so UNKNOWN-parked runs are re-judged
+  once by the existing redrive. `VERIFIER_VERSION`/`CHECKER` are unchanged, so accepted
+  anchors still match.
+- Gallery: `readiness` counts a generated frame as "publishable" only if its
+  technical_status is PASS. The Laura requirement's UNKNOWN allowance now holds only when
+  product_truth itself is not UNKNOWN. A frame whose verdict is UNKNOWN never fills a role.
+- Calibration is on synthetic fixtures only (`tests/test_eng_coaster_sides.py`, 13 tests):
+  - hexagons PASS: top-down, rounded corners, oblique, grained tables, beside a cream mug;
+  - octagons FAIL WRONG_SIDE_COUNT on hero, colour_context, angle, detail and size frames;
+  - circles FAIL for the hexagon CIR;
+  - unsegmentable frames are UNKNOWN.
+- UNVERIFIED: how the real production frames 62-66 read. They may read UNKNOWN (UNVERIFIABLE_COUNT)
+  instead of FAIL if their pieces cannot be segmented (low contrast, stacked or overlapping
+  coasters). A heavily rounded octagon (points/flats < ~1.04) reads as round. That is still
+  a FAIL for a hexagon CIR, but it would be a false FAIL for an octagon CIR.
+
+---
+
 ## ENG-MEMORY-STREAM — 2026-11-28 (branch eng/memory-stream from 46908fe66, NOT merged, NOT deployed)
 
 Production hit its 8 GB limit on 2026-11-27 (web, scheduler and workers share one process).

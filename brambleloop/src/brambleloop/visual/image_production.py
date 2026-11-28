@@ -4402,6 +4402,16 @@ def _repair_for(best: dict | None) -> dict | None:
     routed = repair_routes.route(codes)
     if routed["unrouted"]:
         return None
+    # ENG-COASTER-SIDES: a failing check may name its own fix ("coaster has 8 sides; must be
+    # 6 (a hexagon)"); it leads that code's negatives, so the repair says what to change.
+    fixes: dict[str, list[str]] = {}
+    for c in ((best or {}).get("fidelity") or {}).get("checks") or []:
+        if isinstance(c, dict) and c.get("status") == "FAIL" and c.get("code") and \
+                isinstance(c.get("fix"), str) and c["fix"]:
+            fixes.setdefault(c["code"], []).append(f"to fix: {c['fix']}")
+    routed["directives"] = [
+        {**d, "negatives": list(dict.fromkeys(fixes[d["code"]] + list(d.get("negatives") or [])))}
+        if d.get("code") in fixes else d for d in routed["directives"]]
     return {"codes": codes, "directives": routed["directives"],
             "stays_unknown": routed["stays_unknown"],
             "regenerate_for": sorted(set(cats) - set(codes))}
@@ -4507,7 +4517,9 @@ def readiness(db, listing: str, *, run_key_: str | None = None, plan: dict | Non
                 chosen.append(best)
                 for b in best.get("blockers") or []:
                     blockers.add(b)
-        if best is not None and best["publishable"]:
+        # ENG-COASTER-SIDES: only a PASS frame counts toward a valid gallery. A frame whose
+        # verdict is UNKNOWN (or FAIL) is never "publishable" here, whatever its stored flag.
+        if best is not None and best["publishable"] and best.get("technical_status") == "PASS":
             entry.update(source="generated", candidate=best, status="publishable")
             set_cands.append(el.Candidate(asset_id=f"{listing}-{r['role']}", medium=CG.MEDIUM,
                                           purpose=el.CONVERSION_CREATIVE, job=r["job"],
@@ -4549,8 +4561,11 @@ def readiness(db, listing: str, *, run_key_: str | None = None, plan: dict | Non
     # generated Laura frame that no check FAILed. PASS or UNKNOWN both qualify -- the Laura
     # identity verifier is not production-qualified yet (UNKNOWN is the honest reading and the
     # owner card says so); publishability is the separate publication gate, judged elsewhere.
+    # ENG-COASTER-SIDES: the UNKNOWN allowance is the identity verifier's alone. A Laura frame
+    # whose Product Truth is UNKNOWN (its product unverified) does not count.
     laura_ok = any(e.get("laura") and e.get("source") == "generated"
                    and (e.get("candidate") or {}).get("technical_status") in ("PASS", "UNKNOWN")
+                   and "product_truth" not in ((e.get("candidate") or {}).get("unknown") or [])
                    for e in roles)
     if not laura_ok:
         set_check = {"ok": False, "problems": list(set_check["problems"]) + [
