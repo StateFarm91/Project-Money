@@ -736,7 +736,7 @@ def test_measured_fidelity_codes_are_shared_routed_and_accepted():
     got = RR.route(list(MEASURED))
     check("measured_codes_routed_as_prompt_negatives", got["repairable"] and all(
         d["kind"] == RR.PROMPT_NEGATIVE and d["negatives"] for d in got["directives"])
-          and len(got["directives"]) == 5, got)
+          and len(got["directives"]) == len(MEASURED), got)
     cand = S.Candidate(stage="product_only", role="product_flat_lay", path="x", sha256="a" * 64,
                        release_hash="b" * 64, receipt={})
     for code in MEASURED:
