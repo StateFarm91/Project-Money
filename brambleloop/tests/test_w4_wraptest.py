@@ -719,7 +719,9 @@ def test_live_stops_early_on_a_hard_flat_lay_failure():
 # ---- FIDELITY follow-ups -----------------------------------------------------------------
 
 MEASURED = ("WRONG_ASPECT_RATIO", "OFF_PALETTE_COLOUR", "WRONG_COLOUR_LAYOUT",
-            "WRONG_REPEAT_COUNT", "WRONG_PIECE_COUNT")
+            "WRONG_REPEAT_COUNT", "WRONG_PIECE_COUNT",
+            # ENG-COASTER-SIDES (19i35): visual.piece_sides
+            "WRONG_SIDE_COUNT")
 
 
 def test_measured_fidelity_codes_are_shared_routed_and_accepted():
@@ -735,7 +737,7 @@ def test_measured_fidelity_codes_are_shared_routed_and_accepted():
     got = RR.route(list(MEASURED))
     check("measured_codes_routed_as_prompt_negatives", got["repairable"] and all(
         d["kind"] == RR.PROMPT_NEGATIVE and d["negatives"] for d in got["directives"])
-          and len(got["directives"]) == 5, got)
+          and len(got["directives"]) == len(MEASURED), got)
     cand = S.Candidate(stage="product_only", role="product_flat_lay", path="x", sha256="a" * 64,
                        release_hash="b" * 64, receipt={})
     for code in MEASURED:

@@ -308,7 +308,13 @@ def test_6_the_run_reaches_the_owner_card_and_stops_only_on_scene_end_bands():
         assert by_role[r]["source"] == "generated", by_role[r]
         assert by_role[r]["candidate"]["technical_status"] == "UNKNOWN", by_role[r]
         assert by_role[r]["candidate"]["publishable"] is False        # F-852: never claimed
-    assert card["set_check"]["ok"] is True, card["set_check"]
+    # ENG-COASTER-SIDES (19i35): the Laura requirement's UNKNOWN allowance is the identity
+    # verifier's alone; a Laura frame whose Product Truth is UNKNOWN (the product unverified,
+    # as every in-scene frame is here) does not satisfy D-OWNER-LAURA-MANDATORY. That is the
+    # set check's only problem.
+    assert card["set_check"]["ok"] is False, card["set_check"]
+    assert [p["kind"] for p in card["set_check"]["problems"]] == ["laura_lifestyle_missing"], \
+        card["set_check"]
     assert card["owner_approval_is_not_technical_verification"]
     assert card["spent_cad"] == 0.0 and run["spent_cad"] == 0.0
 
