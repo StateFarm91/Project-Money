@@ -706,6 +706,9 @@ def record_comparison(db, *, now: datetime | None = None) -> dict:
     from . import coverage
 
     now = _now(now)
+    # ENG-P0-PIPELINE: the daily cadence repairs a stop made on attempts that measured
+    # nothing (`reopen_mismeasured_stops`), whether or not Laura delegates a review today.
+    reopened = reopen_mismeasured_stops(db, now=now)
     rep = compare(db, now=now)
     _assert_no_content(rep)
     store_reading(db, COMPARE_READING, rep, now=now)
@@ -739,7 +742,8 @@ def record_comparison(db, *, now: datetime | None = None) -> dict:
             _merge_gap_evidence(db, gid, {"research_task_id": task})
             answered.append(_answer_research(db, gid, task, a["pod"], now=now))
         opened.append(gid)
-    return {"report": rep, "gaps": opened, "research": answered}
+    return {"report": rep, "gaps": opened, "research": answered,
+            "reopened": [{"gap": r["gap"], "pod": r["pod"]} for r in reopened]}
 
 
 def link_demand(rep: dict) -> list[dict]:
@@ -1019,6 +1023,90 @@ def _lesson_statement(pod: str, n: int) -> str:
             f"promotion, so stop re-asking this arena until new evidence arrives")
 
 
+REOPENED_DECISION = "reopened_mismeasured_stop"
+
+
+def reopen_mismeasured_stops(db, *, now: datetime | None = None,
+                             today: date | None = None) -> list[dict]:
+    """ENG-P0-PIPELINE (production 46908fe66, 2026-11-28): repair a watchlist gap that
+    `review` stopped (`not_pursuing`) on attempts that measured nothing about its arena.
+
+    Before this fix `score_outcome` counted a radar.score of a placeholder radar slot --
+    refused by #88 because it carries no concept at all -- as a measured failure. In the
+    garments and hats arenas every slot `review` routes is such a placeholder
+    (cropped-cardigan, lattice-triangle-shawl, cloudline-baby-hat, alpine-slouch-beanie), so
+    two "attempts" stopped the gap, and `concept_pool.research_status` then refused the
+    arena's research to the pool's own READY original concepts for good (production:
+    7 READY, 0 admitted, `gap_not_pursuing`).
+
+    Only a stop this rule made (`stopped_after_failures` is the gap's last decision) is
+    re-judged, from the attempts' own radar.score jobs under today's `score_outcome`. If
+    fewer than MAX_FAILED_ATTEMPTS of them are still measured failures the gap moves
+    `not_pursuing -> uncovered` (a move the lifecycle allows), keeps only the genuine
+    attempts, and the stop's lesson is withdrawn with this evidence. A stop whose jobs cannot
+    all be read is left as it is (nothing is inferred). An owner or other decision is never
+    touched. No gate is changed: research, intake's evidence floor, originality and the
+    pre-engineering gate still judge every concept that follows."""
+    from sqlalchemy import select
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from ..core.models import CoverageGap, Job, Lesson
+    from ..improve import bus
+    from . import coverage
+
+    now = _now(now)
+    today = today or now.date()
+    with db.session() as s:
+        gaps = [(g.id, g.pod, dict(g.evidence or {})) for g in s.scalars(
+            select(CoverageGap).where(CoverageGap.benchmark_key == WATCHLIST_KEY,
+                                      CoverageGap.state == coverage.NOT_PURSUING)
+            .order_by(CoverageGap.id))]
+    out = []
+    for gid, pod, ev in gaps:
+        if _decision(db, gid).get("last") != "stopped_after_failures":
+            continue
+        attempts = [a for a in ev.get("failed_attempts") or [] if isinstance(a, dict)]
+        ids = [int(i) for a in attempts for i in a.get("job_ids") or []]
+        if not attempts or not ids:
+            continue
+        with db.session() as s:
+            found = set(s.scalars(select(Job.id).where(Job.id.in_(ids))))
+        if found != set(ids):
+            continue                      # an attempt's jobs are gone: cannot re-judge
+        genuine = [a for a in attempts if score_outcome(
+            db, a.get("job_ids"), now=now, settle=timedelta(0))["outcome"] == "failed"]
+        if len(genuine) >= MAX_FAILED_ATTEMPTS:
+            continue
+        dropped = len(attempts) - len(genuine)
+        reason = (f"reopened: {dropped} of {len(attempts)} stopping attempts routed only radar "
+                  f"slots with no concept (#88), which measure nothing about the {pod} arena")
+        coverage.advance(db, gid, coverage.UNCOVERED, reason=reason)
+        with db.session() as s:
+            row = s.get(CoverageGap, gid)
+            row.evidence = {**(row.evidence or {}), "failed_attempts": genuine,
+                            "mismeasured_attempts": (list((row.evidence or {}).get(
+                                "mismeasured_attempts") or []) + [a for a in attempts
+                                                                  if a not in genuine])[-10:],
+                            "design_job_ids": None}
+            flag_modified(row, "evidence")
+            lessons = list(s.scalars(select(Lesson.id).where(
+                Lesson.evidence_ref == f"watchlist_gap:{gid}",
+                Lesson.subject == "creative_rejection", Lesson.withdrawn_at.is_(None))))
+        withdrawn = []
+        for lid in lessons:
+            got = bus.withdraw(db, lid, reason=("the stop it recorded counted radar slots with "
+                                                "no concept as measured attempts"),
+                               evidence_ref=f"watchlist_gap:{gid}:{REOPENED_DECISION}",
+                               withdrawn_by="market_radar")
+            if got.get("withdrawn"):
+                withdrawn.append(lid)
+        decided = _record_decision(db, gid, REOPENED_DECISION, today=today,
+                                   dropped=dropped, kept=len(genuine),
+                                   lessons_withdrawn=withdrawn)
+        out.append({"gap": gid, "pod": pod, **decided})
+    return out
+
+
 def score_outcome(db, job_ids, *, now: datetime, settle: timedelta = SETTLE) -> dict:
     """Review H-1 / L-5: what the routed radar.score jobs actually produced.
 
@@ -1029,6 +1117,7 @@ def score_outcome(db, job_ids, *, now: datetime, settle: timedelta = SETTLE) -> 
                      an attempt and teach nothing
     """
     from ..core.models import Job, JobStatus
+    from ..creative.preengineering import judged_no_concept
 
     measured, promoted, refused = [], [], []
     for jid in job_ids or []:
@@ -1053,6 +1142,13 @@ def score_outcome(db, job_ids, *, now: datetime, settle: timedelta = SETTLE) -> 
             # N-3: the gate is waiting on a judgement nobody has made -- nothing was measured.
             refused.append({"job_id": jid, "status": "gate_waiting",
                             "why": f"gate waiting on {gate.get('waiting_on') or gate.get('unmeasured')}"[:120]})
+        elif not out.get("promoted") and judged_no_concept(gate):
+            # ENG-P0-PIPELINE: #88 refused a placeholder slot that carries no concept at all
+            # (no premise, form, motif...). The refusal stands, but it judged the slot, not
+            # the arena: nothing about this arena's demand was measured.
+            refused.append({"job_id": jid, "status": "not_a_concept",
+                            "why": f"{out.get('slug') or 'the candidate'} is a radar slot with "
+                                   f"no concept (#88); the arena was not measured"[:120]})
         elif out.get("promoted"):
             promoted.append({"job_id": jid, "slug": out.get("slug"), "score": out["score"]})
         else:
@@ -1103,6 +1199,9 @@ def review(db, *, enqueue, today: date | None = None, now: datetime | None = Non
 
     now = _now(now)
     today = today or now.date()
+    # ENG-P0-PIPELINE: a stop made on attempts that measured nothing is repaired first, so
+    # the reopened gap is reviewed (and its research reaches the concept pool) this pass.
+    reopened = reopen_mismeasured_stops(db, now=now, today=today)
     decided = []
     for g in _open_gaps(db):
         if len(decided) >= REVIEW_LIMIT:
@@ -1213,4 +1312,5 @@ def review(db, *, enqueue, today: date | None = None, now: datetime | None = Non
                                         research=_research_state(db, ev.get(
                                             "research_task_id")))
                        | {"gap": g["id"]})
-    return {"decisions": decided, "work_done": len(decided)}
+    return {"decisions": decided, "work_done": len(decided) + len(reopened),
+            "reopened": [{"gap": r["gap"], "pod": r["pod"]} for r in reopened]}
