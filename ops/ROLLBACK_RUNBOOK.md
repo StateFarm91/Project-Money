@@ -144,7 +144,8 @@ newest 2 verified dumps, re-hash them, and skip the offsite copy unless `OFFSITE
      `BK offsite disabled ...` while offsite is not approved.
 
    A `BK drift` line for live tables (`audit_log`, `jobs`, `cost_entries`) is normal. Any
-   other drift, any `BK RESULT FAIL`, `BK check MISSING|CHANGED`, or no `RESULT OK` means there
+   other drift, any `BK RESULT FAIL`, `BK manifest write FAILED`, `BK check MISSING|CHANGED`, or
+   no `RESULT OK` means there
    is no fresh backup, so do not deploy.
 3. Record the file name, bytes, sha256 and UTC time in BUILD_STATE next to the release sha.
    The dump time must come before the push.

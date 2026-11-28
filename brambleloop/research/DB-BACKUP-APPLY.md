@@ -62,7 +62,7 @@ It prints the commit, plus the bytes and sha256 of each script. At this commit t
 | Variable | Source | sha256 of the decoded script |
 |---|---|---|
 | `SCRIPT_B64` | `ops/db_backup/backup.sh` (6032 bytes) | `f882011432cbaae12293cd4fbc51e59dadcf4dbc70cb344331e4574458743e80` |
-| `HOUSEKEEP_B64` | `ops/db_backup/housekeep.sh` (11593 bytes) | `1371167887bb04ff66de86da05385e7c4d672fecacb4c419e2a86fa8d7cc9ab1` |
+| `HOUSEKEEP_B64` | `ops/db_backup/housekeep.sh` (15432 bytes) | `9bd7a36231241fe291e323ab55567f0c6fd9af256e5888ddb0cc5fa23e76bc2c` |
 
 If `encode.sh` prints a WARNING about uncommitted changes, stop. The payload would not match
 a reviewed commit.
@@ -107,6 +107,12 @@ The exit code is housekeep's:
 So a failed run shows as a failed deployment or cron run in Railway. Keep the restart policy
 at **NEVER**.
 
+**Compressed variant.** `ops/db_backup/encode.sh --print-gz HOUSEKEEP_B64` gives
+`gzip -9n | base64 -w0` (deterministic, about a third of the size). If `HOUSEKEEP_B64` is set
+from that, decode it with `printf %s "$HOUSEKEEP_B64" | base64 -d | gunzip > /tmp/h.sh` in
+place of `... | base64 -d > /tmp/h.sh`. The `BK payload` sha256 is of the decoded script
+either way, so it must still equal the table in section 1.
+
 This exact command was run locally against the payloads `encode.sh` produced, with the dump
 tools stubbed, and logged the sequence in section 4. Its `run` path against a real local
 PostgreSQL 16 cluster is covered by the test suite.
@@ -126,8 +132,8 @@ A good run logs these lines, in this order (values vary):
 
 ```
 BK payload f882011432cbaae12293cd4fbc51e59dadcf4dbc70cb344331e4574458743e80  /tmp/b.sh
-BK payload 1371167887bb04ff66de86da05385e7c4d672fecacb4c419e2a86fa8d7cc9ab1  /tmp/h.sh
-BK adopt ...                                  (first run only; see section 5)
+BK payload 9bd7a36231241fe291e323ab55567f0c6fd9af256e5888ddb0cc5fa23e76bc2c  /tmp/h.sh
+BK adopt ... / BK rotate removed|deleted ... (first run only; see section 5)
 BK precheck ok free <bytes> need <bytes>      (or: BK precheck no previous dump; proceeding)
 BK start <ts>
 BK server_version <N>
@@ -167,36 +173,61 @@ line now reads `BK RESULT FAIL housekeep: ...`, so it can never be mistaken for 
 
 ## 5. First run: cleanup of the old dumps, step by step
 
-The volume holds dumps from the old job. None of them are in a manifest, and they include the
-partial dump `brambleloop_prod_20261027T162700Z.dump` noted in RESTART_CHECKPOINT.
+**Incident, 2026-11-28 (first production run, housekeep 1371167887bb).** The volume was full.
+- Every manifest append failed with `No space left on device`.
+- The precheck then read the empty manifest as "no previous dump" and deleted nothing.
+- `pg_dump` hit ENOSPC, and the run ended `BK RESULT FAIL`.
+- It probably left a second partial dump, `20261128T060409Z`, next to `20261128T051026Z`.
 
-On the first run, housekeep sees there is no `MANIFEST.jsonl` and runs `adopt` before
-anything else. Applying this document is the owner's approval of the deletions below.
+Housekeep 9bd7a3623124 fixes this. Its precheck now works in three steps, and a test
+reproduces the incident on a real 1 MiB tmpfs (six legacy dumps, both partials, a cut-short
+manifest, a full disk) and shows it recovering. The owner approved this cleanup: keep the
+newest 2 verified dumps, and delete older dumps and partial ones.
 
-1. **Adopt.** For each `brambleloop_prod_*.dump`, oldest first, `pg_restore --file=/dev/null`
-   reads the whole archive, every data block, so a truncated file is refused.
-   - A dump that reads back in full is recorded as verified with `"adopted":true`. The log
-     says `BK adopt verified legacy <file> (<bytes> bytes)`.
-   - Any other dump is left unverified: `BK adopt refused <file> (does not read back in full;
-     left unverified)`.
-   - The step ends with `BK adopt recorded <n> legacy dump(s)`.
-2. **Precheck.** The next dump needs free space of 1.2 times the newest adopted dump. Until it
-   has that, housekeep deletes the **oldest** adopted dumps:
-   `BK rotate deleted <file> (making room for the next dump)`. It never deletes the newest one.
-3. **Backup.** The new dump is written without the archive data, then restore-checked:
-   `BK RESULT OK`.
-4. **Rotate (`BACKUP_KEEP=2`).**
-   - It keeps the newest 2 verified dumps: the new one and the newest legacy dump that read
-     back in full. Older verified dumps go: `BK rotate deleted <file> (older than the newest 2
-     verified)`.
-   - Every unverified dump older than the new one, including the partial `20261027T162700Z`
-     if adopt refused it, is removed: `BK rotate removed unverified <file>`.
-   - The step ends with `BK rotate kept 2 verified (keep 2)`.
-5. **Second run (the next day at 09:17 UTC, or a manual redeploy).**
-   - `BK adopt skipped (manifest exists)`.
-   - The last legacy dump, which still carries the archives, is rotated out.
-   - From then on the volume holds exactly the newest 2 verified dumps, both without archive
-     data, plus `MANIFEST.jsonl` and `SHA256SUMS`.
+1. **Classify, writing nothing.** Until the manifest holds an `adopt-done` event, dumps not
+   in it are legacy.
+   - Newest first, `pg_restore --file=/dev/null` reads each one back in full, every data
+     block, so a truncated dump is refused.
+     - A dump that reads back is verified: `BK adopt verified legacy <file> (<bytes> bytes,
+       reads back in full)`.
+     - Any other is refused: `BK adopt refused <file> (does not read back in full)`.
+   - Once 2 dumps are known good, the older ones are not read at all:
+     `BK adopt skipped <file> (older than the newest 2 verified)`.
+   - A truncated line left in the manifest by a failed append is ignored.
+2. **Delete, still writing nothing.** This step runs only while at least one verified dump
+   remains.
+   - Every refused, skipped or partial dump is removed: `BK rotate removed unverified <file>`.
+   - Verified dumps beyond the newest 2 are deleted: `BK rotate deleted <file> (older than the
+     newest 2 verified)`.
+   - Then, if the volume still lacks 1.2 times the newest dump, housekeep deletes the oldest
+     verified dumps beyond the newest one: `BK rotate deleted <file> (making room for the next
+     dump)`. The newest one is never deleted.
+   - With no verified dump at all, nothing is deleted: `BK precheck no verified dump on the
+     volume; <n> unverified left untouched`.
+3. **Write the manifest.**
+   - It records the adopted dumps (`"adopted":true`, oldest first), then the `adopt-done`
+     event, then `SHA256SUMS`: `BK adopt recorded 2 legacy dump(s)`, then
+     `BK precheck ok free <bytes> need <bytes>`.
+   - **A failed write is fatal.** The log shows `BK manifest write FAILED ...`, then
+     `BK precheck FAIL the manifest could not be written; no dump attempted`, then
+     `BK RESULT FAIL precheck`. No dump is attempted, and the run never falls back to "no
+     previous dump".
+
+What the next steps leave on the volume:
+- **Backup.** The new dump is written without the archive data and restore-checked:
+  `BK RESULT OK`.
+- **Rotate (`BACKUP_KEEP=2`).** It keeps the new dump and the newest legacy dump,
+  `20261120T121953Z` (about 661 MB). The other legacy dump that was kept for the precheck
+  (`20261119T165654Z`) is deleted: `BK rotate kept 2 verified (keep 2)`.
+- Expected first-run deletions, given the production log:
+  - partials `20261128T060409Z` (if present) and `20261128T051026Z`;
+  - legacy `20261112T013853Z`, `20261117T032249Z`, `20261119T132003Z`, `20261119T155212Z`
+    (these are skipped, not read);
+  - `20261119T165654Z`, after the new dump is verified.
+- **Second run** (the next day at 09:17 UTC, or a manual redeploy). There are no `BK adopt`
+  lines. `20261120T121953Z`, the last dump that carries the archives, is rotated out. From
+  then on the volume holds exactly the newest 2 verified dumps, both without archive data,
+  plus `MANIFEST.jsonl` and `SHA256SUMS`.
 
 Files on the volume that are not `brambleloop_prod_*.dump`, if any, are never touched. The
 `BK ls` lines list them.
@@ -221,7 +252,7 @@ verified dump left`.**
 | 4 | Deploy the staged changes. This runs the first job now | 1 | about CA$0.01 |
 | 5 | Read that deployment's log against sections 4 and 5. Record the dump name, bytes, sha256 and UTC time in BUILD_STATE | 3 | CA$0 |
 | 6 | db-backup, Settings: Cron Schedule `17 9 * * *`, then deploy. If Railway runs the job once more on this deploy, that is harmless: rotation still keeps 2 | 1 | about CA$0.10/month |
-| 7 | The next day, read the 09:17 UTC run's log. Expect `BK adopt skipped`, `BK rotate kept 2 verified` and both kept dumps from the new job | 2 | CA$0 |
+| 7 | The next day, read the 09:17 UTC run's log. Expect no `BK adopt` lines, `BK rotate kept 2 verified` and both kept dumps from the new job | 2 | CA$0 |
 
 **If you wait:** the volume stays 99.7% full, and the next manual backup will most likely fail
 for lack of space. That leaves no fresh pre-release backup, so releases that change
