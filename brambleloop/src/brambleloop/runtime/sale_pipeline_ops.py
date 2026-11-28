@@ -114,6 +114,16 @@ def handle_sale_pipeline_sweep(ctx: JobContext) -> dict:
                                       halts_publication=False)
 
     out = SPL.sweep(ctx.db, follow=_follow(ctx), incident=incident)
+    # ENG-OWNER-CARD-READINESS: a READY release whose parity HERO / #61 evidence was never
+    # made (built while image_vision was closed) is rebuilt once per evidence state.
+    try:
+        parity_redriven = SPL.parity_evidence_redrives(
+            ctx.db, lambda agent, jt, inputs, key: ctx.enqueue(agent, jt, inputs,
+                                                               idempotency_key=key))
+    except Exception as exc:  # noqa: BLE001 - the re-drive never fails the sweep
+        parity_redriven = [{"error": f"{type(exc).__name__}: {str(exc)[:200]}"}]
+    out["parity_evidence_redriven"] = parity_redriven[:30]
+    out["work_done"] = bool(out.get("work_done") or any("key" in r for r in parity_redriven))
     closed = SPL.resolved_signatures(ctx.db)
     if closed:
         with ctx.db.session() as s:

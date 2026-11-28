@@ -134,6 +134,47 @@ tests/test_p0_mismeasured_stop.py):
 
 ---
 
+## OWNER-CARD-READINESS — 2026-11-28 (branch eng/owner-card-readiness from c60e63b17, NOT merged, NOT deployed)
+
+After READY the owner publication card still showed parity, policy and rollback not passing.
+Each producer was traced and run end to end in SHADOW: the real `Scheduler.tick` enqueues it
+from `CADENCES` and a SHADOW worker runs it, on the READY world of test_first_listing_path
+(tests/test_owner_card_readiness.py, 8 tests). Production rows NOT read.
+- PARITY / COMPETITIVE (fixed): `creative.blind_review` reviewed only `products.builder.CATALOGUE`,
+  which names no Launch-0 release, so no row was ever written for hexagon-coaster-set and
+  COMPETITIVE stayed `unjudged` for good. `blind_review.catalogue_slugs(db)` now also covers every
+  product with a certified release. The verdict rules are unchanged: an unobserved pod is UNKNOWN.
+- PARITY / HERO + #61 (fixed for the disclosed-render set): both are made only inside `assets.build`
+  while image_vision is open, and a READY release is never rebuilt, so a release built while
+  vision was closed lacked both for good. The hourly `sale.pipeline_sweep` now rebuilds a READY
+  release once per evidence state (hero bytes, stored frames, what is missing) while vision is
+  open (`sale_pipeline.parity_evidence_redrives`). It queues nothing while vision is closed, and
+  a review that was made and did not clear is never re-bought.
+- POLICY (fixed): `ops.policy_watch` was not exempt from the idle free-poll backoff. Its daily
+  outputs are identical by design, so it was parked at 2x..32x its period, and 32 days is past the
+  30-day freshness window the card reads. It is now a liveness type, and a park left from before
+  is lifted (not in force, and resolved by the next ops.thrash).
+- ROLLBACK: no break. `launch.readiness` (daily, a pipeline prefix so never idle-parked) writes
+  the `launch.rollback_rehearsed` row the card reads, inside its 3-day window.
+- Proven: with real-shaped evidence (benchmark galleries observed in the pod, the person's page
+  readings, stub vision) the card shows all seven gated sections PASS and offers Approve. Each
+  section stays not-passing when its evidence is absent or stale.
+NOT fixed (decisions needed; asserted as still blocking):
+- #61 cannot bind once a generated gallery is stored. `gallery_persist` writes it at 100+slot as
+  AI_LIFESTYLE_CONCEPT rows; `frame_review_state` compares the review with ALL stored rows, and
+  `assets.build` reviews only its own renders. No producer reviews the generated frames, and the
+  re-drive does not buy a review that cannot bind. A fix needs a blind review of the generated
+  frames with claims for their roles (lifestyle, detail, ...).
+- Parity (and the blind review's gallery depth) judges `listing_asset.frames_for`, the 3-frame
+  disclosed render set, not the 7-frame certified generated gallery that ships. Against seeded
+  benchmark galleries of 8 images with video, hexagon read `inferior` (gallery_depth, video) in
+  this world. Production's benchmark state is UNVERIFIED.
+- Policy for the five etsy.com/legal sources is a person's reading (no evasion). OWNER ACTION:
+  Command Center `#/policy`, read and record each of the five pages (CA$0, ~30 min, every 30 days).
+  Until then the card's policy section stays FAIL.
+
+---
+
 ## FIRST-LISTING-PATH — 2026-11-28 (branch eng/first-listing from 46908fe66, NOT merged, NOT deployed)
 
 Traced gallery valid -> sale pipeline -> listing.package -> owner card / grant -> phase -> door ->

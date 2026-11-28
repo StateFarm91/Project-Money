@@ -845,17 +845,43 @@ def record(db, result: dict, *, actor: str = "creative_director",
         return int(row.id)
 
 
-def catalogue_slugs() -> list[tuple[str, str]]:
-    """(slug, title) for every product this company would list."""
+def catalogue_slugs(db=None) -> list[tuple[str, str]]:
+    """(slug, title) for every product this company would list.
+
+    ENG-OWNER-CARD-READINESS: with `db`, also every product that holds a certified release
+    (a `PatternVersion` with `certified` and a release hash) and is not in the builder
+    catalogue. The builder catalogue never named the Launch-0 releases the sale pipeline
+    takes to READY (hexagon-coaster-set and the other `products.launch0` CIRs), so the daily
+    review wrote no row for them and the owner card's parity COMPETITIVE dimension read
+    `unjudged` for good. Reviewing a product here only writes its row; the verdict rules are
+    unchanged (an unobserved pod is UNKNOWN and blocks)."""
     from ..products.builder import CATALOGUE
 
-    return [(design.slug, design.title) for design in CATALOGUE.values()]
+    out = [(design.slug, design.title) for design in CATALOGUE.values()]
+    if db is None:
+        return out
+    from sqlalchemy import select
+
+    from ..core.models import PatternVersion, Product
+
+    seen = {slug for slug, _ in out}
+    with db.session() as s:
+        for slug, title in s.execute(
+                select(Product.slug, Product.title).join(
+                    PatternVersion, PatternVersion.product_id == Product.id)
+                .where(PatternVersion.certified.is_(True),
+                       PatternVersion.release_hash.is_not(None))
+                .order_by(Product.slug)).all():
+            if slug and slug not in seen:
+                seen.add(slug)
+                out.append((slug, title or ""))
+    return out
 
 
 def run(db, *, slugs: list[tuple[str, str]] | None = None, benchmark_key: str = "",
         job_id: int | None = None, now: datetime | None = None) -> dict:
     """Review every product and write one row each. Free: nothing is rendered or asked."""
-    slugs = catalogue_slugs() if slugs is None else list(slugs)
+    slugs = catalogue_slugs(db) if slugs is None else list(slugs)
     reviews: list[dict] = []
     for slug, title in slugs:
         result = review(db, slug=slug, title=title, benchmark_key=benchmark_key, now=now)
@@ -940,7 +966,7 @@ def last_review(db, *, slug: str) -> dict | None:
 
 def state(db, *, benchmark_key: str = "") -> dict:
     """What the review would say today, per product, without writing anything."""
-    slugs = catalogue_slugs()
+    slugs = catalogue_slugs(db)
     reviews = [review(db, slug=slug, title=title, benchmark_key=benchmark_key)
                for slug, title in slugs]
     return {
