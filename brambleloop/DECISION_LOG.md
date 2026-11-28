@@ -5014,3 +5014,14 @@ It also carries VERIFY-REFS:
 It is deployed under the owner's chat approval of 2026-11-25 for photo fixes. The targeted suites pass on the merged tree. Two owner decisions are pending and nothing changes them:
 - the LIFESTYLE-EVIDENCE policy for generated lifestyle frames;
 - the market-basket per-gallery plan.
+
+## D-OWNER-DEPLOY-19i33 — 2026-11-28
+
+Batch 19i33 (integration 419dc0ba2) is deployed. It merges three lanes:
+- the memory-stream offsite fix (peak 425 MB to 58 MB);
+- the db-backup housekeeping fix;
+- the read-only candidate viewer endpoints (/api/readback/candidates, /candidates/{id}/image, /galleries).
+
+Authority: the owner's standing chat directive of 2026-11-28 ("Dont ask me to approve anything. Just do it.").
+
+The 15 targeted suites pass, apart from test_mc_perf. That test fails identically on the production base 46908fe66 under the same machine load, and no merged lane touches Mission Control routes. No gates or caps changed. SHADOW remains until a full-suite record on the deployed tree exists.
