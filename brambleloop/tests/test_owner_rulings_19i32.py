@@ -147,9 +147,10 @@ def test_3_the_braided_rim_is_a_genuine_deviation_the_craft_comparison_refuses()
 
 
 def test_4_the_check_version_moves_so_parked_runs_are_rejudged():
-    assert F.FIDELITY_CHECK_VERSION == "fidelity-checks/3"
+    # 19i32 moved it to /3; VISION-UNKNOWNS (uneven light on round pieces) to /4
+    assert F.FIDELITY_CHECK_VERSION in ("fidelity-checks/3", "fidelity-checks/4")
     assert F.FIDELITY_CHECK_VERSION in IP.verify_redrive_version()
-    print("OK 4 fidelity-checks/3")
+    print("OK 4 fidelity-checks moved")
 
 
 # ---- D-OWNER-LIFESTYLE-GENERATED: disclosure -------------------------------------------------

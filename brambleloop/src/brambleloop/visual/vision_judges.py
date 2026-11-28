@@ -998,8 +998,9 @@ class Adapters:
 # via `fidelity.GatewayVisionJudge`): OpenAI's pinned gpt-4.1 snapshot, through the same
 # `fidelity.GatewayVisionJudge` reservation path (`gateway.check_budget` priced by model, the
 # CA$100/month ceiling, `I._bill` once) plus OpenAI's own `paid_provider_gate` activation as
-# `openai-vision`. It answers only when (a) OPENAI_API_KEY is set, (b) the `image_vision` gate is
-# open and (c) the owner has activated `openai-vision`. Otherwise every read is unanswered,
+# `openai-vision`. It answers only when (a) an OpenAI key is set and (b) the owner's
+# `openai-vision` activation is usable (`concept_judge.openai_vision_usable`); the Anthropic
+# `image_vision` gate is the FIRST judge's, not this one's. Otherwise every read is unanswered,
 # identity has one judge, and it HOLDs. A different provider is the point: two models of one
 # vendor share training data and blind spots.
 SECOND_JUDGE_MODEL = "gpt-4.1-2025-04-14"
@@ -1007,13 +1008,40 @@ SECOND_JUDGE_MODEL = "gpt-4.1-2025-04-14"
 
 def _openai_second_judge(db):
     from ..gateway import openai_chat
-    from .fidelity import GatewayVisionJudge
+    from .fidelity import CRAFT_SYSTEM, GatewayVisionJudge
 
     if not openai_chat.OpenAIProvider.key():
         return None
 
     class OpenAIVisionJudge(GatewayVisionJudge):
         name = "image_vision_openai"
+
+        # VISION-UNKNOWNS: this judge's gate is the owner's `openai-vision` activation
+        # (D-ENG-VIS-IDENTITY-1), not the Anthropic `image_vision` gate it inherited. Production
+        # has openai-vision activated and Anthropic vision not, so both identity judges refused
+        # before anything was sent and 6 of 6 Laura frames read "no identity reading ...
+        # (unanswered: image_vision ...; image_vision_openai ...: the vision judge
+        # (image_vision) is unfunded)". Same rule the fidelity route uses
+        # (`concept_judge.openai_vision_usable`), same reservation and bill, and the same
+        # once-per-bytes idempotency as every other openai-vision question (`vision_route`).
+        def gate_open(self) -> bool:
+            if self.db is None:
+                return False
+            try:
+                from ..creative import concept_judge
+
+                return bool(concept_judge.openai_vision_usable(self.db))
+            except Exception:  # noqa: BLE001 - unreadable evidence is a closed route
+                return False
+
+        def read(self, prompt: str, images: list[bytes], *, system: str = CRAFT_SYSTEM,
+                 max_tokens: int = 300) -> dict:
+            if not self.gate_open():
+                return {"answered": False,
+                        "why": "the second judge (openai-vision) is not activated or not "
+                               "usable; nothing was called"}
+            return self._send(self.provider, prompt, images, system=system,
+                              max_tokens=max_tokens, once=True)
 
     return OpenAIVisionJudge(db, provider=openai_chat.OpenAIProvider(model=SECOND_JUDGE_MODEL))
 

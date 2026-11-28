@@ -23,6 +23,48 @@ deployed); 6 are not; 2 name no resolvable branch.
 
 ---
 
+## VISION-UNKNOWNS — 2026-11-28 (branch eng/vision-unknowns from efc4549fa, NOT merged, NOT deployed)
+
+Production 19i30 readback (counts only; production rows and pixels NOT read): `coaster:palette` UNKNOWN 10,
+`region_palette` UNKNOWN 9, Laura identity UNKNOWN 6/6 "no identity reading ... (unanswered: image_vision ...)".
+Production vision route: openai-vision activated, Anthropic vision not. Each cause was reproduced in
+tests/test_vision_unknowns.py (11 tests). The inputs are the owner's committed FLUX frames (owner_method_2026-11-28
+scene + Laura) and the photographic coaster fixture, with real-shaped OpenAI chat-completion bodies through the
+real client (`OpenAIProvider._post` replaced; no network, no paid call).
+- LAURA IDENTITY: the question was never asked. The OpenAI second judge (`vision_judges._openai_second_judge`,
+  gpt-4.1) inherited `GatewayVisionJudge`'s Anthropic `image_vision` gate, so both judges refused with 0 requests
+  sent. FIX: it now answers on the owner's openai-vision activation (`concept_judge.openai_vision_usable`), as
+  D-ENG-VIS-IDENTITY-1 records, with once-per-bytes idempotency (`vision_route`). The request carries the frame
+  plus the three canonical laura-r2-a42aeac7 references, verified by sha256 and unmodified. RESULT: a different
+  woman reads FAIL/REFUSE (IDENTITY_DRIFT). A matching reading is still UNKNOWN/HOLD, because PASS needs two
+  different-vendor judges AND an owner-qualified biometric floor (PRODUCTION_QUALIFICATIONS empty). Those are
+  OWNER items (Anthropic vision activation or another vendor; embedder qualification) and are not faked. The
+  first judge, and the anatomy/realism/outfit adapters, still ask only the Anthropic gate (unchanged; they still
+  read UNKNOWN in production; not in this task's scope).
+- REGION_PALETTE: (a) the question was never sent in 19i30 (the adapters' image_vision-only judge). That fix is
+  on this branch from VERIFY-REFS (lifestyle-region/2) and is NOT deployed; it is now proven end to end on the
+  owner's scene and Laura frames (PASS via image_vision_openai). (b) FOUND: a wrong product PASSed. Re-dyeing the
+  wine stripes navy, green, mustard or grey read `largest_off_cluster` 0.04-0.06 (limit 0.15), because the Lab
+  8-dE bins split one shaded yarn across lightness. FIX: off-palette pixels are also grouped by hue (30° sectors,
+  chroma >= 10; achromatic ones as one group), and the larger reading counts. Re-dyed frames now read 0.17-0.29
+  and FAIL; faithful frames read 0.01-0.02, and a patch run onto the oak dresser 0.10. Stricter only; the limit
+  is unchanged. The deterministic region step was ruled out as an UNKNOWN cause: it PASSes the owner frames under
+  dim, warm and graded light. Parsing: bare and ```json fenced replies parse; prose-wrapped JSON and dict-shaped
+  patches read UNKNOWN. No real gpt-4.1 region reply is recorded in this repo, so the parser was NOT widened.
+- COASTER:PALETTE: a deterministic step bailing on real light. One per-piece gain cannot correct light that
+  varies ACROSS a coaster. Under a soft cast shadow the shaded cream reads off-palette (UNKNOWN); deeper, it
+  drags the wine cluster brown, giving a false "substituted colour" FAIL. FIX (`fidelity._light_field`): the
+  shade is measured on the table in a ring 0.15-0.6 r_eq beyond the piece (away from other pieces, background-
+  explained pixels only, 12 sectors >= 75% covered). A robust quadratic is fitted to it and applied only when it
+  is uneven (p95/p5 > 1.15). Under even light the readings are byte-identical; no palette tolerance moved.
+  Faithful sets under a shadow now PASS (honey/walnut to 0.6 depth, light oak to 0.5). Navy, mustard, a missing
+  wine round and a table-brown band still do not PASS. KNOWN LIMIT: a shadow deeper than ~0.55 peaking inside a
+  piece on light oak is under-measured from the ring. It FAILed before this change and still FAILs (now on
+  colour_layout). The 10 production readings are on frames BUILD_STATE VERIFY-REFS calls superseded anchors;
+  their pixels were not read, so whether they were shadowed is UNVERIFIED.
+- FIDELITY_CHECK_VERSION fidelity-checks/4: runs parked UNKNOWN are re-judged once (existing redrive). CHECKER
+  is unchanged.
+
 ## 19i32 OWNER RULINGS — 2026-11-28 (branch claude/w6-release-19i32 from 46908fe66, NOT merged, NOT deployed)
 
 Owner rulings of 2026-11-28 recorded: D-OWNER-LIFESTYLE-GENERATED, D-OWNER-PHOTO-BUDGET, D-OWNER-LAURA-OUTFIT

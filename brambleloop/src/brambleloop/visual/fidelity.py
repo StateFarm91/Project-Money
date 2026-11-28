@@ -122,6 +122,27 @@ SEE_THROUGH_PATCH = 0.01
 SEE_THROUGH_MAX = 0.08
 SEE_THROUGH_RING_FROM = 0.2    # outside the magic-ring centre (radius / equivalent radius) ...
 SEE_THROUGH_RING_MAX = 0.30    # ... no radial bin may be more than this see-through
+# VISION-UNKNOWNS (fidelity-checks/4): light that varies ACROSS a round piece. `_illumination`
+# fits one per-channel gain per piece, which is right for an evenly lit flat lay and wrong for
+# real light: a soft cast shadow (a plant, a mug, the photographer's side light) over part of
+# a coaster leaves its shaded cream dark beige -- off the palette and off every two-colour mix
+# -- so a faithful coaster read `coaster:palette` UNKNOWN ("an occlusion, a prop or an invented
+# motif"), and a deeper shadow pulled the wine cluster toward brown: a false "substituted
+# colour" FAIL. The light is measured where it is not in question: on the table round the
+# piece (`_light_field`). Table pixels in a ring LIGHT_RING (x the piece's equivalent radius)
+# beyond its outline -- outside the contact shadow, away from other pieces, and explained by
+# the fitted background under one shade factor (`SEE_THROUGH_DE`) -- give the shade at each
+# point; a quadratic surface fitted to them is the light over the piece. It is applied only
+# when the table shows it is uneven (p95/p5 above LIGHT_NONUNIFORM) and the ring is covered
+# all round (LIGHT_MIN_COVER of LIGHT_SECTORS); otherwise nothing changes. The yarn never
+# grades its own light, so a wrong colour under even light, or a wrong round under a shadow,
+# reads exactly as before. No palette tolerance changed.
+LIGHT_RING = (0.15, 0.60)
+LIGHT_SECTORS = 12
+LIGHT_MIN_COVER = 0.75
+LIGHT_SECTOR_MIN_PX = 12
+LIGHT_NONUNIFORM = 1.15
+LIGHT_FIELD_RANGE = (0.25, 1.25)
 LIFESTYLE_ON_PALETTE = 0.60  # share of a declared product region on the palette
 LIFESTYLE_EXTRA_CLUSTER = 0.15
 
@@ -997,6 +1018,59 @@ def _see_through(lin: np.ndarray, lab: np.ndarray, bg_lab, region: np.ndarray,
                  "large_patches_measured": int(m - len(small))}
 
 
+def _light_field(lin: np.ndarray, lab: np.ndarray, bg_lab, mask: np.ndarray,
+                 others: np.ndarray, r_eq: float) -> tuple[np.ndarray | None, dict]:
+    """The light over a round piece, measured on the table round it (see LIGHT_RING).
+
+    Returns (the shade over the image, relative to the fitted unshaded table -- the light the
+    border ring shows; or None when the light is even or cannot be measured, so nothing is
+    corrected) and what was measured."""
+    from scipy import ndimage
+
+    if bg_lab is None or r_eq <= 0:
+        return None, {"applied": False, "why": "no fitted background"}
+    h, w = mask.shape
+    ys, xs = np.nonzero(mask)
+    cy, cx = ys.mean(), xs.mean()
+    d_out = ndimage.distance_transform_edt(~mask)
+    ring = (d_out > LIGHT_RING[0] * r_eq) & (d_out < LIGHT_RING[1] * r_eq)
+    if others.any():
+        ring &= ndimage.distance_transform_edt(~others) > LIGHT_RING[0] * r_eq
+    if not ring.any():
+        return None, {"applied": False, "why": "no table round the piece"}
+    bg = _lin_from_lab(np.asarray(bg_lab)[ring])
+    px = lin[ring]
+    k = (px * bg).sum(-1) / np.maximum((bg * bg).sum(-1), 1e-12)
+    table = ((k >= LIGHT_FIELD_RANGE[0]) & (k <= LIGHT_FIELD_RANGE[1])
+             & (_de(lab[ring], _lab_from_lin(bg * k[:, None])) <= SEE_THROUGH_DE))
+    ry, rx = np.nonzero(ring)
+    ry, rx, k = ry[table], rx[table], k[table]
+    sector = (np.floor((np.arctan2(ry - cy, rx - cx) + np.pi) / (2 * np.pi) * LIGHT_SECTORS)
+              .astype(int) % LIGHT_SECTORS)
+    cover = float((np.bincount(sector, minlength=LIGHT_SECTORS) >= LIGHT_SECTOR_MIN_PX).mean())
+    measured = {"table_px": int(len(k)), "cover": round(cover, 3)}
+    if cover < LIGHT_MIN_COVER:
+        return None, {**measured, "applied": False, "why": "the table round the piece is not "
+                                                           "visible all round"}
+    u, v = (rx - cx) / r_eq, (ry - cy) / r_eq
+    design = np.stack([np.ones_like(u), u, v, u * u, u * v, v * v], axis=-1)
+    keep = np.ones(len(k), bool)
+    for _ in range(3):   # robust: a prop's edge or a stray thread is not the light
+        coef, *_ = np.linalg.lstsq(design[keep], k[keep], rcond=None)
+        resid = np.abs(design @ coef - k)
+        keep = resid <= max(0.02, 2.5 * float(np.median(resid[keep])))
+    yy, xx = np.mgrid[0:h, 0:w]
+    U, V = (xx - cx) / r_eq, (yy - cy) / r_eq
+    field = np.clip(coef[0] + coef[1] * U + coef[2] * V + coef[3] * U * U + coef[4] * U * V
+                    + coef[5] * V * V, *LIGHT_FIELD_RANGE)
+    on = field[mask]
+    lo, hi = float(np.percentile(on, 5)), float(np.percentile(on, 95))
+    measured.update(shade_p5=round(lo, 3), shade_p95=round(hi, 3))
+    if hi / max(lo, 1e-9) <= LIGHT_NONUNIFORM:
+        return None, {**measured, "applied": False, "why": "even light"}
+    return field, {**measured, "applied": True}
+
+
 def _verify_round(rgb, piece: dict, model: PieceModel, exp: Expectation, lab_full) -> list[dict]:
     name = model.name
     rect = _min_area_rect(piece["mask"])
@@ -1023,6 +1097,13 @@ def _verify_round(rgb, piece: dict, model: PieceModel, exp: Expectation, lab_ful
     # outline (contact shadow, the table between edge stitches) inside the measured region.
     inner = mask & (ndimage.distance_transform_edt(mask) > INSET * 2 * r_eq)
     lin = _lin(rgb)
+    # VISION-UNKNOWNS: uneven light over the piece, measured on the table round it.
+    others = piece.get("others")
+    field, light = _light_field(lin, lab_full, piece.get("bg_lab"), mask,
+                                others if others is not None else np.zeros_like(mask), r_eq)
+    if field is not None:
+        lin = lin / field[..., None]
+        lab_full = _lab_from_lin(lin)
     see, see_m = _see_through(lin, lab_full, piece.get("bg_lab"), inner, exp)
     # Eyelets lie on the corner spokes and the ring at the centre; a band of "table" running
     # round the piece is a colour worked into it (or an edging), never holes.
@@ -1046,6 +1127,7 @@ def _verify_round(rgb, piece: dict, model: PieceModel, exp: Expectation, lab_ful
     lab_c = _lab_from_lin(lin_c)
     pal, _ = _palette_check(lab_c, lin_c, inner, exp, structured=False, name=f"{name}:palette")
     pal["see_through"] = see_m
+    pal["light_field"] = light
     out.append(pal)
     cls = _de(lab_c[..., None, :], exp.palette_lab).argmin(axis=-1)
     ok = inner & (_seg_distance(lab_c, exp.palette_lab) <= OFF_PALETTE_DE)
@@ -1326,7 +1408,12 @@ REJUDGED_CHECKS = ("craft_texture", ":wall_bands", ":palette", ":rim")
 # (`image_production` fidelity_unknown redrive); bumping this re-drives them once.
 # `VERIFIER_VERSION` is unchanged on purpose: it is part of `CHECKER`, which accepted anchors
 # are matched on, and no accepted PASS reads differently.
-FIDELITY_CHECK_VERSION = "fidelity-checks/3"
+FIDELITY_CHECK_VERSION = "fidelity-checks/4"
+# VISION-UNKNOWNS: "/4". A round piece under uneven light (a soft cast shadow over part of a
+# coaster) is corrected by the light measured on the table round it (`_light_field`); under
+# even light nothing changes. A lifestyle frame's region_palette also groups off-palette
+# colour by hue (`_off_hue_group`): a re-dyed stripe FAILs instead of passing. Runs parked
+# UNKNOWN on `coaster:palette` are re-judged once.
 # OWNER-CALIBRATION (19i32): "/3". The vessel verifier (`visual.vessel`) separates a product
 # whose colour mask runs off the frame by its stitch texture, and reads a side outline's wall
 # where it stands at the silhouette's extreme. The owner's hand-made FLUX basket master read
@@ -1466,8 +1553,13 @@ def verify_anchor(data: bytes, cir, *, judge=None, side: bytes | None = None) ->
         checks.append(craft_texture(data, exp, judge))
         return _verdict(checks, data=data, exp=exp, kind="anchor")
     pieces = iso["pieces"]
-    for p in pieces:
+    for i, p in enumerate(pieces):
         p["bg_lab"] = iso.get("bg_lab")
+        others = np.zeros_like(p["mask"])
+        for j, q in enumerate(pieces):
+            if j != i:
+                others |= q["mask"]
+        p["others"] = others
     want = exp.piece_count
     areas = [p["area"] for p in pieces]
     med = float(np.median(areas))
@@ -1516,6 +1608,28 @@ def same_release(left: str, right: str) -> bool:
     left, right = left.lower(), right.lower()
     return (bool(re.fullmatch(r"[0-9a-f]{64}", left))
             and bool(re.fullmatch(r"[0-9a-f]{64}", right)) and left == right)
+
+
+# VISION-UNKNOWNS (fidelity-checks/4): one yarn dyed a colour the pattern does not declare is ONE
+# colour group whatever the light does to it. Binned in Lab (8 dE76 cubes) the shading of a
+# stripe -- light on the stitch tops, shadow between them -- splits it across many lightness
+# bins: the owner's FLUX scene with its wine stripes re-dyed navy, green or mustard read
+# `largest_off_cluster` 0.04-0.06 (limit 0.15) and region_palette PASSed a wrong product. Off-
+# palette pixels are now also grouped by hue (OFF_HUE_DEG sectors, chroma >= OFF_HUE_MIN_CHROMA)
+# and the achromatic ones together; the larger of the two readings counts, so nothing that
+# FAILed before can pass. The owner's faithful frames read 0.01-0.02 (a patch run onto the oak
+# dresser 0.10); the re-dyed ones 0.17-0.29. LIFESTYLE_EXTRA_CLUSTER is unchanged.
+OFF_HUE_DEG = 30.0
+OFF_HUE_MIN_CHROMA = 10.0
+
+
+def _off_hue_group(off_lab: np.ndarray) -> int:
+    """Pixels in the largest off-palette colour group by hue (achromatic ones are one group)."""
+    a, b = off_lab[:, 1], off_lab[:, 2]
+    hue = np.floor((np.degrees(np.arctan2(b, a)) % 360.0) / OFF_HUE_DEG).astype(int)
+    key = np.where(np.hypot(a, b) >= OFF_HUE_MIN_CHROMA, hue, -1)
+    _, cnt = np.unique(key, return_counts=True)
+    return int(cnt.max()) if len(cnt) else 0
 
 
 def verify_lifestyle(data: bytes, cir, *, release_hash: str, anchor: dict | None,
@@ -1580,14 +1694,17 @@ def verify_lifestyle(data: bytes, cir, *, release_hash: str, anchor: dict | None
             seg = _seg_distance(lab_c, exp.palette_lab)
             on = float((seg <= OFF_PALETTE_DE).mean())
             off = lab_c[seg > OFF_PALETTE_DE]
-            extra = 0.0
+            extra = by_hue = 0.0
             if len(off):
                 # the largest single off-palette colour group (8 dE76 bins)
                 q = np.round(off / 8.0).astype(int)
                 _, cnt = np.unique(q, axis=0, return_counts=True)
                 extra = float(cnt.max()) / len(region)
+                by_hue = _off_hue_group(off) / len(region)
             m = {"on_palette_share": round(on, 3), "largest_off_cluster": round(extra, 3),
+                 "largest_off_hue_group": round(by_hue, 3),
                  "illumination_gain": [round(float(g), 3) for g in ill["gain"]]}
+            extra = max(extra, by_hue)
             if extra >= LIFESTYLE_EXTRA_CLUSTER:
                 checks.append(_check("region_palette", FAIL, "a large colour group in the "
                                                              "product region is off the palette",
