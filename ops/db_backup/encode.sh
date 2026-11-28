@@ -10,6 +10,9 @@
 #                                              summary: commit, bytes and sha256 of each script
 #   ops/db_backup/encode.sh --print NAME       print only that payload (one line, no newline),
 #                                              for piping into a variable setter
+#   ops/db_backup/encode.sh --print-gz NAME    the same, gzip -9n first (deterministic; about a
+#                                              third of the size). Decode with
+#                                              `base64 -d | gunzip` in the start command
 #
 # Each payload is single-line base64 (no wrapping) and is decoded back and compared with its
 # source before it is written, so what is pasted is byte-identical to the reviewed file. The
@@ -33,6 +36,22 @@ payload() {  # payload NAME -> base64 on stdout, after a round-trip check
   printf '%s' "$b"
 }
 
+payload_gz() {  # payload_gz NAME -> base64 of gzip -9n, after a round-trip check
+  local f=${SRC[$1]} b
+  [ -f "$f" ] || { echo "encode: missing $f" >&2; return 1; }
+  b=$(gzip -9n -c < "$f" | base64 -w0)
+  if [ "$(printf '%s' "$b" | base64 -d | gunzip | sha256sum | cut -d' ' -f1)" != \
+       "$(sha256sum < "$f" | cut -d' ' -f1)" ]; then
+    echo "encode: gzip round trip failed for $1" >&2; return 1
+  fi
+  printf '%s' "$b"
+}
+
+if [ "${1:-}" = "--print-gz" ]; then
+  [ $# -eq 2 ] && [ -n "${SRC[$2]+x}" ] || { echo "usage: $0 --print-gz SCRIPT_B64|HOUSEKEEP_B64" >&2; exit 2; }
+  payload_gz "$2"
+  exit 0
+fi
 if [ "${1:-}" = "--print" ]; then
   [ $# -eq 2 ] && [ -n "${SRC[$2]+x}" ] || { echo "usage: $0 --print SCRIPT_B64|HOUSEKEEP_B64" >&2; exit 2; }
   payload "$2"

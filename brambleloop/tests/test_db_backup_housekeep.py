@@ -124,7 +124,7 @@ def test_precheck_frees_the_oldest_but_never_the_newest():
     for _ in range(3):
         _run("run", _fake_backup(d), d, env=_env(BACKUP_KEEP="3"))
     size = (d / _dumps(d)[-1]).stat().st_size
-    r = _run("precheck", d, env=_env(BK_FREE_BYTES=str(size // 2)))
+    r = _run("precheck", d, env=_env(BK_FREE_BYTES=str(size // 2), BACKUP_KEEP="3"))
     assert r.returncode == 0, r.stdout
     assert len(_dumps(d)) == 2 and "making room" in r.stdout
     r = _run("precheck", d, env=_env(BK_FREE_BYTES="0", BACKUP_KEEP="3"))
@@ -251,7 +251,7 @@ _STUB_PG_DUMP = r"""#!/bin/bash
 if [ "${1:-}" = "--version" ]; then echo "pg_dump (PostgreSQL) 18.0"; exit 0; fi
 printf '%s\n' "$*" >> "$FAKE_LOG"
 for a in "$@"; do case "$a" in --file=*) f=${a#--file=} ;; esac; done
-head -c 4096 /dev/urandom > "$f"
+head -c "${FAKE_DUMP_BYTES:-4096}" /dev/urandom > "$f" || exit 1
 """
 
 _STUB_PG_RESTORE = r"""#!/bin/bash
@@ -392,8 +392,11 @@ def test_first_run_adopts_legacy_dumps_and_cleans_up_to_the_newest_two():
     (d / legacy[3]).write_bytes(b"TRUNC" + os.urandom(100))  # a partial, failed run
     r = _run("run", d, env=_stub_env(d, BACKUP_KEEP="2"))
     assert r.returncode == 0, r.stdout + r.stderr
-    assert r.stdout.count("BK adopt verified legacy") == 3
+    # Newest first: the truncated one is refused, the next two read back, the oldest is not
+    # even read (it is beyond the newest 2 and is deleted either way).
+    assert r.stdout.count("BK adopt verified legacy") == 2
     assert f"BK adopt refused {legacy[3]}" in r.stdout
+    assert f"BK adopt skipped {legacy[0]}" in r.stdout
     new1 = r.stdout.split("BK RESULT OK ")[1].split()[0].rsplit("/", 1)[1]
     assert _dumps(d) == sorted([legacy[2], new1]), _dumps(d)
     assert f"BK rotate removed unverified {legacy[3]}" in r.stdout
@@ -418,8 +421,132 @@ def test_encode_builds_payloads_that_decode_to_the_exact_scripts():
     p = subprocess.run(["bash", str(ENCODE), "--print", "SCRIPT_B64"], capture_output=True,
                        text=True, timeout=60)
     assert p.returncode == 0 and base64.b64decode(p.stdout) == BACKUP.read_bytes()
+    g = subprocess.run(["bash", str(ENCODE), "--print-gz", "HOUSEKEEP_B64"], capture_output=True,
+                       text=True, timeout=60)
+    import gzip
+    assert g.returncode == 0 and gzip.decompress(base64.b64decode(g.stdout)) == SCRIPT.read_bytes()
     assert subprocess.run(["bash", str(ENCODE), "--print", "NOPE"],
                           capture_output=True).returncode == 2
+
+
+# -- 2026-11-28 production incident: the first run on a full volume ------------------------
+#
+# Reproduced on a real, size-limited tmpfs so ENOSPC is the kernel's, not a simulation: six
+# legacy dumps, the partial from an earlier failed run, a manifest whose appends were cut
+# short, and a second partial that filled the volume to the last byte.
+
+LEGACY = ["20261112T013853Z", "20261117T032249Z", "20261119T132003Z", "20261119T155212Z",
+          "20261119T165654Z", "20261120T121953Z"]
+PARTIALS = ["20261128T051026Z", "20261128T060409Z"]
+
+
+def _mount_full_volume(size_kib: int):
+    d = _dir()
+    r = subprocess.run(["mount", "-t", "tmpfs", "-o", f"size={size_kib}k", "tmpfs", str(d)],
+                       capture_output=True, text=True)
+    return (d if r.returncode == 0 else None), r.stderr.strip()
+
+
+def _umount(d: Path):
+    subprocess.run(["umount", str(d)], capture_output=True)
+
+
+def _fill(path: Path):
+    """Write a partial dump until the volume refuses, as pg_dump did."""
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+    try:
+        os.write(fd, b"TRUNC")
+        while True:
+            os.write(fd, os.urandom(4096))
+    except OSError:
+        pass
+    finally:
+        os.close(fd)
+
+
+def _free(d: Path) -> int:
+    st = os.statvfs(d)
+    return st.f_bavail * st.f_frsize
+
+
+def test_full_volume_with_failed_manifest_writes_recovers_and_keeps_two():
+    d, why = _mount_full_volume(1024)
+    if d is None:
+        print(f"SKIP cannot mount a size-limited tmpfs here ({why})")
+        return
+    try:
+        names = [f"brambleloop_prod_{ts}.dump" for ts in LEGACY]
+        for n in names:
+            (d / n).write_bytes(os.urandom(120 * 1024))
+        (d / f"brambleloop_prod_{PARTIALS[0]}.dump").write_bytes(b"TRUNC" + os.urandom(40000))
+        # The incident's manifest: the adopt appends were cut short by ENOSPC.
+        (d / "MANIFEST.jsonl").write_bytes(b'{"event":"verified","file":"brambleloop_prod_2026')
+        _fill(d / f"brambleloop_prod_{PARTIALS[1]}.dump")
+        assert _free(d) < 4096, "the volume must start full"
+        with open(d / "MANIFEST.jsonl", "ab") as fh:  # the incident's failing write, for real
+            try:
+                fh.write(b"x" * 8192); fh.flush(); os.fsync(fh.fileno())
+                raise AssertionError("a manifest append succeeded on a full volume")
+            except OSError:
+                pass
+        env = _stub_env(d, BACKUP_KEEP="2", FAKE_DUMP_BYTES=str(100 * 1024))
+        r = _run("run", d, env=env)
+        out = r.stdout
+        assert r.returncode == 0, out + r.stderr
+        for p in PARTIALS:
+            assert f"BK adopt refused brambleloop_prod_{p}.dump" in out
+            assert f"BK rotate removed unverified brambleloop_prod_{p}.dump" in out
+        assert out.count("BK adopt verified legacy") == 2
+        assert "precheck no previous dump" not in out and "manifest write FAILED" not in out
+        # Deletes come before the first manifest write and before the dump.
+        assert out.index("BK rotate removed unverified") < out.index("BK adopt recorded 2")
+        assert out.index("BK adopt recorded 2") < out.index("BK precheck ok") < out.index("BK start")
+        new = out.split("BK RESULT OK ")[1].split()[0].rsplit("/", 1)[1]
+        assert (d / new).stat().st_size == 100 * 1024, "the new dump was not written in full"
+        assert _dumps(d) == [names[-1], new], _dumps(d)
+        assert "BK rotate kept 2 verified (keep 2)" in out
+        assert subprocess.run(["sha256sum", "-c", "SHA256SUMS"], cwd=d,
+                              capture_output=True).returncode == 0
+        manifest = (d / "MANIFEST.jsonl").read_text()
+        assert '"event":"adopt-done"' in manifest and '"adopted":true' in manifest
+        # The next day: only new dumps, no adoption, still 2.
+        r = _run("run", d, env=env)
+        assert r.returncode == 0 and "BK adopt" not in r.stdout, r.stdout
+        new2 = r.stdout.split("BK RESULT OK ")[1].split()[0].rsplit("/", 1)[1]
+        assert _dumps(d) == [new, new2]
+        assert _run("check", d).returncode == 0
+    finally:
+        _umount(d)
+
+
+def test_a_manifest_that_cannot_be_written_is_fatal_and_no_dump_is_attempted():
+    d, why = _mount_full_volume(512)
+    if d is None:
+        print(f"SKIP cannot mount a size-limited tmpfs here ({why})")
+        return
+    try:
+        only = d / f"brambleloop_prod_{LEGACY[-1]}.dump"
+        only.write_bytes(os.urandom(100 * 1024))
+        _fill(d / "not-a-dump.bin")  # space nothing here may delete
+        r = _run("run", d, env=_stub_env(d, BACKUP_KEEP="2"))
+        assert r.returncode == 1, r.stdout
+        assert "manifest write FAILED" in r.stdout and "no dump attempted" in r.stdout
+        assert "precheck no previous dump" not in r.stdout
+        assert not any("--format=custom" in c for c in _calls(d)), "pg_dump ran anyway"
+        assert only.exists() and _dumps(d) == [only.name], "the only verified dump was touched"
+    finally:
+        _umount(d)
+
+
+def test_partials_are_kept_when_no_verified_dump_would_remain():
+    d = _dir()
+    p = [f"brambleloop_prod_{ts}.dump" for ts in PARTIALS]
+    for n in p:
+        (d / n).write_bytes(b"TRUNC" + os.urandom(64))
+    r = _run("precheck", d, env=_stub_env(d))
+    assert r.returncode == 0, r.stdout
+    assert "no verified dump on the volume; 2 unverified left untouched" in r.stdout
+    assert _dumps(d) == p
 
 
 def _pg_bin() -> Path | None:
