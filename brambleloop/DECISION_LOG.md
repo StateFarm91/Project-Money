@@ -5078,3 +5078,13 @@ Batch 19i33 (integration 419dc0ba2) is deployed. It merges three lanes:
 Authority: the owner's standing chat directive of 2026-11-28 ("Dont ask me to approve anything. Just do it.").
 
 The 15 targeted suites pass, apart from test_mc_perf. That test fails identically on the production base 46908fe66 under the same machine load, and no merged lane touches Mission Control routes. No gates or caps changed. SHADOW remains until a full-suite record on the deployed tree exists.
+
+## D-OWNER-DEPLOY-19i34 — 2026-11-28
+
+Batch 19i34 (integration 3a2aec0d1) is deployed. It contains:
+- P0-PIPELINE: mis-measured gap stops are reopened.
+- FIRST-LISTING: the sale-chain re-entry fixes B1–B3.
+- MANUAL-METHOD: the owner's two-step FLUX method is the factory method (manual_method/1).
+- 19i32: the owner's photo rulings (lifestyle evidence 1A, per-gallery budget CA$6/36 calls, FLUX daily CA$10, different outfit per listing).
+
+Authority: the owner's directive of 2026-11-28. The 18 targeted suites pass. The full suite is running. SHADOW remains until a recorded full-suite run on the deployed tree exists.
