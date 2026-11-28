@@ -5889,6 +5889,49 @@ def api_readback_ecrs() -> JSONResponse:
     return JSONResponse(ecr.readback(db), headers={"Cache-Control": "no-store"})
 
 
+@app.get("/api/readback/candidates")
+def api_readback_candidates(run_key: str = "", role: str = "", limit: int = 20,
+                            before_id: int | None = None) -> JSONResponse:
+    """ENG-CANDIDATE-VIEWER: metadata of generated image candidates, newest first, paginated
+    (`ops.candidate_viewer.candidates`). Authenticated ONLY by `BRAMBLELOOP_READBACK_TOKEN`
+    (`security.READBACK_ROUTES`); GET/HEAD only; read-only; no bytes, no secrets."""
+    from ..ops import candidate_viewer
+
+    return JSONResponse(candidate_viewer.candidates(db, run_key=run_key, role=role,
+                                                    limit=limit, before_id=before_id),
+                        headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/readback/candidates/{candidate_id}/image")
+def api_readback_candidate_image(candidate_id: int, max_px: int | None = None) -> Response:
+    """ENG-CANDIDATE-VIEWER: one candidate's stored image bytes by id (one blob per request;
+    `max_px` for an optional JPEG thumbnail). Readback token only; read-only."""
+    from ..ops import candidate_viewer
+
+    got = candidate_viewer.image(db, candidate_id, max_px=max_px)
+    if got is None:
+        return JSONResponse({"error": "no stored image for this candidate",
+                             "code": "NOT_FOUND"}, status_code=404,
+                            headers={"Cache-Control": "no-store"})
+    data, mime, sha = got
+    return Response(data, media_type=mime, headers={
+        "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow",
+        "X-Content-Type-Options": "nosniff", "X-Content-SHA256": sha,
+        "X-Image-Status": "AI-generated candidate; never a photograph"})
+
+
+@app.get("/api/readback/galleries")
+def api_readback_galleries(limit: int = 20, before_id: int | None = None,
+                           run_key: str = "") -> JSONResponse:
+    """ENG-CANDIDATE-VIEWER: gallery runs with their frames (role, candidate_id, status),
+    paginated (`ops.candidate_viewer.galleries`). Readback token only; read-only."""
+    from ..ops import candidate_viewer
+
+    return JSONResponse(candidate_viewer.galleries(db, limit=limit, before_id=before_id,
+                                                   run_key=run_key),
+                        headers={"Cache-Control": "no-store"})
+
+
 @app.get("/api/verify/smoke")
 def api_verify_smoke() -> JSONResponse:
     """F-171: the production smoke matrix on its own (ops/smoke.py). 200 only on PASS; FAIL
