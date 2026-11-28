@@ -200,7 +200,8 @@ def test_3_product_truth_uses_the_routed_judge_and_the_adapters_keep_theirs():
     db = _db()
     j = CG.RealJudges(db, second_vision=None, embedder=None)
     assert isinstance(j._fidelity_judge(), F.RoutedVisionJudge)
-    assert type(j._vision_judge()) is F.GatewayVisionJudge
+    # VISION-GATE-ROUTE (19i35): the adapters ask the routed judge too (the route in use)
+    assert type(j._vision_judge()) is F.RoutedVisionJudge
     named = object()
     j2 = CG.RealJudges(db, vision=named, second_vision=None, embedder=None)
     assert j2._fidelity_judge() is named and j2._vision_judge() is named

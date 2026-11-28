@@ -250,8 +250,8 @@ def test_4_product_truth_locates_the_region_through_the_routed_judge_and_a_faith
     assert t.calls == 1 and len(got["patches"]) == H._ctx()["make"], (t.calls, got)
     rc = _region_check(_lifestyle(data, got["patches"]))
     assert rc["status"] == "PASS", rc
-    # the identity adapters keep their own judge (Laura's checks are untouched)
-    assert type(j._vision_judge()) is F.GatewayVisionJudge
+    # VISION-GATE-ROUTE (19i35): the adapters ask the same routed judge (the route in use)
+    assert type(j._vision_judge()) is F.RoutedVisionJudge
     assert F.LIFESTYLE_REGION_ROUTE == "lifestyle-region/2"
     # light oak and the eyelets' shade read PASS too
     for table in (H.LIGHT_OAK, H.HONEY):
