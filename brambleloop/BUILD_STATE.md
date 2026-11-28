@@ -70,6 +70,15 @@ piece's sides; only vessels had `basket:sides`.
   - octagons FAIL WRONG_SIDE_COUNT on hero, colour_context, angle, detail and size frames;
   - circles FAIL for the hexagon CIR;
   - unsegmentable frames are UNKNOWN.
+- Test fixes:
+  - the shared fixture `test_w4_fidelity._piece_images` cut the disc render with an ellipse,
+    so its "faithful" hexagon was a disc; it now warps the render into the twin's polygon;
+  - the code-list and check-version pins now include WRONG_SIDE_COUNT and checks/3 (the
+    integration renumbered the version to /4 and kept its own, equivalent fixture and pins);
+  - test_v6_gallery_e2e: its UNKNOWN Laura frame no longer satisfies the set check.
+- Targeted run: `run_tests.sh` with 55 suites (fidelity, gallery, image, redrive, restart,
+  vessel, flux, candidate, repair): 863 passing, 1 failing (test_w4_wraptest, a pinned
+  directive count of 5). That pin was then fixed, and the suite passes alone.
 - UNVERIFIED: how the real production frames 62-66 read. They may read UNKNOWN (UNVERIFIABLE_COUNT)
   instead of FAIL if their pieces cannot be segmented (low contrast, stacked or overlapping
   coasters). A heavily rounded octagon (points/flats < ~1.04) reads as round. That is still

@@ -211,7 +211,8 @@ def test_the_four_owner_failure_codes_are_one_shared_constant():
     # W4-WRAPTEST: W-FIDELITY's five measured codes are folded into the same constant.
     assert set(FC.PRODUCT_TRUTH_CODES) == FC.OWNER_RECORD_CODES | {
         "WRONG_ASPECT_RATIO", "OFF_PALETTE_COLOUR", "WRONG_COLOUR_LAYOUT",
-        "WRONG_REPEAT_COUNT", "WRONG_PIECE_COUNT"}
+        "WRONG_REPEAT_COUNT", "WRONG_PIECE_COUNT",
+        "WRONG_SIDE_COUNT"}  # ENG-COASTER-SIDES
     assert set(FC.CATEGORY_OF.values()) == {"product_fidelity"}       # candidate_gates' name
     record = json.loads(RECORD.read_text())
     assert {f["code"] for f in record["failure_categories"]} == FC.OWNER_RECORD_CODES
