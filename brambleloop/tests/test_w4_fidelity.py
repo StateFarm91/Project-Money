@@ -39,6 +39,34 @@ def _cir(slug):
 
 # ---- synthetic flat lays -------------------------------------------------------------------
 
+def _as_polygon(im, n):
+    """A circular round-worked fabric view reshaped as a regular n-gon with its top side flat
+    (the chart's own orientation): each pixel samples the circle at its polygon-normalised
+    radius along the same angle, so every round becomes a concentric n-gon."""
+    import math
+
+    import numpy as np
+
+    src = np.asarray(im)
+    size = src.shape[0]
+    c = (size - 1) / 2
+    R = size / 2 - 1
+    yy, xx = np.mgrid[0:size, 0:src.shape[1]]
+    px, py = xx - c, yy - c
+    rot = math.radians(90.0 - 180.0 / n)
+    apothem = R * math.cos(math.pi / n)
+    t = np.zeros(px.shape)
+    for k in range(n):
+        ang = rot + math.pi / n + 2 * math.pi * k / n
+        t = np.maximum(t, (px * math.cos(ang) + py * math.sin(ang)) / apothem)
+    theta = np.arctan2(py, px)
+    rs = np.minimum(t, 1.0) * R
+    sx = np.clip(np.round(c + rs * np.cos(theta)), 0, src.shape[1] - 1).astype(int)
+    sy = np.clip(np.round(c + rs * np.sin(theta)), 0, size - 1).astype(int)
+    out = src[sy, sx]
+    return Image.fromarray(out), Image.fromarray(((t <= 1.0) * 255).astype("uint8"))
+
+
 def _piece_images(cir, cell=12):
     """(RGB image, alpha mask, twin) per piece, at true centimetre proportion."""
     from brambleloop.creative import pattern_refs as PR
@@ -49,8 +77,17 @@ def _piece_images(cir, cell=12):
         for _ in range(int(getattr(comp, "make", 1) or 1)):
             if is_round:
                 im = charts.render_round_fabric(cir, twin).convert("RGB")
-                a = Image.new("L", im.size, 0)
-                ImageDraw.Draw(a).ellipse((0, 0, im.size[0] - 1, im.size[1] - 1), fill=255)
+                sides = int(getattr(twin, "sides", 0) or 0)
+                if sides >= 3:
+                    # The fabric view is drawn as circles (charts: `plain` has no polygon), but
+                    # a piece whose increases stack is a polygon (`twin.sides`): a hexagon
+                    # coaster is a hexagon. The fixture shapes it so, rounds following the
+                    # outline, or it shows the wrong product and the side check
+                    # (visual.piece_sides, WRONG_SIDE_COUNT) rightly refuses it.
+                    im, a = _as_polygon(im, sides)
+                else:
+                    a = Image.new("L", im.size, 0)
+                    ImageDraw.Draw(a).ellipse((0, 0, im.size[0] - 1, im.size[1] - 1), fill=255)
             else:
                 im = _weighted_rows(cir, comp, twin, charts.render_fabric(
                     cir, twin, cell_px=cell).convert("RGB"))
@@ -621,7 +658,14 @@ def test_publication_gates_are_not_relaxed():
     lif = CG.evaluate(db, O.cand(data=img, role="lifestyle", release=O.RELEASE,
                                  references=[{"sha256": "a" * 64, "kind": "pattern_derived"}]),
                       judges=CG.RealJudges(db, vision=PASSING_BANDS_JUDGE))
-    assert lif["checks"]["product_truth"]["status"] == "FAIL"    # lifestyle_evidence kept
+    # lifestyle_evidence kept. Since D-OWNER-LIFESTYLE-GENERATED (19i32, owner 1A) a generated
+    # frame from pattern-derived references is no longer a structural FAIL: it is judged on
+    # its own fidelity readings, and with none of them PASS it is not PASS and not publishable.
+    pt_lif = lif["checks"]["product_truth"]
+    assert pt_lif["status"] in ("FAIL", "UNKNOWN"), pt_lif["status"]
+    le = pt_lif["lifestyle_evidence"]
+    assert le["basis"] == CG.LIFESTYLE_POLICY and le["publishable"] is False, le
+    assert lif["publishable"] is False
     # an anchor with no vision reading is never PASS through the gates
     pt = CG.RealJudges(db).product_truth({**O.cand(data=img), "role": "product_anchor"},
                                          CG.binding(db, CLOUD, "1.2.0", O.RELEASE))

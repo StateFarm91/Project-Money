@@ -125,6 +125,7 @@ def test_1_each_producer_is_scheduled_inside_its_card_window_and_never_parked_id
     windows = {"launch.readiness": rollback.MAX_AGE_DAYS,
                "creative.blind_review": blind_review.MAX_REVIEW_AGE_DAYS,
                "ops.policy_watch": platform_policy.MAX_AGE_DAYS}
+    assert len(windows) == 3
     for jt, days in windows.items():
         assert jt in period, f"{jt} is not on the cadence table"
         assert registry.get(jt) is not None, f"{jt} has no registered handler"

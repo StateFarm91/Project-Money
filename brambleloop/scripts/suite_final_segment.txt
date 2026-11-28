@@ -329,3 +329,5 @@ tests/test_redrive_eligibility.py
 tests/test_restart_per_method.py
 tests/test_p0_mismeasured_stop.py
 tests/test_first_listing_path.py
+tests/test_toy_board.py
+tests/test_owner_card_readiness.py

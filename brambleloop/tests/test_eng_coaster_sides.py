@@ -241,6 +241,7 @@ def test_6_hexagons_pass_on_every_derivative_frame():
     frames = {"hero": scene(grain=True), "colour_context": scene(),
               "angle": scene(squash=0.65, grain=True), "size": scene(table=T3.HONEY, mug=True),
               "hero_rounded": scene(p=14, grain=True, table=T3.LIGHT_OAK)}
+    assert len(frames) == 5
     for role, data in frames.items():
         s = sides(derivative(data, role.split("_")[0]))
         assert s["status"] == "PASS" and s["counted"] == [6], (role, s["why"], s["pieces"])
@@ -252,6 +253,7 @@ def test_7_octagons_fail_on_every_derivative_frame_the_production_defect():
               "angle": scene(8, squash=0.65, grain=True),
               "detail": scene(8, count=2, crop=(0, 250, 1400, 1150)),
               "size": scene(8, table=T3.HONEY, mug=True)}
+    assert len(frames) == 5
     for role, data in frames.items():
         v = derivative(data, role)
         s = sides(v)
@@ -310,7 +312,9 @@ def test_11_the_code_is_shared_and_its_repair_names_the_fix():
 
 
 def test_12_the_check_version_is_bumped_so_parked_unknown_frames_are_rejudged():
-    assert F.FIDELITY_CHECK_VERSION == "fidelity-checks/4" == IP.fidelity_check_version()
+    # "/4" adds the side check (19i35); later bumps may only move it further
+    assert int(F.FIDELITY_CHECK_VERSION.rsplit("/", 1)[1]) >= 4, F.FIDELITY_CHECK_VERSION
+    assert F.FIDELITY_CHECK_VERSION == IP.fidelity_check_version()
     assert F.VERIFIER_VERSION == "product-fidelity/1.0.0", "accepted anchors still match"
 
 

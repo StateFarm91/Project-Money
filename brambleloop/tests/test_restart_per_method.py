@@ -375,8 +375,10 @@ def test_3_within_one_method_version_the_cap_binds_exactly_as_before():
 # ---- Problem B: the coaster's reverify ----------------------------------------------------
 
 def _cap_hold() -> dict:
-    """What 19i27's 12:00:37Z sweep recorded (it stamped the check version; no code)."""
-    return {"judge_version": JUDGE2, "check_version": CHECKS2, "day": None,
+    """What 19i27's 12:00:37Z sweep recorded (it stamped the check version in force, then
+    CHECKS2; no code). Stamped with the version in force now, so the hold is one made under
+    the current checks whatever later bumps (19i32 "/3", coaster sides "/4") did."""
+    return {"judge_version": JUDGE2, "check_version": F.FIDELITY_CHECK_VERSION, "day": None,
             "why": CAP_WHY_19I27, "at": f"{LEGACY_DAY}T12:00:41+00:00"}
 
 
@@ -384,7 +386,8 @@ def test_4_the_coaster_hold_was_the_19i27_cap_refusal_not_vision_headroom():
     db = R._db()
     blocked = _today_blocked()
     _production_spend(db, blocked)
-    assert F.FIDELITY_JUDGE_VERSION == JUDGE2 and F.FIDELITY_CHECK_VERSION == CHECKS2
+    assert F.FIDELITY_JUDGE_VERSION == JUDGE2
+    assert int(F.FIDELITY_CHECK_VERSION.rsplit("/", 1)[1]) >= int(CHECKS2.rsplit("/", 1)[1])
     with _Method():
         key = _coaster(db, hold=_cap_hold(), blocked_at=blocked)
         # the openai-vision headroom covers a re-judgement comfortably
@@ -418,8 +421,9 @@ def test_4_the_coaster_hold_was_the_19i27_cap_refusal_not_vision_headroom():
         row = R._row(db, key)
         assert row["calls"] == 5 and abs(row["spent"] - 0.35) < 1e-9, "nothing generated"
         h = row["stages"][IP.RESTART_KEY]["history"][-1]
-        assert h["check_version"] == CHECKS2 and h[IP.HISTORY_METHOD_KEY] == PROD, h
-        # once under (judge/2, checks/2): re-blocked, it is not re-driven again
+        assert h["check_version"] == F.FIDELITY_CHECK_VERSION and \
+            h[IP.HISTORY_METHOD_KEY] == PROD, h
+        # once under (judge/2, the current checks): re-blocked, it is not re-driven again
         R._reblock(db, key)
         out = IP.redrive_capability_blocked(db, follow=R._follow(calls))
         assert len(calls) == 1 and out["restarted"] == [], out
