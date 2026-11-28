@@ -64,6 +64,10 @@ real client (`OpenAIProvider._post` replaced; no network, no paid call).
   their pixels were not read, so whether they were shadowed is UNVERIFIED.
 - FIDELITY_CHECK_VERSION fidelity-checks/4: runs parked UNKNOWN are re-judged once (existing redrive). CHECKER
   is unchanged.
+- TESTS: targeted run (37 fidelity/vision/identity/Laura/gallery suites) 488 passing, 1 suite failing:
+  test_w4_ownerimg `test_lifestyle_from_pattern_derived_references_fails_product_truth`. It is PRE-EXISTING and
+  fails identically on base efc4549fa: it asserts the structural lifestyle FAIL that 19i32's
+  D-OWNER-LIFESTYLE-GENERATED replaced. Left for the 19i32 owner of that ruling; not changed here.
 
 ## 19i32 OWNER RULINGS — 2026-11-28 (branch claude/w6-release-19i32 from 46908fe66, NOT merged, NOT deployed)
 
