@@ -119,7 +119,8 @@ def _structural_run():
     db, cir, rel = V._basket_db()
     gen = O.StubGenerator()
     judges = V._judges(db)
-    with V._FidelityPass():
+    # the rows production made under 19i30/19i31's policy (W5-V1), reproduced as a fixture
+    with V._FidelityPass(), V.LegacyLifestylePolicy():
         follow, _ = O.drain(db, generator=gen, judges=judges)
         assert IP.trigger(follow, slug=cir.slug, version=cir.version, release=rel)["enqueued"]
         O.drain(db, generator=gen, judges=judges)
@@ -185,13 +186,22 @@ def test_1_the_verification_references_block_is_the_structural_lifestyle_evidenc
     assert [r for r, _k, _o in gen.seen if r == "lifestyle"] == ["lifestyle"], gen.seen
     best = IP._best(db, listing=V.BASKET_LISTING, role="lifestyle", run=key)
     assert best["structural"] == "lifestyle_evidence: chart reference"
+    with V.LegacyLifestylePolicy():
+        assert CG.lifestyle_structural({"role": "lifestyle", "references": [
+            {"kind": "pattern_derived"}]}, {}) == "lifestyle_evidence: chart reference"
+    # D-OWNER-LIFESTYLE-GENERATED (19i32): today's policy reads no structural reason
     assert CG.lifestyle_structural({"role": "lifestyle", "references": [
-        {"kind": "pattern_derived"}]}, {}) == "lifestyle_evidence: chart reference"
+        {"kind": "pattern_derived"}]}, {}) is None
     print("OK 1 verification:references:exhausted is the structural lifestyle_evidence FAIL")
 
 
 def test_2_while_the_policy_holds_the_readback_names_it_and_nothing_is_restarted():
     db, key, gen, _ = _structural_run()
+    with V.LegacyLifestylePolicy():
+        _test_2_body(db, key)
+
+
+def _test_2_body(db, key):
     v = _readback(db, key)
     assert v["kind"] == "verification_reverify" and v["refused"] == "structural_reference", v
     assert not v["eligible"]
@@ -380,6 +390,30 @@ def test_7_once_per_version_and_the_restart_cap_binds():
         finally:
             IP.restart_counts = saved
     print("OK 7 once per version; MAX_RESTARTS binds")
+
+
+def test_9_owner_1a_makes_the_stored_coaster_runs_due_once_and_generates_nothing():
+    """D-OWNER-LIFESTYLE-GENERATED (19i32), no test patch of the policy: the stored structural
+    rows (W5-V1) are no longer structural under today's policy, so the run is due for one
+    verification_reverify; the policy version is part of the redrive key."""
+    db, key, gen, judges = _structural_run()
+    calls_before = gen.calls
+    assert CG.LIFESTYLE_POLICY_VERSION in IP.verify_redrive_version()
+    v = _readback(db, key)
+    assert v["kind"] == "verification_reverify" and v["eligible"], v
+    with db.session() as s:
+        due = IP.redrive_due(s, None)
+    assert due and due["kind"] == "verification_reverify" and due["run_key"] == key, due
+    calls: list = []
+    with _VisionOk():
+        out = IP.redrive_capability_blocked(db, follow=_follow(calls))
+    assert len(calls) == 1 and out["restarted"][0]["resume_at"] == "verification", out
+    assert calls[0][0].get("reverify") is True
+    # it is running again (no longer blocked), and the same version is recorded
+    with db.session() as s:
+        assert key not in IP.redrive_readback(s)["runs"]
+    assert gen.calls == calls_before
+    print("OK 9 owner 1A: due once, re-verified at verification, nothing generated")
 
 
 def test_8_the_readback_vocabulary_carries_the_new_kind_and_refusal():

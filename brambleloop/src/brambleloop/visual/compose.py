@@ -276,6 +276,8 @@ def lifestyle_evidence(evidence):
     product = ev.get('product') or {}
     ref = ev.get('reference') or {}
     rclass = ref.get('class')
+    if ev.get('generated') is True and rclass == 'chart':
+        return _generated_lifestyle(ev, product, ref)
     if rclass in INFORMATIONAL_REFERENCES:
         failed.append(f'reference: {rclass!r} is informational (diagram/chart/card); it is not '
                       f'photographic truth and cannot stand for the finished object')
@@ -317,3 +319,40 @@ def lifestyle_evidence(evidence):
     status = 'FAIL' if failed else 'UNKNOWN' if missing else 'PASS'
     return {'status': status, 'publishable': status == 'PASS', 'failed': failed,
             'missing': missing, 'certifies_photorealism': False}
+
+
+# D-OWNER-LIFESTYLE-GENERATED (owner option 1A, 2026-11-28): a GENERATED lifestyle or Laura frame
+# made from pattern-derived references ('chart') is acceptable when the product in it passes the
+# independent structural fidelity readings against the certified CIR. Matte, mask, restoration
+# and the composite certificate are compositing evidence a generated frame never has, so they
+# are not asked of it; these are.
+GENERATED_FIDELITY = ('region_palette', 'anchor_consistency', 'craft_texture')
+
+
+def _generated_lifestyle(ev, product, ref):
+    failed, missing = [], []
+    readings = ev.get('generated_fidelity') or {}
+    for name in GENERATED_FIDELITY:
+        status = readings.get(name)
+        if status == 'FAIL':
+            failed.append(f'fidelity.{name}')
+        elif status != 'PASS':
+            missing.append(f'fidelity.{name}: {status or "no reading"}')
+    # The frame must be disclosed as a digital render (the honesty label recorded on the image,
+    # `candidate_gates.disclosure`; the listing copy's generated_imagery sentence is enforced
+    # by `gates.policy.check_ai_disclosure`).
+    disc = (ev.get('disclosure') or {}).get('status')
+    if disc == 'FAIL':
+        failed.append('disclosure')
+    elif disc != 'PASS':
+        missing.append('disclosure')
+    versions = {product.get('version'), product.get('pdf_version'), ref.get('product_version')}
+    if None in versions:
+        missing.append('version_binding')
+    elif len(versions) != 1:
+        failed.append(f'version_binding: {sorted(map(str, versions))}')
+    status = 'FAIL' if failed else 'UNKNOWN' if missing else 'PASS'
+    return {'status': status, 'publishable': status == 'PASS', 'failed': failed,
+            'missing': missing, 'certifies_photorealism': False,
+            'basis': ev.get('policy') or 'D-OWNER-LIFESTYLE-GENERATED',
+            'readings': {k: readings.get(k) for k in GENERATED_FIDELITY}}

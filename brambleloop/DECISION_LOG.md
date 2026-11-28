@@ -5014,3 +5014,38 @@ It also carries VERIFY-REFS:
 It is deployed under the owner's chat approval of 2026-11-25 for photo fixes. The targeted suites pass on the merged tree. Two owner decisions are pending and nothing changes them:
 - the LIFESTYLE-EVIDENCE policy for generated lifestyle frames;
 - the market-basket per-gallery plan.
+
+## D-OWNER-LIFESTYLE-GENERATED — 2026-11-28 (owner, option 1A)
+
+**Owner, verbatim (chat, 2026-11-28):** "1- a. Yes" — option 1A of the LIFESTYLE-EVIDENCE question.
+
+**Decision.** A generated LIFESTYLE or Laura frame built from pattern-derived references is acceptable when the product in the frame passes the independent structural fidelity readings against the certified CIR: `region_palette`, `anchor_consistency` and `craft_texture`, each PASS.
+- `candidate_gates.lifestyle_reading` now hands the frame's own fidelity verdict to `compose.lifestyle_evidence` with `generated=True`. For a pattern-derived ("chart") reference the verdict is those three readings plus the render disclosure and version binding. The reference no longer causes a structural FAIL, so the repair router and the verification redrive treat the frame like any other.
+- A FAIL in any reading FAILs. UNKNOWN or a missing reading is missing evidence and blocks as before. The Laura-identity UNKNOWN rule of the generated-gallery route is unchanged.
+- The image must carry the render disclosure (`candidate_gates.disclosure`: the honesty label is recorded on the image). The listing copy must carry `platform_policy.DISCLOSURES["generated_imagery"]` verbatim (`gates.policy.check_ai_disclosure`, ERROR). The buyer-visible alt text stays as D-OWNER-PUBLISH-WITH-RENDERS ordered (scene only).
+- Scope: frames judged by `RealJudges.product_truth` (generated images: the canonical campaign run and the `~gallery` run). A composite's `compose.lifestyle_evidence` without `generated` is unchanged: a chart is still not photographic truth there. Publication vetoes (F-852 outside the gallery route, Laura gates) are unchanged.
+- `LIFESTYLE_POLICY_VERSION` "lifestyle-policy/2" joins `verify_redrive_version()`, so the two hexagon-coaster-set@1.2.1 runs blocked `verification:references:exhausted` become due for one `verification_reverify` (stored frames only, nothing generated; MAX_RESTARTS per method binds).
+
+Supersedes test_v6_gallery_e2e REMAINING_GATES "LIFESTYLE-EVIDENCE" for generated frames.
+
+## D-OWNER-PHOTO-BUDGET — 2026-11-28 (owner)
+
+**Owner, verbatim (chat, 2026-11-28):** "up the photo budget i dont care. Get it right."
+
+**Decision.**
+- Per-gallery spend plan (`image_production`): CA$2.00 -> CA$6.00 money cap; calls 12 -> 36, and 20 -> 60 on the `~gallery` route (`PHOTO_BUDGET_FACTOR` 3, `PLAN_VERSION_TAG` "gallery-plan/2"). `sale_pipeline.PER_LISTING_IMAGE_CAP_CAD` follows (CA$6.00). The owner can still lower the cap (`gallery_budget`).
+- FLUX activation (`ops.owner_directives.ACTIVATIONS`, flux-3-image:generation): daily ceiling CA$5.00 -> CA$10.00; per-gallery CA$2.50 -> CA$6.00 so the activation does not cut the plan short. Monthly ceiling stays CA$40. The company cap stays CA$100/month.
+- The live directive row was written once on 2026-11-20 with the old ceilings. `owner_directives.AMENDMENTS` lets `apply` raise that row's daily and per-gallery ceilings, once and only upwards, to the table, audited `owner_directive.amended`. Monthly ceiling, expiry and call ceilings are never touched; a revoked or expired row is never amended.
+- Runs final-blocked on the OLD plan (`budget stop: ... exceeds the plan's call_count / max_spend_cad`, e.g. market-basket-small@1.3.0 and its `~gallery` run) are re-driven ONCE per plan version (`spend_plan_redrive`, readback kind `spend_plan_raised`) when the raised plan leaves room for one attempt. MAX_RESTARTS per method, the provider's daily ceiling (waits for headroom) and the plan still bind.
+
+## D-OWNER-LAURA-OUTFIT — 2026-11-28 (owner, restated hard rules)
+
+**Owner, restated 2026-11-28 (relayed by the coordinator):**
+1. Laura wears a DIFFERENT outfit in every new listing, unique across listings. Within one listing her outfit is the same in every frame.
+2. When the product is a garment (anything she can wear), Laura wears the piece itself in her Laura frames. The product is then her outfit item, and the rest of the outfit must still be unique per listing.
+
+**Existing rules this restates:** D-W4-LAURA-OUTFIT (2026-10-19) and D-W4-LAURA-FLUX3 §4 (one complete outfit per listing, never reused). Rule 2 is new as an explicit owner rule.
+
+**Enforced in code:**
+- Rule 1: `visual.outfits.reserve` refuses (FAIL) an outfit held by another listing, a second outfit for the same listing, the same complete outfit and a too-similar one. The `reserve_outfit` stage of `visual.image_production` blocks the run on any non-PASS, and `candidate_gates.evaluate` re-checks every Laura frame (`outfits.check_use`), so a duplicate is refused, not logged. The reserved outfit goes into the FLUX Laura prompt (`image_stages` scene outfit) and its id into the receipt (`receipt.outfit_id`) and the reference provenance.
+- Rule 2: `shot_plans.LIFESTYLE_BRIEF["garment"]` is "Laura wearing the finished garment". 19i32 adds the worn-product constraint to the live route's automatic styling (`visual.styling.select`, "styling/3"). For a worn family (garment, shawl, scarf, hat; `outfit_library.interaction`) the chosen outfit is what goes under and around the piece: for a garment or shawl, no outerwear and a base-layer top (no cardigan, jumper or dress); for a scarf, no necklace or shawl; for a hat, no hair accessory. The rest of the outfit is still unique per listing by the same registry. Before 19i32 only `outfit_library.compatible` knew this, and the live route did not call it.

@@ -132,13 +132,53 @@ class _FidelityPass:
         return False
 
 
+def _w5v1_lifestyle_reading(cand, bind, fidelity=None):
+    """The W5-V1 policy as it stood until D-OWNER-LIFESTYLE-GENERATED (19i32): a pattern-derived
+    reference FAILs structurally whatever the image shows. Kept as a fixture so the structural
+    machinery (no repair bought, the redrive's refusal) stays tested; production no longer
+    reads it."""
+    from brambleloop.visual.compose import INFORMATIONAL_REFERENCES, lifestyle_evidence
+
+    kinds = {r.get("kind") for r in cand.get("references") or []}
+    rclass = ("physical_product_photo" if "physical_product_photo" in kinds else
+              "chart" if "pattern_derived" in kinds else None)
+    out = lifestyle_evidence({
+        "product": {"slug": cand.get("slug"), "version": cand.get("version"),
+                    "pdf_version": cand.get("version"), "pieces": bind.get("pieces"),
+                    "cir_fingerprint": bind.get("cir_fingerprint")},
+        "reference": {"class": rclass, "product_version": cand.get("version")}})
+    if out.get("status") == "FAIL" and rclass in INFORMATIONAL_REFERENCES:
+        out = {**out, "structural": f"lifestyle_evidence: {rclass} reference"}
+    return out
+
+
+class LegacyLifestylePolicy:
+    """Patch `candidate_gates.lifestyle_reading` to the W5-V1 policy (a fixture: the stored
+    rows production made under 19i30/19i31)."""
+
+    def __enter__(self):
+        from brambleloop.visual import candidate_gates as CG
+
+        self.saved = CG.lifestyle_reading
+        CG.lifestyle_reading = _w5v1_lifestyle_reading
+        return self
+
+    def __exit__(self, *exc):
+        from brambleloop.visual import candidate_gates as CG
+
+        CG.lifestyle_reading = self.saved
+        return False
+
+
 def test_structural_lifestyle_failure_blocks_after_one_call_and_buys_nothing_more():
     from brambleloop.visual import image_production as IP
 
     db, cir, rel = _basket_db()
     gen = O.StubGenerator()
     judges = _judges(db)
-    with _FidelityPass():
+    # the W5-V1 structural machinery, under the policy that produced it (a fixture since
+    # D-OWNER-LIFESTYLE-GENERATED; test_lifestyle_reading_... pins today's policy)
+    with _FidelityPass(), LegacyLifestylePolicy():
         follow, _ = O.drain(db, generator=gen, judges=judges)
         assert IP.trigger(follow, slug=cir.slug, version=cir.version, release=rel)["enqueued"]
         O.drain(db, generator=gen, judges=judges)
@@ -172,13 +212,40 @@ def test_structural_lifestyle_failure_blocks_after_one_call_and_buys_nothing_mor
         assert len(notes) == 1 and "lifestyle_evidence: chart reference" in str(notes[0])
 
 
+def _fid(**status):
+    return {"status": "PASS", "checks": [{"check": k, "status": v} for k, v in status.items()]}
+
+
 def test_lifestyle_reading_names_the_structural_reason_and_keeps_the_policy():
+    """D-OWNER-LIFESTYLE-GENERATED (19i32): a generated frame from pattern-derived references is
+    judged by its own fidelity readings, never as a structural FAIL."""
     from brambleloop.visual import candidate_gates as CG
 
-    cand = {"slug": "x", "version": "1", "references": [{"kind": "pattern_derived"}]}
-    le = CG.lifestyle_reading(cand, {"pieces": 1, "cir_fingerprint": "f"})
-    assert le["status"] == "FAIL" and le["structural"] == "lifestyle_evidence: chart reference"
-    assert any("informational" in f for f in le["failed"])
+    cand = {"slug": "x", "version": "1", "role": "lifestyle",
+            "references": [{"kind": "pattern_derived"}]}
+    bind = {"pieces": 1, "cir_fingerprint": "f"}
+    le = CG.lifestyle_reading(cand, bind)
+    assert le["status"] == "UNKNOWN" and "structural" not in le, le      # no readings yet
+    assert CG.lifestyle_structural(cand, bind) is None
+    ok = CG.lifestyle_reading(cand, bind, _fid(region_palette="PASS", anchor_consistency="PASS",
+                                               craft_texture="PASS"))
+    assert ok["status"] == "PASS" and ok["basis"] == "D-OWNER-LIFESTYLE-GENERATED", ok
+    assert ok["certifies_photorealism"] is False
+    for bad in ("region_palette", "anchor_consistency", "craft_texture"):
+        r = dict(region_palette="PASS", anchor_consistency="PASS", craft_texture="PASS")
+        r[bad] = "FAIL"
+        got = CG.lifestyle_reading(cand, bind, _fid(**r))
+        assert got["status"] == "FAIL" and f"fidelity.{bad}" in got["failed"], got
+        assert "structural" not in got          # a regeneration can change a fidelity FAIL
+        r[bad] = "UNKNOWN"
+        assert CG.lifestyle_reading(cand, bind, _fid(**r))["status"] == "UNKNOWN"
+        del r[bad]
+        assert CG.lifestyle_reading(cand, bind, _fid(**r))["status"] == "UNKNOWN"
+    # a composite (no `generated`) keeps the W5-V1 rule: a chart is not photographic truth
+    from brambleloop.visual.compose import lifestyle_evidence
+
+    comp = lifestyle_evidence({"reference": {"class": "chart"}})
+    assert comp["status"] == "FAIL" and any("informational" in f for f in comp["failed"])
     # a photographic reference class is not structural (it is missing evidence, not a FAIL)
     ph = CG.lifestyle_reading({**cand, "references": [{"kind": "physical_product_photo"}]},
                               {"pieces": 1})
@@ -198,9 +265,11 @@ def test_structural_failure_with_routable_code_does_not_buy_repairs():
         return {"status": "PASS", "why": "fixture", "codes": [], "failed": [], "unknown": []}
     CG.fidelity_reading = fidelity
     try:
-        follow, _ = O.drain(db, generator=gen, judges=judges)
-        assert IP.trigger(follow, slug=cir.slug, version=cir.version, release=rel)["enqueued"]
-        O.drain(db, generator=gen, judges=judges)
+        with LegacyLifestylePolicy():
+            follow, _ = O.drain(db, generator=gen, judges=judges)
+            assert IP.trigger(follow, slug=cir.slug, version=cir.version,
+                              release=rel)["enqueued"]
+            O.drain(db, generator=gen, judges=judges)
         run = IP.get_run(db, IP.run_key(cir.slug, cir.version, rel))
         assert len([r for r, _k, _o in gen.seen if r == "lifestyle"]) == 1, gen.seen
         assert not any(gen.repairs), gen.repairs

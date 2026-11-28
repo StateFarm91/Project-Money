@@ -67,6 +67,20 @@ CENTRE_COLUMN = (0.30, 0.70)  # band labels read from the middle of the wall onl
 STEEP_SLOPE = 0.36          # |dx/dy| of a side outline that is the wall (within ~20 deg)
 SLOPE_WINDOW = 0.02         # the slope is read over +- 2 % of the silhouette's height
 WALL_SLOPE_TOL = 0.12       # ... and the wall is the rows within this of its own median slope
+# OWNER-CALIBRATION (19i32, D-OWNER-PHOTO-BUDGET "Get it right"): the owner's own FLUX product
+# master (research/owner_assets/owner_method_2026-11-28/owner_basket_product.png) is a cream
+# basket on a warm ivory wall and a light oak table. The colour separation from ONE fitted
+# surface cannot tell cream yarn from an ivory wall, and it took the table for product: the mask
+# ran off the frame and the wall bands read ['cream', 'off', 'cream']. A mask that runs off
+# the frame is the surface, not the product; the product is then separated by its stitch
+# texture instead (crochet is textured; a seamless wall and a sanded table are not).
+TEXTURE_WINDOW = 0.016      # local-contrast window, as a fraction of the image's long side
+TEXTURE_MIN_SD = 4.0        # L* standard deviation over that window that reads as stitches
+# ... and a side outline's wall is also read where it stands at the silhouette's extreme
+# (a hexagon's side corner, a round wall's tangent line): the rows whose outline lies within
+# EXTREME_TOL of the width from its robust extreme. The steep-run reading alone trimmed the
+# owner master's corners to 53 and 232 of ~385 rows (stitch notches broke the slope window).
+EXTREME_TOL = 0.025
 OPENING_MIN = 0.15          # centre taller than the sides by more than this: an opening shows
                             # (eye-level perspective makes the near face up to ~10 % taller)
 
@@ -203,9 +217,68 @@ def _product_mask(data: bytes):
     sizes = ndimage.sum(fg, labels, range(1, n + 1))
     biggest = int(np.argmax(sizes)) + 1
     mask = ndimage.binary_fill_holes(labels == biggest)
+    if _touches_frame(mask):
+        textured = _texture_mask(lab)
+        if textured is not None:
+            return textured, lab, TEXTURE_SEPARATED
     if mask.mean() < MIN_PRODUCT_FRAC:
         return None, lab, f"product is {mask.mean():.1%} of the frame"
     return mask, lab, ""
+
+
+TEXTURE_SEPARATED = "separated by texture"   # `_product_mask`'s note on a texture mask
+FRAME_MARGIN = 0.01         # a mask within this fraction of the frame's edge runs off it
+
+
+def _touches_frame(mask: np.ndarray) -> bool:
+    h, w = mask.shape
+    my, mx = max(1, int(FRAME_MARGIN * h)), max(1, int(FRAME_MARGIN * w))
+    return bool(mask[:my].any() or mask[-my:].any() or mask[:, :mx].any()
+                or mask[:, -mx:].any())
+
+
+def _texture_mask(lab: np.ndarray):
+    """The product separated by its stitch texture (OWNER-CALIBRATION), or None when that is
+    not a clean, framed product either (then the colour reading stands and decides)."""
+    from scipy import ndimage
+
+    L = lab[..., 0]
+    k = max(3, int(round(TEXTURE_WINDOW * max(L.shape))))
+    m = ndimage.uniform_filter(L, k)
+    sd = np.sqrt(np.maximum(ndimage.uniform_filter(L * L, k) - m * m, 0.0))
+    fg = ndimage.binary_closing(sd > TEXTURE_MIN_SD, iterations=4)
+    fg = ndimage.binary_opening(fg, iterations=3)
+    labels, n = ndimage.label(fg)
+    if n == 0:
+        return None
+    sizes = ndimage.sum(fg, labels, range(1, n + 1))
+    mask = ndimage.binary_fill_holes(labels == int(np.argmax(sizes)) + 1)
+    if mask.mean() < MIN_PRODUCT_FRAC or _touches_frame(mask):
+        return None
+    return mask
+
+
+def _extreme_run(xs: np.ndarray, width: int, side: str) -> tuple[int, int]:
+    """The longest run of rows whose outline stands at the silhouette's extreme (within
+    EXTREME_TOL of the width of its robust 2nd/98th percentile): a polygon's side corner or a
+    round wall's tangent line, seen from base to rim."""
+    if len(xs) < 3:
+        return 0, 0
+    from scipy import ndimage
+
+    # a stray pixel run (a shadow, a fibre) is not the outline
+    xs = ndimage.median_filter(np.asarray(xs, dtype=float),
+                               size=2 * max(1, int(0.01 * len(xs))) + 1, mode="nearest")
+    ext = float(np.percentile(xs, 2 if side == "left" else 98))
+    tol = EXTREME_TOL * max(width, 1)
+    # one-sided: a blob standing out beyond the extreme (a shadow edge) does not end the run
+    ok = xs <= ext + tol if side == "left" else xs >= ext - tol
+    best, cur, out = 0, 0, (0, 0)
+    for y, v in enumerate(ok):
+        cur = cur + 1 if v else 0
+        if cur > best:
+            best, out = cur, (y - cur + 1, y + 1)
+    return out
 
 
 def corner_count(mask: np.ndarray) -> tuple[int, dict]:
@@ -335,7 +408,7 @@ def _steep_run(xs: np.ndarray, win: int) -> tuple[int, int]:
     return (int(a + on[0]), int(a + on[-1] + 1)) if on.size else (0, 0)
 
 
-def near_wall(mask: np.ndarray) -> dict:
+def near_wall(mask: np.ndarray, *, textured: bool = False) -> dict:
     """Where the near wall ends in a side view: rows above it are the opening (IMAGE-FIDELITY-2).
 
     The wall's projected height is read where the outline IS the wall: the left and right
@@ -354,6 +427,18 @@ def near_wall(mask: np.ndarray) -> dict:
                       for y in range(top, bottom + 1)], dtype=float)
     win = max(2, int(round(SLOPE_WINDOW * height)))
     (la, lb), (ra, rb) = _steep_run(left, win), _steep_run(right, win)
+    span = int(np.nanmax(right) - np.nanmin(left) + 1)
+    (ea, eb), (fa, fb) = _extreme_run(left, span, "left"), _extreme_run(right, span, "right")
+    # A texture-separated photograph (OWNER-CALIBRATION): its outline is the coarse texture
+    # window's, so the slope trim cuts the corner short at the soft base curve the centre
+    # column still includes (the medium basket's both-loops base turns in a curve). The
+    # corner's run at the silhouette's extreme is read instead, base curve and rim included,
+    # like the centre. A colour-separated render keeps the steep-run reading.
+    if textured:
+        if eb - ea > lb - la:
+            la, lb = ea, eb
+        if fb - fa > rb - ra:
+            ra, rb = fa, fb
     side_l, side_r = lb - la, rb - ra
     side = (side_l + side_r) / 2.0
     cols = np.nonzero(mask.any(axis=0))[0]
@@ -492,7 +577,7 @@ def verify_side(data: bytes, model: VesselModel) -> list[dict]:
     if mask is None:
         return [F._check(f"{name}:wall_bands", F.UNKNOWN, why, code="UNVERIFIABLE_COUNT")]
     full_mask, rgb = mask, F._load(data)
-    view = near_wall(mask)
+    view = near_wall(mask, textured=why == TEXTURE_SEPARATED)
     interior = None
     if view["opening"]:
         lab_full, _light = illumination_corrected(rgb, full_mask, model.palette)

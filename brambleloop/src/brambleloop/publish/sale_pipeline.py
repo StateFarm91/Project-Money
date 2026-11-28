@@ -98,7 +98,7 @@ def _per_listing_cap() -> float:
     return float(MAX_SPEND_CAD_PER_GALLERY)
 
 
-PER_LISTING_IMAGE_CAP_CAD = 2.00      # = image_production.MAX_SPEND_CAD_PER_GALLERY
+PER_LISTING_IMAGE_CAP_CAD = 6.00      # = image_production.MAX_SPEND_CAD_PER_GALLERY (D-OWNER-PHOTO-BUDGET)
 CORE_FAMILY_WORDS = {
     "amigurumi": ("amigurumi", "stuffed", "plush", "toy", "softie"),
     "baby": ("baby", "infant", "newborn", "nursery"),

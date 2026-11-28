@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import hashlib
 
-STYLING_VERSION = "styling/2"
+STYLING_VERSION = "styling/3"   # /3: a worn product is the outfit item (D-OWNER-LAURA-OUTFIT)
 BRAND_AESTHETIC = "warm, quiet Scandinavian-cottage: natural light, natural fibres, unhurried"
 
 SETTINGS: dict[str, tuple[str, ...]] = {
@@ -49,7 +49,42 @@ ACTIONS: dict[str, str] = {
     "baby": "folding the blanket over her arm", "blanket": "drawing the throw over her lap",
     "basket": "putting things into the basket", "coaster": "setting a mug down beside a coaster",
     "placemat": "laying a plate onto a placemat", "ornament": "hanging an ornament",
+    "garment": "wearing the finished garment", "shawl": "wearing the finished shawl",
+    "scarf": "wearing the finished scarf", "hat": "wearing the finished hat",
 }
+
+
+def _is_worn(category: str) -> bool:
+    from .outfit_library import WORN, interaction
+
+    return interaction(str(category or "").lower()) == WORN
+
+
+def worn_conflicts(category: str, garments: dict) -> list[str]:
+    """D-OWNER-LAURA-OUTFIT rule 2: when Laura wears the product (a garment, shawl, scarf or
+    hat; `outfit_library.interaction`), the product is her outfit item and the outfit is what
+    goes under and around it. Returns why `garments` cannot go with it (empty: it can)."""
+    from .outfit_library import WORN, interaction
+    from .wardrobe import parse_garment
+
+    fam = str(category or "").lower()
+    if interaction(fam) != WORN:
+        return []
+
+    def cat(slot: str) -> str:
+        text = str(garments.get(slot) or "")
+        return parse_garment(slot, text)["category"] if text else "none"
+
+    why = []
+    if fam in ("garment", "shawl") and cat("outerwear") != "none":
+        why.append(f"the worn {fam} is the outer layer: no outerwear")
+    if fam == "garment" and cat("top_or_dress") in ("cardigan", "jumper", "dress"):
+        why.append("the worn garment sits over a base layer, not a dress or another top layer")
+    if fam == "scarf" and (cat("outerwear") == "shawl" or cat("accessories") == "necklace"):
+        why.append("a worn scarf covers the neckline: no necklace, no shawl")
+    if fam == "hat" and cat("accessories") == "hair":
+        why.append("a worn hat: no hair accessory")
+    return why
 
 
 def _rank(key: str, items) -> list:
@@ -110,6 +145,19 @@ def select(listing: str, *, category: str, product_colours=(), season: str = "",
                 garments = {"top_or_dress": top, "lower": lower, "shoes": shoes,
                             "outerwear": pools["outerwear"][0],
                             "accessories": pools["accessories"][0]}
+                if worn_conflicts(category, garments):
+                    # the first outerwear / accessory the worn product allows, else skip
+                    for outer in pools["outerwear"]:
+                        for acc in pools["accessories"]:
+                            trial = {**garments, "outerwear": outer, "accessories": acc}
+                            if not worn_conflicts(category, trial):
+                                garments = trial
+                                break
+                        else:
+                            continue
+                        break
+                    if worn_conflicts(category, garments):
+                        break
                 if too_similar(garments, used) is not None:
                     rejected += 1
                     continue
@@ -134,6 +182,7 @@ def select(listing: str, *, category: str, product_colours=(), season: str = "",
         "outfit": {"outfit_id": oid, "garments": chosen, "colours": colours,
                    "description": "; ".join(v for v in chosen.values() if v and v != "none")},
         "concept": {"setting": setting, "setting_reused": not fresh,
+                    **({"product_worn": True} if _is_worn(category) else {}),
                     "action": ACTIONS.get(category, "using the finished piece"),
                     "light": "natural window light", "season": season or "any",
                     "target_customer": target_customer or "a maker who loves a calm home",

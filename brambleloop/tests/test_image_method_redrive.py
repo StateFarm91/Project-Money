@@ -174,7 +174,7 @@ def test_caps_calls_and_spend_are_never_reset():
     assert len(calls) == 1
     row = _row(db, key)
     assert row["calls"] == 5 and abs(row["spent"] - 0.71) < 1e-9, row
-    assert IP.MAX_GENERATION_CALLS == 12 and IP.MAX_SPEND_CAD_PER_GALLERY <= 2.50
+    assert IP.MAX_GENERATION_CALLS == 36 and IP.MAX_SPEND_CAD_PER_GALLERY <= 6.00  # D-OWNER-PHOTO-BUDGET
     assert gallery_budget.effective_cap(db) == cap_before
     plan_after = IP._spend_plan(key, db)
     assert plan_after["call_count"] == plan_before["call_count"]

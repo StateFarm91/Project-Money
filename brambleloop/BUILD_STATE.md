@@ -23,6 +23,29 @@ deployed); 6 are not; 2 name no resolvable branch.
 
 ---
 
+## 19i32 OWNER RULINGS — 2026-11-28 (branch claude/w6-release-19i32 from 46908fe66, NOT merged, NOT deployed)
+
+Owner rulings of 2026-11-28 recorded: D-OWNER-LIFESTYLE-GENERATED, D-OWNER-PHOTO-BUDGET, D-OWNER-LAURA-OUTFIT
+(DECISION_LOG; decision_index regenerated). Tests: tests/test_owner_rulings_19i32.py, test_verify_refs 9.
+- LIFESTYLE: a generated lifestyle/Laura frame from pattern-derived references is judged on its own fidelity
+  readings (region_palette, anchor_consistency, craft_texture all PASS) plus the render disclosure; no longer a
+  structural FAIL. `LIFESTYLE_POLICY_VERSION` joins the verification redrive key, so both hexagon-coaster-set@1.2.1
+  runs (verification:references:exhausted) become due for ONE verification_reverify. NOT verified in production.
+- BUDGET: plan CA$6.00 / 36 calls / 60 on ~gallery; gateway code caps CA$6.00 and 60 images per gallery, 120
+  images/day; FLUX activation CA$10/day, CA$6/gallery (monthly CA$40, company CA$100 unchanged). The live directive
+  row is amended once on `owner_directives.apply` (hourly job / boot). Plan-stopped runs (market-basket-small@1.3.0
+  and ~gallery) are re-driven once per plan version (`spend_plan_raised`). NOT verified in production.
+- CALIBRATION on the owner's FLUX master (research/owner_assets/owner_method_2026-11-28, market-basket-medium 1.2.0):
+  wall_bands was a MISREAD (the oak table taken for product; mask now separated by stitch texture when the colour
+  mask runs off the frame). Master now PASSes palette, wall bands (worst share 31% of 35%) and the width rim test;
+  extra/missing stripe, wrong colour and wrong spacing variants FAIL. The braided rim is a GENUINE deviation (the
+  pattern ends in a plain cream round): only the vision craft_texture reading (INVENTED_EDGING) can refuse it; the
+  deterministic rim width test does not see a braid that does not jut out. `basket:sides` needs a top-down view
+  and was not applicable to the 3/4 master. FIDELITY_CHECK_VERSION fidelity-checks/3.
+- OUTFITS: rule 1 was already enforced end to end on the live route (reservation -> prompt -> receipt; a duplicate
+  blocks the run). Rule 2 gap fixed: the live styling (`visual.styling`, styling/3) now keeps a worn product the
+  outfit item (no outerwear, base-layer top for a garment). No garment listing exists in the catalogue yet.
+
 ## VERIFY-REFS — 2026-11-26 (branch eng/verify-refs from 15f809bfb, NOT merged, NOT deployed)
 
 Production 19i30 (evidence 01:31Z; production rows and pixels NOT read; reproduced in

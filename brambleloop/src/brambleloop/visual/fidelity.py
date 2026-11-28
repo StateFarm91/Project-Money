@@ -1326,7 +1326,12 @@ REJUDGED_CHECKS = ("craft_texture", ":wall_bands", ":palette", ":rim")
 # (`image_production` fidelity_unknown redrive); bumping this re-drives them once.
 # `VERIFIER_VERSION` is unchanged on purpose: it is part of `CHECKER`, which accepted anchors
 # are matched on, and no accepted PASS reads differently.
-FIDELITY_CHECK_VERSION = "fidelity-checks/2"
+FIDELITY_CHECK_VERSION = "fidelity-checks/3"
+# OWNER-CALIBRATION (19i32): "/3". The vessel verifier (`visual.vessel`) separates a product
+# whose colour mask runs off the frame by its stitch texture, and reads a side outline's wall
+# where it stands at the silhouette's extreme. The owner's hand-made FLUX basket master read
+# wall bands ['cream', 'off', 'cream'] (the oak table taken for product); it now reads the CIR's
+# five bands. Runs parked on a reading this changes are re-judged once.
 # LIFESTYLE-REGION-ROUTE (19i31): which judge locates a lifestyle frame's product region.
 # "lifestyle-region/1" asked the identity adapters' `image_vision`-only judge, which production
 # (openai-vision activated, Anthropic vision not) never answers: every generated non-anchor
