@@ -128,14 +128,15 @@ class JobContext:
         except Exception:  # noqa: BLE001 - an unreadable check never stops work
             return None
 
-    def yield_now(self, why: str, *, key: str | None = None, state: dict | None = None):
+    def yield_now(self, why: str, *, key: str | None = None, state: dict | None = None,
+                  retry_after_s: int | None = None):
         """F-473: checkpoint `state` under `key` (when given) and hand the job back to the
         queue un-counted. Raises `swarm.preempt.Preempted`; the worker requeues."""
         from ..swarm.preempt import Preempted
 
         if key is not None:
             self.checkpoint(key, dict(state or {}))
-        raise Preempted(self.job.id, why, key)
+        raise Preempted(self.job.id, why, key, retry_after_s=retry_after_s)
 
     def restore(self, key: str) -> dict | None:
         """F-659: the state an earlier attempt of this job checkpointed under `key`, or None."""
@@ -534,7 +535,8 @@ class Worker:
             # fenced, audited job.preempted); the checkpoint lets the next attempt resume.
             from ..swarm.preempt import requeue_preempted
 
-            if requeue_preempted(self.db, job, worker=self.name, why=e.why):
+            if requeue_preempted(self.db, job, worker=self.name, why=e.why,
+                                 after_s=getattr(e, "retry_after_s", None)):
                 self.stats.preempted += 1
             else:
                 self.stats.skipped += 1

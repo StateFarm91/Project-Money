@@ -4583,7 +4583,38 @@ def handle_model_probe(ctx: JobContext) -> dict:
     return record
 
 
+def _continuity_exclusive(fn):
+    """ENG-MEMORY-STREAM: `ops.continuity` and `ops.offsite_archive` never run together.
+
+    Both export the whole database and prove a restore; on 2026-11-27 they ran at once on the
+    3-thread pool of the process that also serves web and the scheduler, and it hit 8 GB. The
+    body runs inside `continuity.exclusive` (an in-process lock plus the `ops_leases` lease,
+    renewed while held). A job that finds it held is handed back to the queue un-counted and
+    offered again in `EXCLUSIVE_RETRY_AFTER_S`, rather than failing or sitting on a thread.
+    """
+    import functools
+
+    @functools.wraps(fn)
+    def run(ctx: JobContext) -> dict:
+        from ..core import continuity
+
+        holder = continuity.exclusive_holder(f"{ctx.job.job_type}:{ctx.job.id}")
+        entered = False
+        try:
+            with continuity.exclusive(ctx.db, holder):
+                entered = True
+                return fn(ctx)
+        except continuity.ContinuityBusy as exc:
+            if entered:
+                raise
+            ctx.yield_now(str(exc)[:400], retry_after_s=continuity.EXCLUSIVE_RETRY_AFTER_S)
+            raise  # pragma: no cover - yield_now always raises
+
+    return run
+
+
 @handlers.register("ops.continuity")
+@_continuity_exclusive
 def handle_continuity(ctx: JobContext) -> dict:
     """Export the database portably and prove the export can be restored.
 
@@ -10025,6 +10056,7 @@ def handle_retention(ctx: JobContext) -> dict:
 
 
 @handlers.register("ops.offsite_archive")
+@_continuity_exclusive
 def handle_offsite_archive(ctx: JobContext) -> dict:
     """Write the day's archive off this hosting provider, and prove it restores.
 

@@ -23,6 +23,30 @@ deployed); 6 are not; 2 name no resolvable branch.
 
 ---
 
+## ENG-MEMORY-STREAM — 2026-11-28 (branch eng/memory-stream from 46908fe66, NOT merged, NOT deployed)
+
+Production hit its 8 GB limit on 2026-11-27 (web, scheduler and workers share one process).
+Continuity and offsite archiving now hold a bounded amount instead of the database:
+- `continuity._rows_of` streams (`yield_per`, 4 rows for blob tables, 500 otherwise; server-side
+  cursor on Postgres); `restore` flushes at 500 rows OR 32 MB and decodes rows as read.
+- `continuity.compress_file` gzips file-to-file in chunks with an incremental SHA-256, byte-identical
+  to `gzip.compress(raw, 6)`; `_compress` (retain) holds only the compressed copy; `write_retained`
+  decompresses in chunks.
+- `offsite.archive` streams export, gzip, seal (`seal_file`, same format), decrypt (`unseal_to`,
+  authenticates first) and gunzip. Bound: ONE full copy of the sealed object (the transport moves
+  `bytes`; SigV4 signs the whole body), released before the read-back. The "is it ciphertext"
+  check looks for the payload's first 64 KiB (exactly the old check for payloads up to that size).
+- `ops.continuity` and `ops.offsite_archive` are mutually exclusive (`continuity.exclusive`: in-process
+  lock + `ops_leases` lease `ops.continuity_exclusive`, TTL 30 min, renewed every 60 s). A job that
+  finds it held is requeued un-counted after 120 s (`Preempted(retry_after_s=...)`).
+- Measured (tracemalloc, 48 x 1 MB blob rows, `tests/test_eng_memory_stream.py`): offsite.archive
+  424.9 -> 57.6 MB; restore 144.5 -> 21.3 MB; prove_restore 144.6 -> 21.5 MB; retain compress
+  228.2 -> 54.8 MB; export 10.4 -> 13.4 MB (SQLite already fetched lazily; on Postgres the old
+  client-side cursor held the whole table in libpq, invisible to tracemalloc).
+- Retention, encryption, what is archived and the backup service are unchanged.
+
+---
+
 ## VERIFY-REFS — 2026-11-26 (branch eng/verify-refs from 15f809bfb, NOT merged, NOT deployed)
 
 Production 19i30 (evidence 01:31Z; production rows and pixels NOT read; reproduced in

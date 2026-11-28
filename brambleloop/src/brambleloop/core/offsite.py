@@ -234,6 +234,147 @@ def unseal(blob: bytes, key: bytes) -> bytes:
     return _unpad(_aes_cbc(key, iv, ciphertext, decrypt=True))
 
 
+# ENG-MEMORY-STREAM: the same seal, in chunks. `seal`/`unseal` above need the whole payload
+# and return a whole second copy; on a 500+ MB export `archive` held six such copies at once.
+# The streaming forms produce and accept exactly the same bytes (header, IV, MAC, ciphertext
+# of the PKCS#7-padded payload), authenticate before decrypting, and never hold more than one
+# chunk of plaintext or ciphertext beyond the buffer they are handed.
+
+STREAM_CHUNK = 1024 * 1024      # a multiple of the AES block size
+
+
+def _cipher(key: bytes, iv: bytes):
+    try:
+        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+    except ImportError as exc:  # pragma: no cover - exercised by the dependency being absent
+        raise PermanentError(
+            "archive encryption needs the `cryptography` package. Writing an unencrypted "
+            "copy of every row this company has, to a third-party bucket, is not the "
+            "fallback") from exc
+    return Cipher(algorithms.AES(key), modes.CBC(iv))
+
+
+def seal_file(src: str | Path, dest: str | Path, key: bytes) -> dict:
+    """`seal` from a file to a file in chunks. Returns sizes and the sealed bytes' SHA-256.
+
+    The MAC precedes the ciphertext in the format but covers it, so a placeholder is written
+    first and the tag is written over it once the last block is out -- the format is
+    unchanged and no full copy of anything is held.
+    """
+    import secrets
+
+    iv = secrets.token_bytes(16)
+    engine = _cipher(key, iv).encryptor()
+    mac = hmac.new(key, ENCRYPTION_HEADER + iv, hashlib.sha256)
+    plain = 0
+    with Path(src).open("rb") as fin, Path(dest).open("w+b") as fout:
+        fout.write(ENCRYPTION_HEADER + iv + b"\0" * 32)
+        while True:
+            chunk = fin.read(STREAM_CHUNK)
+            if not chunk:
+                break
+            plain += len(chunk)
+            out = engine.update(chunk)
+            del chunk
+            mac.update(out)
+            fout.write(out)
+            del out
+        pad = 16 - (plain % 16)
+        out = engine.update(bytes([pad]) * pad) + engine.finalize()
+        mac.update(out)
+        fout.write(out)
+        del out
+        fout.seek(len(ENCRYPTION_HEADER) + 16)
+        fout.write(mac.digest())
+        fout.flush()
+        fout.seek(0)
+        digest = hashlib.sha256()
+        size = 0
+        while True:
+            chunk = fout.read(STREAM_CHUNK)
+            if not chunk:
+                break
+            digest.update(chunk)
+            size += len(chunk)
+    return {"plaintext_bytes": plain, "bytes": size, "sha256": digest.hexdigest()}
+
+
+def unseal_to(blob: bytes, key: bytes, write) -> dict:
+    """`unseal` into `write(chunk)` in chunks: authenticate the whole object, then decrypt.
+
+    `blob` is the object as it came back (the one full copy `archive` holds); it is read
+    through a memoryview, so neither pass copies it. Returns the plaintext's size and SHA-256.
+    """
+    header = ENCRYPTION_HEADER
+    if not blob.startswith(header):
+        raise ArchiveCorrupt("this object was not written by this system")
+    view = memoryview(blob)
+    body = view[len(header):]
+    iv, tag, ciphertext = bytes(body[:16]), bytes(body[16:48]), body[48:]
+    expected = hmac.new(key, header + iv, hashlib.sha256)
+    for at in range(0, len(ciphertext), STREAM_CHUNK):
+        expected.update(ciphertext[at:at + STREAM_CHUNK])
+    if not hmac.compare_digest(tag, expected.digest()):
+        raise ArchiveCorrupt(
+            "the authentication tag does not match. The bytes changed in the bucket, or the "
+            "key is the wrong one -- and decrypting anyway would be asking a decryption "
+            "routine to act as a parser for attacker-chosen input")
+    if not len(ciphertext) or len(ciphertext) % 16:
+        raise ArchiveCorrupt("ciphertext length is not a whole number of blocks")
+
+    engine = _cipher(key, iv).decryptor()
+    digest = hashlib.sha256()
+    size = 0
+    held = b""          # the last block is held back: it carries the padding
+    for at in range(0, len(ciphertext), STREAM_CHUNK):
+        out = held + engine.update(ciphertext[at:at + STREAM_CHUNK])
+        held, out = out[-16:], out[:-16]
+        if out:
+            digest.update(out)
+            size += len(out)
+            write(out)
+        del out
+    held += engine.finalize()
+    tail = _unpad(held)
+    if tail:
+        digest.update(tail)
+        size += len(tail)
+        write(tail)
+    view.release()
+    return {"bytes": size, "sha256": digest.hexdigest()}
+
+
+def _file_sha256(path: str | Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as fh:
+        for chunk in iter(lambda: fh.read(STREAM_CHUNK), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _file_contains(haystack: str | Path, needle: bytes) -> bool:
+    """Whether `needle` occurs in the file, read in overlapping chunks."""
+    if not needle:
+        return True
+    keep = len(needle) - 1
+    tail = b""
+    with Path(haystack).open("rb") as fh:
+        for chunk in iter(lambda: fh.read(STREAM_CHUNK), b""):
+            window = tail + chunk
+            if needle in window:
+                return True
+            tail = window[-keep:] if keep else b""
+    return False
+
+
+# How much of the payload the "is this ciphertext?" check looks for in the sealed object.
+# The check was `payload in sealed`, which needs both whole. A sealing step that let
+# plaintext through would carry the payload's opening bytes; a real AES-CBC output contains a
+# given 64 KiB run with probability nil. For a payload no longer than this, the check is the
+# original one exactly.
+PLAINTEXT_PROBE_BYTES = 64 * 1024
+
+
 # ---------------------------------------------------------------------------
 # SigV4
 
@@ -436,19 +577,39 @@ def archive(db, *, env: dict[str, str] | None = None, work_dir: str | Path | Non
             root.mkdir(parents=True, exist_ok=True)
             export_path = root / "continuity.jsonl"
             try:
+                # ENG-MEMORY-STREAM (production OOM 2026-11-27): this block used to hold the
+                # raw export, the gzip payload, the sealed object, the read-back, the
+                # decrypted copy and the decompressed copy at once -- six whole copies of a
+                # 500+ MB export. Every step now streams file to file in chunks. The one
+                # full copy that remains is the sealed object, because the transport moves
+                # `bytes` (and the S3 PUT is signed over its whole body): it is read just
+                # before the upload and released before the read-back, and the read-back is
+                # then the only full copy while it is authenticated and decrypted in place.
                 record["stage"] = "export"
                 result = continuity.export(db, export_path)
-                payload, raw_bytes = continuity._compress(export_path)
+                packed = continuity.compress_file(export_path, root / "continuity.jsonl.gz")
+                raw_bytes = packed.raw_bytes
                 key = object_key(result.digest, now)
 
                 record["stage"] = "encrypt"
-                sealed = seal(payload, secret)
-                if not sealed.startswith(ENCRYPTION_HEADER) or payload in sealed:
+                sealed_path = root / "continuity.blarc"
+                sealed_info = seal_file(packed.path, sealed_path, secret)
+                with packed.path.open("rb") as fh:
+                    probe = fh.read(PLAINTEXT_PROBE_BYTES)
+                with sealed_path.open("rb") as fh:
+                    starts_sealed = fh.read(len(ENCRYPTION_HEADER)) == ENCRYPTION_HEADER
+                if not starts_sealed or _file_contains(sealed_path, probe):
                     raise ArchiveCorrupt("sealing did not produce ciphertext; nothing uploaded")
-                stored_digest = _sha256(sealed)
+                del probe
+                stored_digest = sealed_info["sha256"]
+                stored_bytes = sealed_info["bytes"]
+                export_path.unlink(missing_ok=True)
 
                 record["stage"] = "upload"
+                sealed = sealed_path.read_bytes()
                 written = send(key, sealed, env=env)
+                del sealed
+                sealed_path.unlink(missing_ok=True)
 
                 record["stage"] = "read_back"
                 came_back = fetch(key, env=env)
@@ -459,28 +620,38 @@ def archive(db, *, env: dict[str, str] | None = None, work_dir: str | Path | Non
                         "it is needed")
 
                 record["stage"] = "decrypt"
-                opened = unseal(came_back, secret)
-                if _sha256(opened) != _sha256(payload):
+                opened_path = root / "opened.jsonl.gz"
+                with opened_path.open("wb") as out:
+                    opened = unseal_to(came_back, secret, out.write)
+                del came_back
+                if opened["sha256"] != packed.sha256:
                     raise ArchiveCorrupt("decrypted archive differs from the export sealed")
+                packed.path.unlink(missing_ok=True)
 
                 record["stage"] = "restore"
                 import gzip
+                import shutil
 
                 restored_path = root / "restored.jsonl"
-                restored_path.write_bytes(gzip.decompress(opened))
+                with gzip.open(opened_path, "rb") as gz, restored_path.open("wb") as out:
+                    shutil.copyfileobj(gz, out, STREAM_CHUNK)
+                opened_path.unlink(missing_ok=True)
                 # INTEG3 (production dead letter 2026-10-12): the restore proof is a throwaway
                 # SQLite file inside this work dir. Without `scratch=True` the hosted guard
                 # (BRAMBLELOOP_REQUIRE_POSTGRES=1 refuses every SQLite URL) killed the job
                 # after the upload and read-back had succeeded -- the same exemption
                 # `continuity.prove_restore` already carries.
                 scratch = Database(f"sqlite:///{root / 'restore-proof.sqlite'}", scratch=True)
-                scratch.create_all()
-                counts = continuity.restore(restored_path, scratch)
+                try:
+                    scratch.create_all()
+                    counts = continuity.restore(restored_path, scratch)
+                finally:
+                    scratch.engine.dispose()
 
                 record.update({
                     "ok": True, "stage": "complete", "key": key,
                     "digest": result.digest, "raw_bytes": raw_bytes,
-                    "stored_bytes": len(sealed), "encrypted": True,
+                    "stored_bytes": stored_bytes, "encrypted": True,
                     "ciphertext_sha256": stored_digest, "bucket": written.get("bucket", ""),
                     "host": written.get("host", ""),
                     "tables_restored": len(counts),
