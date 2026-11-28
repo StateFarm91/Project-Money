@@ -72,6 +72,13 @@ ROUTES: dict[str, dict] = {
         "kind": PROMPT_NEGATIVE,
         "negatives": ["exactly the number of pieces the pattern makes",
                       "no extra or missing pieces"]},
+    # ENG-COASTER-SIDES: the failing check's own `fix` ("coaster has 8 sides; must be 6
+    # (a hexagon)") is added to these by `image_production._repair_for`.
+    FC.WRONG_SIDE_COUNT: {
+        "kind": PROMPT_NEGATIVE,
+        "negatives": ["every piece exactly the polygon the layout reference draws, with the "
+                      "same number of straight sides and corners",
+                      "no extra or missing sides or corners; not rounded into a circle"]},
     FC.UNVERIFIABLE_COUNT: {
         "kind": VERIFY_UNFOLDED,
         "why": ("a count hidden by folds cannot be verified on a lifestyle image; it stays "

@@ -68,6 +68,7 @@ OFF_PALETTE_COLOUR = FC.OFF_PALETTE_COLOUR
 WRONG_COLOUR_LAYOUT = FC.WRONG_COLOUR_LAYOUT
 WRONG_REPEAT_COUNT = FC.WRONG_REPEAT_COUNT
 WRONG_PIECE_COUNT = FC.WRONG_PIECE_COUNT
+WRONG_SIDE_COUNT = FC.WRONG_SIDE_COUNT
 LOCAL_CODES: dict[str, dict] = dict(FC.MEASURED_CODES)
 ALL_CODES: frozenset[str] = frozenset(FC.ALL_CODES)
 
@@ -145,6 +146,8 @@ TOLERANCES = {
     "edges": f"outer {EDGE_STRIP:.0%} mismatch > {EDGE_SCORE} and > {EDGE_RATIO}x interior + 0.1",
     "repeat_count": f"autocorrelation >= {COUNT_CONF}, |count - round| <= {COUNT_FRAC}, "
                     f">= {COUNT_MIN_PX_PER_STITCH} px per stitch; exact count",
+    # ENG-COASTER-SIDES: flat polygon pieces, on the anchor and on every derivative frame.
+    "sides": "visual.piece_sides.TOLERANCE",
 }
 
 BLIND_SPOTS = (
@@ -160,7 +163,9 @@ BLIND_SPOTS = (
     "round pieces: a small patch (<= 1 % of the piece) in the table's colour, lit or shaded, "
     "reads as the table seen through the fabric",
     "anything on the back of the piece",
-    "lifestyle images: only palette and consistency, never geometry",
+    "lifestyle images: palette, consistency and (flat polygon pieces) the side count of "
+    "each whole piece in view; no other geometry",
+    "close-up frames (piece_sides.CLOSE_UP_ROLES) with no whole piece in view: no side count",
 )
 
 
@@ -253,6 +258,9 @@ class PieceModel:
     radial: np.ndarray | None = None            # round: (bins, n_palette) shares
     bands: list[dict] = field(default_factory=list)
     repeat: dict | None = None
+    # ENG-COASTER-SIDES: the twin's polygon side count for a flat piece worked in rounds
+    # (`cir.geometry.corners`): 6 a hexagon, 4 a square, 0 round, None when unstated.
+    sides: int | None = None
 
     @property
     def ratio(self) -> float:
@@ -370,9 +378,12 @@ def _round_model(cir, comp, twin, pal_lab) -> PieceModel:
     rr = np.hypot(xx - (w - 1) / 2, yy - (h - 1) / 2) / (min(w, h) / 2)
     radial = _radial(cls, rr, len(pal_lab))
     cols = max(len(r) for r in twin.chart_grid())
+    sides = getattr(twin, "sides", None)
+    flat = (getattr(twin, "shape", "") or "") != "vessel"
     return PieceModel(comp.name, int(getattr(comp, "make", 1) or 1), True,
                       float(twin.width_cm or 1), float(twin.height_cm or 1), cols,
-                      len(twin.chart_grid()), radial=radial)
+                      len(twin.chart_grid()), radial=radial,
+                      sides=int(sides) if flat and isinstance(sides, int) else None)
 
 
 def _radial(cls: np.ndarray, rr: np.ndarray, n: int, valid=None) -> np.ndarray:
@@ -1326,12 +1337,17 @@ REJUDGED_CHECKS = ("craft_texture", ":wall_bands", ":palette", ":rim")
 # (`image_production` fidelity_unknown redrive); bumping this re-drives them once.
 # `VERIFIER_VERSION` is unchanged on purpose: it is part of `CHECKER`, which accepted anchors
 # are matched on, and no accepted PASS reads differently.
-FIDELITY_CHECK_VERSION = "fidelity-checks/3"
 # OWNER-CALIBRATION (19i32): "/3". The vessel verifier (`visual.vessel`) separates a product
 # whose colour mask runs off the frame by its stitch texture, and reads a side outline's wall
 # where it stands at the silhouette's extreme. The owner's hand-made FLUX basket master read
 # wall bands ['cream', 'off', 'cream'] (the oak table taken for product); it now reads the CIR's
 # five bands. Runs parked on a reading this changes are re-judged once.
+# ENG-COASTER-SIDES: "/4" (cut as "/3" before 19i32; renumbered at integration 19i35 because
+# production already ran "/3") adds `<component>:sides` (visual.piece_sides) to the
+# anchor and every derivative frame. Production 2026-11-26: hexagon-coaster-set@1.2.1's
+# derivative frames 62-66 show octagons and parked UNKNOWN; re-judged once under /4 they FAIL
+# by name (WRONG_SIDE_COUNT) and route to a targeted repair.
+FIDELITY_CHECK_VERSION = "fidelity-checks/4"
 # LIFESTYLE-REGION-ROUTE (19i31): which judge locates a lifestyle frame's product region.
 # "lifestyle-region/1" asked the identity adapters' `image_vision`-only judge, which production
 # (openai-vision activated, Anthropic vision not) never answers: every generated non-anchor
@@ -1499,6 +1515,7 @@ def verify_anchor(data: bytes, cir, *, judge=None, side: bytes | None = None) ->
         except Exception as exc:  # noqa: BLE001 - a measurement that broke is UNKNOWN
             checks.append(_check(f"{model.name}:measure", UNKNOWN,
                                  f"{type(exc).__name__}: {str(exc)[:200]}"))
+    checks += _anchor_sides(pieces, slots, exp)
     band_checks = [c for c in checks if ":end_band_" in c.get("check", "")]
     expected_bands = sum(len(model.bands) for model in slots)
     bands_verified = (len(pieces) == want and expected_bands > 0
@@ -1507,6 +1524,27 @@ def verify_anchor(data: bytes, cir, *, judge=None, side: bytes | None = None) ->
                               for c in band_checks))
     checks.append(craft_texture(data, exp, judge, end_bands_verified=bands_verified))
     return _verdict(checks, data=data, exp=exp, kind="anchor")
+
+
+def _anchor_sides(pieces: list[dict], slots: list, exp: Expectation) -> list[dict]:
+    """ENG-COASTER-SIDES: `<component>:sides` on the anchor's isolated pieces, per model."""
+    from . import piece_sides as PS
+
+    by: dict[str, tuple[int, list[dict]]] = {}
+    for piece, model in zip(pieces, slots):
+        n = PS.expected_sides(model)
+        if n is None:
+            continue
+        try:
+            reading = PS.count_sides(piece["mask"])
+        except Exception as exc:  # noqa: BLE001 - a measurement that broke is unreadable
+            reading = {"sides": None, "readable": False, "why": f"{type(exc).__name__}"}
+        by.setdefault(model.name, (n, []))[1].append(reading)
+    for model in exp.pieces:   # a polygon model with no isolated piece is still checked
+        n = PS.expected_sides(model)
+        if n is not None and model.name not in by:
+            by[model.name] = (n, [])
+    return [PS.judge(name, readings, n) for name, (n, readings) in by.items()]
 
 
 def same_release(left: str, right: str) -> bool:
@@ -1520,7 +1558,7 @@ def same_release(left: str, right: str) -> bool:
 
 def verify_lifestyle(data: bytes, cir, *, release_hash: str, anchor: dict | None,
                      anchor_data: bytes | None = None, product_region=None,
-                     judge=None, consistency=None) -> dict:
+                     judge=None, consistency=None, role: str = "") -> dict:
     """A lifestyle image: anchor PASS for this release, region palette, vision consistency.
 
     `anchor`: {"status", "release_hash"} of the release's product-only anchor (its stored
@@ -1528,7 +1566,11 @@ def verify_lifestyle(data: bytes, cir, *, release_hash: str, anchor: dict | None
     list of such boxes (interior fabric patches from `vision_judges.locate_product`); without
     one the palette is not checked (UNKNOWN). `consistency(judge, anchor_data, data, exp)`
     replaces the anchor-consistency question (W-VISNEXT: the blind, per-image description
-    compared in code, `vision_judges.blind_consistency`)."""
+    compared in code, `vision_judges.blind_consistency`).
+
+    ENG-COASTER-SIDES: every whole flat polygon piece in view is counted against the CIR's
+    side count (`visual.piece_sides`): a wrong count is WRONG_SIDE_COUNT, unsegmentable is
+    UNKNOWN. `role` names the frame's gallery role (a close-up may show no whole piece)."""
     try:
         exp = expectation(cir)
     except Exception as exc:  # noqa: BLE001
@@ -1555,6 +1597,9 @@ def verify_lifestyle(data: bytes, cir, *, release_hash: str, anchor: dict | None
     except Exception as exc:  # noqa: BLE001
         return _verdict(checks + [_check("decode", FAIL, f"undecodable ({type(exc).__name__})")],
                         data=data, exp=exp, kind="lifestyle")
+    from . import piece_sides as PS
+
+    checks += PS.frame_check(rgb, exp, role=role)
     if not product_region:
         checks.append(_check("region_palette", UNKNOWN, "no product region is declared for "
                                                         "this image; its colours are unread"))

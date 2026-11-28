@@ -147,9 +147,10 @@ def test_3_the_braided_rim_is_a_genuine_deviation_the_craft_comparison_refuses()
 
 
 def test_4_the_check_version_moves_so_parked_runs_are_rejudged():
-    assert F.FIDELITY_CHECK_VERSION == "fidelity-checks/3"
+    # 19i32 moved it to "/3"; later changes (ENG-COASTER-SIDES "/4") may only move it further
+    assert int(F.FIDELITY_CHECK_VERSION.rsplit("/", 1)[1]) >= 3, F.FIDELITY_CHECK_VERSION
     assert F.FIDELITY_CHECK_VERSION in IP.verify_redrive_version()
-    print("OK 4 fidelity-checks/3")
+    print(f"OK 4 {F.FIDELITY_CHECK_VERSION}")
 
 
 # ---- D-OWNER-LIFESTYLE-GENERATED: disclosure -------------------------------------------------

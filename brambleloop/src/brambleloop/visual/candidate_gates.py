@@ -447,7 +447,7 @@ def fidelity_reading(db, cand: dict, bind: dict, *, judge=None, consistency=None
         region = located.get("patches") or None
     out = FID.verify_lifestyle(data, cir, release_hash=release, anchor=anchor,
                                anchor_data=anchor_data, product_region=region, judge=judge,
-                               consistency=consistency)
+                               consistency=consistency, role=str(cand.get("role") or ""))
     if located is not None:
         out = {**out, "product_region": {"source": "vision_judges.locate_product",
                                          "route": FID.LIFESTYLE_REGION_ROUTE,

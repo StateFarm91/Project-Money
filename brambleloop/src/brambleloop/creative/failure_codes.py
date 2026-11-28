@@ -50,6 +50,7 @@ OFF_PALETTE_COLOUR = "OFF_PALETTE_COLOUR"
 WRONG_COLOUR_LAYOUT = "WRONG_COLOUR_LAYOUT"
 WRONG_REPEAT_COUNT = "WRONG_REPEAT_COUNT"
 WRONG_PIECE_COUNT = "WRONG_PIECE_COUNT"
+WRONG_SIDE_COUNT = "WRONG_SIDE_COUNT"
 OWNER_RECORD_CODES: frozenset[str] = frozenset({INVENTED_END_BAND_TREATMENT, INVENTED_EDGING,
                                                 WRONG_CRAFT_TEXTURE, UNVERIFIABLE_COUNT})
 MEASURED_CODES: dict[str, dict] = {
@@ -77,6 +78,13 @@ MEASURED_CODES: dict[str, dict] = {
         "category": PRODUCT_FIDELITY,
         "meaning": "more or fewer pieces than the CIR makes",
         "countered_by": "prohibited addition 'extra or missing pieces'"},
+    # ENG-COASTER-SIDES: hexagon-coaster-set@1.2.1 derivative frames rendered octagons.
+    WRONG_SIDE_COUNT: {
+        "category": PRODUCT_FIDELITY,
+        "meaning": "a flat piece's outline has a different number of sides than the CIR's "
+                   "polygon (an octagon or a circle for a hexagon)",
+        "countered_by": "the repair names the counted and the certified side count "
+                        "(visual.piece_sides check `fix`; repair_routes)"},
 }
 PRODUCT_TRUTH_CODES.update(MEASURED_CODES)
 
