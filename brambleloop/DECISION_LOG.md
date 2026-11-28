@@ -5067,3 +5067,14 @@ Supersedes test_v6_gallery_e2e REMAINING_GATES "LIFESTYLE-EVIDENCE" for generate
 **Enforced in code:**
 - Rule 1: `visual.outfits.reserve` refuses (FAIL) an outfit held by another listing, a second outfit for the same listing, the same complete outfit and a too-similar one. The `reserve_outfit` stage of `visual.image_production` blocks the run on any non-PASS, and `candidate_gates.evaluate` re-checks every Laura frame (`outfits.check_use`), so a duplicate is refused, not logged. The reserved outfit goes into the FLUX Laura prompt (`image_stages` scene outfit) and its id into the receipt (`receipt.outfit_id`) and the reference provenance.
 - Rule 2: `shot_plans.LIFESTYLE_BRIEF["garment"]` is "Laura wearing the finished garment". 19i32 adds the worn-product constraint to the live route's automatic styling (`visual.styling.select`, "styling/3"). For a worn family (garment, shawl, scarf, hat; `outfit_library.interaction`) the chosen outfit is what goes under and around the piece: for a garment or shawl, no outerwear and a base-layer top (no cardigan, jumper or dress); for a scarf, no necklace or shawl; for a hat, no hair accessory. The rest of the outfit is still unique per listing by the same registry. Before 19i32 only `outfit_library.compatible` knew this, and the live route did not call it.
+
+## D-OWNER-DEPLOY-19i33 — 2026-11-28
+
+Batch 19i33 (integration 419dc0ba2) is deployed. It merges three lanes:
+- the memory-stream offsite fix (peak 425 MB to 58 MB);
+- the db-backup housekeeping fix;
+- the read-only candidate viewer endpoints (/api/readback/candidates, /candidates/{id}/image, /galleries).
+
+Authority: the owner's standing chat directive of 2026-11-28 ("Dont ask me to approve anything. Just do it.").
+
+The 15 targeted suites pass, apart from test_mc_perf. That test fails identically on the production base 46908fe66 under the same machine load, and no merged lane touches Mission Control routes. No gates or caps changed. SHADOW remains until a full-suite record on the deployed tree exists.
