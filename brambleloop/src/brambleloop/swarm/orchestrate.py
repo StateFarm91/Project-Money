@@ -234,6 +234,61 @@ THRASH_WINDOW_HOURS = 72
 THRASH_SIGNATURE_PREFIX = "thrash:"
 
 
+def _closed_gate_refusal(job_type: str, error: str) -> bool:
+    """A dead letter that is a closed gate saying no (shadow mode, a capability not enabled):
+    the queue's own single classification (`queue.durable.classify_dead_letter`)."""
+    from ..queue.durable import REFUSED, classify_dead_letter
+
+    return classify_dead_letter(job_type or "", error or "") == REFUSED
+
+
+def latest_phase_transition_at(session) -> datetime | None:
+    """When the owner last recorded a phase transition (`core.phase`, sealed chain), or None.
+
+    ENG-FIRST-LISTING-PATH: a refusal by the phase gate is a statement about the phase in
+    force when it was made. A recorded transition is the changed hypothesis for every such
+    refusal recorded before it. Only a row that verifies in the chain counts."""
+    try:
+        from ..core import phase as phase_mod
+        from ..core.models import AuditLog
+
+        latest = phase_mod.history(_SessionBound(session), limit=1)
+        if not latest or not latest[0].get("valid"):
+            return None
+        row = session.get(AuditLog, int(latest[0]["transition_id"]))
+        return _aware(row.at) if row is not None else None
+    except Exception:  # noqa: BLE001 - an unreadable chain lifts nothing
+        return None
+
+
+class _SessionBound:
+    """A `db`-shaped view over one open session (`core.phase.history` opens `db.session()`)."""
+
+    def __init__(self, session):
+        self._s = session
+
+    def session(self):
+        from contextlib import nullcontext
+
+        return nullcontext(self._s)
+
+
+def closed_gate_lifted(session, suspension: dict, inc) -> bool:
+    """A breaker suspension tripped by closed-gate refusals stands lifted once the owner has
+    recorded a phase transition after it (ENG-FIRST-LISTING-PATH). Production read store.publish
+    "suspended" after its launch-time attempts were refused in SHADOW; that suspension could
+    lift only on a code change, so it would still have stood after the owner moved the phase.
+    A failing loop (any other error) keeps its breaker: this reads only refusals."""
+    detail = inc.detail or {}
+    error = str((detail.get("result") or {}).get("error") or "")
+    jt = suspension.get("job_type") or detail.get("job_type") or ""
+    if not error or not _closed_gate_refusal(jt, error):
+        return False
+    since = _parse_when(suspension.get("since")) or _aware(inc.at)
+    moved = latest_phase_transition_at(session)
+    return bool(moved and since and moved > _aware(since))
+
+
 def _thrash_call(job) -> str:
     return json.dumps({"job_type": job.job_type, "inputs": job.inputs or {}},
                       sort_keys=True, default=str)
@@ -263,6 +318,7 @@ def thrash_sweep(db, *, now: datetime | None = None,
     observed = 0
     gate_cache: dict = {}
     with db.session() as s:
+        phase_moved = latest_phase_transition_at(s)
         jobs = list(s.scalars(select(Job).where(or_(
             Job.status == JobStatus.DEAD,
             and_(Job.status == JobStatus.DONE, Job.cost_cad > 0))).order_by(Job.id)))
@@ -283,6 +339,12 @@ def thrash_sweep(db, *, now: datetime | None = None,
                     gate_cache[(gate, ended)] = gate_changed_since(s, gate, ended)
                 if gate_cache[(gate, ended)] is not None:
                     continue
+            if job.status == JobStatus.DEAD and phase_moved is not None and \
+                    (_aware(job.finished_at) or created) < phase_moved and \
+                    _closed_gate_refusal(job.job_type, job.last_error or ""):
+                # ENG-FIRST-LISTING-PATH: refused by the phase in force before the owner's
+                # newest transition; it describes that phase, not a loop under this one.
+                continue
             if job.status == JobStatus.DEAD:
                 result = {"error": (job.last_error or "")[:500]}
             elif job.status == JobStatus.DONE and float(job.cost_cad or 0.0) > 0:
@@ -340,11 +402,24 @@ def thrash_sweep(db, *, now: datetime | None = None,
                 row.detail = {**dict(row.detail or {}), "suspension": suspension}
             incidents.append(signature)
 
+        lifted_refusals: list[str] = []
+        if phase_moved is not None:
+            for inc in s.scalars(select(Incident).where(
+                    Incident.resolved.is_(False),
+                    Incident.signature.like(f"{THRASH_SIGNATURE_PREFIX}%"))):
+                if inc.signature in incidents:
+                    continue
+                sus = (inc.detail or {}).get("suspension") or {}
+                if sus.get("kind") == SUSPENDED and closed_gate_lifted(s, sus, inc):
+                    inc.resolved = True
+                    lifted_refusals.append(inc.signature)
+
         progress = _progress(s, since=since)
         backoffs = _free_poll_backoff(s, progress, now=now,
                                       skip={e["job_type"] for e in tripped.values()})
     return {"observed": observed, "window_hours": window_hours,
             "tripped": len(tripped), "incidents": incidents, "cancelled": cancelled,
+            "lifted_closed_gate": lifted_refusals,
             "limit": THRASH_LIMIT,
             "progress": progress, "backoff": backoffs,
             "suspended": sorted(suspended_job_types(db, now=now)),
@@ -1129,6 +1204,8 @@ def suspended_job_types(db, *, now: datetime | None = None) -> dict[str, dict]:
             if sus.get("kind") == SUSPENDED:
                 if _hypothesis_changed(sus):
                     continue          # the handler's own code changed: a changed hypothesis
+                if closed_gate_lifted(s, sus, inc):
+                    continue          # refused by a phase the owner has since moved out of
                 out[jt] = {"kind": SUSPENDED, "incident": inc.signature,
                            "why": "a loop spending without progress; waits for a changed "
                                   "hypothesis (a change to the code that runs it) or a "
