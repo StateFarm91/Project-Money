@@ -190,6 +190,45 @@ def test_the_generated_imagery_sentence_claims_no_label_the_buyer_cannot_see():
     assert check_ai_disclosure("A basket pattern. " + sentence, cls) == []
 
 
+# The listing-copy disclosure wording each chain version was built with (B-053: a listing-copy
+# change bumps the chain version so it reaches products already shipped). A wording change
+# without a bump would leave every stored draft and package carrying the old sentence while
+# the stale-artefact sentinel reads it FRESH; with the bump, `chain:release` moves, every
+# listing_copy reads STALE, and chain.rebuild re-drafts it with the sentence in force.
+DISCLOSURES_BY_CHAIN = {"10": "6b58a7262043cf9e"}   # D-GENERATED-IMAGERY-TRUE
+
+
+def test_a_disclosure_wording_change_bumps_the_chain_so_stored_copy_rebuilds():
+    import hashlib
+    import json
+
+    from brambleloop.ops import artefacts as A
+    from brambleloop.runtime import release
+
+    digest = hashlib.sha256(json.dumps(P.DISCLOSURES, sort_keys=True).encode()).hexdigest()[:16]
+    assert DISCLOSURES_BY_CHAIN.get(release.CHAIN_VERSION) == digest, (
+        f"platform_policy.DISCLOSURES changed (now {digest}) under CHAIN_VERSION "
+        f"{release.CHAIN_VERSION!r}: bump CHAIN_VERSION so stored listing copy rebuilds, then "
+        f"record the pair in DISCLOSURES_BY_CHAIN")
+    # copy built under chain 9 (the old generated_imagery sentence) no longer matches the
+    # chain fingerprint the sentinel compares a listing_copy row against
+    assert A.chain_fingerprint("9") != A.chain_fingerprint()
+    from brambleloop.core.models import Product
+
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/chain.sqlite")
+    db.create_all()
+    with db.session() as s:
+        s.add(Product(slug="basket", title="basket"))
+        s.flush()
+        for cls, chain in (("listing_copy", "9"), ("seo", release.CHAIN_VERSION)):
+            A.record(s, artefact_class=cls, artefact_key="basket@1.0.0", product_slug="basket",
+                     inputs={"chain:release": A.chain_fingerprint(chain)})
+    with db.session() as s:
+        verdicts = {v.artefact_class: v.state
+                    for v in A.check(s, current=A.current_from_db(s))}
+    assert verdicts == {"listing_copy": A.STALE, "seo": A.FRESH}, verdicts
+
+
 def test_ai_assisted_design_owes_a_disclosure_and_a_release_with_no_assets_has_skipped_the_gate():
     assisted = P.classify(
         product_class=P.SELLER_DESIGNED_DIGITAL,

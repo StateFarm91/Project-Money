@@ -5100,7 +5100,11 @@ Authority: the owner's directive of 2026-11-28. The 18 targeted suites pass. The
 - **Enforcement unchanged.** `gates.policy.check_ai_disclosure` still raises ERROR
   `POLICY_AI_DISCLOSURE_MISSING` unless the listing carries the sentence word for word. A
   draft or package carrying the old sentence now fails that check and has to be rebuilt; that
-  is intended.
+  is intended. The rebuild is automatic: `CHAIN_VERSION` 9 -> 10 (B-053, a listing-copy change
+  bumps the chain), so every stored `listing_copy` reads STALE to the stale-artefact sentinel
+  and `chain.rebuild` re-drafts it with the sentence in force. Like 8 -> 9, the bump re-stales
+  every chain-fingerprinted artefact (PDFs, charts, SEO) once. `test_platform_policy` pins the
+  DISCLOSURES digest per chain version, so a wording change without a bump fails.
 - **Tests.** `tests/test_platform_policy.py` (the sentence claims no label, still discloses,
   verbatim only, the old sentence refused); `tests/test_owner_rulings_19i32.py` test_5.
 - **Reversible.** Yes, one string. Re-adding a "labelled" claim needs a visible label first.

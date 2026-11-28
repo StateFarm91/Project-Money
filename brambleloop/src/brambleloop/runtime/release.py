@@ -69,7 +69,7 @@ PDF_LAYOUT = "template"
 # "Build assets for slug@1.0.0 with chain v2" is genuinely different work from doing it with
 # v1, so it gets a different key. Bump this whenever a stage after certification changes what
 # it produces.
-CHAIN_VERSION = "9"  # 9: D-OWNER-ESTIMATE-CLAIMS estimate wording in PDF and listing copy; 8: hero kept out of the title-safe band (C-58), size-card labels (#60)
+CHAIN_VERSION = "10"  # 10: D-GENERATED-IMAGERY-TRUE generated_imagery disclosure wording in listing copy (B-053); 9: D-OWNER-ESTIMATE-CLAIMS estimate wording in PDF and listing copy; 8: hero kept out of the title-safe band (C-58), size-card labels (#60)
 
 # How much of an owner action's opening clause identifies it, for adopting rows queued
 # before `OwnerAction.requirement_key` existed. Long enough to be unambiguous, short enough
