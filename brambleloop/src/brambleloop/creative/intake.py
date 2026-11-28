@@ -1333,8 +1333,14 @@ def file_radar_board(db, slug: str) -> dict:
             made = {**engine, "why": f"{engine.get('why')} (and {made.get('why')})"}
     sha = _sha256_hex(made.get("sha256"))
     if not made.get("board_image") or not sha:
-        return {"board": "", "why": str(made.get("why") or "no board was drawn")[:200],
-                "why_code": board_why_code(made)}
+        out = {"board": "", "why": str(made.get("why") or "no board was drawn")[:200],
+               "why_code": board_why_code(made)}
+        if out["why_code"] == "engine_draft_refused":
+            from .board import ENGINE_WHY_CODES
+
+            ew = made.get("engine_why")
+            out["engine_why"] = ew if ew in ENGINE_WHY_CODES else "other"
+        return out
     record = {"slug": slug, "kind": made.get("kind"), "image": {"sha256": sha},
               "image_ref": f"sha256:{sha}", "disclosure": made.get("disclosure"),
               "source": RADAR_BOARD_SOURCE, "board_source": made.get("source"),
@@ -1461,13 +1467,19 @@ def judge_radar_waiting(ctx, *, today: date | None = None, provider=None,
                 renders_n += 1 if toy.get("asked") else 0
                 board = toy["board"]
                 if not board:
-                    entry = {"slug": slug, "code": "board_render_failed", "waiting_on": [
+                    rw = toy.get("why_code")
+                    entry = {"slug": slug, "code": "board_render_failed",
+                             "render_why": rw if rw in toy_board.WHY_CODES else "other",
+                             "waiting_on": [
                         f"board_image (toy concept render: {toy['why']})"[:240]]}
                     held.append(entry)
                     continue
             if not board:
                 held.append({"slug": slug, "code": "board_missing",
-                             "board_why": filed.get("why_code") or "other", "waiting_on": [
+                             "board_why": filed.get("why_code") or "other",
+                             **({"engine_why": filed["engine_why"]}
+                                if filed.get("engine_why") else {}),
+                             "waiting_on": [
                     f"board_image (no board could be drawn: {filed['why']})"[:240]]})
                 continue
         asked_n += 1

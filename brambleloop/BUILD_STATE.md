@@ -23,6 +23,36 @@ deployed); 6 are not; 2 name no resolvable branch.
 
 ---
 
+## TOY-BOARD — 2026-11-28 (branch eng/toy-board from 46908fe, NOT merged, NOT deployed)
+
+Production report (hourly concept re-judge; production rows NOT read by this lane): 3 concepts
+held: 2 `board_render_failed` (toy concept render), 1 `board_missing`/`engine_draft_refused`; the
+concept gate refused 52 intake concepts in 24 h; the readback carried no reason for any of them.
+- Root cause (reproduced in tests/test_toy_board.py with an approved frog drafted on the animal
+  engine as `cir.draft` will, and the real BFL HTTP shapes through the real `images._post`): a
+  4xx on the FLUX submit (production saw `403 not_authenticated` while the BFL key was rejected)
+  raises `ImagesRefused` with `never_accepted_status`: no task id, nothing billed, no cost row.
+  `toy_board.render_board` treated every error but the gate's own refusals as "may have been
+  paid for" (`paid_unfiled`), so the toy was held at `board_render_failed` on every re-judge
+  forever, after the key was fixed. Two held = MAX_RENDERS_PER_RUN. Whether production's two
+  rows are this case is UNVERIFIED until the new codes are read back.
+- Fix: such a refusal is `provider_refused` (asked again on a later UTC day only; counted in
+  MAX_RENDERS_PER_DAY; the owner gate still counts it and still refuses the identical request
+  for the rest of its UTC day). A legacy `paid_unfiled` row is read the same way only when its
+  message is the submit-refusal message (`ImagesRefused|QuotaUnavailable: flux-3-image 4xx:`)
+  AND no image cost row exists for the board. Accepted-then-failed, poll errors, timeouts stay
+  never-bought-again. No gate, cap or ceiling changed.
+- Reason codes (fixed vocabulary, no free text): re-judge holds carry `render_why`
+  (`toy_board.WHY_CODES`) and, for `engine_draft_refused`, `engine_why`
+  (`board.ENGINE_WHY_CODES`); the readback adds `concept_judge.last_regate_board_render_failed_by_why`
+  and `last_regate_engine_draft_refused_by_why`; `after_admission_24h.gate_refused_by_check`
+  counts gate refusals by failed check (`preengineering.CHECKS`, `none_recorded`,
+  `unrecognised`). The fixture run (test_amigurumi_judging state) refuses on `motif_grammar` and
+  `jury`; production's 52 are UNKNOWN until read back.
+- The third hold: not reproduced (category and title come from the seed on both the toy and
+  engine routes, so they agree). Its `engine_why` will name the step.
+- New suite test_toy_board 10/10 (fails on the base source); targeted suites: see commit.
+
 ## VERIFY-REFS — 2026-11-26 (branch eng/verify-refs from 15f809bfb, NOT merged, NOT deployed)
 
 Production 19i30 (evidence 01:31Z; production rows and pixels NOT read; reproduced in

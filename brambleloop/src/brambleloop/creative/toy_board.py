@@ -38,6 +38,11 @@ This module makes that board, in this order, and stops at the first step that fa
    - a later run finds the filed board and judges it;
    - a refusal *before* anything was sent (no activation, a ceiling, no key) is recorded as
      `declined`, and a later run may ask again;
+   - a 4xx on the submit, before the provider issued a task id (a rejected key, a refused
+     request: `images._post` marks it `never_accepted_status`), was never accepted and never
+     billed. It is recorded as `provider_refused`: it still counts toward the day's cap, the
+     owner gate still counts it, and the concept may be asked again on a later UTC day only
+     (TOY-BOARD). Before that it was written `paid_unfiled` and the toy was held forever;
    - anything after the provider may have taken the work (a failure after acceptance, a
      timeout, a crash between request and record) is never bought again by the system. The
      concept is held with that reason.
@@ -53,10 +58,16 @@ the render is prompted from it, never the other way round.
 from __future__ import annotations
 
 import hashlib
+import re
 from datetime import date, datetime, time, timezone
 
 ACTION = "creative.toy_render"
 REQUESTED, FILED, DECLINED, PAID_UNFILED = "requested", "filed", "declined", "paid_unfiled"
+# TOY-BOARD: the provider refused the submit with a 4xx before it issued a task id (a rejected
+# key, a malformed or refused request): never accepted, never billed. Not "may have been paid
+# for". It still counts toward MAX_RENDERS_PER_DAY, and the concept may be asked again on a
+# later UTC day only, so a standing refusal costs at most one request per concept per day.
+PROVIDER_REFUSED = "provider_refused"
 KIND = "ai_concept_render"
 SOURCE = "toy_render"
 PROVIDER = "flux-3-image"
@@ -75,8 +86,20 @@ _HARD_PARTS = ("safety eye", "safety-eye", "button", "bead", "bell", "wire", "pe
                "plastic eye", "glass eye", "pipe cleaner")
 
 
+# TOY-BOARD: why `render_board` filed no board, as one fixed code (no free text), so the
+# readback can count the re-judge's `board_render_failed` holds by cause.
+WHY_CODES = ("not_approved", "route_not_animal", "engine_refused", "not_compiling",
+             "child_safety", "flux_not_ready", "already_filed", "already_requested",
+             "daily_cap", "refused_before_sending", "provider_refused",
+             "provider_refused_today", "failed_after_paid", "other")
+
+
 class ToyBoardRefused(ValueError):
-    """No board for this concept, and why. Nothing was spent."""
+    """No board for this concept, and why. Nothing was spent. `code` is one of WHY_CODES."""
+
+    def __init__(self, message: str, code: str = "other"):
+        super().__init__(message)
+        self.code = code if code in WHY_CODES else "other"
 
 
 def gallery_for(slug: str) -> str:
@@ -116,7 +139,7 @@ def engine_draft(db, slug: str, *, today: date | None = None):
 
     i = draft_inputs(db, slug, today=today)
     if i is None:
-        raise ToyBoardRefused("not an approved research concept")
+        raise ToyBoardRefused("not an approved research concept", "not_approved")
     seed = i.pop("_seed")
     concept = Concept(slug=i["slug"], title=i["title"], category=i["category"],
                       stitch_repeat=[(s, n) for s, n in i["stitch_repeat"]],
@@ -127,15 +150,17 @@ def engine_draft(db, slug: str, *, today: date | None = None):
                     rationale=seed.rationale or "")
     if route["family"] != FC.AMIGURUMI_ANIMAL:
         raise ToyBoardRefused(f"the draft route is {route['family']!r}, not the animal engine: "
-                              f"{route.get('why') or ''}"[:240])
+                              f"{route.get('why') or ''}"[:240], "route_not_animal")
     try:
         cir = animals.build(concept)
     except ValueError as exc:
-        raise ToyBoardRefused(f"the animal engine will not draft it: {exc}"[:240]) from None
+        raise ToyBoardRefused(f"the animal engine will not draft it: {exc}"[:240],
+                              "engine_refused") from None
     result = compile_cir(cir)
     if not result.ok:
         codes = sorted({f.code for f in result.findings if f.is_error})
-        raise ToyBoardRefused(f"the engine's draft does not compile: {codes}"[:240])
+        raise ToyBoardRefused(f"the engine's draft does not compile: {codes}"[:240],
+                              "not_compiling")
     return cir, route, i
 
 
@@ -271,7 +296,57 @@ def _requested_today(session, now: datetime) -> int:
     return max(0, requested - declined)
 
 
-def _claim(db, slug: str, fp: str, job_id, now: datetime) -> tuple[bool, str]:
+def never_accepted_status(exc: BaseException | None) -> int | None:
+    """The provider's 4xx when `exc`'s chain says the submit was refused before a task id
+    (`gateway.images._post` sets `never_accepted_status`); None otherwise. The same rule as
+    `visual.image_production.never_accepted_status` (REDRIVE-REFUSAL), kept here so the board
+    path does not import the gallery runner."""
+    seen = set()
+    while exc is not None and id(exc) not in seen:
+        seen.add(id(exc))
+        st = getattr(exc, "never_accepted_status", None)
+        if isinstance(st, int) and not isinstance(st, bool) and 400 <= st < 500:
+            return st
+        exc = exc.__cause__ or exc.__context__
+    return None
+
+
+# A PAID_UNFILED row written before TOY-BOARD for a submit the provider refused: the message
+# `gateway.images._post` raises for a 4xx on the submit ("<provider> <status>: ..."). A poll
+# failure or a terminal status after acceptance reads differently ("... poll 4xx",
+# "... returned <status>"), so it never matches.
+_LEGACY_SUBMIT_REFUSAL = re.compile(
+    rf"^(?:ImagesRefused|QuotaUnavailable): {re.escape(PROVIDER)} (4\d\d): ")
+
+
+def _billed(session, slug: str) -> bool:
+    """Whether the ledger holds an image cost row for this concept's board (any billing)."""
+    from sqlalchemy import select
+
+    from ..core.models import CostEntry
+
+    for d in session.scalars(select(CostEntry.detail).where(CostEntry.agent == AGENT,
+                                                            CostEntry.kind == "image")):
+        d = d or {}
+        if d.get("slug") == slug and d.get("what") == "toy concept board":
+            return True
+    return False
+
+
+def _effective(session, slug: str, last: dict) -> dict:
+    """The newest record, with a legacy PAID_UNFILED that was a refused submit (its message
+    says so AND the ledger has no cost row for this board) read as PROVIDER_REFUSED. Anything
+    else that may have been accepted stays never-bought-again."""
+    if last.get("state") != PAID_UNFILED:
+        return last
+    hit = _LEGACY_SUBMIT_REFUSAL.match(str(last.get("why") or ""))
+    if hit is None or _billed(session, slug):
+        return last
+    return {**last, "state": PROVIDER_REFUSED, "provider_status": int(hit.group(1)),
+            "legacy": True}
+
+
+def _claim(db, slug: str, fp: str, job_id, now: datetime) -> tuple[bool, str, str]:
     """Write the REQUESTED row under the budget lock, or say why not. Check and write are one
     decision, so two workers cannot both buy the same board."""
     from ..core.models import AuditLog
@@ -279,22 +354,33 @@ def _claim(db, slug: str, fp: str, job_id, now: datetime) -> tuple[bool, str]:
 
     with gw.budget_lock(db) as s:
         rows = _rows(s, slug)
-        last = dict(rows[-1].detail or {}) if rows else {}
+        last = _effective(s, slug, dict(rows[-1].detail or {}) if rows else {})
         st = last.get("state")
+        if st == PROVIDER_REFUSED and rows and not last.get("legacy"):
+            try:
+                at = datetime.fromisoformat(str(last.get("at")))
+            except ValueError:
+                at = rows[-1].at
+            at = at.replace(tzinfo=timezone.utc) if at is not None and at.tzinfo is None else at
+            if at is None or at.date() >= now.date():
+                return False, (f"the provider refused this board's request today (HTTP "
+                               f"{last.get('provider_status')}, nothing billed); asked again "
+                               f"on a later UTC day"), "provider_refused_today"
         if st == FILED:
-            return False, "a board was already rendered and filed for this concept"
+            return False, "a board was already rendered and filed for this concept", \
+                "already_filed"
         if st in (REQUESTED, PAID_UNFILED):
             return False, (f"a render was already requested for this concept (job "
                            f"{last.get('job_id')}) and may have been paid for; it is never "
-                           f"bought again by the system")
+                           f"bought again by the system"), "already_requested"
         if _requested_today(s, now) >= MAX_RENDERS_PER_DAY:
             return False, (f"{MAX_RENDERS_PER_DAY} toy concept renders already requested today "
-                           f"(MAX_RENDERS_PER_DAY)")
+                           f"(MAX_RENDERS_PER_DAY)"), "daily_cap"
         s.add(AuditLog(actor=AGENT, action=ACTION, artifact=slug,
                        detail={"state": REQUESTED, "fingerprint": fp, "job_id": job_id,
                                "provider": PROVIDER, "gallery": gallery_for(slug),
                                "at": now.isoformat()}))
-    return True, ""
+    return True, "", ""
 
 
 def _record(db, slug: str, detail: dict) -> None:
@@ -330,21 +416,21 @@ def render_board(db, slug: str, *, job_id=None, today: date | None = None,
     try:
         cir, route, inputs = engine_draft(db, slug, today=today)
     except ToyBoardRefused as exc:
-        return {"board": "", "why": f"no toy board: {exc}"[:240], "paid": False,
-                "retry": False}
+        return {"board": "", "why": f"no toy board: {exc}"[:240], "why_code": exc.code,
+                "paid": False, "retry": False}
     problems = safety_preconditions(cir, premise=premise or str(inputs.get("premise") or ""))
     if problems:
         return {"board": "", "why": ("child-safety precondition: " + "; ".join(problems))[:240],
-                "paid": False, "retry": False}
+                "why_code": "child_safety", "paid": False, "retry": False}
     ready = flux_provider.readiness(db)
     if ready["state"] != flux_provider.READY:
         return {"board": "", "why": f"FLUX not ready ({ready['code']}); nothing was spent",
-                "paid": False, "retry": True}
+                "why_code": "flux_not_ready", "paid": False, "retry": True}
     prompt = prompt_for(cir)
     fp = fingerprint(cir, prompt)
-    claimed, why = _claim(db, slug, fp, job_id, now)
+    claimed, why, code = _claim(db, slug, fp, job_id, now)
     if not claimed:
-        return {"board": "", "why": why, "paid": False, "retry": False}
+        return {"board": "", "why": why, "why_code": code, "paid": False, "retry": False}
     out = {"asked": True}
     base = {"fingerprint": fp, "job_id": job_id, "provider": PROVIDER,
             "gallery": gallery_for(slug)}
@@ -360,13 +446,26 @@ def render_board(db, slug: str, *, job_id=None, today: date | None = None,
         _record(db, slug, {**base, "state": DECLINED, "why": str(exc)[:240]})
         out["asked"] = False      # nothing was sent: the per-run render cap is not used
         return {**out, "board": "", "why": f"render refused before sending: {exc}"[:240],
-                "paid": False, "retry": True}
+                "why_code": "refused_before_sending", "paid": False, "retry": True}
     except Exception as exc:  # noqa: BLE001 - possibly billed: never bought again
+        status = never_accepted_status(exc)
+        if status is not None:
+            # TOY-BOARD: a 4xx on the submit, before a task id: the provider never accepted
+            # the work and billed nothing (images.generate released the claim unbilled; the
+            # owner gate still counts it). Recorded as such, not as "may have been paid for",
+            # so a rejected key or a refused request does not hold the concept forever.
+            _record(db, slug, {**base, "state": PROVIDER_REFUSED, "provider_status": status,
+                               "at": now.isoformat(),
+                               "why": f"{type(exc).__name__}: {str(exc)[:200]}"})
+            return {**out, "board": "", "why": (f"the provider refused the render request "
+                                                f"before accepting it (HTTP {status}); "
+                                                f"nothing was billed")[:240],
+                    "why_code": "provider_refused", "paid": False, "retry": True}
         _record(db, slug, {**base, "state": PAID_UNFILED,
                            "why": f"{type(exc).__name__}: {str(exc)[:200]}"})
         return {**out, "board": "", "why": (f"the render failed after it may have been paid for "
                                      f"({type(exc).__name__}); it is not bought again"),
-                "paid": True, "retry": False}
+                "why_code": "failed_after_paid", "paid": True, "retry": False}
     stored = ArtifactStore().put(f"board/{slug}-toy.png", raw, "image/png", db=db,
                                  keep="toy concept board for the radar vision judge")
     sha = _sha(stored.sha256)
