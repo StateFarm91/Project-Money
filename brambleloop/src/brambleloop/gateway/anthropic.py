@@ -1247,7 +1247,10 @@ def vision_probe(db, *, image_url: str = "", provider: AnthropicProvider | None 
     image_url = image_url or _a_known_image(db)
     record: dict = {"at": (now or datetime.now(timezone.utc)).isoformat(),
                     "model": provider.model, "ok": False, "reason": "",
-                    "image_url": image_url}
+                    "image_url": image_url,
+                    # VISION-GATE-ROUTE: the non-secret key tag, so a reuse proves it was made
+                    # with the key in force (as `model.probe`)
+                    "key_fp": key_fingerprint()}
 
     # P0-PAID-PROVIDER-OWNER-GATE: no paid vision probe without the owner's activation of
     # vision; a key is not one. Recorded as a named state, nothing sent.
@@ -1331,6 +1334,49 @@ def vision_probe(db, *, image_url: str = "", provider: AnthropicProvider | None 
         s.add(AuditLog(actor="orchestrator", action=VISION_PROBE_ACTION,
                        artifact=provider.model, detail=record))
     return record
+
+
+def vision_probe_if_due(db, *, job_id: int | None = None, now: datetime | None = None,
+                        force: bool = False, **kw) -> dict:
+    """`vision_probe`, unless a successful one younger than MODEL_PROBE_REUSE is on file and
+    still stands -- then it is restated (an audited `vision.probe` row marked `reused`, CA$0).
+
+    VISION-GATE-ROUTE: the six-hourly `ops.capability_probes` job asks this. A success is
+    reused only for the probe model, made with the key in force (non-secret fingerprint),
+    under an activation that is still in force (so `vision_usable` keeps reading it), and with
+    nothing since contradicting it (`_contradicted_since`, the model probe's rule). A failed or
+    absent probe is always re-asked, so the gate never opens on a reuse alone; no activation:
+    `vision_probe` records the refusal and sends nothing."""
+    from . import paid_provider_gate as gate
+
+    now = now or datetime.now(timezone.utc)
+    try:
+        last = last_vision_probe(db)
+    except Exception:  # noqa: BLE001 - unreadable evidence: ask again
+        last = None
+    fp = key_fingerprint()
+    if not force and last and last.get("ok") and last.get("model") == VISION_PROBE_MODEL \
+            and fp is not None and last.get("key_fp") == fp \
+            and gate.is_active_id(db, last.get("activation_id")):
+        at = _probe_at(last)
+        if at is not None and timedelta(0) <= now - at < MODEL_PROBE_REUSE \
+                and not _contradicted_since(db, at):
+            from ..core.models import AuditLog
+
+            record = {k: v for k, v in last.items() if k not in ("why", "checked_at")}
+            record.update({
+                "reused": True, "reused_from_at": at.isoformat(),
+                "checked_at": now.isoformat(), "cost_cad": 0.0,
+                "why": (f"a successful vision probe at {at.isoformat()} is under "
+                        f"{int(MODEL_PROBE_REUSE.total_seconds() // 3600)} h old, its "
+                        f"activation is in force and nothing since contradicts it; not "
+                        f"re-billed")})
+            with db.session() as s:
+                s.add(AuditLog(actor="orchestrator", action=VISION_PROBE_ACTION,
+                               artifact=str(record.get("model") or VISION_PROBE_MODEL),
+                               detail=record))
+            return record
+    return vision_probe(db, job_id=job_id, now=now, **kw)
 
 
 def _a_known_image(db) -> str:

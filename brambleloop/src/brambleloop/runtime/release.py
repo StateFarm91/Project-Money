@@ -9364,7 +9364,8 @@ def handle_capability_probes(ctx: JobContext) -> dict:
 
     results = {
         "rendered_pages": browser.probe(ctx.db),
-        "image_vision": gw.vision_probe(ctx.db, job_id=ctx.job.id),
+        # VISION-GATE-ROUTE: reuse a standing success (no re-billing every six hours)
+        "image_vision": gw.vision_probe_if_due(ctx.db, job_id=ctx.job.id),
         "culture_feed": feeds.probe(ctx.db),
         # `image_generation` was missing from this list, which is why the gate could not
         # open on its own. The probe existed, the gate read it, and nothing on any cadence

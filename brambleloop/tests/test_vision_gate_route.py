@@ -128,6 +128,142 @@ def test_caps_are_unchanged():
     assert G.GALLERY_CAD_CAP == 6.00 and G.GALLERY_IMAGE_CAP == 60
 
 
+# ---- the second vendor: Anthropic vision opens on its own activation and probe --------------
+
+class _Resp:
+    def __init__(self, text, model):
+        self.text, self.model, self.input_tokens, self.output_tokens = text, model, 900, 60
+
+
+class _AnthropicFixture:
+    """FIXTURE provider standing in for `AnthropicProvider` on the asset_inspection route: the
+    real model name and prices (so the reservation is the real one), no network."""
+
+    def __init__(self):
+        real = gw.provider_for("asset_inspection")
+        self.model = real.model
+        self.cost_per_1k_input_cad = real.cost_per_1k_input_cad
+        self.cost_per_1k_output_cad = real.cost_per_1k_output_cad
+        self.name, self.calls = "anthropic", 0
+
+    def see(self, system, prompt, image_urls, *, max_tokens):
+        import json
+
+        self.calls += 1
+        return _Resp(json.dumps({"face": "matches"}), self.model)
+
+
+def _probe_row(db, *, ok=True, hours_ago=1.0, activation_id=None, key_fp=None):
+    from datetime import datetime, timedelta, timezone
+
+    from brambleloop.core.models import AuditLog
+    from brambleloop.gateway import anthropic as A
+
+    at = datetime.now(timezone.utc) - timedelta(hours=hours_ago)
+    with db.session() as s:
+        s.add(AuditLog(actor="orchestrator", action=A.VISION_PROBE_ACTION,
+                       artifact=A.VISION_PROBE_MODEL,
+                       detail={"at": at.isoformat(), "model": A.VISION_PROBE_MODEL, "ok": ok,
+                               "reason": "", "answer": "photograph", "cost_cad": 0.0004,
+                               "activation_id": activation_id,
+                               "key_fp": key_fp if key_fp is not None else A.key_fingerprint()}))
+
+
+def _anthropic_vision(db):
+    """The owner's activation of Anthropic vision (test fixture of the step-up path) and a
+    successful vision probe made under it."""
+    import _paid_activation as paid
+
+    rows = paid.activate(db, G.ANTHROPIC_VISION, G.VISION, daily=2.0, monthly=10.0,
+                         per_gallery=1.0)
+    _probe_row(db, activation_id=rows[0]["id"] if isinstance(rows[0], dict) and
+               "id" in rows[0] else rows[0].get("activation", {}).get("id"))
+    return rows
+
+
+def test_with_both_vendors_usable_identity_gets_two_independent_readings():
+    db = R._db()
+    R._production_vision(db)                          # openai-vision activated + key
+    os.environ["ANTHROPIC_API_KEY"] = "sk-ant-fixture-not-a-key"
+    try:
+        _anthropic_vision(db)
+        assert gw.vision_usable(db), "Anthropic vision: activation + probe in force"
+        fake = _AnthropicFixture()
+        saved = gw.provider_for
+        gw.provider_for = lambda task: fake if task == "asset_inspection" else saved(task)
+        try:
+            first = CG.RealJudges(db, second_vision=None, embedder=None)._vision_judge()
+            assert first._route()[0] == "anthropic"
+            second = _second(db)
+            assert second.gate_open()
+            with R._Patched(R._Transport({"face": "matches"})):
+                readings = VJ.person_readings([first, second], b"\x89PNG-fixture",
+                                              {f: b"ref" for f in VJ.REF_ORDER})
+        finally:
+            gw.provider_for = saved
+        assert len(readings) == 2 and all(r["answered"] for r in readings), readings
+        ids = [r["judge"] for r in readings]
+        assert ids[0].startswith("image_vision:") and ids[1].startswith("image_vision_openai")
+        assert fake.calls == 1
+    finally:
+        os.environ.pop("ANTHROPIC_API_KEY", None)
+
+
+def test_without_its_activation_anthropic_never_opens_even_with_a_key_and_a_probe_row():
+    db = R._db()
+    os.environ["ANTHROPIC_API_KEY"] = "sk-ant-fixture-not-a-key"
+    try:
+        _probe_row(db, activation_id=None)            # a successful row, no activation
+        assert not gw.vision_usable(db)
+        first = CG.RealJudges(db, second_vision=None, embedder=None)._vision_judge()
+        assert not first.gate_open()
+    finally:
+        os.environ.pop("ANTHROPIC_API_KEY", None)
+
+
+def test_the_capability_probe_job_runs_the_vision_probe_with_reuse():
+    from brambleloop.gateway import anthropic as A
+
+    src = (ROOT / "src/brambleloop/runtime/release.py").read_text()
+    assert '"image_vision": gw.vision_probe_if_due(ctx.db, job_id=ctx.job.id)' in src
+    from brambleloop.runtime import worker
+
+    cad = [c for c in worker.__dict__.get("CADENCES", ()) if "ops.capability_probes" in c] \
+        or [l for l in (ROOT / "src/brambleloop/runtime/worker.py").read_text().splitlines()
+            if '"ops.capability_probes", 6 * 60 * 60' in l]
+    assert cad, "ops.capability_probes runs every six hours"
+    db = R._db()
+    os.environ["ANTHROPIC_API_KEY"] = "sk-ant-fixture-not-a-key"
+    asked = []
+    real = A.vision_probe
+    A.vision_probe = lambda db_, **kw: asked.append(kw) or {"ok": False, "reason": "fixture"}
+    try:
+        # no activation: the real probe is asked and (in production) refuses, sends nothing
+        assert A.vision_probe_if_due(db)["ok"] is False and len(asked) == 1
+        # activation + a success under it, 1 h old: reused, CA$0, the gate stays open
+        _anthropic_vision(db)
+        got = A.vision_probe_if_due(db)
+        assert got["ok"] and got["reused"] and got["cost_cad"] == 0.0, got
+        assert len(asked) == 1 and gw.vision_usable(db)
+        # a success older than the reuse window is asked again
+        db2 = R._db()
+        import _paid_activation as paid
+
+        rows = paid.activate(db2, G.ANTHROPIC_VISION, G.VISION)
+        aid = rows[0]["id"]
+        _probe_row(db2, hours_ago=25, activation_id=aid)
+        A.vision_probe_if_due(db2)
+        assert len(asked) == 2
+        # a success made with another key is asked again
+        _probe_row(db2, hours_ago=1, key_fp="00000000", activation_id=aid)
+        A.vision_probe_if_due(db2)
+        assert len(asked) == 3
+        assert rows
+    finally:
+        A.vision_probe = real
+        os.environ.pop("ANTHROPIC_API_KEY", None)
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in list(globals().items()):
