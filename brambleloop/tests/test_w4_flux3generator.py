@@ -165,7 +165,9 @@ def test_the_shared_failure_codes_resolve_where_ownerimg_looks():
                                            # W4-WRAPTEST: W-FIDELITY's measured codes
                                            "WRONG_ASPECT_RATIO", "OFF_PALETTE_COLOUR",
                                            "WRONG_COLOUR_LAYOUT", "WRONG_REPEAT_COUNT",
-                                           "WRONG_PIECE_COUNT"}
+                                           "WRONG_PIECE_COUNT",
+                                           # ENG-COASTER-SIDES
+                                           "WRONG_SIDE_COUNT"}
 
 
 def test_sizes_below_the_listing_floor_are_refused_never_upscaled():

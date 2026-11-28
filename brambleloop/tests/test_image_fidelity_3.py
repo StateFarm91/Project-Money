@@ -360,7 +360,8 @@ def test_10_a_vessel_keeps_its_own_drawing():
 # ---- 4. the parked runs are re-driven once --------------------------------------------------
 
 def test_11_an_unknown_run_redriven_under_the_old_checks_is_redriven_once_more():
-    assert F.FIDELITY_CHECK_VERSION == "fidelity-checks/2"
+    # "fidelity-checks/2" here; ENG-COASTER-SIDES moved it to /3. The redrive is per version.
+    assert F.FIDELITY_CHECK_VERSION not in (IP.LEGACY_CHECK_VERSION, "fidelity-checks/2")
     assert IP.fidelity_check_version() == F.FIDELITY_CHECK_VERSION
     db = R._db()
     R._production_vision(db)

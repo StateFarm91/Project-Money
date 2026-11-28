@@ -719,7 +719,8 @@ def test_live_stops_early_on_a_hard_flat_lay_failure():
 # ---- FIDELITY follow-ups -----------------------------------------------------------------
 
 MEASURED = ("WRONG_ASPECT_RATIO", "OFF_PALETTE_COLOUR", "WRONG_COLOUR_LAYOUT",
-            "WRONG_REPEAT_COUNT", "WRONG_PIECE_COUNT")
+            "WRONG_REPEAT_COUNT", "WRONG_PIECE_COUNT",
+            "WRONG_SIDE_COUNT")  # ENG-COASTER-SIDES
 
 
 def test_measured_fidelity_codes_are_shared_routed_and_accepted():

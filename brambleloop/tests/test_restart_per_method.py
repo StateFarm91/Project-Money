@@ -384,7 +384,18 @@ def test_4_the_coaster_hold_was_the_19i27_cap_refusal_not_vision_headroom():
     db = R._db()
     blocked = _today_blocked()
     _production_spend(db, blocked)
-    assert F.FIDELITY_JUDGE_VERSION == JUDGE2 and F.FIDELITY_CHECK_VERSION == CHECKS2
+    # Replays the 19i27..19i29 world, whose deterministic checks were CHECKS2
+    # (ENG-COASTER-SIDES moved the current version on; the redrive reads it from here).
+    assert F.FIDELITY_JUDGE_VERSION == JUDGE2
+    saved_checks = IP.fidelity_check_version
+    IP.fidelity_check_version = lambda: CHECKS2
+    try:
+        _test_4_body(db, blocked)
+    finally:
+        IP.fidelity_check_version = saved_checks
+
+
+def _test_4_body(db, blocked):
     with _Method():
         key = _coaster(db, hold=_cap_hold(), blocked_at=blocked)
         # the openai-vision headroom covers a re-judgement comfortably

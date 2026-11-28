@@ -50,13 +50,41 @@ def _piece_images(cir, cell=12):
             if is_round:
                 im = charts.render_round_fabric(cir, twin).convert("RGB")
                 a = Image.new("L", im.size, 0)
-                ImageDraw.Draw(a).ellipse((0, 0, im.size[0] - 1, im.size[1] - 1), fill=255)
+                if isinstance(twin.sides, int) and twin.sides >= 3:
+                    # ENG-COASTER-SIDES: the round-fabric render is drawn as a disc; a
+                    # polygon piece is that render warped radially into the twin's polygon
+                    # (each round concentric with the outline), as the made piece lies. A
+                    # disc is the wrong product (`<piece>:sides`, WRONG_SIDE_COUNT).
+                    im, a = _polygon_piece(im, int(twin.sides))
+                else:
+                    ImageDraw.Draw(a).ellipse((0, 0, im.size[0] - 1, im.size[1] - 1),
+                                              fill=255)
             else:
                 im = _weighted_rows(cir, comp, twin, charts.render_fabric(
                     cir, twin, cell_px=cell).convert("RGB"))
                 a = Image.new("L", im.size, 255)
             out.append([im, a, twin, is_round])
     return out
+
+
+def _polygon_piece(im, n):
+    """The disc render remapped into a regular n-gon of the same circumradius."""
+    src = np.asarray(im, dtype=np.float64)
+    size = src.shape[0]
+    c, R = (size - 1) / 2, size / 2 - 1
+    yy, xx = np.mgrid[0:size, 0:size]
+    px, py = xx - c, yy - c
+    apothem = R * math.cos(math.pi / n)
+    t = np.zeros((size, size))
+    for k in range(n):
+        ang = math.pi / n + 2 * math.pi * k / n - math.pi / 2
+        t = np.maximum(t, (px * math.cos(ang) + py * math.sin(ang)) / apothem)
+    th = np.arctan2(py, px)
+    rs = np.minimum(t, 1) * R * 0.995
+    sx = np.clip(c + rs * np.cos(th), 0, size - 1).astype(int)
+    sy = np.clip(c + rs * np.sin(th), 0, size - 1).astype(int)
+    out = Image.fromarray(src[sy, sx].astype(np.uint8))
+    return out, Image.fromarray(((t <= 1.0) * 255).astype(np.uint8))
 
 
 def _weighted_rows(cir, comp, twin, im):
