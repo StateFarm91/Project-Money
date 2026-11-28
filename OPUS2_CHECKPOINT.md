@@ -2085,3 +2085,8 @@ See P0_GAP_REGISTER.json `opus2_open_engineering`.
 ## 2026-11-26T07:30Z tick
 - No new #28 comments since 7057293796. Dispatch unchanged (07a41bf1).
 - STOP REASON: no assigned opus2 work; awaiting Main ASSIGN.
+
+## 2026-11-28T04:30Z tick
+- Container was reset; checkpoint worktree recreated. 17 queued hourly firings (2026-11-26T08:28Z..2026-11-28T04:28Z) processed as this one tick.
+- No new #28 comments since 7057293796. Dispatch unchanged (07a41bf1).
+- STOP REASON: no assigned opus2 work; awaiting Main ASSIGN.
