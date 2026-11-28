@@ -166,6 +166,30 @@ def test_a_permitted_generated_image_must_still_be_labelled():
     assert P.DISCLOSURES["generated_imagery"] in labelled.disclosures
 
 
+def test_the_generated_imagery_sentence_claims_no_label_the_buyer_cannot_see():
+    """D-GENERATED-IMAGERY-TRUE (19i35): buyer-visible alt text is scene-only
+    (D-OWNER-PUBLISH-WITH-RENDERS), so the sentence may not say the images are labelled. It
+    still discloses, and the listing gate still enforces it word for word as an ERROR."""
+    from brambleloop.gates.policy import check_ai_disclosure
+
+    sentence = P.DISCLOSURES["generated_imagery"]
+    assert "labelled" not in sentence.lower() and "label" not in sentence.lower()
+    assert "digitally rendered" in sentence and "not photographs" in sentence
+    cls = P.classify(product_class=P.SELLER_DESIGNED_DIGITAL, assets=[
+        P.AssetClaim("mood", "mood_frame", generated=True, labelled=True)])
+    assert sentence in cls.disclosures
+    missing = check_ai_disclosure("A basket pattern.", cls)
+    assert [(f.severity, f.code) for f in missing] == [("ERROR", "POLICY_AI_DISCLOSURE_MISSING")], \
+        missing
+    old = ("Some listing images are illustrations or renders rather than photographs, and are "
+           "labelled where they appear.")
+    assert [f.code for f in check_ai_disclosure("A basket pattern. " + old, cls)] == \
+        ["POLICY_AI_DISCLOSURE_MISSING"], "the old, false sentence no longer satisfies it"
+    paraphrase = sentence.replace("visualisations", "pictures")
+    assert check_ai_disclosure("A basket pattern. " + paraphrase, cls), "verbatim only"
+    assert check_ai_disclosure("A basket pattern. " + sentence, cls) == []
+
+
 def test_ai_assisted_design_owes_a_disclosure_and_a_release_with_no_assets_has_skipped_the_gate():
     assisted = P.classify(
         product_class=P.SELLER_DESIGNED_DIGITAL,

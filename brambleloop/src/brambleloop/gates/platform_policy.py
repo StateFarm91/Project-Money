@@ -115,8 +115,12 @@ DISCLOSURES: dict[str, str] = {
     # standards); this says that, plainly, plus the check every release does pass.
     "ai_assisted_design": ("This design was created with AI assistance, and every row's "
                            "stitch count is checked before release."),
-    "generated_imagery": ("Some listing images are illustrations or renders rather than "
-                          "photographs, and are labelled where they appear."),
+    # D-GENERATED-IMAGERY-TRUE (19i35): this said the images "are labelled where they appear".
+    # Buyer-visible alt text is scene-only (D-OWNER-PUBLISH-WITH-RENDERS), so no such label is
+    # shown and the claim was false. It now says only what is true of every listing that owes
+    # it ("some or all": a listing may also lead with a real sample photograph).
+    "generated_imagery": ("Some or all listing images are digitally rendered visualisations "
+                          "made from this pattern, not photographs of a crocheted sample."),
     "digital_download": ("This is a digital pattern. No physical item is shipped."),
     "deterministic_render": ("Charts and previews are rendered directly from the pattern "
                              "file, so they show exactly what is in the document."),

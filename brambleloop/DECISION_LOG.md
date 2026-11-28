@@ -5088,3 +5088,19 @@ Batch 19i34 (integration 3a2aec0d1) is deployed. It contains:
 - 19i32: the owner's photo rulings (lifestyle evidence 1A, per-gallery budget CA$6/36 calls, FLUX daily CA$10, different outfit per listing).
 
 Authority: the owner's directive of 2026-11-28. The 18 targeted suites pass. The full suite is running. SHADOW remains until a recorded full-suite run on the deployed tree exists.
+
+## D-GENERATED-IMAGERY-TRUE — 2026-11-28 (19i35 integration, at the release coordinator's direction)
+
+- **Decision.** The `generated_imagery` disclosure (`gates.platform_policy.DISCLOSURES`) said the
+  generated listing images "are labelled where they appear". Buyer-visible alt text is
+  scene-only by D-OWNER-PUBLISH-WITH-RENDERS, so no such label is shown and the sentence was
+  false. It now reads: "Some or all listing images are digitally rendered visualisations made
+  from this pattern, not photographs of a crocheted sample." ("Some or all" because a listing
+  may also lead with a real sample photograph, which the sentence must not deny.)
+- **Enforcement unchanged.** `gates.policy.check_ai_disclosure` still raises ERROR
+  `POLICY_AI_DISCLOSURE_MISSING` unless the listing carries the sentence word for word. A
+  draft or package carrying the old sentence now fails that check and has to be rebuilt; that
+  is intended.
+- **Tests.** `tests/test_platform_policy.py` (the sentence claims no label, still discloses,
+  verbatim only, the old sentence refused); `tests/test_owner_rulings_19i32.py` test_5.
+- **Reversible.** Yes, one string. Re-adding a "labelled" claim needs a visible label first.

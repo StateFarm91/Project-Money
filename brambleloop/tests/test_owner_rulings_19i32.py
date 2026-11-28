@@ -177,7 +177,7 @@ def test_5_a_generated_lifestyle_frame_must_be_disclosed_as_a_render():
     cls = PP.classify(product_class=PP.SELLER_DESIGNED_DIGITAL, assets=[
         PP.AssetClaim(ref="lifestyle-1", role="mood_frame", generated=True, labelled=True)])
     sentence = PP.DISCLOSURES["generated_imagery"]
-    assert sentence in cls.disclosures and "rather than photographs" in sentence
+    assert sentence in cls.disclosures and "not photographs of a crocheted sample" in sentence
     errs = check_ai_disclosure("A cosy basket pattern.", cls)
     assert [f.code for f in errs] == ["POLICY_AI_DISCLOSURE_MISSING"], errs
     assert check_ai_disclosure("A cosy basket pattern. " + sentence, cls) == []

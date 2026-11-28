@@ -58,8 +58,9 @@ piece's sides; only vessels had `basket:sides`.
   A vision reading may corroborate (`piece_sides.corroborate`), never override.
 - Repair: `repair_routes` routes WRONG_SIDE_COUNT to prompt negatives. `_repair_for` puts the
   failing check's own `fix` first ("to fix: coaster has 8 sides; must be 6 (a hexagon)").
-- `FIDELITY_CHECK_VERSION` is now `fidelity-checks/3`, so UNKNOWN-parked runs are re-judged
-  once by the existing redrive. `VERIFIER_VERSION`/`CHECKER` are unchanged, so accepted
+- `FIDELITY_CHECK_VERSION` is now `fidelity-checks/4` (the lane cut it as "/3"; renumbered at the
+  19i35 integration because 19i32's calibration already shipped "/3" in 19i34), so UNKNOWN-parked
+  runs are re-judged once by the existing redrive. `VERIFIER_VERSION`/`CHECKER` are unchanged, so accepted
   anchors still match.
 - Gallery: `readiness` counts a generated frame as "publishable" only if its
   technical_status is PASS. The Laura requirement's UNKNOWN allowance now holds only when
