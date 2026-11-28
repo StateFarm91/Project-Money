@@ -38,10 +38,27 @@ _SLACK = timedelta(seconds=1)
 # (provider, scope) -> ceilings. Image generation for the 7-photo galleries, and the second,
 # independent vision judge. Nothing else: no ads, no text-model widening, no company ceiling.
 ACTIVATIONS: dict[tuple[str, str], dict] = {
-    ("flux-3-image", "generation"): {"daily_ceiling_cad": 5.0, "monthly_ceiling_cad": 40.0,
-                                     "per_gallery_cad": 2.5},
+    # D-OWNER-PHOTO-BUDGET (2026-11-28): daily CA$5.00 -> CA$10.00, per gallery CA$2.50 ->
+    # CA$6.00 (= image_production.MAX_SPEND_CAD_PER_GALLERY, so the activation never cuts the
+    # owner's plan short). Monthly unchanged at CA$40; the company's CA$100/month is unchanged.
+    ("flux-3-image", "generation"): {"daily_ceiling_cad": 10.0, "monthly_ceiling_cad": 40.0,
+                                     "per_gallery_cad": 6.0},
     ("openai-vision", "vision"): {"daily_ceiling_cad": 2.0, "monthly_ceiling_cad": 10.0,
                                   "per_gallery_cad": 1.0},
+}
+
+# Owner decisions that RAISE a directive activation's ceilings after it was written. `apply`
+# writes each activation once and never renews it; an amendment only lifts a live row's
+# daily and per-gallery ceilings up to `ACTIVATIONS` (never its monthly ceiling, its expiry or
+# its call ceilings), once, audited as AMEND_ACTION. Adding one is a reviewed code change.
+AMEND_ACTION = "owner_directive.amended"
+AMENDMENTS: dict[tuple[str, str], dict] = {
+    ("flux-3-image", "generation"): {
+        "decision": "D-OWNER-PHOTO-BUDGET",
+        "decided_at": datetime(2026, 11, 28, 0, 0, tzinfo=timezone.utc),
+        "fields": ("daily_ceiling_cad", "per_gallery_cad"),
+        "owner_words": "up the photo budget i dont care. Get it right.",
+    },
 }
 
 
@@ -152,6 +169,9 @@ def apply(db, *, now: datetime | None = None) -> dict:
                     G.PaidProviderActivation.activated_by == ACTOR).limit(1))
                 if prior is not None:
                     out["already"].append(f"{provider}:{scope}")
+                    amended = _amend(s, prior, provider, scope, ceil, now)
+                    if amended:
+                        out.setdefault("amended", []).append(amended)
                     continue
                 if ceil["monthly_ceiling_cad"] > company:
                     out["refused"].append({"activation": f"{provider}:{scope}",
@@ -181,3 +201,33 @@ def apply(db, *, now: datetime | None = None) -> dict:
             out["refused"].append({"activation": f"{provider}:{scope}",
                                    "why": type(exc).__name__})
     return out
+
+
+def _amend(s, row, provider: str, scope: str, ceil: dict, now: datetime) -> dict | None:
+    """Raise a live directive row's amended ceilings to `ACTIVATIONS` (AMENDMENTS). Only up,
+    only the named fields, only a row that still authorises and is neither revoked nor
+    expired. Returns what changed, or None."""
+    from ..core.models import AuditLog
+
+    am = AMENDMENTS.get((provider, scope))
+    if not am or now < am["decided_at"]:
+        return None
+    if row.revoked_at is not None:
+        return None
+    exp = _aware(row.expires_at)
+    if exp is None or exp <= now or not authorises(row):
+        return None
+    changed = {}
+    for k in am["fields"]:
+        old, new = float(getattr(row, k)), float(ceil[k])
+        if new > old + 1e-9:
+            setattr(row, k, new)
+            changed[k] = {"from": old, "to": new}
+    if not changed:
+        return None
+    s.add(AuditLog(at=now, actor=ACTOR[:64], action=AMEND_ACTION,
+                   artifact=f"{provider}:{scope}",
+                   detail={"decision": am["decision"], "activation_id": row.id,
+                           "changed": changed,
+                           "monthly_ceiling_cad": float(row.monthly_ceiling_cad)}))
+    return {"activation": f"{provider}:{scope}", "decision": am["decision"], **changed}

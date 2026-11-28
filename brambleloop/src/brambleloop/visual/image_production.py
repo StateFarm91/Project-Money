@@ -110,8 +110,14 @@ NOTIFY_STATES = ("ready_for_owner_review", "blocked")
 
 MAX_ATTEMPTS_PER_ROLE = 3          # one generation + two repairs
 MAX_REPAIR_ROUNDS = 2
-MAX_GENERATION_CALLS = 12          # per gallery, every role and repair included
-MAX_SPEND_CAD_PER_GALLERY = 2.00   # = the publishing agent's daily ceiling; never raised here
+# D-OWNER-PHOTO-BUDGET (owner, 2026-11-28: "up the photo budget i dont care. Get it right."):
+# the per-gallery plan is three times the D-OWNER-FLUX-GALLERY one -- CA$2.00 -> CA$6.00, calls
+# 12 -> 36 (20 -> 60 on the ~gallery route). The FLUX activation's daily ceiling (CA$10), its
+# monthly ceiling (CA$40) and the company's CA$100/month cap still bind on top.
+PHOTO_BUDGET_FACTOR = 3
+PLAN_VERSION_TAG = "gallery-plan/2"   # /1: CA$2.00, 12/20 calls (D-OWNER-FLUX-GALLERY)
+MAX_GENERATION_CALLS = 12 * PHOTO_BUDGET_FACTOR   # per gallery, every role and repair included
+MAX_SPEND_CAD_PER_GALLERY = 6.00   # the code maximum; the owner may lower it (gallery_budget)
 ANCHOR_ROLE = "product_anchor"     # the product-only candidate: a fidelity anchor, not a frame
 # IMAGE-AD (V2): a vessel's anchor is a pair. This is its side view, standing, rendered by
 # `image_stages.product_only(view="side")` as its own paid call before the top-down anchor;
@@ -1046,8 +1052,8 @@ class CapabilityBlocked(RuntimeError):
 
 
 # D-OWNER-FLUX-GALLERY: a seven-frame FLUX gallery is two anchors and six frames, plus at most
-# MAX_REPAIR_ROUNDS repair rounds of six. The money cap is unchanged (and owner-lowerable).
-FLUX_MAX_GENERATION_CALLS = 2 + 6 * (1 + MAX_REPAIR_ROUNDS)
+# MAX_REPAIR_ROUNDS repair rounds of six (20), times D-OWNER-PHOTO-BUDGET's factor (60).
+FLUX_MAX_GENERATION_CALLS = (2 + 6 * (1 + MAX_REPAIR_ROUNDS)) * PHOTO_BUDGET_FACTOR
 
 
 def _spend_plan(key: str = "", db=None) -> dict:
@@ -2651,6 +2657,12 @@ def restartable(db, key: str, *, rejudge: bool = False, reverify_only: bool = Fa
                        f"{counts['restarts_total']} in all)"}
     reason = str(run.get("blocked_reason") or "")
     daily = reason.startswith("budget stop") and daily_ceiling_reset(run)
+    # D-OWNER-PHOTO-BUDGET: a stop on the per-gallery PLAN (its call count or money cap) is
+    # final only while that plan is still exhausted. Once the plan has been raised and leaves
+    # room for one more attempt, the run resumes where it stopped, like a daily-ceiling stop;
+    # every cap still binds when it does.
+    planned = plan_budget_block(reason) and plan_headroom(db, key, run)["ok"]
+    daily = daily or planned
     if reason.startswith("budget stop") and not daily:
         return {"restartable": False, "why": "a budget stop is final for this run: " + reason}
     # REDRIVE-REFUSAL: a daily-ceiling stop interrupted generation (often mid-repair, with an
@@ -3437,11 +3449,13 @@ def structural_verification_block(reason) -> bool:
 
 
 def verify_redrive_version() -> str:
-    """The verification redrive's once-per key: the fidelity judge, its deterministic checks
-    and the lifestyle product-region route."""
+    """The verification redrive's once-per key: the fidelity judge, its deterministic checks,
+    the lifestyle product-region route and the lifestyle Product Truth policy (19i32,
+    D-OWNER-LIFESTYLE-GENERATED: `candidate_gates.LIFESTYLE_POLICY_VERSION`)."""
     from .fidelity import FIDELITY_CHECK_VERSION, FIDELITY_JUDGE_VERSION, LIFESTYLE_REGION_ROUTE
 
-    return f"{FIDELITY_JUDGE_VERSION}|{FIDELITY_CHECK_VERSION}|{LIFESTYLE_REGION_ROUTE}"
+    return (f"{FIDELITY_JUDGE_VERSION}|{FIDELITY_CHECK_VERSION}|{LIFESTYLE_REGION_ROUTE}|"
+            f"{CG.LIFESTYLE_POLICY_VERSION}")
 
 
 def _structural_roles_in(session, key: str) -> tuple[list[str], list[str]]:
@@ -3532,6 +3546,61 @@ def _utc_day(iso: str | None):
         return d.astimezone(timezone.utc).date()
     except ValueError:
         return None
+
+
+# D-OWNER-PHOTO-BUDGET (19i32): a run stopped by the per-gallery spend plan under the old plan
+# (CA$2.00, 12/20 calls) is re-driven once per plan version (`PLAN_VERSION_TAG`) when the
+# current plan leaves room for one more attempt. MAX_RESTARTS per method, the generation
+# provider's daily ceiling and the plan itself still bind.
+PLAN_REDRIVE_BY = "spend_plan_redrive"
+_PLAN_STOP = ("exceeds the plan's call_count", "exceeds the plan's max_spend_cad")
+
+
+def plan_budget_block(reason) -> bool:
+    text = str(reason or "")
+    return text.startswith("budget stop") and any(n in text for n in _PLAN_STOP)
+
+
+def plan_headroom(db, key: str, run: dict) -> dict:
+    """`method_headroom` (one product-frame attempt) under the current plan; unreadable: no."""
+    try:
+        return method_headroom(db, key, run)
+    except Exception as exc:  # noqa: BLE001 - unreadable headroom never restarts a run
+        return {"ok": False, "why": type(exc).__name__}
+
+
+def _plan_redriven(stages: dict) -> bool:
+    history = (stages.get(RESTART_KEY) or {}).get("history") or []
+    return any(isinstance(h, dict) and h.get("by") == PLAN_REDRIVE_BY
+               and h.get("plan_version") == PLAN_VERSION_TAG for h in history)
+
+
+def _sweep_plan_budget(db, key: str, stages: dict, *, follow, restarted: list,
+                       waiting: list, refused: list) -> None:
+    if _plan_redriven(stages):
+        refused.append({"run_key": key, "kind": "spend_plan_raised", "code": "already_redriven",
+                        "why": f"already re-driven under {PLAN_VERSION_TAG}"})
+        return
+    room = plan_headroom(db, key, get_run(db, key) or {})
+    if not room.get("ok"):
+        refused.append({"run_key": key, "kind": "spend_plan_raised", "code": "final_block",
+                        "why": f"the current plan leaves no room for one attempt: {room}"[:500]})
+        return
+    ok, why = generation_daily_headroom(db, room.get("needed_cad") or _redrive_call_cost_cad())
+    if not ok:
+        waiting.append({"run_key": key, "kind": "spend_plan_raised",
+                        "code": METHOD_REDRIVE_WAIT_DAILY, "why": why})
+        return
+    try:
+        out = restart(db, key, follow=follow, by=PLAN_REDRIVE_BY,
+                      reason=f"per-gallery spend plan raised ({PLAN_VERSION_TAG}, "
+                             f"D-OWNER-PHOTO-BUDGET)",
+                      record={"plan_version": PLAN_VERSION_TAG})
+    except Exception as exc:  # noqa: BLE001 - restart rolled back; stays blocked
+        out = {"restarted": False, "why": f"restart not enqueued ({type(exc).__name__})"}
+    (restarted if out.get("restarted") else refused).append(
+        {"run_key": key, "kind": "spend_plan_raised",
+         **{k: out[k] for k in ("epoch", "resume_at", "why", "code") if k in out}})
 
 
 DAILY_REDRIVE_KEY = "_daily_redrive"   # stages: {"day", "why", "at"} of a refused daily redrive
@@ -3696,6 +3765,10 @@ def redrive_capability_blocked(db, *, follow) -> dict:
             (restarted if out.get("restarted") else refused).append(
                 {"run_key": key, **{k: out[k] for k in ("epoch", "resume_at", "why")
                                     if k in out}})
+            continue
+        if gate is None and plan_budget_block(reason) and "#" not in key:
+            _sweep_plan_budget(db, key, stages, follow=follow, restarted=restarted,
+                               waiting=waiting, refused=refused)
             continue
         if gate is None:
             if DAILY_CEILING_CODE in reason and reason.startswith("budget stop"):
@@ -3908,7 +3981,7 @@ def _midnight_after(day) -> datetime:
 # `continue`). `refused` is a fixed vocabulary, never free text.
 REDRIVE_KINDS = ("stale_references", "provider_transient", "daily_ceiling_reset",
                  "fidelity_unknown", "fidelity_rejudge", "method_redrive", "capability_gate",
-                 "verification_reverify", "none")
+                 "verification_reverify", "spend_plan_raised", "none")
 REDRIVE_REFUSALS = ("max_restarts", "experiment_one_shot", "already_redriven",
                     "refusal_held", "already_judged_now", "hourly_backoff",
                     "waiting_daily_reset", "seen_by_sweep", "no_frame_to_reread",
@@ -3926,6 +3999,8 @@ def _redrive_kind(reason: str, stage: str) -> str:
         return "provider_transient"
     if reason.startswith("budget stop") and DAILY_CEILING_CODE in reason:
         return "daily_ceiling_reset"
+    if plan_budget_block(reason):
+        return "spend_plan_raised"
     if stage == "fidelity_gate" and fidelity_unknown_block(reason):
         return "fidelity_unknown"
     if stage == "fidelity_gate" and fidelity_fail_block(reason):
@@ -4008,6 +4083,17 @@ def _redrive_verdict(session, r, since, now: datetime, memo: dict) -> dict:
             holds.append(hold_code(judged))
             return no("refusal_held")     # the sweep already judged it today and was refused
         return yes(kind, reset_at.isoformat())
+    if kind == "spend_plan_raised":
+        # D-OWNER-PHOTO-BUDGET: once per plan version, while the raised plan leaves room for
+        # one attempt (the sweep then checks the provider's daily headroom).
+        if _plan_redriven(stages):
+            return no("already_redriven")
+        plan = _spend_plan(key, None)        # rows only: the code plan (the sweep reads the
+        calls_left = int(plan["call_count"]) - int(counted_calls(session, r))  # owner's too)
+        spend_left = float(plan["max_spend_cad"]) - float(r.spent_cad or 0.0)
+        if calls_left < 1 or spend_left + 1e-9 < _redrive_call_cost_cad():
+            return no("final_block")
+        return yes(kind, now.isoformat())
     if kind == "verification_reverify":
         # VERIFY-REFS: once per verify version, and only when today's policy no longer reads
         # a stored frame as structural (free; the sweep then checks the vision route).

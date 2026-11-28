@@ -329,10 +329,10 @@ def test_the_caps_and_the_regional_host_are_unchanged():
                outfit=None, attempt=1)
     url, headers = stub.calls[0]["url"], stub.calls[0]["headers"]
     assert url == "https://api.us.bfl.ai/v1/flux-3-image" and set(headers) == {"x-key"}
-    assert IP.MAX_SPEND_CAD_PER_GALLERY == 2.00
+    assert IP.MAX_SPEND_CAD_PER_GALLERY == 6.00   # D-OWNER-PHOTO-BUDGET (was 2.00)
     from brambleloop.gateway import paid_provider_gate as G
 
-    assert G.GALLERY_CAD_CAP == 2.50 and G.DAILY_IMAGE_CAP == 60 and G.GALLERY_IMAGE_CAP == 16
+    assert G.GALLERY_CAD_CAP == 6.00 and G.DAILY_IMAGE_CAP == 120 and G.GALLERY_IMAGE_CAP == 60
     # references are not charged on FLUX 3: the per-call price is the 2k tier, pages or not
     assert abs(g.max_cost_cad_per_call - round(I.BFL3_TIER_USD["2k"] * I.USD_TO_CAD, 6)) < 1e-9
 

@@ -598,8 +598,10 @@ def test_7_the_remaining_owner_and_provider_gates_are_the_actual_blockers():
     assert RR.scene_supplement(R["room"]) == []
     seen["OA-ROOM-IMAGES"] = [RR.refusal(R["room"])]
     # LIFESTYLE-EVIDENCE: the real lifestyle Product Truth on the stored frame's references.
+    # D-OWNER-LIFESTYLE-GENERATED (19i32): no longer a structural FAIL; without the frame's
+    # fidelity readings (no vision here) it is missing evidence, which still blocks.
     le = CG.lifestyle_reading({**c, "references": [{"kind": "pattern_derived"}]}, {})
-    assert le["status"] == "FAIL", le
+    assert le["status"] == "UNKNOWN" and "structural" not in le, le
     seen["LIFESTYLE-EVIDENCE"] = [le["status"]]
     assert set(seen) == set(REMAINING_GATES) and all(seen.values()), seen
     for name, (where, _why) in REMAINING_GATES.items():

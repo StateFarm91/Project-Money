@@ -312,7 +312,7 @@ class RealJudges:
         out = {"structural_floor": floor, "fidelity": fid}
         status = FAIL if floor.get("status") == FAIL else fid["status"]
         if applies_lifestyle_evidence(cand):
-            le = lifestyle_reading(cand, bind)
+            le = lifestyle_reading(cand, bind, fid)
             out["lifestyle_evidence"] = le
             status = worst(status, le["status"])
         why = (f"fidelity {fid['status']}"
@@ -549,8 +549,35 @@ def lifestyle_structural(cand: dict, bind: dict) -> str | None:
     return lifestyle_reading(cand, bind or {}).get("structural")
 
 
-def lifestyle_reading(cand: dict, bind: dict) -> dict:
-    """`compose.lifestyle_evidence` on what is known about a generated image."""
+# D-OWNER-LIFESTYLE-GENERATED (owner option 1A, 2026-11-28: "1- a. Yes"): a generated LIFESTYLE
+# or Laura frame built from pattern-derived references is acceptable when the product in the
+# frame passes the independent structural fidelity readings against the certified CIR. Those
+# readings are named here; each must be PASS. A FAIL in any of them FAILs; anything else
+# (UNKNOWN, missing) is missing evidence and blocks as before. The disclosure that the frame is
+# a digital render is required on top. Applies to generated frames only (this reading is only
+# made by `RealJudges.product_truth`, "Product Truth for a generated image"); a composite's
+# `compose.lifestyle_evidence` without `generated` is unchanged.
+LIFESTYLE_POLICY = "D-OWNER-LIFESTYLE-GENERATED"
+LIFESTYLE_POLICY_VERSION = "lifestyle-policy/2"     # /1: W5-V1, chart reference = structural FAIL
+GENERATED_FIDELITY_CHECKS = ("region_palette", "anchor_consistency", "craft_texture")
+
+
+def generated_fidelity_readings(fid: dict | None) -> dict:
+    """{check: status} of `GENERATED_FIDELITY_CHECKS` in a lifestyle fidelity verdict (absent:
+    no reading). A check reported more than once reads its worst."""
+    out: dict = {}
+    for c in (fid or {}).get("checks") or []:
+        if isinstance(c, dict) and c.get("check") in GENERATED_FIDELITY_CHECKS:
+            prev = out.get(c["check"])
+            out[c["check"]] = c.get("status") if prev is None else worst(prev, c.get("status"))
+    return out
+
+
+def lifestyle_reading(cand: dict, bind: dict, fidelity: dict | None = None) -> dict:
+    """`compose.lifestyle_evidence` on what is known about a generated image.
+
+    `fidelity` is the frame's own fidelity verdict (`fidelity_reading`); without it (the free
+    structural check, `lifestyle_structural`) the generated readings are missing, never PASS."""
     from .compose import INFORMATIONAL_REFERENCES, lifestyle_evidence
 
     kinds = {r.get("kind") for r in cand.get("references") or []}
@@ -560,11 +587,18 @@ def lifestyle_reading(cand: dict, bind: dict) -> dict:
                       "pdf_version": cand.get("version"), "pieces": bind.get("pieces"),
                       "cir_fingerprint": bind.get("cir_fingerprint")},
           "reference": {"class": rclass, "product_version": cand.get("version")}}
+    if rclass == "chart":
+        ev.update(generated=True, policy=LIFESTYLE_POLICY,
+                  generated_fidelity=generated_fidelity_readings(fidelity),
+                  disclosure=disclosure(JOB_OF_ROLE.get(cand.get("role"))))
     out = lifestyle_evidence(ev)
     # W5-V1 (audit P0-a): an informational reference class FAILs whatever the image shows, so
     # no regeneration with the same references can change it. It is named as structural so
-    # the repair router never buys a regeneration for it. The policy itself is untouched.
-    if out.get("status") == FAIL and rclass in INFORMATIONAL_REFERENCES:
+    # the repair router never buys a regeneration for it. Under D-OWNER-LIFESTYLE-GENERATED a
+    # pattern-derived reference of a generated frame is no longer such a FAIL: its verdict is
+    # the frame's own fidelity readings, which a regeneration can change.
+    if (out.get("status") == FAIL and rclass in INFORMATIONAL_REFERENCES
+            and not ev.get("generated")):
         out = {**out, "structural": f"lifestyle_evidence: {rclass} reference"}
     return out
 

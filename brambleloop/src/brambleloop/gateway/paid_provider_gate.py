@@ -130,11 +130,17 @@ KEY_IS_NOT_ACTIVATION = (
 # Sizing (FLUX_OWNER_DECISIONS.md): a seven-frame gallery is 7 listing frames at the 2k tier
 # plus a 1k identity anchor, about CA$1.06; 16 images and CA$2.50 leave room for one repair
 # pass per frame and nothing more.
-DAILY_IMAGE_CAP = 60
+#
+# D-OWNER-PHOTO-BUDGET (2026-11-28, "up the photo budget ... Get it right."): the per-gallery
+# caps follow the raised gallery plan (image_production: CA$6.00, at most 60 calls on the
+# ~gallery route) and the daily image count follows the doubled FLUX daily ceiling (CA$10).
+# Before: 60 / day, 16 and CA$2.50 per gallery. The activation's ceilings and the company's
+# CA$100/month still bind on top.
+DAILY_IMAGE_CAP = 120
 DAILY_IMAGE_CAP_ENV = "BRAMBLELOOP_IMAGE_DAILY_CAP"
-GALLERY_IMAGE_CAP = 16
+GALLERY_IMAGE_CAP = 60
 GALLERY_IMAGE_CAP_ENV = "BRAMBLELOOP_IMAGE_GALLERY_CAP"
-GALLERY_CAD_CAP = 2.50
+GALLERY_CAD_CAP = 6.00
 GALLERY_CAD_CAP_ENV = "BRAMBLELOOP_IMAGE_GALLERY_CAD_CAP"
 
 
