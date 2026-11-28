@@ -228,8 +228,11 @@ def test_3_before_the_fix_the_region_question_never_reaches_the_activated_route(
     data = H.scene()
     t = R._Transport(_region_answer())
     with R._Patched(t):
-        j = CG.RealJudges(db, second_vision=None, embedder=None)
-        old = j.adapters().product_region({"data": data})      # the 19i30 locate callable
+        # the 19i30 locate callable on the 19i30 adapters' judge (image_vision only; since
+        # VISION-GATE-ROUTE the adapters ask the routed judge by default)
+        j = CG.RealJudges(db, vision=F.GatewayVisionJudge(db), second_vision=None,
+                          embedder=None)
+        old = j.adapters().product_region({"data": data})
     assert t.calls == 0 and old["patches"] == [], (t.calls, old)
     assert "image_vision" in old["why"], old
     v = _lifestyle(data, old["patches"])
