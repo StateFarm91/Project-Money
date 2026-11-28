@@ -23,6 +23,27 @@ deployed); 6 are not; 2 name no resolvable branch.
 
 ---
 
+## GRID-TOURNAMENT — 2026-11-28 (branch eng/grid-tournament from 46908fe66, NOT merged, NOT deployed)
+
+Production 46908fe (as reported to this lane; production rows and the job's last_error NOT read
+here): weekly `creative.grid_tournament` dead-letters with AttributeError; last success
+2026-11-20; `weekly_jobs_completing` red. Reproduced on a fresh DB through the real worker
+(real catalogue, real `assets.disclosed_render` rows, real `frames_for`/`hero_candidates`, stub
+judge): a disclosed hero filed for a release version the design's builder does not release
+makes `render_verification.authoritative_cir` return None (by design, it never answers for an
+asked-for version). `hero_candidates._disclosed_alternatives` caught only exceptions and then
+read `cir.components` off None (`'NoneType' object has no attribute 'components'`), which
+failed the whole job, every pod and concept included. Which production product carries such
+a hero is UNVERIFIED (inferred: a disclosed set built at its chain's release version after
+the 11-20..11-22 chain/catalogue changes).
+- Fix: no authoritative CIR means no F-278 alternative. The reason is recorded in
+  `hero_tournament.refused["*"]` (`<slug>@<version>`), and the hero on file is still judged,
+  so the pod verdict is unchanged. A hero whose `image` is not a dict no longer raises at the
+  identical-hash check either.
+- Test: `tests/test_w4_b2vision.py::test_a_disclosed_hero_drawn_for_an_unreleased_version_does_not_dead_letter_the_grid`.
+  It fails on 46908fe with the production error and passes with the fix. It reads no clock,
+  so it has no final-segment entry.
+
 ## VERIFY-REFS — 2026-11-26 (branch eng/verify-refs from 15f809bfb, NOT merged, NOT deployed)
 
 Production 19i30 (evidence 01:31Z; production rows and pixels NOT read; reproduced in

@@ -304,6 +304,65 @@ def test_a_held_board_is_judged_from_the_artifact_store_not_a_dead_path():
     ok("the judge saw the stored board; bytes nobody kept are never sent")
 
 
+# ---- GRID-TOURNAMENT (2026-11-28): a disclosed hero with no authoritative CIR -------------
+
+
+def test_a_disclosed_hero_drawn_for_an_unreleased_version_does_not_dead_letter_the_grid():
+    """Production 46908fe: `creative.grid_tournament` dead-lettered with AttributeError
+    ('NoneType' object has no attribute 'components') after its last success on 2026-11-20.
+    A disclosed hero on file names a version the design's builder does not release, so
+    `render_verification.authoritative_cir` answers None, and the F-278 alternatives read that
+    None as a CIR. Real path: fresh DB, a real disclosed set filed as `assets.disclosed_render`,
+    the real `listing_asset.frames_for` and `hero_candidates.candidates`; only the catalogue
+    (one product), the pods' benchmarks and the judge are fixtures."""
+    import copy
+
+    from brambleloop.gateway import anthropic as gw
+    from brambleloop.products.builder import for_slug
+    from brambleloop.publish import disclosed_listing
+    from brambleloop.runtime import release
+
+    slug, title = "cloudline-baby-blanket", "Cloudline Baby Blanket"
+    db = _db()
+    _audited_pod(db)
+    rec = copy.deepcopy(disclosed_listing.build(for_slug(slug), db=db))
+    assert rec.get("made"), rec.get("why")
+    stale = "1.0.1"   # a release version this design's builder has never released
+    rec["version"] = stale
+    for f in rec.get("frames") or []:
+        f["version"] = stale
+        if isinstance(f.get("disclosed_render"), dict):
+            f["disclosed_render"]["version"] = stale
+    with db.session() as s:
+        s.add(AuditLog(actor="publishing", action=disclosed_listing.ACTION,
+                       artifact=f"{slug}@{stale}", detail=rec))
+
+    judge = _Judge(0.8, 0.4)
+    audits: list[tuple[str, dict]] = []
+    saved = (BR.catalogue_slugs, BR.pod_for, gw.provider_for)
+    try:
+        BR.catalogue_slugs = lambda: [(slug, title)]
+        BR.pod_for = lambda s_, t_="": "blankets"
+        gw.provider_for = lambda task: judge
+        ctx = SimpleNamespace(db=db, job=SimpleNamespace(id=None, inputs={}),
+                              audit=lambda action, detail=None, **kw: audits.append(
+                                  (action, detail or {})))
+        out = release.handle_grid_tournament(ctx)
+    finally:
+        BR.catalogue_slugs, BR.pod_for, gw.provider_for = saved
+    detail = dict(audits)["creative.grid_tournament"]
+    # The hero on file is still judged and the pod still gets its verdict...
+    assert out["pods"]["blankets"] == "clear", detail["pods"]
+    assert judge.seen and slug not in detail["unresolvable"]
+    product = detail["products"][slug]
+    assert product["scores"]["desire"] == 0.8, product
+    # ...and the missing authority is recorded, never guessed around.
+    refused = product["hero_tournament"]["refused"]
+    assert f"{slug}@{stale}" in refused.get("*", ""), refused
+    assert product["hero_tournament"]["verdict"] == "insufficient_candidates"
+    ok("a hero with no authoritative CIR is judged alone and the reason is recorded")
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     bad = 0
