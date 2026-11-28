@@ -33,11 +33,15 @@ PREEMPTED_ACTION = "job.preempted"
 class Preempted(Exception):
     """Raised by `JobContext.yield_now`; the worker requeues the job un-counted."""
 
-    def __init__(self, job_id: int, why: str, checkpoint_key: str | None = None):
+    def __init__(self, job_id: int, why: str, checkpoint_key: str | None = None,
+                 retry_after_s: int | None = None):
         super().__init__(why)
         self.job_id = job_id
         self.why = why
         self.checkpoint_key = checkpoint_key
+        # ENG-MEMORY-STREAM: a yield that knows how long the thing it waits for takes (the
+        # continuity lease) asks to be offered again later than the default few seconds.
+        self.retry_after_s = retry_after_s
 
 
 def _aware(v):
@@ -96,7 +100,7 @@ def preemption_wanted(db, job, *, worker_target: int | None = None,
 
 
 def requeue_preempted(db, job, *, worker: str, why: str,
-                      now: datetime | None = None) -> bool:
+                      now: datetime | None = None, after_s: int | None = None) -> bool:
     """Put a preempted job back to PENDING, unleased, its attempt un-counted. Lease-fenced."""
     from sqlalchemy import update
 
@@ -105,7 +109,8 @@ def requeue_preempted(db, job, *, worker: str, why: str,
     now = now or datetime.now(timezone.utc)
     values = {"status": JobStatus.PENDING, "leased_by": None, "lease_expires_at": None,
               "attempts": Job.attempts - 1,
-              "run_after": now + timedelta(seconds=REQUEUE_AFTER_S)}
+              "run_after": now + timedelta(seconds=max(REQUEUE_AFTER_S,
+                                                       int(after_s or 0)))}
     with db.session() as s:
         res = s.execute(update(Job).where(
             Job.id == job.id, Job.status == JobStatus.RUNNING, Job.leased_by == worker,

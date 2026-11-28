@@ -32,7 +32,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import socket
+import threading
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from decimal import Decimal
@@ -42,6 +46,7 @@ from typing import Any, Iterator
 from sqlalchemy import delete, func, insert, select
 
 from .db import Base, Database
+from .resilience import TransientError
 
 # Bumped when the export's shape changes in a way a reader must know about. A restore refuses
 # a format it does not understand rather than silently importing half of it.
@@ -306,6 +311,22 @@ def _present(db: Database, table) -> bool:
     return _inspect(db.engine).has_table(table.name)
 
 
+# ENG-MEMORY-STREAM: how many rows an export holds in memory at once. A blob table's rows
+# can each be megabytes (and become twice that as hex), so it streams a handful at a time.
+YIELD_PER_ROWS = 500
+YIELD_PER_BLOB_ROWS = 4
+
+
+def _has_blob(table) -> bool:
+    from sqlalchemy import LargeBinary
+
+    return any(isinstance(c.type, LargeBinary) for c in table.columns)
+
+
+def _yield_per(table) -> int:
+    return YIELD_PER_BLOB_ROWS if _has_blob(table) else YIELD_PER_ROWS
+
+
 def _rows_of(db: Database, table) -> Iterator[dict]:
     if not _present(db, table):
         return
@@ -317,8 +338,18 @@ def _rows_of(db: Database, table) -> Iterator[dict]:
         pk = list(table.primary_key.columns)
         if pk:
             stmt = stmt.order_by(*pk)
-        for row in s.execute(stmt):
-            yield {col: _jsonable(val) for col, val in zip(columns, row)}
+        # ENG-MEMORY-STREAM (production OOM 2026-11-27): rows are streamed, never buffered
+        # whole. `yield_per` turns on `stream_results` -- a server-side cursor on Postgres,
+        # batched `fetchmany` on SQLite -- so at most one batch is resident. A table holding
+        # blobs (durable_artifacts: image/PDF bytes) streams in batches small enough that a
+        # batch of its largest rows is still a few tens of MB, not the whole table.
+        stmt = stmt.execution_options(yield_per=_yield_per(table))
+        result = s.execute(stmt)
+        try:
+            for row in result:
+                yield {col: _jsonable(val) for col, val in zip(columns, row)}
+        finally:
+            result.close()
 
 
 def export(db: Database, dest: str | Path) -> ExportResult:
@@ -382,6 +413,11 @@ def read_manifest(export_path: str | Path) -> dict:
     return json.loads(Path(str(export_path) + ".manifest.json").read_text(encoding="utf-8"))
 
 
+# ENG-MEMORY-STREAM: a restore batch is flushed at whichever comes first.
+RESTORE_BATCH_ROWS = 500
+RESTORE_BATCH_BYTES = 32 * 1024 * 1024
+
+
 def restore(export_path: str | Path, target: Database) -> dict[str, int]:
     """Load a portable export into any empty database this code can talk to.
 
@@ -395,19 +431,21 @@ def restore(export_path: str | Path, target: Database) -> dict[str, int]:
     counts: dict[str, int] = {}
     current = None
     buffer: list[dict] = []
+    buffered_bytes = 0
     tables = {t.name: t for t in _ordered_tables()}
     closed: set[str] = set()
 
     def flush() -> None:
+        nonlocal buffered_bytes
         if current is None or not buffer:
             return
         table = tables.get(current)
         if table is None:
             raise ValueError(f"export contains unknown table {current!r}")
-        rows = [{k: _from_jsonable(v) for k, v in row.items()} for row in buffer]
         with target.session() as s:
-            s.execute(insert(table), rows)
+            s.execute(insert(table), buffer)
         buffer.clear()
+        buffered_bytes = 0
 
     finished: dict | None = None
     with path.open("r", encoding="utf-8") as fh:
@@ -444,9 +482,15 @@ def restore(export_path: str | Path, target: Database) -> dict[str, int]:
                 closed.add(name)
                 current = None
                 continue
-            buffer.append(record)
+            # Decoded as it is read (hex text back to bytes), so a buffered blob is held
+            # once, at its own size, rather than as text until the batch is flushed.
+            buffer.append({k: _from_jsonable(v) for k, v in record.items()})
+            del record
+            buffered_bytes += len(line)
             counts[current] = counts.get(current, 0) + 1
-            if len(buffer) >= 500:
+            # ENG-MEMORY-STREAM: by row count AND by bytes. 500 rows of a blob table was
+            # 500 images (hex-encoded, then decoded again) in one INSERT batch -- GBs.
+            if len(buffer) >= RESTORE_BATCH_ROWS or buffered_bytes >= RESTORE_BATCH_BYTES:
                 flush()
     flush()
 
@@ -595,11 +639,79 @@ def counts_by_table(db: Database) -> dict[str, int]:
 RETAINED_ARCHIVES = 3
 
 
-def _compress(path: Path) -> tuple[bytes, int]:
+# ENG-MEMORY-STREAM: the unit every streaming copy, compress and hash in this module (and in
+# `offsite`) works in. Large enough to keep zlib and AES efficient, small enough that a few of
+# them in flight are noise next to the 8 GB the process shares with web and the scheduler.
+STREAM_CHUNK = 1024 * 1024
+COMPRESS_LEVEL = 6
+
+
+@dataclass(frozen=True)
+class Compressed:
+    path: Path
+    raw_bytes: int
+    stored_bytes: int
+    sha256: str
+
+
+def compress_file(src: str | Path, dest: str | Path, *, mtime: float | None = None
+                  ) -> Compressed:
+    """Gzip `src` into `dest` in chunks, hashing the compressed bytes as they are written.
+
+    Byte-for-byte the format `gzip.compress(raw, 6)` produced (same header layout: no name,
+    level-6 XFL, OS 255; same raw deflate at the same level and memory level; same CRC and
+    length trailer) -- `tests/test_eng_memory_stream.py` pins that -- without ever holding the
+    export, which at 500+ MB was read whole and then compressed whole beside itself.
+    """
     import gzip
 
-    raw = path.read_bytes()
-    return gzip.compress(raw, 6), len(raw)
+    src_p, dest_p = Path(src), Path(dest)
+    digest = hashlib.sha256()
+    raw = 0
+
+    class _Hashing:
+        """A write-only file that hashes and counts what gzip writes through it."""
+
+        def __init__(self, fh):
+            self.fh, self.n = fh, 0
+
+        def write(self, b):
+            digest.update(b)
+            self.n += len(b)
+            return self.fh.write(b)
+
+        def flush(self):
+            self.fh.flush()
+
+    with src_p.open("rb") as fin, dest_p.open("wb") as fout:
+        sink = _Hashing(fout)
+        with gzip.GzipFile(filename="", mode="wb", compresslevel=COMPRESS_LEVEL,
+                           fileobj=sink, mtime=mtime) as gz:
+            while True:
+                chunk = fin.read(STREAM_CHUNK)
+                if not chunk:
+                    break
+                raw += len(chunk)
+                gz.write(chunk)
+                del chunk
+    return Compressed(path=dest_p, raw_bytes=raw, stored_bytes=sink.n,
+                      sha256=digest.hexdigest())
+
+
+def _compress(path: Path) -> tuple[bytes, int]:
+    """The compressed export as bytes, for the one caller that must hold it: `retain`, whose
+    destination is a database column. Compressed by streaming into a sidecar file, so the
+    single full copy in memory is the compressed one -- never the raw export, and never both.
+    """
+    side = Path(str(path) + ".gz")
+    try:
+        done = compress_file(path, side)
+        return side.read_bytes(), done.raw_bytes
+    finally:
+        try:
+            side.unlink()
+        except FileNotFoundError:
+            pass
 
 
 def retain(db: Database, export_path: str | Path, result: ExportResult) -> dict:
@@ -693,7 +805,14 @@ def write_retained(db: Database, archive_id: int, dest: str | Path) -> Path:
 
     path = Path(dest)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(gzip.decompress(payload))
+    # ENG-MEMORY-STREAM: decompressed in chunks to disk rather than whole into memory; the
+    # stored payload (the database's own copy) is the only full copy held.
+    import io
+    import shutil
+
+    with gzip.GzipFile(fileobj=io.BytesIO(payload), mode="rb") as gz, path.open("wb") as out:
+        shutil.copyfileobj(gz, out, STREAM_CHUNK)
+    del payload
     # The manifest travels with the file, so a recovered archive is as readable on its own as
     # the export that made it. An archive that restores but cannot say what it contains
     # leaves the operator counting rows by hand at the worst possible moment.
@@ -707,3 +826,77 @@ def restore_retained(db: Database, archive_id: int, target: Database,
     """Rebuild a database from a retained archive, the way a real recovery would."""
     path = write_retained(db, archive_id, Path(work_dir) / f"archive-{archive_id}.jsonl")
     return restore(path, target)
+
+
+# ---------------------------------------------------------------------------
+# ENG-MEMORY-STREAM: `ops.continuity` and `ops.offsite_archive` never run at the same time.
+#
+# Both are daily, both export the whole database and both prove a restore into a scratch
+# SQLite file. On 2026-11-27 they ran together on the 3-thread pool of the one process that
+# also serves web and the scheduler, and that process hit its 8 GB limit. Two guards, because
+# they cover different topologies: an in-process lock (web, scheduler and workers share one
+# process today) and the database lease `ops.slo` already provides for the single-active
+# scheduler (so a split topology, or a second replica, is excluded too). The lease is renewed
+# while the holder runs and expires on its own if the holder dies, so a crash never wedges the
+# next day's backup.
+
+EXCLUSIVE_LEASE = "ops.continuity_exclusive"
+EXCLUSIVE_TTL_S = 30 * 60
+EXCLUSIVE_RENEW_S = 60
+# How long a job that found the lease held waits before it is offered again (un-counted).
+EXCLUSIVE_RETRY_AFTER_S = 120
+
+_EXCLUSIVE_LOCAL = threading.Lock()
+
+
+class ContinuityBusy(TransientError):
+    """The other whole-database continuity job holds the lease. Not a failure: try later."""
+
+
+def exclusive_holder(label: str) -> str:
+    return f"{label}@{socket.gethostname()}:{os.getpid()}:{threading.get_ident()}"[:120]
+
+
+@contextmanager
+def exclusive(db: Database, holder: str, *, ttl_s: int = EXCLUSIVE_TTL_S,
+              renew_s: float = EXCLUSIVE_RENEW_S) -> Iterator[None]:
+    """Hold the continuity lease for the body, or raise `ContinuityBusy` at once.
+
+    Never blocks: a job that waited here would sit on one of the pool's three threads for as
+    long as the other job's export takes. The handlers turn `ContinuityBusy` into an
+    un-counted requeue instead.
+    """
+    from ..ops import slo
+
+    if not _EXCLUSIVE_LOCAL.acquire(blocking=False):
+        raise ContinuityBusy(
+            "another continuity export (ops.continuity or ops.offsite_archive) is running in "
+            "this process; the two never run together")
+    try:
+        if not slo.acquire_lease(db, EXCLUSIVE_LEASE, holder, ttl_s=ttl_s):
+            state = slo.lease_state(db, EXCLUSIVE_LEASE) or {}
+            raise ContinuityBusy(
+                f"the continuity lease is held by {state.get('holder')!r} until "
+                f"{state.get('expires_at')}; the two whole-database jobs never run together")
+        stop = threading.Event()
+
+        def _renew() -> None:
+            while not stop.wait(renew_s):
+                try:
+                    slo.acquire_lease(db, EXCLUSIVE_LEASE, holder, ttl_s=ttl_s)
+                except Exception:  # noqa: BLE001 - a failed renewal leaves the TTL to expire
+                    pass
+
+        renewer = threading.Thread(target=_renew, name="continuity-lease", daemon=True)
+        renewer.start()
+        try:
+            yield
+        finally:
+            stop.set()
+            renewer.join(timeout=10)
+            try:
+                slo.release_lease(db, EXCLUSIVE_LEASE, holder)
+            except Exception:  # noqa: BLE001 - an unreleased lease expires by its TTL
+                pass
+    finally:
+        _EXCLUSIVE_LOCAL.release()
